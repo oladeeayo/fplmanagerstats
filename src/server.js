@@ -295,17 +295,22 @@ app.get('/api/price-changes', async (req, res) => {
 app.get('/api/league-standings/:leagueId', async (req, res) => {
   try {
     const leagueId = req.params.leagueId || 314;
-    const [bs, lr] = await Promise.all([
+    const [bs, p1] = await Promise.all([
       apiGet('https://fantasy.premierleague.com/api/bootstrap-static/'),
-      apiGet(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/`)
+      apiGet(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/?page_standings=1&phase=1`)
     ]);
     const playerData = bs.data;
-    const standings = lr.data.standings.results || [];
+    let standings = p1.data.standings.results || [];
+    // Fetch page 2 for top 50
+    try {
+      const p2 = await apiGet(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/?page_standings=2&phase=1`);
+      standings = standings.concat(p2.data.standings.results || []);
+    } catch(e) { /* page 2 may not exist */ }
+    standings = standings.slice(0, 50);
     const currentGW = playerData.events.find(e => e.is_current)?.id || 1;
 
-    // Enrich with chips, past seasons, transfers (top 20 only to limit API calls)
     const enriched = [];
-    const entries = standings.slice(0, 30);
+    const entries = standings;
 
     const batchSize = 5;
     for (let i = 0; i < entries.length; i += batchSize) {
@@ -341,7 +346,7 @@ app.get('/api/league-standings/:leagueId', async (req, res) => {
     }
 
     res.json({
-      leagueName: lr.data.league?.name || 'Classic League',
+      leagueName: p1.data.league?.name || 'Classic League',
       currentGW,
       standings: enriched
     });
