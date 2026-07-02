@@ -5,16 +5,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FPL Manager Stats – Deep Fantasy Football Analytics</title>
-<meta name="description" content="Advanced FPL analytics: compare managers, track form, analyze captains, fixtures, suspensions, transfers & more.">
-<meta property="og:title" content="FPL Manager Stats">
-<meta property="og:description" content="Deep fantasy football analytics for serious FPL managers.">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>FPL Manager Stats – Fantasy Football Analytics Platform</title>
+<meta name="description" content="Advanced FPL analytics platform: manager stats, league standings, team fixtures, player analysis, price changes & more.">
 <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-WVJS3TZ7');</script>
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -25,400 +22,397 @@
 
 <div id="app" class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
 
-    <!-- ===== HERO ===== -->
-    <section class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#37003c] via-[#4a0050] to-[#6b0090] p-8 sm:p-12 md:p-16 mb-10 sm:mb-14">
-        <div class="hero-glow hero-glow-1"></div>
-        <div class="hero-glow hero-glow-2"></div>
-        <div class="relative z-10 text-center max-w-3xl mx-auto">
-            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur border border-white/20 mb-5 shadow-lg animate-float">
-                <span class="text-white text-2xl font-black">FP</span>
-            </div>
-            <h1 class="text-white text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.1] mb-4">
-                FPL Manager<br><span class="bg-gradient-to-r from-[#c084fc] to-[#e9d5ff] bg-clip-text text-transparent">Stats & Insights</span>
-            </h1>
-            <p class="text-white/70 text-base sm:text-lg md:text-xl max-w-xl mx-auto mb-8 leading-relaxed">
-                Deep analytics for serious managers. Track performance, compare rivals, analyze every decision.
-            </p>
-            <div class="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto mb-8">
-                <div class="relative flex-1 w-full">
-                    <i class="fa-solid fa-hashtag absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40 text-sm"></i>
-                    <input type="number" id="heroManagerId" placeholder="Enter Manager ID"
-                           class="w-full pl-9 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder:text-white/40 text-sm focus:outline-none focus:ring-2 focus:ring-[#c084fc]/50 focus:border-[#c084fc] transition-all"
-                           onkeypress="if(event.key==='Enter'){document.getElementById('managerId').value=this.value;analyzeManager();scrollToResults();}">
-                </div>
-                <button onclick="document.getElementById('managerId').value=document.getElementById('heroManagerId').value;analyzeManager();scrollToResults();"
-                        class="w-full sm:w-auto px-6 py-3 bg-white text-[#37003c] font-bold rounded-xl hover:bg-[#e9d5ff] transition-all shadow-lg hover:shadow-xl active:scale-[0.97] text-sm whitespace-nowrap">
-                    <i class="fa-solid fa-magnifying-glass mr-2"></i>Analyze
-                </button>
-            </div>
-            <div class="flex flex-wrap items-center justify-center gap-6 sm:gap-10 text-white/60 text-xs sm:text-sm">
-                <span><i class="fa-solid fa-chart-line mr-1.5 text-[#c084fc]"></i>Points & Ranks</span>
-                <span><i class="fa-solid fa-arrows-rotate mr-1.5 text-[#c084fc]"></i>Compare Managers</span>
-                <span><i class="fa-solid fa-calendar mr-1.5 text-[#c084fc]"></i>Fixture Analysis</span>
-                <span><i class="fa-solid fa-triangle-exclamation mr-1.5 text-[#c084fc]"></i>Suspension Risk</span>
-            </div>
+  <!-- ===== HERO ===== -->
+  <section class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#37003c] via-[#4a0050] to-[#6b0090] p-8 sm:p-12 md:p-16 mb-10">
+    <div class="hero-glow hero-glow-1"></div><div class="hero-glow hero-glow-2"></div>
+    <div class="relative z-10 text-center max-w-3xl mx-auto">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur border border-white/20 mb-5 shadow-lg animate-float">
+        <span class="text-white text-2xl font-black">FP</span>
+      </div>
+      <h1 class="text-white text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.1] mb-4">
+        FPL Manager<br><span class="bg-gradient-to-r from-[#c084fc] to-[#e9d5ff] bg-clip-text text-transparent">Stats & Insights</span>
+      </h1>
+      <p class="text-white/70 text-base sm:text-lg max-w-xl mx-auto mb-8 leading-relaxed">Deep analytics for serious managers. Track performance, compare rivals, analyze every decision.</p>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto mb-8">
+        <div class="relative flex-1 w-full">
+          <i class="fa-solid fa-hashtag absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40 text-sm"></i>
+          <input type="number" id="heroManagerId" placeholder="Enter Manager ID"
+                 class="w-full pl-9 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder:text-white/40 text-sm focus:outline-none focus:ring-2 focus:ring-[#c084fc]/50 transition-all"
+                 onkeypress="if(event.key==='Enter'){document.getElementById('managerId').value=this.value;analyzeManager();showTab('manager');scrollToManager();}">
         </div>
-    </section>
+        <button onclick="document.getElementById('managerId').value=document.getElementById('heroManagerId').value;analyzeManager();showTab('manager');scrollToManager();"
+                class="w-full sm:w-auto px-6 py-3 bg-white text-[#37003c] font-bold rounded-xl hover:bg-[#e9d5ff] transition-all shadow-lg hover:shadow-xl active:scale-[0.97] text-sm whitespace-nowrap">
+          <i class="fa-solid fa-magnifying-glass mr-2"></i>Analyze
+        </button>
+      </div>
+    </div>
+  </section>
 
-    <!-- Features strip -->
-    <section class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-10">
-        <div class="card rounded-xl p-4 text-center hover:shadow-md transition-shadow cursor-pointer" onclick="document.getElementById('heroManagerId').focus()">
-            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-[#37003c] to-[#963cff] flex items-center justify-center text-white text-sm mx-auto mb-2"><i class="fa-solid fa-user"></i></div>
-            <p class="text-xs font-semibold text-slate-700">Manager Analysis</p>
-            <p class="text-[10px] text-slate-400 mt-0.5">Full stats breakdown</p>
-        </div>
-        <div class="card rounded-xl p-4 text-center hover:shadow-md transition-shadow cursor-pointer" onclick="showTab('compare')">
-            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-sm mx-auto mb-2"><i class="fa-solid fa-people-arrows"></i></div>
-            <p class="text-xs font-semibold text-slate-700">Compare</p>
-            <p class="text-[10px] text-slate-400 mt-0.5">Side-by-side rivals</p>
-        </div>
-        <div class="card rounded-xl p-4 text-center hover:shadow-md transition-shadow cursor-pointer" onclick="showTab('priceChanges')">
-            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white text-sm mx-auto mb-2"><i class="fa-solid fa-coins"></i></div>
-            <p class="text-xs font-semibold text-slate-700">Price Changes</p>
-            <p class="text-[10px] text-slate-400 mt-0.5">Risers & fallers</p>
-        </div>
-        <div class="card rounded-xl p-4 text-center hover:shadow-md transition-shadow cursor-pointer" onclick="showTab('seasonHistory')">
-            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center text-white text-sm mx-auto mb-2"><i class="fa-solid fa-clock-rotate-left"></i></div>
-            <p class="text-xs font-semibold text-slate-700">History</p>
-            <p class="text-[10px] text-slate-400 mt-0.5">Season-by-season</p>
-        </div>
-    </section>
+  <!-- ===== SECTION TABS ===== -->
+  <div class="flex items-center gap-1 bg-white rounded-xl p-1 border border-slate-100 shadow-sm mb-6 overflow-x-auto">
+    <button class="section-tab active" data-tab="general" onclick="showSection('general')"><i class="fa-solid fa-globe mr-1.5"></i>General</button>
+    <button class="section-tab" data-tab="manager" onclick="showSection('manager')"><i class="fa-solid fa-user mr-1.5"></i>Manager</button>
+    <button class="section-tab" data-tab="league" onclick="showSection('league');loadLeagueStandings()"><i class="fa-solid fa-trophy mr-1.5"></i>League</button>
+  </div>
 
-    <!-- Tab Navigation -->
-    <div id="tabBar" class="flex flex-wrap items-center gap-1.5 mb-6 bg-white rounded-xl p-1.5 border border-slate-100 shadow-sm">
-        <button class="tab-btn active" onclick="showTab('dashboard')"><i class="fa-solid fa-gauge-high mr-1.5"></i>Dashboard</button>
-        <button class="tab-btn" onclick="showTab('compare')"><i class="fa-solid fa-people-arrows mr-1.5"></i>Compare</button>
-        <button class="tab-btn" onclick="showTab('captain')"><i class="fa-solid fa-crown mr-1.5"></i>Captain</button>
-        <button class="tab-btn" onclick="showTab('chips')"><i class="fa-solid fa-microchip mr-1.5"></i>Chips</button>
-        <button class="tab-btn" onclick="showTab('defense')"><i class="fa-solid fa-shield mr-1.5"></i>Defense</button>
-        <button class="tab-btn" onclick="showTab('priceChanges')"><i class="fa-solid fa-coins mr-1.5"></i>Prices</button>
-        <button class="tab-btn" onclick="showTab('seasonHistory')"><i class="fa-solid fa-clock-rotate-left mr-1.5"></i>History</button>
+  <!-- Hidden input -->
+  <input type="number" id="managerId" class="hidden">
+
+  <!-- ================================================================ -->
+  <!-- ===== GENERAL SECTION ===== -->
+  <!-- ================================================================ -->
+  <div id="section-general" class="section-content">
+
+    <div id="globalStats" class="mb-8"></div>
+    <div id="globalPlayers" class="mb-8"></div>
+
+    <!-- Team Fixtures Grid -->
+    <div id="teamFixtures" class="mb-8">
+      <div class="card rounded-2xl p-5 sm:p-6">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-sm"><i class="fa-solid fa-calendar-days"></i></div>
+          <div><h2 class="text-base font-bold">Team Fixtures</h2><p class="text-xs text-slate-400">Next 5 gameweeks with difficulty ratings</p></div>
+        </div>
+        <button onclick="loadTeamFixtures()" class="px-5 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg text-sm hover:shadow-md transition-all"><i class="fa-solid fa-rotate mr-2"></i>Load Fixtures</button>
+        <div id="fixturesGrid" class="mt-4"><p class="text-sm text-slate-400">Click to load team fixtures grid.</p></div>
+      </div>
     </div>
 
-    <!-- Input (hidden) -->
-    <input type="number" id="managerId" class="hidden">
-
-    <!-- ===== DASHBOARD TAB ===== -->
-    <div id="tab-dashboard" class="tab-content">
-        <div id="globalStats" class="mb-8 hidden"></div>
-        <div id="globalPlayers" class="mb-8 hidden"></div>
-        <div id="results" class="space-y-8"></div>
-        <div id="positionSummary" class="mt-8 hidden"></div>
-        <div id="charts" class="mt-8 space-y-8 hidden">
-            <div class="card rounded-2xl p-5 sm:p-6">
-                <div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-chart-line"></i></div><h2 class="text-base font-bold">Points Per Gameweek</h2></div>
-                <div class="relative h-[280px] sm:h-[340px]"><canvas id="pointsChart"></canvas></div>
-            </div>
-            <div class="card rounded-2xl p-5 sm:p-6">
-                <div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-ranking-star"></i></div><h2 class="text-base font-bold">Rank Per Gameweek</h2></div>
-                <div class="relative h-[280px] sm:h-[340px]"><canvas id="rankChart"></canvas></div>
-            </div>
+    <div id="suspensionRisk" class="mb-8"></div>
+    <div id="transferTrends" class="mb-8"></div>
+    <div id="generalPriceChanges" class="mb-8">
+      <div class="card rounded-2xl p-5 sm:p-6">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white text-sm"><i class="fa-solid fa-coins"></i></div>
+          <div><h2 class="text-base font-bold">Price Changes</h2><p class="text-xs text-slate-400">Latest risers and fallers</p></div>
         </div>
-        <div id="currentTeamFixtures" class="mt-8 hidden"></div>
-        <div id="last3GWs" class="mt-8 hidden">
-            <div class="card rounded-2xl p-5 sm:p-6">
-                <div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-chart-bar"></i></div><h2 class="text-base font-bold">Last 3 GWs</h2></div>
-                <div class="relative h-[320px] sm:h-[400px]"><canvas id="last3GWsChart"></canvas></div>
-            </div>
+        <button onclick="loadPriceChanges('generalPriceContent')" class="px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-lg text-sm hover:shadow-md transition-all"><i class="fa-solid fa-rotate mr-2"></i>Load</button>
+        <div id="generalPriceContent" class="mt-4"><p class="text-sm text-slate-400">Click to load price changes.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================ -->
+  <!-- ===== MANAGER SECTION ===== -->
+  <!-- ================================================================ -->
+  <div id="section-manager" class="section-content hidden">
+    <div class="max-w-md mx-auto mb-8">
+      <div class="card rounded-2xl p-5">
+        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2"><i class="fa-solid fa-hashtag mr-1 text-[#963cff]"></i>Manager ID</label>
+        <input type="number" id="managerInput" placeholder="Enter Manager ID" class="w-full px-4 py-3 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#963cff]/20 focus:border-[#963cff] transition-all"
+               onkeypress="if(event.key==='Enter'){document.getElementById('managerId').value=this.value;analyzeManager();}">
+        <button onclick="document.getElementById('managerId').value=document.getElementById('managerInput').value;analyzeManager();" class="mt-3 w-full bg-gradient-to-r from-[#37003c] to-[#963cff] hover:from-[#4a0050] hover:to-[#a74dff] text-white font-semibold py-3 rounded-lg transition-all text-sm"><i class="fa-solid fa-magnifying-glass mr-2"></i>Analyze</button>
+      </div>
+    </div>
+    <div id="results" class="space-y-8"></div>
+    <div id="underperformingSection" class="mt-8 hidden"></div>
+    <div id="positionSummary" class="mt-8 hidden"></div>
+    <div id="charts" class="mt-8 space-y-8 hidden">
+      <div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-chart-line"></i></div><h2 class="text-base font-bold">Points Per Gameweek</h2></div><div class="relative h-[280px] sm:h-[340px]"><canvas id="pointsChart"></canvas></div></div>
+      <div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-ranking-star"></i></div><h2 class="text-base font-bold">Rank Per Gameweek</h2></div><div class="relative h-[280px] sm:h-[340px]"><canvas id="rankChart"></canvas></div></div>
+    </div>
+    <div id="currentTeamFixtures" class="mt-8 hidden"></div>
+    <div id="last3GWs" class="mt-8 hidden">
+      <div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-chart-bar"></i></div><h2 class="text-base font-bold">Last 3 GWs</h2></div><div class="relative h-[320px] sm:h-[400px]"><canvas id="last3GWsChart"></canvas></div></div>
+    </div>
+    <!-- Manager sub-tabs -->
+    <div class="mt-8 space-y-8">
+      <div id="managerCaptain" class="card rounded-2xl p-5 sm:p-6 hidden">
+        <div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500 to-amber-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-crown"></i></div><h2 class="text-base font-bold">Captain Analysis</h2></div>
+        <div id="captainContent"><p class="text-sm text-slate-400">Run manager analysis to see captain choices.</p></div>
+      </div>
+      <div id="managerChips" class="card rounded-2xl p-5 sm:p-6 hidden">
+        <div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-microchip"></i></div><h2 class="text-base font-bold">Chip Impact</h2></div>
+        <div id="chipContent"><p class="text-sm text-slate-400">Run manager analysis to see chip performance.</p></div>
+      </div>
+      <div id="managerDefense" class="card rounded-2xl p-5 sm:p-6 hidden">
+        <div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-shield"></i></div><h2 class="text-base font-bold">Defensive Record</h2></div>
+        <div id="defenseContent"><p class="text-sm text-slate-400">Run manager analysis to see defensive stats.</p></div>
+      </div>
+      <div id="managerSeason" class="card rounded-2xl p-5 sm:p-6 hidden">
+        <div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-clock-rotate-left"></i></div><h2 class="text-base font-bold">Season History</h2></div>
+        <div id="seasonContent"><p class="text-sm text-slate-400">Run manager analysis to see season history.</p></div>
+        <div class="relative h-[280px] mt-4"><canvas id="seasonChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================ -->
+  <!-- ===== LEAGUE SECTION ===== -->
+  <!-- ================================================================ -->
+  <div id="section-league" class="section-content hidden">
+    <div class="card rounded-2xl p-5 sm:p-6">
+      <div class="flex flex-wrap items-center justify-between gap-4 mb-5">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white text-sm"><i class="fa-solid fa-trophy"></i></div>
+          <div><h2 class="text-base font-bold">League Standings</h2><p class="text-xs text-slate-400" id="leagueTitle">Classic League</p></div>
         </div>
-        <div id="suspensionRisk" class="mt-8 hidden"></div>
-        <div id="transferTrends" class="mt-8 hidden"></div>
-    </div>
-
-    <!-- ===== COMPARE TAB ===== -->
-    <div id="tab-compare" class="tab-content hidden">
-        <div class="card rounded-2xl p-5 sm:p-6 mb-6">
-            <div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-people-arrows"></i></div><h2 class="text-base font-bold">Compare Managers</h2></div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                <div><label class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Manager 1 ID</label>
-                    <input type="number" id="compareId1" placeholder="e.g. 123456" class="w-full mt-1 px-4 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#963cff]/20"></div>
-                <div><label class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Manager 2 ID</label>
-                    <input type="number" id="compareId2" placeholder="e.g. 654321" class="w-full mt-1 px-4 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#963cff]/20"></div>
-            </div>
-            <button onclick="compareManagers()" class="w-full sm:w-auto px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold rounded-lg transition-all text-sm"><i class="fa-solid fa-arrows-rotate mr-2"></i>Compare</button>
-            <div id="compareResults" class="mt-6"></div>
+        <div class="flex items-center gap-2">
+          <input type="number" id="leagueId" placeholder="League ID" value="314" class="w-24 px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#963cff]/20">
+          <button onclick="loadLeagueStandings()" class="px-4 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-lg text-xs hover:shadow-md transition-all"><i class="fa-solid fa-rotate mr-1"></i>Load</button>
         </div>
+      </div>
+      <div id="leagueContent">
+        <div class="overflow-x-auto responsive-table"><table class="min-w-full text-xs divide-y divide-slate-100" id="leagueTable">
+          <thead><tr class="bg-slate-50 font-semibold text-slate-500 uppercase tracking-wider">
+            <th class="px-2 py-2.5 text-left sticky-col bg-slate-50">#</th>
+            <th class="px-2 py-2.5 text-left">Manager</th>
+            <th class="px-2 py-2.5 text-left">Team</th>
+            <th class="px-2 py-2.5 text-right">Total</th>
+            <th class="px-2 py-2.5 text-right">Chg</th>
+            <th class="px-2 py-2.5 text-right">Diff</th>
+            <th class="px-2 py-2.5 text-right hide-mobile">GW</th>
+            <th class="px-2 py-2.5 text-right hide-mobile">Overall</th>
+            <th class="px-2 py-2.5 text-right hide-mobile">23/24</th>
+            <th class="px-2 py-2.5 text-right hide-mobile">22/23</th>
+            <th class="px-2 py-2.5 text-center hide-mobile">Chips</th>
+          </tr></thead>
+          <tbody id="leagueStandingsBody" class="divide-y divide-slate-100">
+            <tr><td colspan="11" class="px-2 py-8 text-center text-slate-400">Click "Load" to fetch standings.</td></tr>
+          </tbody>
+        </table></div>
+      </div>
     </div>
+  </div>
 
-    <!-- ===== CAPTAIN TAB ===== -->
-    <div id="tab-captain" class="tab-content hidden">
-        <div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500 to-amber-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-crown"></i></div><h2 class="text-base font-bold">Captain Analysis</h2></div><div id="captainContent"><p class="text-sm text-slate-400">Run a manager analysis to see captain choices per GW.</p></div></div>
-    </div>
-
-    <!-- ===== CHIPS TAB ===== -->
-    <div id="tab-chips" class="tab-content hidden">
-        <div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-microchip"></i></div><h2 class="text-base font-bold">Chip Impact</h2></div><div id="chipContent"><p class="text-sm text-slate-400">Run a manager analysis to see chip performance.</p></div></div>
-    </div>
-
-    <!-- ===== DEFENSE TAB ===== -->
-    <div id="tab-defense" class="tab-content hidden">
-        <div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-shield"></i></div><h2 class="text-base font-bold">Defensive Record</h2></div><div id="defenseContent"><p class="text-sm text-slate-400">Run a manager analysis to see defensive stats.</p></div></div>
-    </div>
-
-    <!-- ===== PRICE CHANGES TAB ===== -->
-    <div id="tab-priceChanges" class="tab-content hidden">
-        <div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-coins"></i></div><h2 class="text-base font-bold">Price Changes</h2></div>
-            <div class="flex gap-2 mb-5">
-                <button onclick="loadPriceChanges()" class="px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-lg text-sm hover:shadow-md transition-all"><i class="fa-solid fa-rotate mr-2"></i>Load Price Changes</button>
-            </div>
-            <div id="priceContent"><p class="text-sm text-slate-400">Click to load the latest risers and fallers.</p></div>
-        </div>
-    </div>
-
-    <!-- ===== SEASON HISTORY TAB ===== -->
-    <div id="tab-seasonHistory" class="tab-content hidden">
-        <div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-clock-rotate-left"></i></div><h2 class="text-base font-bold">Season History</h2></div>
-            <div id="seasonContent"><p class="text-sm text-slate-400">Run a manager analysis to see season history.</p></div>
-            <div class="relative h-[300px] mt-4"><canvas id="seasonChart"></canvas></div>
-        </div>
-    </div>
-
-    <!-- Footer -->
-    <div class="flex justify-center mt-14">
-        <a href="https://www.buymeacoffee.com/oladeeayo" target="_blank" class="inline-flex items-center gap-2.5 px-6 py-3 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 font-semibold rounded-xl transition-all text-sm shadow-sm"><i class="fa-solid fa-mug-hot"></i> Buy me a coffee</a>
-    </div>
-    <footer class="text-center mt-8 mb-4 text-xs text-slate-400">Made with <span class="text-red-400">&hearts;</span> by <a href="https://twitter.com/Oladeeayo" target="_blank" class="text-[#963cff] font-medium hover:underline">Oladeeayo</a></footer>
+  <!-- Footer -->
+  <div class="flex justify-center mt-14"><a href="https://www.buymeacoffee.com/oladeeayo" target="_blank" class="inline-flex items-center gap-2.5 px-6 py-3 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 font-semibold rounded-xl transition-all text-sm shadow-sm"><i class="fa-solid fa-mug-hot"></i> Buy me a coffee</a></div>
+  <footer class="text-center mt-8 mb-4 text-xs text-slate-400">Made with <span class="text-red-400">&hearts;</span> by <a href="https://twitter.com/Oladeeayo" target="_blank" class="text-[#963cff] font-medium hover:underline">Oladeeayo</a></footer>
 </div>
 
 <script>
 let pointsChart, rankChart, last3GWsChart, seasonChart;
 let cachedAnalysis = null;
+let analysisCache = {};
 
-// ---- Utilities ----
 const $ = id => document.getElementById(id);
-const posClass = p => ({GKP:'badge-gkp',DEF:'badge-def',MID:'badge-mid',FWD:'badge-fwd'}[p]||'');
 const posName = p => ({GKP:'Goalkeeper',DEF:'Defender',MID:'Midfielder',FWD:'Forward'}[p]||p);
 const fdrBg = d => ({1:'#22c55e',2:'#86efac',3:'#f1f5f9',4:'#fb923c',5:'#ef4444'}[d]||'#f1f5f9');
 const fdrColor = d => ({1:'#fff',2:'#166534',3:'#475569',4:'#fff',5:'#fff'}[d]||'#475569');
 const costStr = c => c ? '£'+(c/10).toFixed(1)+'m' : '';
-const bar = p => `<div class="bar-bg"><div class="bar-fill bg-[#963cff]" style="width:${Math.min(p,100)}%"></div></div>`;
-const img = (c,n) => `<img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${c}.png" alt="${n||''}" class="w-9 h-11 object-cover rounded bg-slate-100 flex-shrink-0" onerror="this.src='https://resources.premierleague.com/premierleague/photos/players/110x140/Photo-Missing.png'">`;
-const chipLabel = c => ({wildcard:'WC',freehit:'FH',bench_boost:'BB','3xc':'TC',triple_captain:'TC',bboost:'BB'}[c]||c);
-const skeleton = () => `<div class="space-y-5 animate-fade-in">${Array(2).fill(`<div class="card rounded-2xl p-6"><div class="shimmer h-6 w-44 rounded-lg mb-6"></div><div class="grid grid-cols-2 sm:grid-cols-4 gap-4">${Array(8).fill('<div class="shimmer h-16 rounded-xl"></div>').join('')}</div></div>`).join('')}</div>`;
-const scrollToResults = () => { const e=$('results'); if(e) setTimeout(()=>e.scrollIntoView({behavior:'smooth',block:'start'}),300); };
+const bar = (p,c) => `<div class="bar-bg"><div class="bar-fill ${c||'bg-[#963cff]'}" style="width:${Math.min(p,100)}%"></div></div>`;
+const img = (c,n) => `<img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${c}.png" alt="${n||''}" class="w-8 h-10 object-cover rounded bg-slate-100 flex-shrink-0" onerror="this.src='https://resources.premierleague.com/premierleague/photos/players/110x140/Photo-Missing.png'">`;
+const chipL = c => ({wildcard:'WC',freehit:'FH',bench_boost:'BB','3xc':'TC',triple_captain:'TC',bboost:'BB'}[c]||c);
+const skeleton = () => `<div class="space-y-5">${Array(2).fill(`<div class="card rounded-2xl p-6"><div class="shimmer h-6 w-44 rounded-lg mb-6"></div><div class="grid grid-cols-2 sm:grid-cols-4 gap-4">${Array(8).fill('<div class="shimmer h-16 rounded-xl"></div>').join('')}</div></div>`).join('')}</div>`;
+const scrollToManager = () => setTimeout(()=>{$('section-manager')?.scrollIntoView({behavior:'smooth',block:'start'})},300);
 
-// ---- Tabs ----
-function showTab(name) {
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    const tab = $('tab-'+name); if(tab) tab.classList.remove('hidden');
-    const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.textContent.includes({compare:'Compare',captain:'Captain',chips:'Chips',defense:'Defense',priceChanges:'Prices',seasonHistory:'History',dashboard:'Dashboard'}[name]));
-    if(btn) btn.classList.add('active');
-    if(name==='priceChanges' && !$('#priceContent').innerHTML.includes('Risers')) loadPriceChanges();
-    if(name==='seasonHistory' && cachedAnalysis) renderSeasonHistory(cachedAnalysis);
-    if(name==='captain' && cachedAnalysis) renderCaptainAnalysis(cachedAnalysis);
-    if(name==='chips' && cachedAnalysis) renderChipImpact(cachedAnalysis);
-    if(name==='defense' && cachedAnalysis) renderDefense(cachedAnalysis);
+// ---- Section tabs ----
+function showSection(name) {
+  document.querySelectorAll('.section-content').forEach(e => e.classList.add('hidden'));
+  document.querySelectorAll('.section-tab').forEach(b => b.classList.remove('active'));
+  const sec = $('section-'+name); if(sec) sec.classList.remove('hidden');
+  const btn = Array.from(document.querySelectorAll('.section-tab')).find(b => b.dataset.tab===name);
+  if(btn) btn.classList.add('active');
 }
 
-// ---- Global stats / DOMContentLoaded ----
+// ---- Load on start ----
 window.addEventListener('DOMContentLoaded', async () => {
-    try {
-        const r = await fetch('/api/bootstrap-static');
-        if (!r.ok) return;
-        const d = await r.json();
-        const sorted = [...d.elements].sort((a,b)=>b.selected_by_percent-a.selected_by_percent);
-        const top10 = sorted.slice(0,10);
-        const gw = d.events.find(e=>e.is_current) || d.events[d.events.length-1];
-        $('globalStats').innerHTML = `
-        <div class="card rounded-2xl p-5 sm:p-6 animate-fade-in-up">
-            <div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-[#37003c] to-[#963cff] flex items-center justify-center text-white text-xs"><i class="fa-solid fa-globe"></i></div><h2 class="text-base font-bold">FPL Overview</h2></div>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3"><div class="mini-stat"><span class="value">${(d.total_players||0).toLocaleString()}</span><span class="label">Players</span></div><div class="mini-stat"><span class="value">${(d.average_entry_score||0).toLocaleString()}</span><span class="label">Avg Score</span></div><div class="mini-stat"><span class="value">${(gw?.highest_score||0).toLocaleString()}</span><span class="label">GW High</span></div><div class="mini-stat"><span class="value">${(gw?.average_entry_score||0).toLocaleString()}</span><span class="label">GW Avg</span></div></div>
-        </div>`;
-        $('globalStats').classList.remove('hidden');
-        $('globalPlayers').innerHTML = `
-        <div class="card rounded-2xl p-5 sm:p-6 animate-fade-in-up">
-            <div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-users"></i></div><h2 class="text-base font-bold">Most Selected</h2></div>
-            <div class="scroll-x flex gap-3 pb-2">${top10.map(p => { const t = d.teams.find(x=>x.id===p.team); return `<div class="player-card min-w-[170px] bg-white rounded-xl border border-slate-100 p-3.5 flex-shrink-0 hover:shadow-sm transition-shadow"><div class="flex items-center gap-2.5 mb-2">${img(p.code,p.web_name)}<div class="min-w-0"><p class="text-sm font-semibold text-slate-800 truncate">${p.web_name}</p><p class="text-xs text-slate-400">${t?.name||''}</p></div></div><div class="space-y-1.5"><div class="flex justify-between text-xs"><span class="text-slate-500">Selected</span><span class="font-semibold text-slate-700">${p.selected_by_percent}%</span></div>${bar(parseFloat(p.selected_by_percent))}<div class="flex justify-between text-xs"><span class="text-slate-500">Points</span><span class="font-semibold text-slate-700">${p.total_points}</span></div><div class="flex justify-between text-xs"><span class="text-slate-500">${costStr(p.now_cost)}</span><span class="font-semibold text-slate-700">${p.points_per_game||'—'} ppg</span></div></div></div>`; }).join('')}</div>
-        </div>`;
-        $('globalPlayers').classList.remove('hidden');
-
-        // Suspension + Transfer data
-        const suspended=[], yellows=[], tIn=[], tOut=[];
-        d.elements.forEach(p => { const t=d.teams.find(x=>x.id===p.team); if(p.status==='r'||p.status==='s') suspended.push({name:p.web_name,team:t?.name,photoId:p.code,suspendedMatches:p.suspended_matches||1}); if(p.yellow_cards===4) yellows.push({name:p.web_name,team:t?.name,photoId:p.code,yellowCards:p.yellow_cards}); tIn.push({name:p.web_name,team:t?.name,photoId:p.code,transfers:p.transfers_in_event}); tOut.push({name:p.web_name,team:t?.name,photoId:p.code,transfers:p.transfers_out_event}); });
-        tIn.sort((a,b)=>b.transfers-a.transfers); tOut.sort((a,b)=>b.transfers-a.transfers);
-        const susEl=$('suspensionRisk'), trEl=$('transferTrends');
-        if(suspended.length||yellows.length){ susEl.innerHTML=renderSuspension({suspendedPlayers:suspended,playersOn4Yellows:yellows}); susEl.classList.remove('hidden'); susEl.style.animation='fadeInUp 0.4s ease-out forwards'; }
-        trEl.innerHTML=renderTransfers({mostTransferredIn:tIn.slice(0,10),mostTransferredOut:tOut.slice(0,10)});
-        trEl.classList.remove('hidden'); trEl.style.animation='fadeInUp 0.4s ease-out 0.1s forwards';
-    } catch(e) { console.error(e); }
+  try { await loadGlobalData(); } catch(e) { console.error(e); }
 });
 
-// ---- Render Helpers ----
-function renderSuspension(d) {
-    const c = (p,y) => `<div class="player-card min-w-[190px] bg-white rounded-xl border border-slate-100 p-3 flex-shrink-0 flex items-center gap-3 hover:shadow-sm transition-shadow">${img(p.photoId,p.name)}<div><p class="text-sm font-semibold text-slate-800">${p.name}</p><p class="text-xs text-slate-400">${p.team||''}</p><span class="inline-block mt-1 text-xs font-medium ${y?'text-yellow-600 bg-yellow-50':'text-red-600 bg-red-50'} px-2 py-0.5 rounded-full">${y?'🟨 '+p.yellowCards+' Yellows':'🚫 '+p.suspendedMatches+' match'+(p.suspendedMatches>1?'es':'')}</span></div></div>`;
-    return `<div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-red-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-triangle-exclamation"></i></div><h2 class="text-base font-bold">Suspension Risk</h2></div>${d.suspendedPlayers.length?`<div class="mb-4"><p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2.5">Suspended (${d.suspendedPlayers.length})</p><div class="scroll-x flex gap-2.5">${d.suspendedPlayers.map(p=>c(p,false)).join('')}</div></div>`:''}${d.playersOn4Yellows.length?`<div><p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2.5">On 4 Yellow Cards (${d.playersOn4Yellows.length})</p><div class="scroll-x flex gap-2.5">${d.playersOn4Yellows.map(p=>c(p,true)).join('')}</div></div>`:''}${!d.suspendedPlayers.length&&!d.playersOn4Yellows.length?'<p class="text-sm text-slate-400">No suspension risks</p>':''}</div>`;
-}
-function renderTransfers(d) {
-    const c = (p,type) => { const col=type==='in'?'emerald':'red'; return `<div class="flex items-center gap-3 bg-white rounded-xl border border-slate-100 p-3 hover:shadow-sm transition-shadow">${img(p.photoId,p.name)}<div class="min-w-0 flex-1"><p class="text-sm font-semibold text-slate-800 truncate">${p.name}</p><p class="text-xs text-slate-400">${p.team||''}</p></div><div class="text-right flex-shrink-0"><p class="text-sm font-bold text-${col}-600">${p.transfers.toLocaleString()}</p><p class="text-xs text-slate-400">transfers</p></div></div>`; };
-    return `<div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-arrow-right-arrow-left"></i></div><h2 class="text-base font-bold">Transfer Trends</h2></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-2.5"><i class="fa-solid fa-arrow-right mr-1"></i> Most Transferred In</p><div class="space-y-2">${d.mostTransferredIn.map(p=>c(p,'in')).join('')}</div></div><div><p class="text-xs font-semibold text-red-600 uppercase tracking-wider mb-2.5"><i class="fa-solid fa-arrow-left mr-1"></i> Most Transferred Out</p><div class="space-y-2">${d.mostTransferredOut.map(p=>c(p,'out')).join('')}</div></div></div></div>`;
+async function loadGlobalData() {
+  const r = await fetch('/api/bootstrap-static');
+  if (!r.ok) return;
+  const d = await r.json();
+  const sorted = [...d.elements].sort((a,b)=>b.selected_by_percent-a.selected_by_percent);
+  const top10 = sorted.slice(0,10);
+  const gw = d.events.find(e=>e.is_current) || d.events[d.events.length-1];
+  $('globalStats').innerHTML = `<div class="card rounded-2xl p-5 sm:p-6 animate-fade-in-up"><div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-[#37003c] to-[#963cff] flex items-center justify-center text-white text-xs"><i class="fa-solid fa-globe"></i></div><div><h2 class="text-base font-bold">FPL Overview</h2><p class="text-xs text-slate-400">GW ${gw?.id||'?'} · ${d.total_players?.toLocaleString()||'—'} managers</p></div></div>
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3"><div class="mini-stat"><span class="value">${(d.average_entry_score||0).toLocaleString()}</span><span class="label">Avg Score</span></div><div class="mini-stat"><span class="value">${(gw?.highest_score||0).toLocaleString()}</span><span class="label">GW High</span></div><div class="mini-stat"><span class="value">${(gw?.average_entry_score||0).toLocaleString()}</span><span class="label">GW Avg</span></div><div class="mini-stat"><span class="value">${(gw?.transfers_made||0).toLocaleString()}</span><span class="label">GW Transfers</span></div></div></div>`;
+  $('globalPlayers').innerHTML = `<div class="card rounded-2xl p-5 sm:p-6 animate-fade-in-up"><div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-users"></i></div><div><h2 class="text-base font-bold">Most Selected Players</h2><p class="text-xs text-slate-400">Ownership percentages</p></div></div>
+  <div class="scroll-x flex gap-3 pb-2">${top10.map(p=>{const t=d.teams.find(x=>x.id===p.team);return `<div class="player-card min-w-[160px] bg-white rounded-xl border border-slate-100 p-3 flex-shrink-0 hover:shadow-sm transition-shadow"><div class="flex items-center gap-2.5 mb-2">${img(p.code,p.web_name)}<div class="min-w-0"><p class="text-sm font-semibold text-slate-800 truncate">${p.web_name}</p><p class="text-xs text-slate-400">${t?.name||''}</p></div></div><div class="space-y-1"><div class="flex justify-between text-xs"><span class="text-slate-500">Owned</span><span class="font-semibold text-slate-700">${p.selected_by_percent}%</span></div>${bar(parseFloat(p.selected_by_percent))}<div class="flex justify-between text-xs"><span class="text-slate-500">Pts</span><span class="font-semibold text-slate-700">${p.total_points}</span></div><div class="flex justify-between text-xs"><span class="text-slate-500">${costStr(p.now_cost)}</span><span class="font-semibold text-slate-700">${p.points_per_game||'—'} ppg</span></div></div></div>`;}).join('')}</div></div>`;
+
+  // Suspension + Transfer
+  const suspended=[], yellows=[], tIn=[], tOut=[];
+  d.elements.forEach(p=>{const t=d.teams.find(x=>x.id===p.team);if(p.status==='r'||p.status==='s')suspended.push({name:p.web_name,team:t?.name,photoId:p.code,suspendedMatches:p.suspended_matches||1});if(p.yellow_cards===4)yellows.push({name:p.web_name,team:t?.name,photoId:p.code,yellowCards:p.yellow_cards});tIn.push({name:p.web_name,team:t?.name,photoId:p.code,transfers:p.transfers_in_event});tOut.push({name:p.web_name,team:t?.name,photoId:p.code,transfers:p.transfers_out_event});});
+  tIn.sort((a,b)=>b.transfers-a.transfers);tOut.sort((a,b)=>b.transfers-a.transfers);
+  const susEl=$('suspensionRisk'), trEl=$('transferTrends');
+  if(suspended.length||yellows.length){susEl.innerHTML=renderSuspension({suspendedPlayers:suspended,playersOn4Yellows:yellows});susEl.classList.remove('hidden');}
+  trEl.innerHTML=renderTransfers({mostTransferredIn:tIn.slice(0,10),mostTransferredOut:tOut.slice(0,10)});trEl.classList.remove('hidden');
 }
 
-// ---- Main Analysis ----
+function renderSuspension(d) {
+  const c=(p,y)=>`<div class="player-card min-w-[180px] bg-white rounded-xl border border-slate-100 p-3 flex-shrink-0 flex items-center gap-3 hover:shadow-sm transition-shadow">${img(p.photoId,p.name)}<div><p class="text-sm font-semibold text-slate-800">${p.name}</p><p class="text-xs text-slate-400">${p.team||''}</p><span class="inline-block mt-1 text-xs font-medium ${y?'text-yellow-600 bg-yellow-50':'text-red-600 bg-red-50'} px-2 py-0.5 rounded-full">${y?'🟨 '+p.yellowCards+' Yellows':'🚫 '+p.suspendedMatches+' match'+(p.suspendedMatches>1?'es':'')}</span></div></div>`;
+  return `<div class="card rounded-2xl p-5 sm:p-6 animate-fade-in-up"><div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-red-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-triangle-exclamation"></i></div><div><h2 class="text-base font-bold">Suspension Risk</h2><p class="text-xs text-slate-400">Banned & yellow card risks</p></div></div>${d.suspendedPlayers.length?`<div class="mb-3"><p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Suspended (${d.suspendedPlayers.length})</p><div class="scroll-x flex gap-2.5">${d.suspendedPlayers.map(p=>c(p,0)).join('')}</div></div>`:''}${d.playersOn4Yellows.length?`<div><p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">On 4 Yellows (${d.playersOn4Yellows.length})</p><div class="scroll-x flex gap-2.5">${d.playersOn4Yellows.map(p=>c(p,1)).join('')}</div></div>`:''}</div>`;
+}
+
+function renderTransfers(d) {
+  const cr=(p,type)=>{const col=type==='in'?'emerald':'red';return `<div class="flex items-center gap-3 bg-white rounded-xl border border-slate-100 p-3 hover:shadow-sm transition-shadow">${img(p.photoId,p.name)}<div class="min-w-0 flex-1"><p class="text-sm font-semibold text-slate-800 truncate">${p.name}</p><p class="text-xs text-slate-400">${p.team||''}</p></div><div class="text-right flex-shrink-0"><p class="text-sm font-bold text-${col}-600">${p.transfers.toLocaleString()}</p><p class="text-xs text-slate-400">transfers</p></div></div>`;};
+  return `<div class="card rounded-2xl p-5 sm:p-6 animate-fade-in-up"><div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-arrow-right-arrow-left"></i></div><div><h2 class="text-base font-bold">Transfer Trends</h2><p class="text-xs text-slate-400">Most transferred in/out this GW</p></div></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-2"><i class="fa-solid fa-arrow-right mr-1"></i> Transferred In</p><div class="space-y-2">${d.mostTransferredIn.map(p=>cr(p,'in')).join('')}</div></div><div><p class="text-xs font-semibold text-red-600 uppercase tracking-wider mb-2"><i class="fa-solid fa-arrow-left mr-1"></i> Transferred Out</p><div class="space-y-2">${d.mostTransferredOut.map(p=>cr(p,'out')).join('')}</div></div></div></div>`;
+}
+
+// ---- Team Fixtures Grid ----
+async function loadTeamFixtures() {
+  $('fixturesGrid').innerHTML = '<div class="flex justify-center py-6"><div class="animate-spin h-6 w-6 border-2 border-[#963cff] border-t-transparent rounded-full"></div></div>';
+  try {
+    const [fr, bs] = await Promise.all([
+      fetch('/api/fixtures').then(r=>r.json()),
+      fetch('/api/bootstrap-static').then(r=>r.json())
+    ]);
+    const fixtures = Array.isArray(fr) ? fr : [];
+    const events = bs.events || [];
+    const currentGW = events.find(e=>e.is_current)?.id || 1;
+    const nextGws = [currentGW, currentGW+1, currentGW+2, currentGW+3, currentGW+4];
+    const teams = bs.teams || [];
+
+    const teamFixtures = teams.map(t => {
+      const gws = nextGws.map(gw => {
+        const f = fixtures.find(fx => fx.event === gw && (fx.team_h === t.id || fx.team_a === t.id));
+        if (!f) return null;
+        const isHome = f.team_h === t.id;
+        const opp = teams.find(x => x.id === (isHome ? f.team_a : f.team_h));
+        return { opponent: opp?.short_name||'?', isHome, difficulty: f.difficulty, gw };
+      }).filter(Boolean);
+      const totalFDR = gws.reduce((s, f) => s + f.difficulty, 0);
+
+      // Get top players from this team
+      const teamPlayers = bs.elements.filter(e => e.team === t.id).sort((a,b) => (b.points_per_game||0) - (a.points_per_game||0)).slice(0, 3);
+      const topPlayers = teamPlayers.map(p => ({ name: p.web_name, ppg: p.points_per_game, photoId: p.code }));
+
+      return { teamId: t.id, teamName: t.name, teamShort: t.short_name, gws, totalFDR, topPlayers, gwCount: gws.length };
+    }).filter(t => t.gwCount >= 3).sort((a,b) => b.totalFDR - a.totalFDR);
+
+    const rows = teamFixtures.map(t => `<tr class="hover:bg-slate-50 text-xs">
+      <td class="sticky-col px-2 py-2.5 bg-white"><span class="font-semibold text-slate-800">${t.teamShort || t.teamName}</span></td>
+      ${nextGws.map(gw => { const f = t.gws.find(x=>x.gw===gw); return `<td class="px-1.5 py-2.5 text-center">${f?`<div style="background:${fdrBg(f.difficulty)};color:${fdrColor(f.difficulty)}" class="inline-block px-2 py-1 rounded-md text-[10px] font-bold min-w-[48px]">${f.opponent}${f.isHome?'':' <span class="opacity-60">A</span>'}</div>`:'<span class="text-slate-300">—</span>'}</td>`; }).join('')}
+      <td class="px-2 py-2.5 text-center font-extrabold text-slate-700">${t.totalFDR}</td>
+      <td class="px-2 py-2.5 hide-mobile"><div class="flex items-center gap-1.5">${t.topPlayers.map(p=>img(p.photoId,p.name)).join('')}</div></td>
+    </tr>`).join('');
+
+    $('fixturesGrid').innerHTML = `<div class="responsive-table rounded-lg border border-slate-100"><table class="min-w-full divide-y divide-slate-100"><thead><tr class="bg-slate-50 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+      <th class="sticky-col px-2 py-2.5 text-left bg-slate-50">Team</th>${nextGws.map(g=>`<th class="px-2 py-2.5 text-center">GW${g}</th>`).join('')}
+      <th class="px-2 py-2.5 text-center">FDR</th><th class="px-2 py-2.5 text-left hide-mobile">Top Players</th>
+    </tr></thead><tbody class="divide-y divide-slate-100">${rows}</tbody></table></div>
+    <p class="text-xs text-slate-400 mt-3">Sorted by total difficulty (highest first). Top players by PPG.</p>`;
+  } catch(e) { $('fixturesGrid').innerHTML = `<p class="text-sm text-red-500">Error loading fixtures: ${e.message}</p>`; }
+}
+
+// ---- Price Changes ----
+async function loadPriceChanges(targetId) {
+  const el = $(targetId); if(!el) return;
+  el.innerHTML = '<div class="flex justify-center py-6"><div class="animate-spin h-6 w-6 border-2 border-[#963cff] border-t-transparent rounded-full"></div></div>';
+  try {
+    const r = await fetch('/api/price-changes');
+    if(!r.ok) throw new Error('Failed');
+    const d = await r.json();
+    const card = (p, isRiser) => `<div class="flex items-center gap-3 bg-white rounded-xl border border-slate-100 p-3 hover:shadow-sm transition-shadow">${img(p.photoId,p.name)}<div class="min-w-0 flex-1"><p class="text-sm font-semibold text-slate-800 truncate">${p.name}</p><p class="text-xs text-slate-400">${p.team||''} · ${costStr(p.newCost)}</p></div><div class="text-right flex-shrink-0"><p class="text-sm font-bold ${isRiser?'text-emerald-600':'text-red-600'}">${isRiser?'+':''}${p.change}</p><p class="text-xs text-slate-400">${p.selectedBy}%</p></div></div>`;
+    el.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-2">Risers (${d.risers.length})</p><div class="space-y-1.5">${d.risers.map(p=>card(p,1)).join('')||'<p class="text-sm text-slate-400">None</p>'}</div></div><div><p class="text-xs font-semibold text-red-600 uppercase tracking-wider mb-2">Fallers (${d.fallers.length})</p><div class="space-y-1.5">${d.fallers.map(p=>card(p,0)).join('')||'<p class="text-sm text-slate-400">None</p>'}</div></div></div>`;
+  } catch(e) { el.innerHTML = `<p class="text-sm text-red-500">${e.message}</p>`; }
+}
+
+// ---- League Standings ----
+async function loadLeagueStandings() {
+  const lid = $('leagueId').value || 314;
+  $('leagueStandingsBody').innerHTML = '<tr><td colspan="11" class="px-2 py-8 text-center"><div class="flex justify-center"><div class="animate-spin h-6 w-6 border-2 border-[#963cff] border-t-transparent rounded-full"></div></div></td></tr>';
+  try {
+    const r = await fetch(`/api/league-standings/${lid}`);
+    if(!r.ok) throw new Error('Failed');
+    const d = await r.json();
+    $('leagueTitle').textContent = d.leagueName || 'Classic League';
+    const rows = d.standings.map((m,i) => {
+      const chg = m.rankChange;
+      const chgIcon = chg > 0 ? `<i class="fa-solid fa-arrow-up text-emerald-500"></i> +${chg}` : chg < 0 ? `<i class="fa-solid fa-arrow-down text-red-500"></i> ${chg}` : '<span class="text-slate-400">—</span>';
+      const diff = i === 0 ? '—' : (d.standings[0].totalPoints - m.totalPoints);
+      const top = i === 0;
+      return `<tr class="${top?'bg-amber-50/50':''} hover:bg-slate-50 transition-colors text-xs">
+        <td class="sticky-col px-2 py-2.5 ${top?'bg-amber-50/50':'bg-white'} font-extrabold ${top?'text-amber-600':'text-slate-700'}">${m.rank}</td>
+        <td class="px-2 py-2.5"><span class="font-semibold text-slate-800">${m.playerName}</span></td>
+        <td class="px-2 py-2.5 text-slate-500">${m.teamName}</td>
+        <td class="px-2 py-2.5 text-right font-bold text-slate-800">${m.totalPoints}</td>
+        <td class="px-2 py-2.5 text-right">${chgIcon}</td>
+        <td class="px-2 py-2.5 text-right text-slate-500">${diff}</td>
+        <td class="px-2 py-2.5 text-right hide-mobile text-slate-600">${m.gwPoints}</td>
+        <td class="px-2 py-2.5 text-right hide-mobile text-slate-500">${m.overallRank}</td>
+        <td class="px-2 py-2.5 text-right hide-mobile text-slate-500">${m.lastSeasonRank}</td>
+        <td class="px-2 py-2.5 text-right hide-mobile text-slate-500">${m.seasonBeforeLastRank}</td>
+        <td class="px-2 py-2.5 text-center hide-mobile"><span class="text-[10px] text-slate-600">${m.chipsUsed}</span></td>
+      </tr>`;
+    }).join('');
+    $('leagueStandingsBody').innerHTML = rows;
+  } catch(e) {
+    $('leagueStandingsBody').innerHTML = `<tr><td colspan="11" class="px-2 py-8 text-center text-red-500">${e.message}</td></tr>`;
+  }
+}
+
+// ---- Manager Analysis ----
 async function analyzeManager() {
-    const id = $('managerId').value.trim() || $('heroManagerId').value.trim();
-    if (!id) { $('results').innerHTML = `<div class="card rounded-2xl p-5 border border-amber-200 bg-amber-50/50"><div class="flex items-center gap-3 text-amber-700 text-sm font-medium"><i class="fa-solid fa-circle-exclamation"></i> Enter a Manager ID</div></div>`; return; }
-    $('results').innerHTML = skeleton();
-    $('charts').classList.add('hidden'); $('currentTeamFixtures').classList.add('hidden'); $('positionSummary').classList.add('hidden'); $('last3GWs').classList.add('hidden');
-    try {
-        const r = await fetch(`/api/analyze-manager/${id}`);
-        if (!r.ok) throw new Error('Manager not found.');
-        const d = await r.json(); cachedAnalysis = d;
-        $('results').innerHTML = renderManagerSummary(d) + renderSquadTable(d);
-        populatePositionSummary(d); createCharts(d.weeklyPoints,d.weeklyRanks); renderFixtures(d.currentTeam); createLast3GWsChart(d.currentTeam);
-        $('charts').classList.remove('hidden'); $('currentTeamFixtures').classList.remove('hidden'); $('positionSummary').classList.remove('hidden'); $('last3GWs').classList.remove('hidden');
-        [['charts',0],['currentTeamFixtures',0.08],['positionSummary',0.04],['last3GWs',0.12]].forEach(([el,i])=>{ $(el).style.animation=`fadeInUp 0.4s ease-out ${i}s forwards`; });
-        renderCaptainAnalysis(d); renderChipImpact(d); renderDefense(d); renderSeasonHistory(d);
-        showTab('dashboard');
-    } catch(e) {
-        $('results').innerHTML = `<div class="card rounded-2xl p-5 border border-red-200 bg-red-50/50"><div class="flex items-start gap-3 text-red-700"><i class="fa-solid fa-circle-exclamation mt-0.5"></i><div><p class="font-semibold text-sm">Analysis Failed</p><p class="text-xs mt-1">${e.message}</p></div></div></div>`;
-    }
+  const id = $('managerId').value.trim() || $('heroManagerId').value.trim() || $('managerInput').value.trim();
+  if (!id) { $('results').innerHTML = `<div class="card rounded-2xl p-5 border border-amber-200 bg-amber-50/50"><div class="flex items-center gap-3 text-amber-700 text-sm font-medium"><i class="fa-solid fa-circle-exclamation"></i> Enter a Manager ID</div></div>`; return; }
+  $('results').innerHTML = skeleton();
+  $('charts').classList.add('hidden'); $('currentTeamFixtures').classList.add('hidden'); $('positionSummary').classList.add('hidden'); $('last3GWs').classList.add('hidden');
+  ['managerCaptain','managerChips','managerDefense','managerSeason'].forEach(id => $(id).classList.add('hidden'));
+  $('underperformingSection').classList.add('hidden');
+  showSection('manager');
+  try {
+    const r = await fetch(`/api/analyze-manager/${id}`);
+    if (!r.ok) throw new Error('Manager not found.');
+    const d = await r.json(); cachedAnalysis = d; analysisCache[id] = d;
+    $('results').innerHTML = renderManagerSummary(d) + renderSquadTable(d);
+    populatePositionSummary(d); createCharts(d.weeklyPoints,d.weeklyRanks); renderFixtures(d.currentTeam); createLast3GWsChart(d.currentTeam);
+    $('charts').classList.remove('hidden'); $('currentTeamFixtures').classList.remove('hidden'); $('positionSummary').classList.remove('hidden'); $('last3GWs').classList.remove('hidden');
+    [['charts',0],['currentTeamFixtures',0.08],['positionSummary',0.04],['last3GWs',0.12]].forEach(([el,i])=>{$(el).style.animation=`fadeInUp 0.4s ease-out ${i}s forwards`;});
+    renderUnderperforming(d); renderCaptainAnalysis(d); renderChipImpact(d); renderDefense(d); renderSeasonHistory(d);
+    ['managerCaptain','managerChips','managerDefense','managerSeason'].forEach(id => $(id).classList.remove('hidden'));
+  } catch(e) {
+    $('results').innerHTML = `<div class="card rounded-2xl p-5 border border-red-200 bg-red-50/50"><div class="flex items-start gap-3 text-red-700"><i class="fa-solid fa-circle-exclamation mt-0.5"></i><div><p class="font-semibold text-sm">Failed</p><p class="text-xs mt-1">${e.message}</p></div></div></div>`;
+  }
 }
 
 function renderManagerSummary(d) {
-    const m = d.managerInfo;
-    const avg = (m.managerPoints / m.currentGameweek).toFixed(1);
-    const ti = m.rankTrend > 0 ? 'fa-arrow-up text-emerald-500' : m.rankTrend < 0 ? 'fa-arrow-down text-red-500' : 'fa-minus text-slate-400';
-    const chipB = m.chipsUsed?.length ? m.chipsUsed.map(c => `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold">${chipLabel(c)}</span>`).join(' ') : '<span class="text-xs text-slate-400">None</span>';
-    const st = (icon,label,val,color) => `<div class="flex items-center gap-2.5 p-2.5 rounded-lg bg-slate-50 border border-slate-100"><div class="w-8 h-8 rounded-lg bg-${color}-100 text-${color}-600 flex items-center justify-center flex-shrink-0 text-xs"><i class="fa-solid ${icon}"></i></div><div class="min-w-0"><p class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">${label}</p><p class="text-sm font-bold text-slate-800 stat-value">${val}</p></div></div>`;
-    return `<div class="card rounded-2xl p-5 sm:p-6 animate-fade-in-up">
-        <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
-            <div class="flex items-center gap-3"><div class="w-9 h-9 rounded-xl bg-gradient-to-br from-[#37003c] to-[#963cff] flex items-center justify-center text-white text-xs"><i class="fa-solid fa-user"></i></div><div><h2 class="text-base font-bold text-slate-800">${m.name}</h2><p class="text-xs text-slate-400">${m.teamName} &middot; GW ${m.currentGameweek}</p></div></div>
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold"><i class="fa-solid fa-hashtag"></i> ${m.overallRanking}</span>
-        </div>
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 mb-4">
-            ${st('fa-trophy','Points',m.managerPoints+' pts','blue')} ${st('fa-chart-simple','Avg/GW',avg+' pts','emerald')} ${st('fa-ranking-star','Rank',m.overallRanking,'indigo')} ${st('fa-crown','Behind #1',m.pointDifference+' pts','purple')}
-            ${st('fa-arrow-trend-up','Best GW',m.highestPoints+' (GW'+m.highestPointsGW+')','green')} ${st('fa-arrow-trend-down','Worst GW',m.lowestPoints+' (GW'+m.lowestPointsGW+')','red')} ${st('fa-medal','Best Rank',m.highestRank,'amber')} ${st('fa-flag','Worst Rank',m.lowestRank,'orange')}
-            ${st('fa-crown','Captain Pts',m.totalCaptaincyPoints+' pts','yellow')} ${st('fa-chair','Bench Lost',m.totalPointsLostOnBench+' pts','slate')} ${st('fa-microchip','Avg Rank',m.averageRank,'cyan')} ${st('fa-arrow-trend-up','Trend',`<span class="inline-flex items-center gap-1"><i class="fa-solid ${ti}"></i> ${m.rankTrendLabel}</span>`,'violet')}
-        </div>
-        <div class="flex flex-wrap items-center gap-3 text-xs text-slate-500 pt-3 border-t border-slate-100"><span class="font-semibold text-slate-600">Chips:</span> ${chipB} <span class="ml-auto">Cap eff: <strong class="text-slate-700">${m.captaincyEfficiency} pts/GW</strong></span> <span>Transfers: <strong class="text-slate-700">${m.totalTransfers} pts</strong></span></div>
-    </div>`;
+  const m = d.managerInfo, avg = (m.managerPoints/m.currentGameweek).toFixed(1);
+  const ti = m.rankTrend > 0 ? 'fa-arrow-up text-emerald-500' : m.rankTrend < 0 ? 'fa-arrow-down text-red-500' : 'fa-minus text-slate-400';
+  const chipB = m.chipsUsed?.length ? m.chipsUsed.map(c => `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold">${chipL(c)}</span>`).join(' ') : '<span class="text-xs text-slate-400">None</span>';
+  const st = (ic,la,va,co) => `<div class="flex items-center gap-2.5 p-2.5 rounded-lg bg-slate-50 border border-slate-100"><div class="w-8 h-8 rounded-lg bg-${co}-100 text-${co}-600 flex items-center justify-center flex-shrink-0 text-xs"><i class="fa-solid ${ic}"></i></div><div class="min-w-0"><p class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">${la}</p><p class="text-sm font-bold text-slate-800 stat-value">${va}</p></div></div>`;
+  return `<div class="card rounded-2xl p-5 sm:p-6 animate-fade-in-up"><div class="flex flex-wrap items-center justify-between gap-3 mb-5"><div class="flex items-center gap-3"><div class="w-9 h-9 rounded-xl bg-gradient-to-br from-[#37003c] to-[#963cff] flex items-center justify-center text-white text-xs"><i class="fa-solid fa-user"></i></div><div><h2 class="text-base font-bold text-slate-800">${m.name}</h2><p class="text-xs text-slate-400">${m.teamName} · GW ${m.currentGameweek}</p></div></div><span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold"><i class="fa-solid fa-hashtag"></i> ${m.overallRanking}</span></div>
+  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 mb-4">${st('fa-trophy','Points',m.managerPoints+' pts','blue')}${st('fa-chart-simple','Avg/GW',avg+' pts','emerald')}${st('fa-ranking-star','Rank',m.overallRanking,'indigo')}${st('fa-crown','Behind #1',m.pointDifference+' pts','purple')}${st('fa-arrow-trend-up','Best GW',m.highestPoints+' (GW'+m.highestPointsGW+')','green')}${st('fa-arrow-trend-down','Worst GW',m.lowestPoints+' (GW'+m.lowestPointsGW+')','red')}${st('fa-medal','Best Rank',m.highestRank,'amber')}${st('fa-flag','Worst Rank',m.lowestRank,'orange')}${st('fa-crown','Captain',m.totalCaptaincyPoints+' pts','yellow')}${st('fa-chair','Bench Lost',m.totalPointsLostOnBench+' pts','slate')}${st('fa-microchip','Avg Rank',m.averageRank,'cyan')}${st('fa-arrow-trend-up','Trend',`<span class="inline-flex items-center gap-1"><i class="fa-solid ${ti}"></i> ${m.rankTrendLabel}</span>`,'violet')}</div>
+  <div class="flex flex-wrap items-center gap-3 text-xs text-slate-500 pt-3 border-t border-slate-100"><span class="font-semibold text-slate-600">Chips:</span>${chipB}<span class="ml-auto">Cap eff: <strong class="text-slate-700">${m.captaincyEfficiency} pts/GW</strong></span><span>Transfers: <strong class="text-slate-700">${m.totalTransfers}</strong></span><span>Template: <strong class="text-slate-700">${m.templateScore}</strong> / ${d.playerStats.length}</span></div></div>`;
 }
 
 function renderSquadTable(d) {
-    const rows = d.playerStats.map(p => `<tr class="hover:bg-slate-50 transition-colors"><td class="sticky-col px-3 py-2.5"><div class="flex items-center gap-2.5">${img(p.photoId,p.name)}<div class="min-w-0"><p class="text-sm font-semibold text-slate-800 truncate">${p.name}</p><p class="text-xs text-slate-400">${p.team}</p></div></div></td><td class="px-3 py-2.5"><span class="badge-pos ${posClass(p.position)}">${p.position}</span></td><td class="px-3 py-2.5 text-sm font-semibold text-slate-700 stat-value">${p.totalPointsActive}</td><td class="px-3 py-2.5 text-sm text-slate-600 stat-value">${p.gwInSquad}</td><td class="px-3 py-2.5 text-sm text-slate-600 stat-value">${p.starts}</td><td class="px-3 py-2.5 text-sm font-medium text-amber-600 stat-value">${p.cappedPoints}</td><td class="px-3 py-2.5 hide-mobile"><span class="text-xs font-semibold text-slate-700">${costStr(p.nowCost)}</span></td><td class="px-3 py-2.5 hide-mobile"><div class="flex items-center gap-2"><span class="text-xs font-semibold text-slate-700">${p.selectedBy}%</span>${bar(parseFloat(p.selectedBy||0))}</div></td><td class="px-3 py-2.5 hide-mobile text-xs font-semibold text-slate-700 stat-value">${p.pointsPerGame||'—'}</td></tr>`).join('');
-    return `<div class="card rounded-2xl p-5 sm:p-6 animate-fade-in-up"><div class="flex flex-wrap items-center justify-between gap-3 mb-4"><div class="flex items-center gap-3"><div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-users"></i></div><h2 class="text-base font-bold">Squad</h2></div><select id="positionFilter" class="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#963cff]/20" onchange="filterTable()"><option value="All">All</option><option value="GKP">GKP</option><option value="DEF">DEF</option><option value="MID">MID</option><option value="FWD">FWD</option></select></div><div class="responsive-table rounded-lg border border-slate-100"><table class="min-w-full divide-y divide-slate-100"><thead><tr class="bg-slate-50 text-[10px] font-semibold text-slate-500 uppercase tracking-wider"><th class="sticky-col px-3 py-2.5 text-left bg-slate-50">Player</th><th class="px-3 py-2.5 text-left">Pos</th><th class="px-3 py-2.5 text-left">Pts</th><th class="px-3 py-2.5 text-left">GW</th><th class="px-3 py-2.5 text-left">Starts</th><th class="px-3 py-2.5 text-left">Cap</th><th class="px-3 py-2.5 text-left hide-mobile">Value</th><th class="px-3 py-2.5 text-left hide-mobile">Sel%</th><th class="px-3 py-2.5 text-left hide-mobile">PPG</th></tr></thead><tbody class="divide-y divide-slate-100">${rows}</tbody></table></div></div>`;
+  const rows = d.playerStats.map(p => `<tr class="hover:bg-slate-50 transition-colors"><td class="sticky-col px-3 py-2.5 bg-white"><div class="flex items-center gap-2.5">${img(p.photoId,p.name)}<div class="min-w-0"><p class="text-sm font-semibold text-slate-800 truncate">${p.name}</p><p class="text-xs text-slate-400">${p.team}</p></div></div></td><td class="px-3 py-2.5"><span class="badge-pos ${p.position==='GKP'?'badge-gkp':p.position==='DEF'?'badge-def':p.position==='MID'?'badge-mid':'badge-fwd'}">${p.position}</span></td><td class="px-3 py-2.5 text-sm font-semibold text-slate-700 stat-value">${p.totalPointsActive}</td><td class="px-3 py-2.5 text-sm text-slate-600 stat-value">${p.gwInSquad}</td><td class="px-3 py-2.5 text-sm text-slate-600 stat-value">${p.starts}</td><td class="px-3 py-2.5 text-sm font-medium text-amber-600 stat-value">${p.cappedPoints}</td><td class="px-3 py-2.5 hide-mobile"><span class="text-xs font-semibold text-slate-700">${costStr(p.nowCost)}</span></td><td class="px-3 py-2.5 hide-mobile"><div class="flex items-center gap-2"><span class="text-xs font-semibold text-slate-700">${p.selectedBy}%</span>${bar(parseFloat(p.selectedBy||0))}</div></td><td class="px-3 py-2.5 hide-mobile text-xs font-semibold text-slate-700 stat-value">${p.pointsPerGame||'—'}</td></tr>`).join('');
+  return `<div class="card rounded-2xl p-5 sm:p-6 animate-fade-in-up"><div class="flex flex-wrap items-center justify-between gap-3 mb-4"><div class="flex items-center gap-3"><div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-users"></i></div><div><h2 class="text-base font-bold">Squad Performance</h2><p class="text-xs text-slate-400">Full season stats</p></div></div><select id="positionFilter" class="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#963cff]/20" onchange="filterTable()"><option value="All">All</option><option value="GKP">GKP</option><option value="DEF">DEF</option><option value="MID">MID</option><option value="FWD">FWD</option></select></div>
+  <div class="responsive-table rounded-lg border border-slate-100"><table class="min-w-full divide-y divide-slate-100"><thead><tr class="bg-slate-50 text-[10px] font-semibold text-slate-500 uppercase tracking-wider"><th class="sticky-col px-3 py-2.5 text-left bg-slate-50">Player</th><th class="px-3 py-2.5 text-left">Pos</th><th class="px-3 py-2.5 text-left">Pts</th><th class="px-3 py-2.5 text-left">GW</th><th class="px-3 py-2.5 text-left">Starts</th><th class="px-3 py-2.5 text-left">Cap</th><th class="px-3 py-2.5 text-left hide-mobile">Value</th><th class="px-3 py-2.5 text-left hide-mobile">Sel%</th><th class="px-3 py-2.5 text-left hide-mobile">PPG</th></tr></thead><tbody class="divide-y divide-slate-100">${rows}</tbody></table></div></div>`;
 }
-function filterTable() { const v=$('positionFilter').value; document.querySelectorAll('#results table tbody tr').forEach(r=>{ const p=r.querySelector('.badge-pos')?.textContent; r.style.display=v==='All'||p===v?'': 'none'; }); }
+function filterTable() { const v=$('positionFilter').value; document.querySelectorAll('#results table tbody tr').forEach(r=>{const p=r.querySelector('.badge-pos')?.textContent; r.style.display=v==='All'||p===v?'':'none';}); }
 
 function populatePositionSummary(d) {
-    const s={GKP:{bg:'from-amber-400 to-amber-500'},DEF:{bg:'from-blue-400 to-blue-500'},MID:{bg:'from-emerald-400 to-emerald-500'},FWD:{bg:'from-rose-400 to-rose-500'}};
-    const top={}; d.playerStats.forEach(p=>{ if(!top[p.position]||p.totalPointsActive>top[p.position].pts) top[p.position]={name:p.name,pts:p.totalPointsActive,photoId:p.photoId}; });
-    $('positionSummary').innerHTML=`<div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-layer-group"></i></div><h2 class="text-base font-bold">Position Summary</h2></div><div class="grid grid-cols-2 sm:grid-cols-4 gap-3">${d.positionSummary.map(pos=>{ const t=top[pos.position]; return `<div class="bg-gradient-to-br ${(s[pos.position]||{bg:'from-slate-400 to-slate-500'}).bg} rounded-xl p-4 text-white relative overflow-hidden shadow-sm"><div class="relative z-10"><div class="flex items-center justify-between mb-1"><span class="text-[10px] font-semibold uppercase tracking-wider opacity-80">${posName(pos.position)}</span></div><p class="text-2xl sm:text-3xl font-extrabold text-white stat-value">${pos.totalPoints}</p><p class="text-xs opacity-80">${pos.count} players</p>${t?`<div class="flex items-center gap-2 mt-2">${img(t.photoId,t.name)}<div class="text-xs leading-tight"><p class="font-semibold">${t.name}</p><p class="opacity-70">${t.pts} pts</p></div></div>`:''}</div><div class="absolute -bottom-3 -right-3 w-16 h-16 rounded-full bg-white/10"></div></div>`;}).join('')}</div></div>`;
-    $('positionSummary').classList.remove('hidden');
+  const s={GKP:{bg:'from-amber-400 to-amber-500'},DEF:{bg:'from-blue-400 to-blue-500'},MID:{bg:'from-emerald-400 to-emerald-500'},FWD:{bg:'from-rose-400 to-rose-500'}};
+  const top={}; d.playerStats.forEach(p=>{if(!top[p.position]||p.totalPointsActive>top[p.position].pts) top[p.position]={name:p.name,pts:p.totalPointsActive,photoId:p.photoId};});
+  $('positionSummary').innerHTML=`<div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-layer-group"></i></div><div><h2 class="text-base font-bold">Position Summary</h2><p class="text-xs text-slate-400">Points by position</p></div></div><div class="grid grid-cols-2 sm:grid-cols-4 gap-3">${d.positionSummary.map(pos=>{const t=top[pos.position];return `<div class="bg-gradient-to-br ${(s[pos.position]||{bg:'from-slate-400 to-slate-500'}).bg} rounded-xl p-4 text-white relative overflow-hidden shadow-sm"><div class="relative z-10"><div class="flex items-center justify-between mb-1"><span class="text-[10px] font-semibold uppercase tracking-wider opacity-80">${posName(pos.position)}</span></div><p class="text-2xl sm:text-3xl font-extrabold text-white">${pos.totalPoints}</p><p class="text-xs opacity-80">${pos.count} players</p>${t?`<div class="flex items-center gap-2 mt-3">${img(t.photoId,t.name)}<div class="text-xs leading-tight"><p class="font-semibold">${t.name}</p><p class="opacity-70">${t.pts} pts</p></div></div>`:''}</div><div class="absolute -bottom-3 -right-3 w-16 h-16 rounded-full bg-white/10"></div></div>`;}).join('')}</div></div>`;$('positionSummary').classList.remove('hidden');
+}
+
+// ---- Underperforming Players ----
+function renderUnderperforming(d) {
+  const up = d.underperforming || [];
+  if (!up.length) { $('underperformingSection').classList.add('hidden'); return; }
+  const cards = up.map(u => `
+    <div class="bg-white rounded-xl border border-slate-100 p-4 hover:shadow-sm transition-shadow">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2.5">${img(u.player.photoId||u.player.code,u.player.name)}<div><p class="text-sm font-semibold text-slate-800">${u.player.name}</p><p class="text-xs text-slate-400">${u.player.team} · ${costStr(u.player.nowCost)}</p></div></div>
+        <span class="badge-pos ${u.player.position==='GKP'?'badge-gkp':u.player.position==='DEF'?'badge-def':u.player.position==='MID'?'badge-mid':'badge-fwd'}">${u.player.position}</span>
+      </div>
+      <div class="space-y-1 mb-3">${u.reasons.map(r => `<div class="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded"><i class="fa-solid fa-triangle-exclamation text-[10px]"></i>${r}</div>`).join('')}</div>
+      ${u.replacements.length ? `<p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2"><i class="fa-solid fa-arrow-right mr-1 text-emerald-500"></i> Replacements</p><div class="space-y-1.5">${u.replacements.map(r => `<div class="flex items-center justify-between bg-slate-50 rounded-lg px-2.5 py-2"><div class="flex items-center gap-2">${img(r.photoId,r.name)}<div><p class="text-xs font-semibold text-slate-800">${r.name}</p><p class="text-[10px] text-slate-400">${r.team} · ${costStr(r.nowCost)}</p></div></div><div class="text-right"><p class="text-xs font-bold text-slate-700">${r.form} form</p><p class="text-[10px] text-slate-400">${r.totalPoints} pts</p></div></div>`).join('')}</div>` : ''}
+    </div>`).join('');
+  $('underperformingSection').innerHTML = `<div class="card rounded-2xl p-5 sm:p-6 animate-fade-in-up"><div class="flex items-center gap-3 mb-5"><div class="w-9 h-9 rounded-lg bg-gradient-to-br from-red-500 to-rose-500 flex items-center justify-center text-white text-sm"><i class="fa-solid fa-triangle-exclamation"></i></div><div><h2 class="text-base font-bold">Underperforming Players</h2><p class="text-xs text-slate-400">Reasons to bench or transfer out</p></div></div><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">${cards}</div></div>`;
+  $('underperformingSection').classList.remove('hidden');
+  $('underperformingSection').style.animation = 'fadeInUp 0.4s ease-out forwards';
 }
 
 // ---- Charts ----
-function createCharts(pts,ranks){ createPointsChart(pts); createRankChart(ranks); }
-function createPointsChart(wp) {
-    const ctx=document.getElementById('pointsChart').getContext('2d'); if(pointsChart) pointsChart.destroy();
-    const g=ctx.createLinearGradient(0,0,0,340); g.addColorStop(0,'rgba(99,102,241,0.2)'); g.addColorStop(1,'rgba(99,102,241,0)');
-    const avg=wp.reduce((a,b)=>a+b,0)/wp.length||0;
-    pointsChart=new Chart(ctx,{type:'line',data:{labels:wp.map((_,i)=>'GW'+(i+1)),datasets:[{label:'Points',data:wp,borderColor:'#6366f1',backgroundColor:g,fill:true,tension:0.3,pointBackgroundColor:wp.map(p=>p>=avg?'#6366f1':'#f43f5e'),pointBorderColor:'#fff',pointRadius:4,pointHoverRadius:6,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(15,23,42,0.9)',padding:10,cornerRadius:6,callbacks:{label:ctx=>ctx.parsed.y+' pts'}}},scales:{y:{beginAtZero:true,grid:{color:'rgba(0,0,0,0.04)'}},x:{grid:{display:false},ticks:{maxTicksLimit:20}}}}});
+function createCharts(pts,ranks){createPointsChart(pts);createRankChart(ranks);}
+function createPointsChart(wp){const ctx=document.getElementById('pointsChart').getContext('2d');if(pointsChart)pointsChart.destroy();const g=ctx.createLinearGradient(0,0,0,340);g.addColorStop(0,'rgba(99,102,241,0.2)');g.addColorStop(1,'rgba(99,102,241,0)');const avg=wp.reduce((a,b)=>a+b,0)/wp.length||0;pointsChart=new Chart(ctx,{type:'line',data:{labels:wp.map((_,i)=>'GW'+(i+1)),datasets:[{label:'Points',data:wp,borderColor:'#6366f1',backgroundColor:g,fill:true,tension:0.3,pointBackgroundColor:wp.map(p=>p>=avg?'#6366f1':'#f43f5e'),pointBorderColor:'#fff',pointRadius:4,pointHoverRadius:6,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(15,23,42,0.9)',padding:10,cornerRadius:6,callbacks:{label:ctx=>ctx.parsed.y+' pts'}}},scales:{y:{beginAtZero:true,grid:{color:'rgba(0,0,0,0.04)'}},x:{grid:{display:false},ticks:{maxTicksLimit:20}}}}});
 }
-function createRankChart(wr) {
-    const ctx=document.getElementById('rankChart').getContext('2d'); if(rankChart) rankChart.destroy();
-    const g=ctx.createLinearGradient(0,0,0,340); g.addColorStop(0,'rgba(244,63,94,0.2)'); g.addColorStop(1,'rgba(244,63,94,0)');
-    rankChart=new Chart(ctx,{type:'line',data:{labels:wr.map((_,i)=>'GW'+(i+1)),datasets:[{label:'Rank',data:wr,borderColor:'#f43f5e',backgroundColor:g,fill:true,tension:0.3,pointBackgroundColor:'#f43f5e',pointBorderColor:'#fff',pointRadius:4,pointHoverRadius:6,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(15,23,42,0.9)',padding:10,cornerRadius:6}},scales:{y:{reverse:true,beginAtZero:true,grid:{color:'rgba(0,0,0,0.04)'},ticks:{callback:val=>val.toLocaleString()}},x:{grid:{display:false},ticks:{maxTicksLimit:20}}}}});
+function createRankChart(wr){const ctx=document.getElementById('rankChart').getContext('2d');if(rankChart)rankChart.destroy();const g=ctx.createLinearGradient(0,0,0,340);g.addColorStop(0,'rgba(244,63,94,0.2)');g.addColorStop(1,'rgba(244,63,94,0)');rankChart=new Chart(ctx,{type:'line',data:{labels:wr.map((_,i)=>'GW'+(i+1)),datasets:[{label:'Rank',data:wr,borderColor:'#f43f5e',backgroundColor:g,fill:true,tension:0.3,pointBackgroundColor:'#f43f5e',pointBorderColor:'#fff',pointRadius:4,pointHoverRadius:6,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(15,23,42,0.9)',padding:10,cornerRadius:6}},scales:{y:{reverse:true,beginAtZero:true,grid:{color:'rgba(0,0,0,0.04)'},ticks:{callback:val=>val.toLocaleString()}},x:{grid:{display:false},ticks:{maxTicksLimit:20}}}}});
 }
-function createLast3GWsChart(td) {
-    const ctx=document.getElementById('last3GWsChart').getContext('2d'); if(last3GWsChart) last3GWsChart.destroy();
-    const colors=['#6366f1','#8b5cf6','#a855f7','#d946ef','#ec4899','#f43f5e','#fb923c','#fbbf24','#22c55e','#14b8a6'];
-    const s=td.map(p=>({name:p.name,pts:p.last3GWPoints||0})).sort((a,b)=>b.pts-a.pts);
-    last3GWsChart=new Chart(ctx,{type:'bar',data:{labels:s.map(p=>p.name),datasets:[{label:'Points',data:s.map(p=>p.pts),backgroundColor:s.map((_,i)=>colors[i%colors.length]+'cc'),borderColor:s.map((_,i)=>colors[i%colors.length]),borderWidth:1,borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(15,23,42,0.9)',padding:10,cornerRadius:6,callbacks:{label:ctx=>ctx.parsed.x+' pts'}}},scales:{x:{beginAtZero:true,grid:{color:'rgba(0,0,0,0.04)'}},y:{grid:{display:false}}}}});
+function createLast3GWsChart(td){const ctx=document.getElementById('last3GWsChart').getContext('2d');if(last3GWsChart)last3GWsChart.destroy();const colors=['#6366f1','#8b5cf6','#a855f7','#d946ef','#ec4899','#f43f5e','#fb923c','#fbbf24','#22c55e','#14b8a6'];const s=td.map(p=>({name:p.name,pts:p.last3GWPoints||0})).sort((a,b)=>b.pts-a.pts);last3GWsChart=new Chart(ctx,{type:'bar',data:{labels:s.map(p=>p.name),datasets:[{label:'Points',data:s.map(p=>p.pts),backgroundColor:s.map((_,i)=>colors[i%colors.length]+'cc'),borderColor:s.map((_,i)=>colors[i%colors.length]),borderWidth:1,borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(15,23,42,0.9)',padding:10,cornerRadius:6,callbacks:{label:ctx=>ctx.parsed.x+' pts'}}},scales:{x:{beginAtZero:true,grid:{color:'rgba(0,0,0,0.04)'}},y:{grid:{display:false}}}}});
 }
-function renderFixtures(td) {
-    $('currentTeamFixtures').innerHTML=`<div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-calendar-days"></i></div><h2 class="text-base font-bold">Upcoming Fixtures</h2></div><div class="responsive-table rounded-lg border border-slate-100"><table class="min-w-full divide-y divide-slate-100"><thead><tr class="bg-slate-50 text-[10px] font-semibold text-slate-500 uppercase tracking-wider"><th class="sticky-col px-3 py-2.5 text-left bg-slate-50">Player</th><th class="px-3 py-2.5 text-center" colspan="5">Next 5</th></tr></thead><tbody class="divide-y divide-slate-100">${td.map(p=>`<tr class="hover:bg-slate-50"><td class="sticky-col px-3 py-2.5"><div class="flex items-center gap-2.5">${img(p.photoId,p.name)}<div><p class="text-sm font-semibold text-slate-800">${p.name}</p><p class="text-xs text-slate-400">${p.team} &middot; ${p.position}</p></div></div></td>${p.nextFixtures.map(f=>`<td class="px-1 py-2.5"><div style="background:${fdrBg(f.difficulty)};color:${fdrColor(f.difficulty)}" class="fdr-cell text-[10px] sm:text-xs">${f.opponent}<br><span class="opacity-70">${f.isHome?'H':'A'}</span></div></td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
+function renderFixtures(td){$('currentTeamFixtures').innerHTML=`<div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-calendar-days"></i></div><div><h2 class="text-base font-bold">Upcoming Fixtures</h2><p class="text-xs text-slate-400">Manager's squad</p></div></div><div class="responsive-table rounded-lg border border-slate-100"><table class="min-w-full divide-y divide-slate-100"><thead><tr class="bg-slate-50 text-[10px] font-semibold text-slate-500 uppercase tracking-wider"><th class="sticky-col px-3 py-2.5 text-left bg-slate-50">Player</th><th class="px-3 py-2.5 text-center" colspan="5">Next 5</th></tr></thead><tbody class="divide-y divide-slate-100">${td.map(p=>`<tr class="hover:bg-slate-50"><td class="sticky-col px-3 py-2.5 bg-white"><div class="flex items-center gap-2.5">${img(p.photoId,p.name)}<div><p class="text-sm font-semibold text-slate-800">${p.name}</p><p class="text-xs text-slate-400">${p.team}</p></div></div></td>${p.nextFixtures.map(f=>`<td class="px-1 py-2.5"><div style="background:${fdrBg(f.difficulty)};color:${fdrColor(f.difficulty)}" class="fdr-cell text-[10px] sm:text-xs">${f.opponent}<br><span class="opacity-70">${f.isHome?'H':'A'}</span></div></td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;}
+function renderCaptainAnalysis(d){if(!d.captainChoices||!d.captainChoices.length){$('captainContent').innerHTML='<p class="text-sm text-slate-400">No captain data.</p>';return;}const rows=d.captainChoices.map(c=>{const m=c.missedPoints||0;const cls=m>0?'text-red-500':'text-emerald-500';return `<tr class="hover:bg-slate-50 text-xs"><td class="px-3 py-2 font-semibold text-slate-600">GW${c.gw}</td><td class="px-3 py-2">${c.captain?.name||'—'}</td><td class="px-3 py-2 font-semibold text-slate-700">${c.captain?.points||0}</td><td class="px-3 py-2">${c.bestOption?.name||'—'}</td><td class="px-3 py-2 font-semibold text-slate-700">${c.bestOption?.rawPoints||0}</td><td class="px-3 py-2 font-semibold ${cls}">${m>0?'-'+m:m}</td></tr>`;}).join('');$('captainContent').innerHTML=`<p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Choices by GW</p><div class="responsive-table"><table class="min-w-full text-xs"><thead><tr class="bg-slate-50 font-semibold text-slate-500 uppercase tracking-wider"><th class="px-3 py-2 text-left">GW</th><th class="px-3 py-2 text-left">Captain</th><th class="px-3 py-2 text-left">Pts</th><th class="px-3 py-2 text-left">Best</th><th class="px-3 py-2 text-left">Raw</th><th class="px-3 py-2 text-left">Missed</th></tr></thead><tbody class="divide-y divide-slate-100">${rows}</tbody></table></div>`;}
+function renderChipImpact(d){if(!d.chipImpact||!d.chipImpact.length){$('chipContent').innerHTML='<p class="text-sm text-slate-400">No chips used.</p>';return;}$('chipContent').innerHTML=`<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">${d.chipImpact.map(c=>{const df=c.diff||0;const cls=df>=0?'text-emerald-600 bg-emerald-50':'text-red-600 bg-red-50';return `<div class="bg-white rounded-xl border border-slate-100 p-4"><p class="text-xs font-semibold text-slate-500 uppercase">GW${c.gw}</p><p class="text-lg font-extrabold text-slate-800 mt-0.5">${chipL(c.chip)}</p><div class="flex items-center gap-2 mt-2"><div class="mini-stat"><span class="value">${c.points}</span><span class="label">Scored</span></div><div class="mini-stat"><span class="value">${c.avgPoints}</span><span class="label">Avg</span></div></div><span class="inline-flex items-center gap-1 mt-2 text-xs font-bold ${cls} px-2 py-1 rounded-full"><i class="fa-solid ${df>=0?'fa-arrow-up':'fa-arrow-down'}"></i>${df>=0?'+':''}${df} vs avg</span></div>`;}).join('')}</div>`;}
+function renderDefense(d){if(!d.managerInfo){$('defenseContent').innerHTML='<p class="text-sm text-slate-400">No data.</p>';return;}const m=d.managerInfo;const defs=d.playerStats.filter(p=>p.position==='DEF');const gks=d.playerStats.filter(p=>p.position==='GKP');const cs=defs.reduce((s,p)=>s+(p.cleanSheets||0),0)+gks.reduce((s,p)=>s+(p.cleanSheets||0),0);const gc=defs.reduce((s,p)=>s+(p.goalsConceded||0),0);const sv=gks.reduce((s,p)=>s+(p.saves||0),0);const bn=d.playerStats.reduce((s,p)=>s+(p.bonus||0),0);$('defenseContent').innerHTML=`<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">${[{ic:'fa-shield',la:'Clean Sheets',va:cs,co:'emerald'},{ic:'fa-futbol',la:'Conceded',va:gc,co:'red'},{ic:'fa-hand',la:'Saves',va:sv,co:'blue'},{ic:'fa-star',la:'Bonus',va:bn,co:'yellow'}].map(s=>`<div class="flex items-center gap-3 p-4 rounded-xl bg-slate-50 border border-slate-100"><div class="w-10 h-10 rounded-lg bg-${s.co}-100 text-${s.co}-600 flex items-center justify-center"><i class="fa-solid ${s.ic}"></i></div><div><p class="text-2xl font-extrabold text-slate-800">${s.va}</p><p class="text-xs text-slate-500">${s.la}</p></div></div>`).join('')}</div>`;}
+function renderSeasonHistory(d){if(!d.seasonHistory||!d.seasonHistory.length){$('seasonContent').innerHTML='<p class="text-sm text-slate-400">No history.</p>';return;}const h=d.seasonHistory;$('seasonContent').innerHTML=`<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">${h.map(s=>`<div class="text-center p-3 rounded-xl bg-slate-50 border border-slate-100"><p class="text-xs font-semibold text-slate-500">${s.season}</p><p class="text-lg font-extrabold text-slate-800">${s.rank?.toLocaleString()||'—'}</p><p class="text-xs text-slate-400">${s.points} pts</p></div>`).join('')}</div>`;const ctx=document.getElementById('seasonChart').getContext('2d');if(seasonChart)seasonChart.destroy();seasonChart=new Chart(ctx,{type:'bar',data:{labels:h.map(s=>s.season),datasets:[{label:'Rank',data:h.map(s=>s.rank),backgroundColor:h.map((_,i)=>i===h.length-1?'#963cff':'#cbd5e1'),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(15,23,42,0.9)',padding:10,cornerRadius:6,callbacks:{label:ctx=>'Rank: '+ctx.parsed.y.toLocaleString()}}},scales:{y:{reverse:true,grid:{color:'rgba(0,0,0,0.04)'},ticks:{callback:val=>val.toLocaleString()}},x:{grid:{display:false}}}}});
 }
-
-// ---- Captain Analysis (Feature 3) ----
-function renderCaptainAnalysis(d) {
-    if(!d.captainChoices||!d.captainChoices.length){ $('captainContent').innerHTML='<p class="text-sm text-slate-400">No captain data available.</p>'; return; }
-    const rows = d.captainChoices.map(c => {
-        const missed = c.missedPoints || 0;
-        const cls = missed > 0 ? 'text-red-500' : 'text-emerald-500';
-        return `<tr class="hover:bg-slate-50 text-sm"><td class="px-3 py-2 font-semibold text-slate-600">GW${c.gw}</td><td class="px-3 py-2">${c.captain?.name||'—'}</td><td class="px-3 py-2 font-semibold text-slate-700 stat-value">${c.captain?.points||0}</td><td class="px-3 py-2">${c.bestOption?.name||'—'}</td><td class="px-3 py-2 font-semibold text-slate-700 stat-value">${c.bestOption?.rawPoints||0}</td><td class="px-3 py-2 font-semibold ${cls} stat-value">${missed > 0 ? '-'+missed : missed}</td></tr>`;
-    }).join('');
-    $('captainContent').innerHTML = `<p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">${d.captainChoices.length} Gameweeks</p><div class="responsive-table rounded-lg border border-slate-100"><table class="min-w-full divide-y divide-slate-100"><thead><tr class="bg-slate-50 text-[10px] font-semibold text-slate-500 uppercase tracking-wider"><th class="px-3 py-2 text-left">GW</th><th class="px-3 py-2 text-left">Captain</th><th class="px-3 py-2 text-left">Cap Pts</th><th class="px-3 py-2 text-left">Best Option</th><th class="px-3 py-2 text-left">Best Raw</th><th class="px-3 py-2 text-left">Missed</th></tr></thead><tbody class="divide-y divide-slate-100">${rows}</tbody></table></div>`;
-}
-
-// ---- Chip Impact (Feature 8) ----
-function renderChipImpact(d) {
-    if(!d.chipImpact||!d.chipImpact.length){ $('chipContent').innerHTML='<p class="text-sm text-slate-400">No chips used this season.</p>'; return; }
-    const cards = d.chipImpact.map(c => {
-        const diff = c.diff || 0;
-        const cls = diff >= 0 ? 'text-emerald-600 bg-emerald-50' : 'text-red-600 bg-red-50';
-        const icon = diff >= 0 ? 'fa-arrow-up' : 'fa-arrow-down';
-        return `<div class="bg-white rounded-xl border border-slate-100 p-4"><p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">GW${c.gw}</p><p class="text-lg font-extrabold text-slate-800 mt-1">${chipLabel(c.chip)}</p><div class="flex items-center gap-3 mt-2"><div class="mini-stat"><span class="value">${c.points}</span><span class="label">Scored</span></div><div class="mini-stat"><span class="value">${c.avgPoints}</span><span class="label">Avg GW</span></div></div><span class="inline-flex items-center gap-1 mt-2 text-sm font-bold ${cls} px-2.5 py-1 rounded-full"><i class="fa-solid ${icon}"></i> ${diff >= 0 ? '+' : ''}${diff} pts vs avg</span></div>`;
-    }).join('');
-    $('chipContent').innerHTML = `<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">${cards}</div>`;
-}
-
-// ---- Defensive Record (Feature 9) ----
-function renderDefense(d) {
-    if(!d.managerInfo){ $('defenseContent').innerHTML='<p class="text-sm text-slate-400">No data.</p>'; return; }
-    const m = d.managerInfo;
-    const defs = d.playerStats.filter(p => p.position === 'DEF');
-    const gks = d.playerStats.filter(p => p.position === 'GKP');
-    const totalCS = defs.reduce((s,p) => s + (p.cleanSheets||0), 0) + gks.reduce((s,p) => s + (p.cleanSheets||0), 0);
-    const totalGC = defs.reduce((s,p) => s + (p.goalsConceded||0), 0);
-    const totalSaves = gks.reduce((s,p) => s + (p.saves||0), 0);
-    const totalBonus = d.playerStats.reduce((s,p) => s + (p.bonus||0), 0);
-    $('defenseContent').innerHTML = `<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">${[
-        {icon:'fa-shield',label:'Clean Sheets',val:totalCS,color:'emerald'},
-        {icon:'fa-futbol',label:'Goals Conceded',val:totalGC,color:'red'},
-        {icon:'fa-hand',label:'Saves',val:totalSaves,color:'blue'},
-        {icon:'fa-star',label:'Bonus Points',val:totalBonus,color:'yellow'}
-    ].map(s => `<div class="flex items-center gap-3 p-4 rounded-xl bg-slate-50 border border-slate-100"><div class="w-10 h-10 rounded-lg bg-${s.color}-100 text-${s.color}-600 flex items-center justify-center"><i class="fa-solid ${s.icon}"></i></div><div><p class="text-2xl font-extrabold text-slate-800 stat-value">${s.val}</p><p class="text-xs text-slate-500">${s.label}</p></div></div>`).join('')}</div>`;
-}
-
-// ---- Season History (Feature 11) ----
-function renderSeasonHistory(d) {
-    if(!d.seasonHistory||!d.seasonHistory.length){ $('seasonContent').innerHTML='<p class="text-sm text-slate-400">No season history available.</p>'; return; }
-    const h = d.seasonHistory;
-    $('seasonContent').innerHTML = `<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">${h.map(s => `<div class="text-center p-3 rounded-xl bg-slate-50 border border-slate-100"><p class="text-xs font-semibold text-slate-500">${s.season}</p><p class="text-lg font-extrabold text-slate-800 stat-value">${s.rank?.toLocaleString()||'—'}</p><p class="text-xs text-slate-400">Rank &middot; ${s.points} pts</p></div>`).join('')}</div>`;
-    const ctx = document.getElementById('seasonChart').getContext('2d');
-    if(seasonChart) seasonChart.destroy();
-    seasonChart = new Chart(ctx, { type:'bar', data: { labels: h.map(s=>s.season), datasets: [{ label: 'Rank', data: h.map(s=>s.rank), backgroundColor: h.map((_,i)=>i===h.length-1?'#963cff':'#cbd5e1'), borderRadius: 4 }] }, options: { responsive:true, maintainAspectRatio:false, plugins: { legend:{display:false}, tooltip:{backgroundColor:'rgba(15,23,42,0.9)',padding:10,cornerRadius:6,callbacks:{label:ctx=>'Rank: '+ctx.parsed.y.toLocaleString()}} }, scales: { y: { reverse:true, grid:{color:'rgba(0,0,0,0.04)'}, ticks:{callback:val=>val.toLocaleString()} }, x: { grid:{display:false} } } } });
-}
-
-// ---- Compare Managers (Feature 1) ----
-async function compareManagers() {
-    const id1 = $('compareId1').value.trim(), id2 = $('compareId2').value.trim();
-    if(!id1||!id2){ $('compareResults').innerHTML='<p class="text-sm text-amber-600 mt-3">Enter both manager IDs.</p>'; return; }
-    $('compareResults').innerHTML = '<div class="flex justify-center py-8"><div class="animate-spin h-8 w-8 border-2 border-[#963cff] border-t-transparent rounded-full"></div></div>';
-    try {
-        const r = await fetch(`/api/compare-managers/${id1}/${id2}`);
-        if(!r.ok) throw new Error('Compare failed');
-        const d = await r.json();
-        const renderOne = (m, label) => {
-            const mi = m.managerInfo;
-            return `<div class="card rounded-xl p-4"><p class="text-sm font-bold text-slate-800 mb-3">${label}: ${mi.name} (${mi.teamName})</p><div class="space-y-2 text-sm">${[
-                ['Total Points',mi.managerPoints+' pts'],['Rank',mi.overallRanking],['Avg/GW',(mi.managerPoints/mi.currentGameweek).toFixed(1)+' pts'],
-                ['Captain Pts',mi.totalCaptaincyPoints+' pts'],['Bench Lost',mi.totalPointsLostOnBench+' pts'],['Best GW',mi.highestPoints+' (GW'+mi.highestPointsGW+')'],
-                ['Avg Rank',mi.averageRank],['Trend',mi.rankTrendLabel]
-            ].map(([l,v]) => `<div class="flex justify-between"><span class="text-slate-500">${l}</span><span class="font-semibold text-slate-800">${v}</span></div>`).join('')}</div></div>`;
-        };
-        $('compareResults').innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">${renderOne(d.manager1,'Manager 1')}${renderOne(d.manager2,'Manager 2')}</div>`;
-    } catch(e) { $('compareResults').innerHTML = `<p class="text-sm text-red-500 mt-3">${e.message}</p>`; }
-}
-
-// ---- Price Changes (Feature 7) ----
-async function loadPriceChanges() {
-    $('priceContent').innerHTML = '<div class="flex justify-center py-6"><div class="animate-spin h-6 w-6 border-2 border-[#963cff] border-t-transparent rounded-full"></div></div>';
-    try {
-        const r = await fetch('/api/price-changes');
-        if(!r.ok) throw new Error('Failed');
-        const d = await r.json();
-        const card = (p, isRiser) => `<div class="flex items-center gap-3 bg-white rounded-xl border border-slate-100 p-3 hover:shadow-sm transition-shadow">${img(p.photoId,p.name)}<div class="min-w-0 flex-1"><p class="text-sm font-semibold text-slate-800 truncate">${p.name}</p><p class="text-xs text-slate-400">${p.team||''} &middot; ${costStr(p.newCost)}</p></div><div class="text-right flex-shrink-0"><p class="text-sm font-bold ${isRiser?'text-emerald-600':'text-red-600'}">${isRiser?'+':''}${p.change}</p><p class="text-xs text-slate-400">${p.selectedBy}% owned</p></div></div>`;
-        $('priceContent').innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-3"><i class="fa-solid fa-arrow-up mr-1"></i> Risers (${d.risers.length})</p><div class="space-y-2">${d.risers.map(p=>card(p,true)).join('')||'<p class="text-sm text-slate-400">None</p>'}</div></div><div><p class="text-xs font-semibold text-red-600 uppercase tracking-wider mb-3"><i class="fa-solid fa-arrow-down mr-1"></i> Fallers (${d.fallers.length})</p><div class="space-y-2">${d.fallers.map(p=>card(p,false)).join('')||'<p class="text-sm text-slate-400">None</p>'}</div></div></div>`;
-    } catch(e) { $('priceContent').innerHTML = `<p class="text-sm text-red-500">${e.message}</p>`; }
-}
-
-// Legacy compat
-function populateSuspensionData(d) { $('suspensionRisk').innerHTML = renderSuspension(d); }
-function populateTransferData(d) { $('transferTrends').innerHTML = renderTransfers(d); }
-function populateFixtures(d) { renderFixtures(d); }
 </script>
 </body>
 </html>
