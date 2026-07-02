@@ -124,3 +124,31 @@ body {
 
 /* Table row hover */
 table tbody tr { transition: background 0.15s ease; }
+
+/* Collapsible sections */
+.collapsible-content { overflow: hidden; transition: max-height 0.35s ease, opacity 0.25s ease; max-height: 0; opacity: 0; }
+.collapsible-content.open { max-height: 2000px; opacity: 1; }
+.collapse-toggle { cursor: pointer; transition: transform 0.25s ease; user-select: none; }
+.collapse-toggle:hover { opacity: 0.8; }
+.collapse-toggle .arrow { display: inline-block; transition: transform 0.25s ease; }
+.collapse-toggle.open .arrow { transform: rotate(180deg); }
+
+/* Section nav */
+.section-nav { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+.section-nav-btn { font-size: 0.65rem; padding: 4px 10px; border-radius: 6px; font-weight: 600; background: #f1f5f9; color: #475569; cursor: pointer; transition: all 0.2s ease; border: 1px solid transparent; }
+.section-nav-btn:hover { background: #e2e8f0; color: #1e293b; }
+.section-nav-btn.active { background: linear-gradient(135deg, #37003c, #963cff); color: #fff; border-color: transparent; }
+
+/* Compare managers */
+.compare-card { border: 1px solid #e2e8f0; border-radius: 0.75rem; padding: 1rem; background: #f8fafc; }
+.compare-card.winner { background: #f0fdf4; border-color: #86efac; }
+.compare-stat { text-align: center; padding: 0.5rem; }
+.compare-stat .value { font-size: 1.25rem; font-weight: 800; }
+.compare-stat .label { font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #94a3b8; }
+
+/* Player table */
+.player-row { cursor: pointer; transition: background 0.15s ease; }
+.player-row:hover { background: #f1f5f9 !important; }
+@media (max-width: 640px) {
+  .hide-mobile-table { display: none; }
+}
