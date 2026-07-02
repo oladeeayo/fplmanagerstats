@@ -15,26 +15,28 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, '../public')));
 app.use(express.json());
 
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'healthy' });
-});
-
-app.get('/api/bootstrap-static', async (req, res) => {
-  try {
-    const response = await axios.get('https://fantasy.premierleague.com/api/bootstrap-static/');
-    res.json(response.data);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch bootstrap static data' });
-  }
-});
-
 const POSITION_MAP = ["GKP", "DEF", "MID", "FWD"];
 
+const apiGet = url => axios.get(url, { timeout: 15000 });
+
+app.get('/api/health', (req, res) => res.json({ status: 'healthy' }));
+
+app.get('/api/bootstrap-static', async (req, res) => {
+  try { res.json((await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data); }
+  catch (e) { res.status(500).json({ error: 'Failed to fetch bootstrap static data' }); }
+});
+
+app.get('/api/fixtures', async (req, res) => {
+  try { res.json((await apiGet('https://fantasy.premierleague.com/api/fixtures/')).data); }
+  catch (e) { res.status(500).json({ error: 'Failed to fetch fixtures' }); }
+});
+
+// ---- Core analysis ----
 async function analyzeManager(managerId, playerData, leagueId = 314) {
   const [managerEntryResponse, historyResponse, leagueResponse] = await Promise.all([
-    axios.get(`https://fantasy.premierleague.com/api/entry/${managerId}/`),
-    axios.get(`https://fantasy.premierleague.com/api/entry/${managerId}/history/`),
-    axios.get(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/`)
+    apiGet(`https://fantasy.premierleague.com/api/entry/${managerId}/`),
+    apiGet(`https://fantasy.premierleague.com/api/entry/${managerId}/history/`),
+    apiGet(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/`)
   ]);
 
   const managerEntryData = managerEntryResponse.data;
@@ -43,77 +45,62 @@ async function analyzeManager(managerId, playerData, leagueId = 314) {
   const currentGameweek = playerData.events.find(event => event.is_current).id;
   const topManagerPoints = leagueData.standings.results[0].total;
 
-  let totalCaptaincyPoints = 0;
-  let totalPointsActive = 0;
-  let totalPointsLostOnBench = 0;
-  let totalCaptaincyAttempts = 0;
-  const playerStats = {};
-  const positionPoints = { GKP: {}, DEF: {}, MID: {}, FWD: {} };
+  let totalCaptaincyPoints = 0, totalPointsActive = 0, totalPointsLostOnBench = 0, totalCaptaincyAttempts = 0;
+  const playerStats = {}, positionPoints = { GKP: {}, DEF: {}, MID: {}, FWD: {} };
   const weeklyPoints = new Array(currentGameweek).fill(0);
   const weeklyRanks = new Array(currentGameweek).fill(0);
   const weeklyPointsLostBench = new Array(currentGameweek).fill(0);
-  const captainChoices = [];
-  const chipImpact = [];
+  const captainChoices = [], chipImpact = [];
 
-  let highestPoints = 0, highestPointsGW = 0;
-  let lowestPoints = Infinity, lowestPointsGW = 0;
-  let highestRank = Infinity, highestRankGW = 0;
-  let lowestRank = 0, lowestRankGW = 0;
+  let highestPoints = 0, highestPointsGW = 0, lowestPoints = Infinity, lowestPointsGW = 0;
+  let highestRank = Infinity, highestRankGW = 0, lowestRank = 0, lowestRankGW = 0;
 
   const currentTeam = [];
-  const currentPicksResponse = await axios.get(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${currentGameweek}/picks/`);
+  const currentPicksResponse = await apiGet(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${currentGameweek}/picks/`);
   const currentPicks = currentPicksResponse.data.picks;
+
+  const playerHistoryCache = {};
+  const getPlayerHistory = async pid => {
+    if (!playerHistoryCache[pid]) playerHistoryCache[pid] = (await apiGet(`https://fantasy.premierleague.com/api/element-summary/${pid}/`)).data;
+    return playerHistoryCache[pid];
+  };
 
   for (const pick of currentPicks) {
     const player = playerData.elements.find(p => p.id === pick.element);
     if (!player) continue;
-    const fixturesResponse = await axios.get(`https://fantasy.premierleague.com/api/element-summary/${player.id}/`);
-    const nextFixtures = fixturesResponse.data.fixtures.slice(0, 5).map(f => {
+    const ph = await getPlayerHistory(player.id);
+    const nextFixtures = (ph.fixtures || []).slice(0, 5).map(f => {
       const isHome = f.is_home;
       const opp = playerData.teams.find(t => t.id === (isHome ? f.team_a : f.team_h));
       return { opponent: opp ? opp.short_name : '?', isHome, difficulty: f.difficulty };
     });
-    const last3 = fixturesResponse.data.history.slice(-3).reduce((s, g) => s + g.total_points, 0);
+    const last3 = (ph.history || []).slice(-3).reduce((s, g) => s + g.total_points, 0);
+    const teamObj = playerData.teams[player.team - 1];
     currentTeam.push({
       name: player.web_name, nextFixtures, last3GWPoints: last3,
-      photoId: player.code, team: playerData.teams[player.team - 1].name,
+      photoId: player.code, team: teamObj.name, teamShort: teamObj.short_name,
       position: POSITION_MAP[player.element_type - 1],
-      nowCost: player.now_cost, form: player.form,
+      nowCost: player.now_cost, form: player.form, elementId: player.id,
       selectedBy: player.selected_by_percent, totalPoints: player.total_points,
-      elementId: player.id
+      pointsPerGame: player.points_per_game, goalsScored: player.goals_scored,
+      assists: player.assists, cleanSheets: player.clean_sheets,
+      bonus: player.bonus, minutes: player.minutes,
+      ictIndex: player.ict_index, expectedGoals: player.expected_goal_involvements
     });
   }
 
-  // Cache per-player history to avoid duplicate API calls
-  const playerHistoryCache = {};
-
-  async function getPlayerHistory(playerId) {
-    if (!playerHistoryCache[playerId]) {
-      const r = await axios.get(`https://fantasy.premierleague.com/api/element-summary/${playerId}/`);
-      playerHistoryCache[playerId] = r.data;
-    }
-    return playerHistoryCache[playerId];
-  }
-
   for (let gw = 1; gw <= currentGameweek; gw++) {
-    const picksResponse = await axios.get(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${gw}/picks/`);
-    const picksData = picksResponse.data;
-    const picks = picksData.picks;
-
-    const isBenchBoost = picksData.active_chip === "bboost";
-    const isTripleCaptain = picksData.active_chip === "3xc";
-
-    let gwPoints = 0, gwBenchPoints = 0;
-    let captainPick = null, bestPick = null;
+    const pr = await apiGet(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${gw}/picks/`);
+    const picksData = pr.data, picks = picksData.picks;
+    const isBenchBoost = picksData.active_chip === "bboost", isTripleCaptain = picksData.active_chip === "3xc";
+    let gwPoints = 0, gwBenchPoints = 0, captainPick = null, bestPick = null;
 
     for (const pick of picks) {
-      const playerId = pick.element;
-      const player = playerData.elements.find(p => p.id == playerId);
+      const playerId = pick.element, player = playerData.elements.find(p => p.id == playerId);
       if (!player) continue;
-
-      const playerDataFull = await getPlayerHistory(playerId);
-      const gwHistory = playerDataFull.history.find(h => h.round === gw);
-      const pointsThisWeek = gwHistory ? gwHistory.total_points : 0;
+      const ph = await getPlayerHistory(playerId);
+      const gwHistory = (ph.history || []).find(h => h.round === gw);
+      const pts = gwHistory ? gwHistory.total_points : 0;
 
       if (!playerStats[playerId]) {
         const t = playerData.teams[player.team - 1];
@@ -124,70 +111,58 @@ async function analyzeManager(managerId, playerData, leagueId = 314) {
           playerPoints: 0, photoId: player.code,
           nowCost: player.now_cost, selectedBy: player.selected_by_percent,
           form: player.form, pointsPerGame: player.points_per_game,
-          totalPoints: player.total_points, goalsScored: player.goals_scored,
-          assists: player.assists, cleanSheets: player.clean_sheets,
-          goalsConceded: player.goals_conceded, bonus: player.bonus,
-          bps: player.bps, influence: player.influence, creativity: player.creativity,
-          threat: player.threat, ictIndex: player.ict_index, minutes: player.minutes,
-          yellowCards: player.yellow_cards, redCards: player.red_cards,
-          saves: player.saves, penaltiesSaved: player.penalties_saved,
-          penaltiesMissed: player.penalties_missed,
+          totalPoints: player.total_points,
+          goalsScored: player.goals_scored, assists: player.assists,
+          cleanSheets: player.clean_sheets, goalsConceded: player.goals_conceded,
+          bonus: player.bonus, bps: player.bps,
+          influence: player.influence, creativity: player.creativity,
+          threat: player.threat, ictIndex: player.ict_index,
+          minutes: player.minutes, yellowCards: player.yellow_cards,
+          redCards: player.red_cards, saves: player.saves,
+          penaltiesSaved: player.penalties_saved, penaltiesMissed: player.penalties_missed,
           expectedGoals: player.expected_goal_involvements,
           expectedAssists: player.expected_assists,
-          expectedGoalsTotal: player.expected_goals
+          expectedGoalsTotal: player.expected_goals,
+          elementId: player.id, code: player.code,
+          nextFixtures: (await getPlayerHistory(playerId)).fixtures?.slice(0, 5).map(f => {
+            const ih = f.is_home;
+            const op = playerData.teams.find(t => t.id === (ih ? f.team_a : f.team_h));
+            return { opponent: op ? op.short_name : '?', isHome: ih, difficulty: f.difficulty };
+          }) || []
         };
       }
 
-      const inStarting11 = pick.position <= 11;
-      const isCaptain = pick.is_captain;
-
-      playerStats[playerId].playerPoints += pointsThisWeek;
+      const inStarting11 = pick.position <= 11, isCaptain = pick.is_captain;
+      playerStats[playerId].playerPoints += pts;
 
       if (inStarting11 || isBenchBoost) {
-        let activePoints = pointsThisWeek;
+        let activePoints = pts;
         if (isCaptain) {
           activePoints *= isTripleCaptain ? 3 : 2;
           totalCaptaincyPoints += activePoints;
           totalCaptaincyAttempts++;
           playerStats[playerId].cappedPoints += activePoints;
-          captainPick = { playerId, name: player.web_name, points: activePoints, rawPoints: pointsThisWeek, multiplier: isTripleCaptain ? 3 : 2 };
+          captainPick = { playerId, name: player.web_name, points: activePoints, rawPoints: pts, multiplier: isTripleCaptain ? 3 : 2 };
         }
         playerStats[playerId].totalPointsActive += activePoints;
         totalPointsActive += activePoints;
         gwPoints += activePoints;
-
         const pos = playerStats[playerId].position;
-        if (!positionPoints[pos][playerId]) {
-          positionPoints[pos][playerId] = { name: player.web_name, points: 0, photoId: player.code };
-        }
+        if (!positionPoints[pos][playerId]) positionPoints[pos][playerId] = { name: player.web_name, points: 0, photoId: player.code };
         positionPoints[pos][playerId].points += activePoints;
         if (inStarting11) playerStats[playerId].starts += 1;
         playerStats[playerId].gwInSquad += 1;
-      } else {
-        totalPointsLostOnBench += pointsThisWeek;
-        gwBenchPoints += pointsThisWeek;
-      }
+      } else { totalPointsLostOnBench += pts; gwBenchPoints += pts; }
 
-      if (!bestPick || pointsThisWeek > bestPick.rawPoints) {
-        bestPick = { playerId, name: player.web_name, rawPoints: pointsThisWeek };
-      }
+      if (!bestPick || pts > bestPick.rawPoints) bestPick = { playerId, name: player.web_name, rawPoints: pts };
     }
 
     weeklyPoints[gw - 1] = gwPoints;
     weeklyPointsLostBench[gw - 1] = gwBenchPoints;
-    const gwRank = historyData.current.find(h => h.event === gw)?.overall_rank || 0;
+    const gwRank = (historyData.current || []).find(h => h.event === gw)?.overall_rank || 0;
     weeklyRanks[gw - 1] = gwRank;
-
-    captainChoices.push({
-      gw, captain: captainPick || { name: 'None', points: 0, rawPoints: 0, multiplier: 0 },
-      bestOption: bestPick || { name: 'None', rawPoints: 0 },
-      missedPoints: (bestPick?.rawPoints || 0) - ((captainPick?.rawPoints || 0) * (captainPick?.multiplier || 1))
-    });
-
-    if (picksData.active_chip) {
-      chipImpact.push({ chip: picksData.active_chip, gw, points: gwPoints });
-    }
-
+    captainChoices.push({ gw, captain: captainPick || { name: 'None', points: 0, rawPoints: 0, multiplier: 0 }, bestOption: bestPick || { name: 'None', rawPoints: 0 }, missedPoints: (bestPick?.rawPoints||0) - ((captainPick?.rawPoints||0)*(captainPick?.multiplier||1)) });
+    if (picksData.active_chip) chipImpact.push({ chip: picksData.active_chip, gw, points: gwPoints });
     if (gwPoints > highestPoints) { highestPoints = gwPoints; highestPointsGW = gw; }
     if (gwPoints < lowestPoints) { lowestPoints = gwPoints; lowestPointsGW = gw; }
     if (gwRank < highestRank) { highestRank = gwRank; highestRankGW = gw; }
@@ -199,38 +174,58 @@ async function analyzeManager(managerId, playerData, leagueId = 314) {
 
   const averageRank = Math.round(weeklyRanks.reduce((a, b) => a + b, 0) / weeklyRanks.length);
   const halfLen = Math.floor(weeklyRanks.length / 2);
-  const firstHalfRank = halfLen > 0 ? Math.round(weeklyRanks.slice(0, halfLen).reduce((a, b) => a + b, 0) / halfLen) : averageRank;
-  const secondHalfRank = halfLen > 0 ? Math.round(weeklyRanks.slice(halfLen).reduce((a, b) => a + b, 0) / weeklyRanks.slice(halfLen).length) : averageRank;
-  const rankTrend = firstHalfRank - secondHalfRank;
+  const fh = halfLen > 0 ? Math.round(weeklyRanks.slice(0, halfLen).reduce((a, b) => a + b, 0) / halfLen) : averageRank;
+  const sh = halfLen > 0 ? Math.round(weeklyRanks.slice(halfLen).reduce((a, b) => a + b, 0) / weeklyRanks.slice(halfLen).length) : averageRank;
+  const rankTrend = fh - sh;
 
-  // Defensive record
-  const defenders = Object.values(playerStats).filter(p => p.position === 'DEF' || p.position === 'GKP');
-  const totalCS = defenders.reduce((s, p) => s + (p.cleanSheets || 0), 0);
-  const totalGC = defenders.reduce((s, p) => s + (p.goalsConceded || 0), 0);
-  const totalSaves = Object.values(playerStats).filter(p => p.position === 'GKP').reduce((s, p) => s + (p.saves || 0), 0);
+  const players = Object.values(playerStats);
+  const defGkp = players.filter(p => p.position === 'DEF' || p.position === 'GKP');
+  const gks = players.filter(p => p.position === 'GKP');
+  const totalCS = defGkp.reduce((s, p) => s + (p.cleanSheets||0), 0);
+  const totalGC = defGkp.reduce((s, p) => s + (p.goalsConceded||0), 0);
+  const totalSaves = gks.reduce((s, p) => s + (p.saves||0), 0);
+  const templateCount = players.filter(p => parseFloat(p.selectedBy||0) >= 20).length;
 
-  // Template analysis
-  const templateThreshold = 20;
-  const playerVals = Object.values(playerStats);
-  const templateCount = playerVals.filter(p => parseFloat(p.selectedBy || 0) >= templateThreshold).length;
-  const diffCount = playerVals.filter(p => parseFloat(p.selectedBy || 0) < templateThreshold).length;
+  // Underperforming analysis
+  const underperforming = players
+    .filter(p => {
+      const avgFDR = p.nextFixtures?.length ? p.nextFixtures.reduce((s,f) => s+f.difficulty, 0) / p.nextFixtures.length : 0;
+      const formOk = parseFloat(p.form||0) >= 2.0;
+      const ppgOk = parseFloat(p.pointsPerGame||0) >= 2.0;
+      const toughFixtures = avgFDR >= 3.5;
+      const lowMins = (p.minutes||0) < 500;
+      const yellowRisk = (p.yellowCards||0) >= 4;
+      return (toughFixtures && !formOk) || (!ppgOk && lowMins) || yellowRisk;
+    })
+    .sort((a, b) => parseFloat(a.form||0) - parseFloat(b.form||0))
+    .slice(0, 5);
 
-  // Season history
+  // Find replacement suggestions from bootstrap
+  const replacements = underperforming.map(up => {
+    const pos = up.position;
+    const cost = up.nowCost || 50;
+    const candidates = playerData.elements
+      .filter(e => POSITION_MAP[e.element_type-1] === pos && Math.abs(e.now_cost - cost) <= 15 && e.id !== up.elementId && e.total_points > (up.totalPoints||0))
+      .sort((a, b) => (b.form||0) - (a.form||0))
+      .slice(0, 3)
+      .map(e => ({ name: e.web_name, team: (playerData.teams[e.team-1]||{}).name, nowCost: e.now_cost, form: e.form, totalPoints: e.total_points, pointsPerGame: e.points_per_game, photoId: e.code, selectedBy: e.selected_by_percent }));
+    return { player: up, reasons: [], replacements: candidates };
+  });
+
+  underperforming.forEach(up => {
+    const r = replacements.find(r => r.player.elementId === up.elementId);
+    const avgFDR = up.nextFixtures?.length ? up.nextFixtures.reduce((s,f) => s+f.difficulty, 0) / up.nextFixtures.length : 0;
+    if (avgFDR >= 3.5) r.reasons.push(`Tough fixtures ahead (avg FDR ${avgFDR.toFixed(1)})`);
+    if (parseFloat(up.form||0) < 2.0) r.reasons.push(`Poor form (${up.form} pts in last 5)`);
+    if ((up.minutes||0) < 500) r.reasons.push(`Limited minutes (${up.minutes} total)`);
+    if ((up.yellowCards||0) >= 4) r.reasons.push(`Yellow card risk (${up.yellowCards} cards)`);
+    if (parseFloat(up.pointsPerGame||0) < 2.0) r.reasons.push(`Low PPG (${up.pointsPerGame})`);
+    if (!r.reasons.length) r.reasons.push('Underperforming relative to cost');
+  });
+
   const seasonHistory = (historyData.past || []).map((s, i) => ({
-    season: s.season_name || `${2020 + i}/${2021 + i}`,
-    rank: s.rank, points: s.total_points, topPoints: s.top_rank_points || 0
+    season: s.season_name || `${2020+i}/${2021+i}`, rank: s.rank, points: s.total_points
   }));
-
-  // Fixture difficulty summary
-  const diffSum = currentTeam.reduce((s, p) => s + p.nextFixtures.reduce((d, f) => d + f.difficulty, 0), 0);
-  const diffCount2 = currentTeam.reduce((s, p) => s + p.nextFixtures.length, 0);
-  const avgFixtureDiff = diffCount2 > 0 ? Math.round((diffSum / diffCount2) * 10) / 10 : 0;
-
-  const highestScorers = {};
-  for (const [position, players] of Object.entries(positionPoints)) {
-    const hs = Object.values(players).reduce((max, p) => p.points > (max?.points || 0) ? p : max, null);
-    highestScorers[position] = hs;
-  }
 
   const chips = historyData.chips || [];
 
@@ -254,72 +249,106 @@ async function analyzeManager(managerId, playerData, leagueId = 314) {
       averageRank: averageRank.toLocaleString(), rankTrend,
       rankTrendLabel: rankTrend > 0 ? 'improving' : rankTrend < 0 ? 'declining' : 'stable',
       totalTransfers: managerEntryData?.transfers?.cost || 0,
-      templateScore: templateCount, differentialScore: diffCount,
-      defensiveCleanSheets: totalCS, defensiveGoalsConceded: totalGC, defensiveSaves: totalSaves,
-      avgFixtureDifficulty: avgFixtureDiff
+      templateScore: templateCount, differentialScore: players.length - templateCount,
+      defensiveCleanSheets: totalCS, defensiveGoalsConceded: totalGC, defensiveSaves: totalSaves
     },
-    playerStats: Object.values(playerStats).sort((a, b) => b.totalPointsActive - a.totalPointsActive),
-    positionSummary: Object.entries(positionPoints).map(([position, players]) => ({
-      position,
-      totalPoints: Object.values(players).reduce((s, p) => s + p.points, 0),
-      players: Object.values(players).sort((a, b) => b.points - a.points),
-      highestScorer: highestScorers[position], count: Object.keys(players).length
+    playerStats: players.sort((a, b) => b.totalPointsActive - a.totalPointsActive),
+    positionSummary: Object.entries(positionPoints).map(([position, pls]) => ({
+      position, totalPoints: Object.values(pls).reduce((s, p) => s + p.points, 0),
+      count: Object.keys(pls).length
     })),
     weeklyPoints, weeklyRanks, weeklyPointsLostBench,
-    currentTeam, captainChoices, chipImpact, seasonHistory
+    currentTeam, captainChoices, chipImpact, seasonHistory,
+    underperforming: replacements
   };
 }
 
+const managerCache = {};
+
 app.get('/api/analyze-manager/:managerId', async (req, res) => {
   try {
-    const playerDataResponse = await axios.get('https://fantasy.premierleague.com/api/bootstrap-static/');
-    const result = await analyzeManager(req.params.managerId, playerDataResponse.data, 314);
+    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
+    const result = await analyzeManager(req.params.managerId, bs, 314);
+    managerCache[req.params.managerId] = result;
     res.json(result);
-  } catch (error) {
-    console.error('Error analyzing manager:', error);
-    res.status(500).json({ error: 'Failed to analyze manager' });
-  }
+  } catch (e) { console.error('Error:', e.message); res.status(500).json({ error: 'Failed to analyze manager' }); }
 });
 
 app.get('/api/compare-managers/:id1/:id2', async (req, res) => {
   try {
-    const playerDataResponse = await axios.get('https://fantasy.premierleague.com/api/bootstrap-static/');
-    const [m1, m2] = await Promise.all([
-      analyzeManager(req.params.id1, playerDataResponse.data, 314),
-      analyzeManager(req.params.id2, playerDataResponse.data, 314)
-    ]);
+    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
+    const [m1, m2] = await Promise.all([analyzeManager(req.params.id1, bs, 314), analyzeManager(req.params.id2, bs, 314)]);
     res.json({ manager1: m1, manager2: m2 });
-  } catch (error) {
-    console.error('Error comparing managers:', error);
-    res.status(500).json({ error: 'Failed to compare managers' });
-  }
+  } catch (e) { res.status(500).json({ error: 'Failed to compare' }); }
 });
 
 app.get('/api/price-changes', async (req, res) => {
   try {
-    const r = await axios.get('https://fantasy.premierleague.com/api/bootstrap-static/');
-    const elements = r.data.elements || [];
-    const teams = r.data.teams || [];
-    const risers = elements.filter(p => (p.cost_change_event || 0) > 0)
-      .sort((a, b) => b.cost_change_event - a.cost_change_event)
-      .slice(0, 15).map(p => ({
-        name: p.web_name, team: (teams.find(t => t.id === p.team) || {}).name || '',
-        photoId: p.code, change: p.cost_change_event,
-        newCost: p.now_cost, selectedBy: p.selected_by_percent, form: p.form
-      }));
-    const fallers = elements.filter(p => (p.cost_change_event || 0) < 0)
-      .sort((a, b) => a.cost_change_event - b.cost_change_event)
-      .slice(0, 15).map(p => ({
-        name: p.web_name, team: (teams.find(t => t.id === p.team) || {}).name || '',
-        photoId: p.code, change: p.cost_change_event,
-        newCost: p.now_cost, selectedBy: p.selected_by_percent, form: p.form
-      }));
+    const r = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
+    const map = p => ({ name: p.web_name, team: (r.teams.find(t=>t.id===p.team)||{}).name, photoId: p.code, change: p.cost_change_event, newCost: p.now_cost, selectedBy: p.selected_by_percent, form: p.form, totalPoints: p.total_points });
+    const risers = r.elements.filter(p => p.cost_change_event > 0).sort((a,b) => b.cost_change_event-a.cost_change_event).slice(0,15).map(map);
+    const fallers = r.elements.filter(p => p.cost_change_event < 0).sort((a,b) => a.cost_change_event-b.cost_change_event).slice(0,15).map(map);
     res.json({ risers, fallers });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch price changes' });
+  } catch (e) { res.status(500).json({ error: 'Failed' }); }
+});
+
+app.get('/api/league-standings/:leagueId', async (req, res) => {
+  try {
+    const leagueId = req.params.leagueId || 314;
+    const [bs, lr] = await Promise.all([
+      apiGet('https://fantasy.premierleague.com/api/bootstrap-static/'),
+      apiGet(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/`)
+    ]);
+    const playerData = bs.data;
+    const standings = lr.data.standings.results || [];
+    const currentGW = playerData.events.find(e => e.is_current)?.id || 1;
+
+    // Enrich with chips, past seasons, transfers (top 20 only to limit API calls)
+    const enriched = [];
+    const entries = standings.slice(0, 30);
+
+    const batchSize = 5;
+    for (let i = 0; i < entries.length; i += batchSize) {
+      const batch = entries.slice(i, i + batchSize);
+      const results = await Promise.allSettled(batch.map(e =>
+        apiGet(`https://fantasy.premierleague.com/api/entry/${e.entry}/history/`).catch(() => null)
+      ));
+      results.forEach((res, idx) => {
+        const entry = batch[idx];
+        const data = res.value?.data;
+        const chips = (data?.chips || []).map(c => c.name);
+        const past = data?.past || [];
+        const lastSeasonRank = past.length > 0 ? past[past.length - 1].rank : null;
+        const seasonBeforeLastRank = past.length > 1 ? past[past.length - 2].rank : null;
+        const chipLabels = chips.map(c => ({ wildcard:'WC', freehit:'FH', bench_boost:'BB', '3xc':'TC', triple_captain:'TC', bboost:'BB' }[c]||c));
+
+        // Estimate GW points from total difference
+        const gwPoints = entry.total - (entry.last_rank > 0 ? entry.total - (entry.rank - entry.last_rank) * 10 : 0);
+
+        enriched.push({
+          rank: entry.rank, entry: entry.entry,
+          playerName: entry.player_name, teamName: entry.entry_name,
+          totalPoints: entry.total, overallRank: entry.overall_rank?.toLocaleString() || '—',
+          lastRank: entry.last_rank, rankChange: (entry.last_rank || entry.rank) - entry.rank,
+          gwPoints: '—',
+          lastSeasonRank: lastSeasonRank?.toLocaleString() || '—',
+          seasonBeforeLastRank: seasonBeforeLastRank?.toLocaleString() || '—',
+          chipsUsed: chipLabels.length ? chipLabels.join(', ') : 'None',
+          immediateGain: '—',
+          totalImmediateGain: '—'
+        });
+      });
+    }
+
+    res.json({
+      leagueName: lr.data.league?.name || 'Classic League',
+      currentGW,
+      standings: enriched
+    });
+  } catch (e) {
+    console.error('League error:', e.message);
+    res.status(500).json({ error: 'Failed to fetch league standings' });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
