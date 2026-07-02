@@ -1,526 +1,422 @@
-<script>
-    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
-</script>
+<script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments)};</script>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Analyze your Fantasy Premier League team with detailed stats, insights, fixtures, and performance tracking.">
-    <title>FPL Manager Stats – Analyze Your Fantasy Team</title>
-    <meta property="og:title" content="FPL Manager Stats & Insights">
-    <meta property="og:description" content="Deep FPL team analysis – points, ranks, fixtures, suspensions, transfers & more.">
-    <meta property="og:url" content="https://www.myfplstats.xyz">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-
-    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','GTM-WVJS3TZ7');</script>
-
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="football.ico">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FPL Manager Stats – Deep Fantasy Football Analytics</title>
+<meta name="description" content="Advanced FPL analytics: compare managers, track form, analyze captains, fixtures, suspensions, transfers & more.">
+<meta property="og:title" content="FPL Manager Stats">
+<meta property="og:description" content="Deep fantasy football analytics for serious FPL managers.">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-WVJS3TZ7');</script>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="football.ico">
 </head>
-<body class="bg-[#f8fafc] min-h-screen custom-scrollbar">
+<body class="bg-[#f8fafc] min-h-screen custom-scrollbar text-slate-800">
 <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WVJS3TZ7" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
-<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10" id="app">
+<div id="app" class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
 
-    <!-- Header -->
-    <header class="text-center mb-10">
-        <div class="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-gradient-to-br from-[#37003c] to-[#963cff] shadow-lg mb-4">
-            <span class="text-white text-xl font-black">FP</span>
-        </div>
-        <h1 class="gradient-text text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight leading-tight">
-            FPL Manager Stats
-        </h1>
-        <p class="text-slate-500 text-sm sm:text-base mt-2 font-medium">
-            Deep analysis for serious FPL managers
-        </p>
-    </header>
-
-    <!-- Input -->
-    <section class="max-w-md mx-auto mb-12">
-        <div class="card rounded-2xl shadow-sm p-5 sm:p-6">
-            <label for="managerId" class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                <i class="fa-solid fa-hashtag mr-1 text-[#963cff]"></i> Manager ID
-            </label>
-            <input type="number" id="managerId" placeholder="e.g. 123456"
-                   class="w-full px-4 py-3 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#963cff]/20 focus:border-[#963cff] transition-all placeholder:text-slate-400"
-                   onkeypress="if(event.key==='Enter') analyzeManager()">
-            <button onclick="analyzeManager()"
-                    class="mt-3 w-full bg-gradient-to-r from-[#37003c] to-[#963cff] hover:from-[#4a0050] hover:to-[#a74dff] text-white font-semibold py-3 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98] flex items-center justify-center gap-2 text-sm">
-                <i class="fa-solid fa-magnifying-glass"></i> Analyze Stats
-            </button>
+    <!-- ===== HERO ===== -->
+    <section class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#37003c] via-[#4a0050] to-[#6b0090] p-8 sm:p-12 md:p-16 mb-10 sm:mb-14">
+        <div class="hero-glow hero-glow-1"></div>
+        <div class="hero-glow hero-glow-2"></div>
+        <div class="relative z-10 text-center max-w-3xl mx-auto">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur border border-white/20 mb-5 shadow-lg animate-float">
+                <span class="text-white text-2xl font-black">FP</span>
+            </div>
+            <h1 class="text-white text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.1] mb-4">
+                FPL Manager<br><span class="bg-gradient-to-r from-[#c084fc] to-[#e9d5ff] bg-clip-text text-transparent">Stats & Insights</span>
+            </h1>
+            <p class="text-white/70 text-base sm:text-lg md:text-xl max-w-xl mx-auto mb-8 leading-relaxed">
+                Deep analytics for serious managers. Track performance, compare rivals, analyze every decision.
+            </p>
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto mb-8">
+                <div class="relative flex-1 w-full">
+                    <i class="fa-solid fa-hashtag absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40 text-sm"></i>
+                    <input type="number" id="heroManagerId" placeholder="Enter Manager ID"
+                           class="w-full pl-9 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder:text-white/40 text-sm focus:outline-none focus:ring-2 focus:ring-[#c084fc]/50 focus:border-[#c084fc] transition-all"
+                           onkeypress="if(event.key==='Enter'){document.getElementById('managerId').value=this.value;analyzeManager();scrollToResults();}">
+                </div>
+                <button onclick="document.getElementById('managerId').value=document.getElementById('heroManagerId').value;analyzeManager();scrollToResults();"
+                        class="w-full sm:w-auto px-6 py-3 bg-white text-[#37003c] font-bold rounded-xl hover:bg-[#e9d5ff] transition-all shadow-lg hover:shadow-xl active:scale-[0.97] text-sm whitespace-nowrap">
+                    <i class="fa-solid fa-magnifying-glass mr-2"></i>Analyze
+                </button>
+            </div>
+            <div class="flex flex-wrap items-center justify-center gap-6 sm:gap-10 text-white/60 text-xs sm:text-sm">
+                <span><i class="fa-solid fa-chart-line mr-1.5 text-[#c084fc]"></i>Points & Ranks</span>
+                <span><i class="fa-solid fa-arrows-rotate mr-1.5 text-[#c084fc]"></i>Compare Managers</span>
+                <span><i class="fa-solid fa-calendar mr-1.5 text-[#c084fc]"></i>Fixture Analysis</span>
+                <span><i class="fa-solid fa-triangle-exclamation mr-1.5 text-[#c084fc]"></i>Suspension Risk</span>
+            </div>
         </div>
     </section>
 
-    <!-- Global Stats (loaded on DOMContentLoaded) -->
-    <div id="globalStats" class="max-w-5xl mx-auto mb-12 hidden"></div>
-    <div id="globalPlayers" class="max-w-5xl mx-auto mb-12 hidden"></div>
-
-    <!-- Results -->
-    <div id="results" class="max-w-5xl mx-auto space-y-8"></div>
-
-    <!-- Position Summary -->
-    <div id="positionSummary" class="max-w-5xl mx-auto mt-8 hidden"></div>
-
-    <!-- Charts -->
-    <div id="charts" class="max-w-5xl mx-auto mt-8 space-y-8 hidden">
-        <div class="card rounded-2xl shadow-sm p-5 sm:p-6">
-            <div class="flex items-center gap-3 mb-5">
-                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-chart-line"></i></div>
-                <h2 class="text-base font-bold text-slate-800">Points Per Gameweek</h2>
-            </div>
-            <div class="relative h-[280px] sm:h-[340px]"><canvas id="pointsChart"></canvas></div>
+    <!-- Features strip -->
+    <section class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-10">
+        <div class="card rounded-xl p-4 text-center hover:shadow-md transition-shadow cursor-pointer" onclick="document.getElementById('heroManagerId').focus()">
+            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-[#37003c] to-[#963cff] flex items-center justify-center text-white text-sm mx-auto mb-2"><i class="fa-solid fa-user"></i></div>
+            <p class="text-xs font-semibold text-slate-700">Manager Analysis</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">Full stats breakdown</p>
         </div>
-        <div class="card rounded-2xl shadow-sm p-5 sm:p-6">
-            <div class="flex items-center gap-3 mb-5">
-                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-ranking-star"></i></div>
-                <h2 class="text-base font-bold text-slate-800">Rank Per Gameweek</h2>
+        <div class="card rounded-xl p-4 text-center hover:shadow-md transition-shadow cursor-pointer" onclick="showTab('compare')">
+            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-sm mx-auto mb-2"><i class="fa-solid fa-people-arrows"></i></div>
+            <p class="text-xs font-semibold text-slate-700">Compare</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">Side-by-side rivals</p>
+        </div>
+        <div class="card rounded-xl p-4 text-center hover:shadow-md transition-shadow cursor-pointer" onclick="showTab('priceChanges')">
+            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white text-sm mx-auto mb-2"><i class="fa-solid fa-coins"></i></div>
+            <p class="text-xs font-semibold text-slate-700">Price Changes</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">Risers & fallers</p>
+        </div>
+        <div class="card rounded-xl p-4 text-center hover:shadow-md transition-shadow cursor-pointer" onclick="showTab('seasonHistory')">
+            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center text-white text-sm mx-auto mb-2"><i class="fa-solid fa-clock-rotate-left"></i></div>
+            <p class="text-xs font-semibold text-slate-700">History</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">Season-by-season</p>
+        </div>
+    </section>
+
+    <!-- Tab Navigation -->
+    <div id="tabBar" class="flex flex-wrap items-center gap-1.5 mb-6 bg-white rounded-xl p-1.5 border border-slate-100 shadow-sm">
+        <button class="tab-btn active" onclick="showTab('dashboard')"><i class="fa-solid fa-gauge-high mr-1.5"></i>Dashboard</button>
+        <button class="tab-btn" onclick="showTab('compare')"><i class="fa-solid fa-people-arrows mr-1.5"></i>Compare</button>
+        <button class="tab-btn" onclick="showTab('captain')"><i class="fa-solid fa-crown mr-1.5"></i>Captain</button>
+        <button class="tab-btn" onclick="showTab('chips')"><i class="fa-solid fa-microchip mr-1.5"></i>Chips</button>
+        <button class="tab-btn" onclick="showTab('defense')"><i class="fa-solid fa-shield mr-1.5"></i>Defense</button>
+        <button class="tab-btn" onclick="showTab('priceChanges')"><i class="fa-solid fa-coins mr-1.5"></i>Prices</button>
+        <button class="tab-btn" onclick="showTab('seasonHistory')"><i class="fa-solid fa-clock-rotate-left mr-1.5"></i>History</button>
+    </div>
+
+    <!-- Input (hidden) -->
+    <input type="number" id="managerId" class="hidden">
+
+    <!-- ===== DASHBOARD TAB ===== -->
+    <div id="tab-dashboard" class="tab-content">
+        <div id="globalStats" class="mb-8 hidden"></div>
+        <div id="globalPlayers" class="mb-8 hidden"></div>
+        <div id="results" class="space-y-8"></div>
+        <div id="positionSummary" class="mt-8 hidden"></div>
+        <div id="charts" class="mt-8 space-y-8 hidden">
+            <div class="card rounded-2xl p-5 sm:p-6">
+                <div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-chart-line"></i></div><h2 class="text-base font-bold">Points Per Gameweek</h2></div>
+                <div class="relative h-[280px] sm:h-[340px]"><canvas id="pointsChart"></canvas></div>
             </div>
-            <div class="relative h-[280px] sm:h-[340px]"><canvas id="rankChart"></canvas></div>
+            <div class="card rounded-2xl p-5 sm:p-6">
+                <div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-ranking-star"></i></div><h2 class="text-base font-bold">Rank Per Gameweek</h2></div>
+                <div class="relative h-[280px] sm:h-[340px]"><canvas id="rankChart"></canvas></div>
+            </div>
+        </div>
+        <div id="currentTeamFixtures" class="mt-8 hidden"></div>
+        <div id="last3GWs" class="mt-8 hidden">
+            <div class="card rounded-2xl p-5 sm:p-6">
+                <div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-chart-bar"></i></div><h2 class="text-base font-bold">Last 3 GWs</h2></div>
+                <div class="relative h-[320px] sm:h-[400px]"><canvas id="last3GWsChart"></canvas></div>
+            </div>
+        </div>
+        <div id="suspensionRisk" class="mt-8 hidden"></div>
+        <div id="transferTrends" class="mt-8 hidden"></div>
+    </div>
+
+    <!-- ===== COMPARE TAB ===== -->
+    <div id="tab-compare" class="tab-content hidden">
+        <div class="card rounded-2xl p-5 sm:p-6 mb-6">
+            <div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-people-arrows"></i></div><h2 class="text-base font-bold">Compare Managers</h2></div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div><label class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Manager 1 ID</label>
+                    <input type="number" id="compareId1" placeholder="e.g. 123456" class="w-full mt-1 px-4 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#963cff]/20"></div>
+                <div><label class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Manager 2 ID</label>
+                    <input type="number" id="compareId2" placeholder="e.g. 654321" class="w-full mt-1 px-4 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#963cff]/20"></div>
+            </div>
+            <button onclick="compareManagers()" class="w-full sm:w-auto px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold rounded-lg transition-all text-sm"><i class="fa-solid fa-arrows-rotate mr-2"></i>Compare</button>
+            <div id="compareResults" class="mt-6"></div>
         </div>
     </div>
 
-    <!-- Fixtures -->
-    <div id="currentTeamFixtures" class="max-w-5xl mx-auto mt-8 hidden"></div>
+    <!-- ===== CAPTAIN TAB ===== -->
+    <div id="tab-captain" class="tab-content hidden">
+        <div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500 to-amber-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-crown"></i></div><h2 class="text-base font-bold">Captain Analysis</h2></div><div id="captainContent"><p class="text-sm text-slate-400">Run a manager analysis to see captain choices per GW.</p></div></div>
+    </div>
 
-    <!-- Last 3 GWs -->
-    <div id="last3GWs" class="max-w-5xl mx-auto mt-8 hidden">
-        <div class="card rounded-2xl shadow-sm p-5 sm:p-6">
-            <div class="flex items-center gap-3 mb-5">
-                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-chart-bar"></i></div>
-                <h2 class="text-base font-bold text-slate-800">Last 3 GWs Performance</h2>
+    <!-- ===== CHIPS TAB ===== -->
+    <div id="tab-chips" class="tab-content hidden">
+        <div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-microchip"></i></div><h2 class="text-base font-bold">Chip Impact</h2></div><div id="chipContent"><p class="text-sm text-slate-400">Run a manager analysis to see chip performance.</p></div></div>
+    </div>
+
+    <!-- ===== DEFENSE TAB ===== -->
+    <div id="tab-defense" class="tab-content hidden">
+        <div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-shield"></i></div><h2 class="text-base font-bold">Defensive Record</h2></div><div id="defenseContent"><p class="text-sm text-slate-400">Run a manager analysis to see defensive stats.</p></div></div>
+    </div>
+
+    <!-- ===== PRICE CHANGES TAB ===== -->
+    <div id="tab-priceChanges" class="tab-content hidden">
+        <div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-coins"></i></div><h2 class="text-base font-bold">Price Changes</h2></div>
+            <div class="flex gap-2 mb-5">
+                <button onclick="loadPriceChanges()" class="px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-lg text-sm hover:shadow-md transition-all"><i class="fa-solid fa-rotate mr-2"></i>Load Price Changes</button>
             </div>
-            <div class="relative h-[320px] sm:h-[400px]"><canvas id="last3GWsChart"></canvas></div>
+            <div id="priceContent"><p class="text-sm text-slate-400">Click to load the latest risers and fallers.</p></div>
         </div>
     </div>
 
-    <!-- Suspension & Transfer Trends -->
-    <div id="suspensionRisk" class="max-w-5xl mx-auto mt-8 hidden"></div>
-    <div id="transferTrends" class="max-w-5xl mx-auto mt-8 hidden"></div>
-
-    <!-- Buy Coffee -->
-    <div class="flex justify-center mt-14">
-        <a href="https://www.buymeacoffee.com/oladeeayo" target="_blank"
-           class="inline-flex items-center gap-2.5 px-6 py-3 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 font-semibold rounded-xl transition-all text-sm shadow-sm hover:shadow-md">
-            <i class="fa-solid fa-mug-hot"></i> Buy me a coffee
-        </a>
+    <!-- ===== SEASON HISTORY TAB ===== -->
+    <div id="tab-seasonHistory" class="tab-content hidden">
+        <div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-clock-rotate-left"></i></div><h2 class="text-base font-bold">Season History</h2></div>
+            <div id="seasonContent"><p class="text-sm text-slate-400">Run a manager analysis to see season history.</p></div>
+            <div class="relative h-[300px] mt-4"><canvas id="seasonChart"></canvas></div>
+        </div>
     </div>
 
     <!-- Footer -->
-    <footer class="text-center mt-10 mb-4 text-xs text-slate-400">
-        Made with <span class="text-red-400">&hearts;</span> by
-        <a href="https://twitter.com/Oladeeayo" target="_blank" class="text-[#963cff] font-medium hover:underline">Oladeeayo</a>
-    </footer>
+    <div class="flex justify-center mt-14">
+        <a href="https://www.buymeacoffee.com/oladeeayo" target="_blank" class="inline-flex items-center gap-2.5 px-6 py-3 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 font-semibold rounded-xl transition-all text-sm shadow-sm"><i class="fa-solid fa-mug-hot"></i> Buy me a coffee</a>
+    </div>
+    <footer class="text-center mt-8 mb-4 text-xs text-slate-400">Made with <span class="text-red-400">&hearts;</span> by <a href="https://twitter.com/Oladeeayo" target="_blank" class="text-[#963cff] font-medium hover:underline">Oladeeayo</a></footer>
 </div>
 
 <script>
-let pointsChart, rankChart, last3GWsChart;
+let pointsChart, rankChart, last3GWsChart, seasonChart;
+let cachedAnalysis = null;
 
 // ---- Utilities ----
-const posClass = p => ({ GKP:'badge-gkp', DEF:'badge-def', MID:'badge-mid', FWD:'badge-fwd' }[p]||'');
-const posName = p => ({ GKP:'Goalkeeper', DEF:'Defender', MID:'Midfielder', FWD:'Forward' }[p]||p);
+const $ = id => document.getElementById(id);
+const posClass = p => ({GKP:'badge-gkp',DEF:'badge-def',MID:'badge-mid',FWD:'badge-fwd'}[p]||'');
+const posName = p => ({GKP:'Goalkeeper',DEF:'Defender',MID:'Midfielder',FWD:'Forward'}[p]||p);
 const fdrBg = d => ({1:'#22c55e',2:'#86efac',3:'#f1f5f9',4:'#fb923c',5:'#ef4444'}[d]||'#f1f5f9');
 const fdrColor = d => ({1:'#fff',2:'#166534',3:'#475569',4:'#fff',5:'#fff'}[d]||'#475569');
 const costStr = c => c ? '£'+(c/10).toFixed(1)+'m' : '';
-const percentBar = p => `<div class="bar-bg"><div class="bar-fill bg-[#963cff]" style="width:${Math.min(p,100)}%"></div></div>`;
-const playerImg = (code, name) => `<img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${code}.png" alt="${name}" class="w-9 h-11 object-cover rounded bg-slate-100" onerror="this.src='https://resources.premierleague.com/premierleague/photos/players/110x140/Photo-Missing.png'">`;
+const bar = p => `<div class="bar-bg"><div class="bar-fill bg-[#963cff]" style="width:${Math.min(p,100)}%"></div></div>`;
+const img = (c,n) => `<img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${c}.png" alt="${n||''}" class="w-9 h-11 object-cover rounded bg-slate-100 flex-shrink-0" onerror="this.src='https://resources.premierleague.com/premierleague/photos/players/110x140/Photo-Missing.png'">`;
+const chipLabel = c => ({wildcard:'WC',freehit:'FH',bench_boost:'BB','3xc':'TC',triple_captain:'TC',bboost:'BB'}[c]||c);
+const skeleton = () => `<div class="space-y-5 animate-fade-in">${Array(2).fill(`<div class="card rounded-2xl p-6"><div class="shimmer h-6 w-44 rounded-lg mb-6"></div><div class="grid grid-cols-2 sm:grid-cols-4 gap-4">${Array(8).fill('<div class="shimmer h-16 rounded-xl"></div>').join('')}</div></div>`).join('')}</div>`;
+const scrollToResults = () => { const e=$('results'); if(e) setTimeout(()=>e.scrollIntoView({behavior:'smooth',block:'start'}),300); };
 
-// ---- Skeleton ----
-function skeleton() { return `
-<div class="space-y-5 animate-fade-in">
-  ${Array(2).fill(`
-  <div class="card rounded-2xl p-6">
-    <div class="shimmer h-6 w-44 rounded-lg mb-6"></div>
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">${Array(8).fill('<div class="shimmer h-16 rounded-xl"></div>').join('')}</div>
-  </div>`).join('')}
-</div>`; }
+// ---- Tabs ----
+function showTab(name) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    const tab = $('tab-'+name); if(tab) tab.classList.remove('hidden');
+    const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.textContent.includes({compare:'Compare',captain:'Captain',chips:'Chips',defense:'Defense',priceChanges:'Prices',seasonHistory:'History',dashboard:'Dashboard'}[name]));
+    if(btn) btn.classList.add('active');
+    if(name==='priceChanges' && !$('#priceContent').innerHTML.includes('Risers')) loadPriceChanges();
+    if(name==='seasonHistory' && cachedAnalysis) renderSeasonHistory(cachedAnalysis);
+    if(name==='captain' && cachedAnalysis) renderCaptainAnalysis(cachedAnalysis);
+    if(name==='chips' && cachedAnalysis) renderChipImpact(cachedAnalysis);
+    if(name==='defense' && cachedAnalysis) renderDefense(cachedAnalysis);
+}
 
-// ---- Global stats on load ----
+// ---- Global stats / DOMContentLoaded ----
 window.addEventListener('DOMContentLoaded', async () => {
     try {
         const r = await fetch('/api/bootstrap-static');
         if (!r.ok) return;
         const d = await r.json();
-
-        // Most captained/vice-captained
-        const sorted = [...d.elements].sort((a,b) => (b.selected_by_percent||0) - (a.selected_by_percent||0));
-        const top10 = sorted.slice(0, 10);
-        const gw = d.events.find(e => e.is_current) || d.events[d.events.length-1];
-
-        // GW deadline info
-        const chips = d.chips_used || [];
-        document.getElementById('globalStats').innerHTML = `
-        <div class="card rounded-2xl shadow-sm p-5 sm:p-6">
-            <div class="flex flex-wrap items-center justify-between gap-4 mb-5">
-                <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-[#37003c] to-[#963cff] flex items-center justify-center text-white text-xs"><i class="fa-solid fa-globe"></i></div>
-                    <h2 class="text-base font-bold text-slate-800">FPL Overview</h2>
-                </div>
-                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">
-                    <i class="fa-regular fa-clock"></i> GW ${gw?.id || '?'} ${gw?.is_current ? '• Current' : ''}
-                </span>
-            </div>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-                <div class="mini-stat"><span class="value">${d.total_players?.toLocaleString()||'—'}</span><span class="label">Total Players</span></div>
-                <div class="mini-stat"><span class="value">${(d.average_entry_score || 0).toLocaleString()}</span><span class="label">Avg Score</span></div>
-                <div class="mini-stat"><span class="value">${(gw?.highest_score || 0).toLocaleString()}</span><span class="label">GW High Score</span></div>
-                <div class="mini-stat"><span class="value">${(gw?.average_entry_score || 0).toLocaleString()}</span><span class="label">GW Avg</span></div>
-            </div>
+        const sorted = [...d.elements].sort((a,b)=>b.selected_by_percent-a.selected_by_percent);
+        const top10 = sorted.slice(0,10);
+        const gw = d.events.find(e=>e.is_current) || d.events[d.events.length-1];
+        $('globalStats').innerHTML = `
+        <div class="card rounded-2xl p-5 sm:p-6 animate-fade-in-up">
+            <div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-[#37003c] to-[#963cff] flex items-center justify-center text-white text-xs"><i class="fa-solid fa-globe"></i></div><h2 class="text-base font-bold">FPL Overview</h2></div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3"><div class="mini-stat"><span class="value">${(d.total_players||0).toLocaleString()}</span><span class="label">Players</span></div><div class="mini-stat"><span class="value">${(d.average_entry_score||0).toLocaleString()}</span><span class="label">Avg Score</span></div><div class="mini-stat"><span class="value">${(gw?.highest_score||0).toLocaleString()}</span><span class="label">GW High</span></div><div class="mini-stat"><span class="value">${(gw?.average_entry_score||0).toLocaleString()}</span><span class="label">GW Avg</span></div></div>
         </div>`;
-        document.getElementById('globalStats').classList.remove('hidden');
-        document.getElementById('globalStats').style.animation = 'fadeInUp 0.4s ease-out forwards';
-
-        // Top owned players
-        document.getElementById('globalPlayers').innerHTML = `
-        <div class="card rounded-2xl shadow-sm p-5 sm:p-6">
-            <div class="flex items-center gap-3 mb-5">
-                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-users"></i></div>
-                <h2 class="text-base font-bold text-slate-800">Most Selected Players</h2>
-            </div>
-            <div class="scroll-x flex gap-3 pb-2">
-                ${top10.map(p => {
-                    const team = d.teams.find(t => t.id === p.team);
-                    return `<div class="player-card min-w-[180px] bg-white rounded-xl border border-slate-100 p-3.5 flex-shrink-0 hover:shadow-sm transition-shadow">
-                        <div class="flex items-center gap-3 mb-2">
-                            ${playerImg(p.code, p.web_name)}
-                            <div class="min-w-0">
-                                <p class="text-sm font-semibold text-slate-800 truncate">${p.web_name}</p>
-                                <p class="text-xs text-slate-400">${team?.name || ''}</p>
-                            </div>
-                        </div>
-                        <div class="space-y-1.5">
-                            <div class="flex justify-between text-xs"><span class="text-slate-500">Selected</span><span class="font-semibold text-slate-700">${p.selected_by_percent}%</span></div>
-                            ${percentBar(parseFloat(p.selected_by_percent))}
-                            <div class="flex justify-between text-xs"><span class="text-slate-500">Points</span><span class="font-semibold text-slate-700">${p.total_points}</span></div>
-                            <div class="flex justify-between text-xs"><span class="text-slate-500">Value</span><span class="font-semibold text-slate-700">${costStr(p.now_cost)}</span></div>
-                        </div>
-                    </div>`;
-                }).join('')}
-            </div>
+        $('globalStats').classList.remove('hidden');
+        $('globalPlayers').innerHTML = `
+        <div class="card rounded-2xl p-5 sm:p-6 animate-fade-in-up">
+            <div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-users"></i></div><h2 class="text-base font-bold">Most Selected</h2></div>
+            <div class="scroll-x flex gap-3 pb-2">${top10.map(p => { const t = d.teams.find(x=>x.id===p.team); return `<div class="player-card min-w-[170px] bg-white rounded-xl border border-slate-100 p-3.5 flex-shrink-0 hover:shadow-sm transition-shadow"><div class="flex items-center gap-2.5 mb-2">${img(p.code,p.web_name)}<div class="min-w-0"><p class="text-sm font-semibold text-slate-800 truncate">${p.web_name}</p><p class="text-xs text-slate-400">${t?.name||''}</p></div></div><div class="space-y-1.5"><div class="flex justify-between text-xs"><span class="text-slate-500">Selected</span><span class="font-semibold text-slate-700">${p.selected_by_percent}%</span></div>${bar(parseFloat(p.selected_by_percent))}<div class="flex justify-between text-xs"><span class="text-slate-500">Points</span><span class="font-semibold text-slate-700">${p.total_points}</span></div><div class="flex justify-between text-xs"><span class="text-slate-500">${costStr(p.now_cost)}</span><span class="font-semibold text-slate-700">${p.points_per_game||'—'} ppg</span></div></div></div>`; }).join('')}</div>
         </div>`;
-        document.getElementById('globalPlayers').classList.remove('hidden');
-        document.getElementById('globalPlayers').style.animation = 'fadeInUp 0.4s ease-out 0.1s forwards';
+        $('globalPlayers').classList.remove('hidden');
 
-        // Suspension & transfer data
-        const suspended = [], yellows = [], transIn = [], transOut = [];
-        d.elements.forEach(p => {
-            const t = d.teams.find(x => x.id === p.team);
-            if (p.status === 'r' || p.status === 's') suspended.push({ name: p.web_name, team: t?.name, photoId: p.code, suspendedMatches: p.suspended_matches||1 });
-            if (p.yellow_cards === 4) yellows.push({ name: p.web_name, team: t?.name, photoId: p.code, yellowCards: p.yellow_cards });
-            transIn.push({ name: p.web_name, team: t?.name, photoId: p.code, transfers: p.transfers_in_event });
-            transOut.push({ name: p.web_name, team: t?.name, photoId: p.code, transfers: p.transfers_out_event });
-        });
-        transIn.sort((a,b) => b.transfers - a.transfers);
-        transOut.sort((a,b) => b.transfers - a.transfers);
-
-        const susEl = document.getElementById('suspensionRisk');
-        const trEl = document.getElementById('transferTrends');
-        if (suspended.length || yellows.length) {
-            susEl.innerHTML = renderSuspension({ suspendedPlayers: suspended, playersOn4Yellows: yellows });
-            susEl.classList.remove('hidden');
-            susEl.style.animation = 'fadeInUp 0.4s ease-out forwards';
-        }
-        trEl.innerHTML = renderTransfers({ mostTransferredIn: transIn.slice(0,10), mostTransferredOut: transOut.slice(0,10) });
-        trEl.classList.remove('hidden');
-        trEl.style.animation = 'fadeInUp 0.4s ease-out 0.1s forwards';
-
+        // Suspension + Transfer data
+        const suspended=[], yellows=[], tIn=[], tOut=[];
+        d.elements.forEach(p => { const t=d.teams.find(x=>x.id===p.team); if(p.status==='r'||p.status==='s') suspended.push({name:p.web_name,team:t?.name,photoId:p.code,suspendedMatches:p.suspended_matches||1}); if(p.yellow_cards===4) yellows.push({name:p.web_name,team:t?.name,photoId:p.code,yellowCards:p.yellow_cards}); tIn.push({name:p.web_name,team:t?.name,photoId:p.code,transfers:p.transfers_in_event}); tOut.push({name:p.web_name,team:t?.name,photoId:p.code,transfers:p.transfers_out_event}); });
+        tIn.sort((a,b)=>b.transfers-a.transfers); tOut.sort((a,b)=>b.transfers-a.transfers);
+        const susEl=$('suspensionRisk'), trEl=$('transferTrends');
+        if(suspended.length||yellows.length){ susEl.innerHTML=renderSuspension({suspendedPlayers:suspended,playersOn4Yellows:yellows}); susEl.classList.remove('hidden'); susEl.style.animation='fadeInUp 0.4s ease-out forwards'; }
+        trEl.innerHTML=renderTransfers({mostTransferredIn:tIn.slice(0,10),mostTransferredOut:tOut.slice(0,10)});
+        trEl.classList.remove('hidden'); trEl.style.animation='fadeInUp 0.4s ease-out 0.1s forwards';
     } catch(e) { console.error(e); }
 });
 
 // ---- Render Helpers ----
 function renderSuspension(d) {
-    const card = (p, isYellow) => `
-    <div class="player-card min-w-[200px] bg-white rounded-xl border border-slate-100 p-3.5 flex-shrink-0 flex items-center gap-3 hover:shadow-sm transition-shadow">
-        ${playerImg(p.photoId, p.name)}
-        <div>
-            <p class="text-sm font-semibold text-slate-800">${p.name}</p>
-            <p class="text-xs text-slate-400">${p.team || ''}</p>
-            <span class="inline-block mt-1 text-xs font-medium ${isYellow ? 'text-yellow-600 bg-yellow-50' : 'text-red-600 bg-red-50'} px-2 py-0.5 rounded-full">
-                ${isYellow ? '🟨 '+p.yellowCards+' Yellow Cards' : '🚫 Suspended '+p.suspendedMatches+' match'+(p.suspendedMatches>1?'es':'')}
-            </span>
-        </div>
-    </div>`;
-    return `
-    <div class="card rounded-2xl shadow-sm p-5 sm:p-6">
-        <div class="flex items-center gap-3 mb-5">
-            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-red-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-triangle-exclamation"></i></div>
-            <h2 class="text-base font-bold text-slate-800">Suspension Risk</h2>
-        </div>
-        ${d.suspendedPlayers.length ? `<div class="mb-5"><p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Suspended</p><div class="scroll-x flex gap-3">${d.suspendedPlayers.map(p => card(p, false)).join('')}</div></div>` : ''}
-        ${d.playersOn4Yellows.length ? `<div><p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">On 4 Yellow Cards</p><div class="scroll-x flex gap-3">${d.playersOn4Yellows.map(p => card(p, true)).join('')}</div></div>` : ''}
-        ${!d.suspendedPlayers.length && !d.playersOn4Yellows.length ? '<p class="text-sm text-slate-400">No suspension risks</p>' : ''}
-    </div>`;
+    const c = (p,y) => `<div class="player-card min-w-[190px] bg-white rounded-xl border border-slate-100 p-3 flex-shrink-0 flex items-center gap-3 hover:shadow-sm transition-shadow">${img(p.photoId,p.name)}<div><p class="text-sm font-semibold text-slate-800">${p.name}</p><p class="text-xs text-slate-400">${p.team||''}</p><span class="inline-block mt-1 text-xs font-medium ${y?'text-yellow-600 bg-yellow-50':'text-red-600 bg-red-50'} px-2 py-0.5 rounded-full">${y?'🟨 '+p.yellowCards+' Yellows':'🚫 '+p.suspendedMatches+' match'+(p.suspendedMatches>1?'es':'')}</span></div></div>`;
+    return `<div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-red-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-triangle-exclamation"></i></div><h2 class="text-base font-bold">Suspension Risk</h2></div>${d.suspendedPlayers.length?`<div class="mb-4"><p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2.5">Suspended (${d.suspendedPlayers.length})</p><div class="scroll-x flex gap-2.5">${d.suspendedPlayers.map(p=>c(p,false)).join('')}</div></div>`:''}${d.playersOn4Yellows.length?`<div><p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2.5">On 4 Yellow Cards (${d.playersOn4Yellows.length})</p><div class="scroll-x flex gap-2.5">${d.playersOn4Yellows.map(p=>c(p,true)).join('')}</div></div>`:''}${!d.suspendedPlayers.length&&!d.playersOn4Yellows.length?'<p class="text-sm text-slate-400">No suspension risks</p>':''}</div>`;
 }
-
 function renderTransfers(d) {
-    const card = (p, type) => {
-        const c = type === 'in' ? 'emerald' : 'red';
-        return `<div class="flex items-center gap-3 bg-white rounded-xl border border-slate-100 p-3 hover:shadow-sm transition-shadow">
-            ${playerImg(p.photoId, p.name)}
-            <div class="min-w-0 flex-1"><p class="text-sm font-semibold text-slate-800 truncate">${p.name}</p><p class="text-xs text-slate-400">${p.team||''}</p></div>
-            <div class="text-right flex-shrink-0"><p class="text-sm font-bold text-${c}-600">${p.transfers.toLocaleString()}</p><p class="text-xs text-slate-400">transfers</p></div>
-        </div>`;
-    };
-    return `
-    <div class="card rounded-2xl shadow-sm p-5 sm:p-6">
-        <div class="flex items-center gap-3 mb-5">
-            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-arrow-right-arrow-left"></i></div>
-            <h2 class="text-base font-bold text-slate-800">Transfer Trends</h2>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <div><p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-3"><i class="fa-solid fa-arrow-right mr-1"></i> Most Transferred In</p><div class="space-y-2">${d.mostTransferredIn.map(p => card(p, 'in')).join('')}</div></div>
-            <div><p class="text-xs font-semibold text-red-600 uppercase tracking-wider mb-3"><i class="fa-solid fa-arrow-left mr-1"></i> Most Transferred Out</p><div class="space-y-2">${d.mostTransferredOut.map(p => card(p, 'out')).join('')}</div></div>
-        </div>
-    </div>`;
+    const c = (p,type) => { const col=type==='in'?'emerald':'red'; return `<div class="flex items-center gap-3 bg-white rounded-xl border border-slate-100 p-3 hover:shadow-sm transition-shadow">${img(p.photoId,p.name)}<div class="min-w-0 flex-1"><p class="text-sm font-semibold text-slate-800 truncate">${p.name}</p><p class="text-xs text-slate-400">${p.team||''}</p></div><div class="text-right flex-shrink-0"><p class="text-sm font-bold text-${col}-600">${p.transfers.toLocaleString()}</p><p class="text-xs text-slate-400">transfers</p></div></div>`; };
+    return `<div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-arrow-right-arrow-left"></i></div><h2 class="text-base font-bold">Transfer Trends</h2></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-2.5"><i class="fa-solid fa-arrow-right mr-1"></i> Most Transferred In</p><div class="space-y-2">${d.mostTransferredIn.map(p=>c(p,'in')).join('')}</div></div><div><p class="text-xs font-semibold text-red-600 uppercase tracking-wider mb-2.5"><i class="fa-solid fa-arrow-left mr-1"></i> Most Transferred Out</p><div class="space-y-2">${d.mostTransferredOut.map(p=>c(p,'out')).join('')}</div></div></div></div>`;
 }
 
 // ---- Main Analysis ----
 async function analyzeManager() {
-    const id = document.getElementById('managerId').value.trim();
-    const resultsDiv = document.getElementById('results');
-    const chartsDiv = document.getElementById('charts');
-    const fixturesDiv = document.getElementById('currentTeamFixtures');
-    const posDiv = document.getElementById('positionSummary');
-    const last3Div = document.getElementById('last3GWs');
-
-    if (!id) { resultsDiv.innerHTML = `<div class="card rounded-2xl p-5 border border-amber-200 bg-amber-50/50"><div class="flex items-center gap-3 text-amber-700 text-sm font-medium"><i class="fa-solid fa-circle-exclamation"></i> Please enter a Manager ID</div></div>`; return; }
-
-    resultsDiv.innerHTML = skeleton();
-    [chartsDiv, fixturesDiv, posDiv, last3Div].forEach(el => el.classList.add('hidden'));
-
+    const id = $('managerId').value.trim() || $('heroManagerId').value.trim();
+    if (!id) { $('results').innerHTML = `<div class="card rounded-2xl p-5 border border-amber-200 bg-amber-50/50"><div class="flex items-center gap-3 text-amber-700 text-sm font-medium"><i class="fa-solid fa-circle-exclamation"></i> Enter a Manager ID</div></div>`; return; }
+    $('results').innerHTML = skeleton();
+    $('charts').classList.add('hidden'); $('currentTeamFixtures').classList.add('hidden'); $('positionSummary').classList.add('hidden'); $('last3GWs').classList.add('hidden');
     try {
         const r = await fetch(`/api/analyze-manager/${id}`);
-        if (!r.ok) throw new Error('Manager not found. Check the ID.');
-        const d = await r.json();
-
-        resultsDiv.innerHTML = renderManagerSummary(d) + renderSquadTable(d);
-        populatePositionSummary(d);
-        createCharts(d.weeklyPoints, d.weeklyRanks);
-        renderFixtures(d.currentTeam);
-        createLast3GWsChart(d.currentTeam);
-
-        [chartsDiv, fixturesDiv, posDiv, last3Div].forEach((el, i) => {
-            el.classList.remove('hidden');
-            el.style.animation = `fadeInUp 0.4s ease-out ${i*0.08}s forwards`;
-        });
-    } catch (e) {
-        resultsDiv.innerHTML = `<div class="card rounded-2xl p-5 border border-red-200 bg-red-50/50"><div class="flex items-start gap-3 text-red-700"><i class="fa-solid fa-circle-exclamation mt-0.5"></i><div><p class="font-semibold text-sm">Analysis Failed</p><p class="text-xs mt-1">${e.message}</p></div></div></div>`;
+        if (!r.ok) throw new Error('Manager not found.');
+        const d = await r.json(); cachedAnalysis = d;
+        $('results').innerHTML = renderManagerSummary(d) + renderSquadTable(d);
+        populatePositionSummary(d); createCharts(d.weeklyPoints,d.weeklyRanks); renderFixtures(d.currentTeam); createLast3GWsChart(d.currentTeam);
+        $('charts').classList.remove('hidden'); $('currentTeamFixtures').classList.remove('hidden'); $('positionSummary').classList.remove('hidden'); $('last3GWs').classList.remove('hidden');
+        [['charts',0],['currentTeamFixtures',0.08],['positionSummary',0.04],['last3GWs',0.12]].forEach(([el,i])=>{ $(el).style.animation=`fadeInUp 0.4s ease-out ${i}s forwards`; });
+        renderCaptainAnalysis(d); renderChipImpact(d); renderDefense(d); renderSeasonHistory(d);
+        showTab('dashboard');
+    } catch(e) {
+        $('results').innerHTML = `<div class="card rounded-2xl p-5 border border-red-200 bg-red-50/50"><div class="flex items-start gap-3 text-red-700"><i class="fa-solid fa-circle-exclamation mt-0.5"></i><div><p class="font-semibold text-sm">Analysis Failed</p><p class="text-xs mt-1">${e.message}</p></div></div></div>`;
     }
 }
 
 function renderManagerSummary(d) {
     const m = d.managerInfo;
     const avg = (m.managerPoints / m.currentGameweek).toFixed(1);
-    const trendIcon = m.rankTrend > 0 ? 'fa-arrow-up text-emerald-500' : m.rankTrend < 0 ? 'fa-arrow-down text-red-500' : 'fa-minus text-slate-400';
-    const chipBadges = m.chipsUsed?.length ? m.chipsUsed.map(c => {
-        const labels = { wildcard:'WC', freehit:'FH', bench_boost:'BB', triple_captain:'TC', '3xc':'TC', bboost:'BB' };
-        return `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-xs font-semibold">${labels[c]||c}</span>`;
-    }).join(' ') : '<span class="text-xs text-slate-400">None</span>';
-
-    const stat = (icon, label, val, color) => `
-    <div class="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border border-slate-100">
-        <div class="w-9 h-9 rounded-lg bg-${color}-100 text-${color}-600 flex items-center justify-center flex-shrink-0"><i class="fa-solid ${icon} text-xs"></i></div>
-        <div class="min-w-0"><p class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">${label}</p><p class="text-sm font-bold text-slate-800 stat-value">${val}</p></div>
-    </div>`;
-
-    return `
-    <div class="card rounded-2xl shadow-sm p-5 sm:p-6 animate-fade-in-up">
+    const ti = m.rankTrend > 0 ? 'fa-arrow-up text-emerald-500' : m.rankTrend < 0 ? 'fa-arrow-down text-red-500' : 'fa-minus text-slate-400';
+    const chipB = m.chipsUsed?.length ? m.chipsUsed.map(c => `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold">${chipLabel(c)}</span>`).join(' ') : '<span class="text-xs text-slate-400">None</span>';
+    const st = (icon,label,val,color) => `<div class="flex items-center gap-2.5 p-2.5 rounded-lg bg-slate-50 border border-slate-100"><div class="w-8 h-8 rounded-lg bg-${color}-100 text-${color}-600 flex items-center justify-center flex-shrink-0 text-xs"><i class="fa-solid ${icon}"></i></div><div class="min-w-0"><p class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">${label}</p><p class="text-sm font-bold text-slate-800 stat-value">${val}</p></div></div>`;
+    return `<div class="card rounded-2xl p-5 sm:p-6 animate-fade-in-up">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
-            <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-[#37003c] to-[#963cff] flex items-center justify-center text-white text-xs"><i class="fa-solid fa-user"></i></div>
-                <div><h2 class="text-base font-bold text-slate-800">${m.name}</h2><p class="text-xs text-slate-400">${m.teamName} • GW ${m.currentGameweek}</p></div>
-            </div>
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold"><i class="fa-solid fa-hashtag"></i> Rank ${m.overallRanking}</span>
+            <div class="flex items-center gap-3"><div class="w-9 h-9 rounded-xl bg-gradient-to-br from-[#37003c] to-[#963cff] flex items-center justify-center text-white text-xs"><i class="fa-solid fa-user"></i></div><div><h2 class="text-base font-bold text-slate-800">${m.name}</h2><p class="text-xs text-slate-400">${m.teamName} &middot; GW ${m.currentGameweek}</p></div></div>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold"><i class="fa-solid fa-hashtag"></i> ${m.overallRanking}</span>
         </div>
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3 mb-5">
-            ${stat('fa-trophy', 'Total Points', m.managerPoints+' pts', 'blue')}
-            ${stat('fa-chart-simple', 'Avg / GW', avg+' pts', 'emerald')}
-            ${stat('fa-ranking-star', 'Overall Rank', m.overallRanking, 'indigo')}
-            ${stat('fa-crown', 'Behind #1', m.pointDifference+' pts', 'purple')}
-            ${stat('fa-arrow-trend-up', 'Best GW', m.highestPoints+' (GW'+m.highestPointsGW+')', 'green')}
-            ${stat('fa-arrow-trend-down', 'Worst GW', m.lowestPoints+' (GW'+m.lowestPointsGW+')', 'red')}
-            ${stat('fa-medal', 'Best Rank', m.highestRank, 'amber')}
-            ${stat('fa-flag', 'Worst Rank', m.lowestRank, 'orange')}
-            ${stat('fa-crown', 'Captain Pts', m.totalCaptaincyPoints, 'yellow')}
-            ${stat('fa-chair', 'Bench Lost', m.totalPointsLostOnBench+' pts', 'slate')}
-            ${stat('fa-microchip', 'Avg Rank', m.averageRank, 'cyan')}
-            ${stat('fa-arrow-trend-up', 'Rank Trend', `<span class="inline-flex items-center gap-1"><i class="fa-solid ${trendIcon}"></i> ${m.rankTrendLabel}</span>`, 'violet')}
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 mb-4">
+            ${st('fa-trophy','Points',m.managerPoints+' pts','blue')} ${st('fa-chart-simple','Avg/GW',avg+' pts','emerald')} ${st('fa-ranking-star','Rank',m.overallRanking,'indigo')} ${st('fa-crown','Behind #1',m.pointDifference+' pts','purple')}
+            ${st('fa-arrow-trend-up','Best GW',m.highestPoints+' (GW'+m.highestPointsGW+')','green')} ${st('fa-arrow-trend-down','Worst GW',m.lowestPoints+' (GW'+m.lowestPointsGW+')','red')} ${st('fa-medal','Best Rank',m.highestRank,'amber')} ${st('fa-flag','Worst Rank',m.lowestRank,'orange')}
+            ${st('fa-crown','Captain Pts',m.totalCaptaincyPoints+' pts','yellow')} ${st('fa-chair','Bench Lost',m.totalPointsLostOnBench+' pts','slate')} ${st('fa-microchip','Avg Rank',m.averageRank,'cyan')} ${st('fa-arrow-trend-up','Trend',`<span class="inline-flex items-center gap-1"><i class="fa-solid ${ti}"></i> ${m.rankTrendLabel}</span>`,'violet')}
         </div>
-        <div class="flex flex-wrap items-center gap-3 text-xs text-slate-500 pt-3 border-t border-slate-100">
-            <span class="font-semibold text-slate-600">Chips:</span> ${chipBadges}
-            <span class="ml-auto">Captaincy efficiency: <strong class="text-slate-700">${m.captaincyEfficiency} pts/GW</strong></span>
-        </div>
+        <div class="flex flex-wrap items-center gap-3 text-xs text-slate-500 pt-3 border-t border-slate-100"><span class="font-semibold text-slate-600">Chips:</span> ${chipB} <span class="ml-auto">Cap eff: <strong class="text-slate-700">${m.captaincyEfficiency} pts/GW</strong></span> <span>Transfers: <strong class="text-slate-700">${m.totalTransfers} pts</strong></span></div>
     </div>`;
 }
 
 function renderSquadTable(d) {
-    const badge = p => `<span class="badge-pos ${posClass(p.position)}">${p.position}</span>`;
-    const rows = d.playerStats.map((p, i) => `
-    <tr class="hover:bg-slate-50 transition-colors">
-        <td class="sticky-col px-3 py-3">
-            <div class="flex items-center gap-2.5">
-                ${playerImg(p.photoId, p.name)}
-                <div class="min-w-0"><p class="text-sm font-semibold text-slate-800 truncate">${p.name}</p><p class="text-xs text-slate-400">${p.team}</p></div>
-            </div>
-        </td>
-        <td class="px-3 py-3">${badge(p)}</td>
-        <td class="px-3 py-3 text-sm font-semibold text-slate-700 stat-value">${p.totalPointsActive}</td>
-        <td class="px-3 py-3 text-sm text-slate-600 stat-value">${p.gwInSquad}</td>
-        <td class="px-3 py-3 text-sm text-slate-600 stat-value">${p.starts}</td>
-        <td class="px-3 py-3 text-sm font-medium text-amber-600 stat-value">${p.cappedPoints}</td>
-        <td class="px-3 py-3 hide-mobile"><span class="text-xs font-semibold text-slate-700">${costStr(p.nowCost)}</span></td>
-        <td class="px-3 py-3 hide-mobile">
-            <div class="flex items-center gap-2"><span class="text-xs font-semibold text-slate-700">${p.selectedBy}%</span>${percentBar(parseFloat(p.selectedBy||0))}</div>
-        </td>
-        <td class="px-3 py-3 hide-mobile text-xs font-semibold text-slate-700 stat-value">${p.pointsPerGame || '—'}</td>
-    </tr>`).join('');
-
-    return `
-    <div class="card rounded-2xl shadow-sm p-5 sm:p-6 animate-fade-in-up">
-        <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
-            <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-users"></i></div>
-                <h2 class="text-base font-bold text-slate-800">Squad Performance</h2>
-            </div>
-            <select id="positionFilter" class="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#963cff]/20" onchange="filterTable()">
-                <option value="All">All</option>
-                <option value="GKP">Goalkeepers</option>
-                <option value="DEF">Defenders</option>
-                <option value="MID">Midfielders</option>
-                <option value="FWD">Forwards</option>
-            </select>
-        </div>
-        <div class="responsive-table rounded-lg border border-slate-100">
-            <table class="min-w-full divide-y divide-slate-100">
-                <thead><tr class="bg-slate-50 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                    <th class="sticky-col px-3 py-2.5 text-left bg-slate-50">Player</th>
-                    <th class="px-3 py-2.5 text-left">Pos</th>
-                    <th class="px-3 py-2.5 text-left">Pts</th>
-                    <th class="px-3 py-2.5 text-left">GW</th>
-                    <th class="px-3 py-2.5 text-left">Starts</th>
-                    <th class="px-3 py-2.5 text-left">Cap</th>
-                    <th class="px-3 py-2.5 text-left hide-mobile">Value</th>
-                    <th class="px-3 py-2.5 text-left hide-mobile">Sel%</th>
-                    <th class="px-3 py-2.5 text-left hide-mobile">PPG</th>
-                </tr></thead>
-                <tbody class="divide-y divide-slate-100">${rows}</tbody>
-            </table>
-        </div>
-    </div>`;
+    const rows = d.playerStats.map(p => `<tr class="hover:bg-slate-50 transition-colors"><td class="sticky-col px-3 py-2.5"><div class="flex items-center gap-2.5">${img(p.photoId,p.name)}<div class="min-w-0"><p class="text-sm font-semibold text-slate-800 truncate">${p.name}</p><p class="text-xs text-slate-400">${p.team}</p></div></div></td><td class="px-3 py-2.5"><span class="badge-pos ${posClass(p.position)}">${p.position}</span></td><td class="px-3 py-2.5 text-sm font-semibold text-slate-700 stat-value">${p.totalPointsActive}</td><td class="px-3 py-2.5 text-sm text-slate-600 stat-value">${p.gwInSquad}</td><td class="px-3 py-2.5 text-sm text-slate-600 stat-value">${p.starts}</td><td class="px-3 py-2.5 text-sm font-medium text-amber-600 stat-value">${p.cappedPoints}</td><td class="px-3 py-2.5 hide-mobile"><span class="text-xs font-semibold text-slate-700">${costStr(p.nowCost)}</span></td><td class="px-3 py-2.5 hide-mobile"><div class="flex items-center gap-2"><span class="text-xs font-semibold text-slate-700">${p.selectedBy}%</span>${bar(parseFloat(p.selectedBy||0))}</div></td><td class="px-3 py-2.5 hide-mobile text-xs font-semibold text-slate-700 stat-value">${p.pointsPerGame||'—'}</td></tr>`).join('');
+    return `<div class="card rounded-2xl p-5 sm:p-6 animate-fade-in-up"><div class="flex flex-wrap items-center justify-between gap-3 mb-4"><div class="flex items-center gap-3"><div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-users"></i></div><h2 class="text-base font-bold">Squad</h2></div><select id="positionFilter" class="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#963cff]/20" onchange="filterTable()"><option value="All">All</option><option value="GKP">GKP</option><option value="DEF">DEF</option><option value="MID">MID</option><option value="FWD">FWD</option></select></div><div class="responsive-table rounded-lg border border-slate-100"><table class="min-w-full divide-y divide-slate-100"><thead><tr class="bg-slate-50 text-[10px] font-semibold text-slate-500 uppercase tracking-wider"><th class="sticky-col px-3 py-2.5 text-left bg-slate-50">Player</th><th class="px-3 py-2.5 text-left">Pos</th><th class="px-3 py-2.5 text-left">Pts</th><th class="px-3 py-2.5 text-left">GW</th><th class="px-3 py-2.5 text-left">Starts</th><th class="px-3 py-2.5 text-left">Cap</th><th class="px-3 py-2.5 text-left hide-mobile">Value</th><th class="px-3 py-2.5 text-left hide-mobile">Sel%</th><th class="px-3 py-2.5 text-left hide-mobile">PPG</th></tr></thead><tbody class="divide-y divide-slate-100">${rows}</tbody></table></div></div>`;
 }
-
-function filterTable() {
-    const val = document.getElementById('positionFilter').value;
-    document.querySelectorAll('#results table tbody tr').forEach(r => {
-        const pos = r.querySelector('.badge-pos')?.textContent;
-        r.style.display = val === 'All' || pos === val ? '' : 'none';
-    });
-}
+function filterTable() { const v=$('positionFilter').value; document.querySelectorAll('#results table tbody tr').forEach(r=>{ const p=r.querySelector('.badge-pos')?.textContent; r.style.display=v==='All'||p===v?'': 'none'; }); }
 
 function populatePositionSummary(d) {
-    const el = document.getElementById('positionSummary');
-    const styles = { GKP:{bg:'from-amber-400 to-amber-500',icon:'fa-gloves'}, DEF:{bg:'from-blue-400 to-blue-500',icon:'fa-shield'}, MID:{bg:'from-emerald-400 to-emerald-500',icon:'fa-futbol'}, FWD:{bg:'from-rose-400 to-rose-500',icon:'fa-bullseye'} };
-    const top = {};
-    d.playerStats.forEach(p => { if (!top[p.position] || p.totalPointsActive > top[p.position].pts) top[p.position] = { name: p.name, pts: p.totalPointsActive, photoId: p.photoId }; });
-
-    const cards = d.positionSummary.map(pos => {
-        const s = styles[pos.position] || { bg:'from-slate-400 to-slate-500', icon:'fa-user' };
-        const t = top[pos.position];
-        return `
-        <div class="bg-gradient-to-br ${s.bg} rounded-xl p-4 sm:p-5 text-white relative overflow-hidden shadow-sm hover:shadow-md transition-all hover:scale-[1.02]">
-            <div class="relative z-10">
-                <div class="flex items-center justify-between mb-2"><span class="text-[10px] font-semibold uppercase tracking-wider opacity-80">${posName(pos.position)}</span><span class="text-white/70 text-sm"><i class="fa-solid ${s.icon}"></i></span></div>
-                <p class="text-2xl sm:text-3xl font-extrabold stat-value text-white">${pos.totalPoints}</p>
-                <p class="text-xs opacity-80">Total Points • ${pos.count} players</p>
-                <div class="flex items-center gap-2 mt-3 ${t?.photoId ? '' : 'hidden'}">
-                    <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${t?.photoId}.png" alt="${t?.name||''}" class="w-7 h-9 object-cover rounded shadow-sm bg-white/20" onerror="this.style.display='none'">
-                    <div class="text-xs leading-tight"><p class="font-semibold">${t?.name||''}</p><p class="opacity-70">${t?.pts||0} pts</p></div>
-                </div>
-            </div>
-            <div class="absolute -bottom-3 -right-3 w-16 h-16 rounded-full bg-white/10"></div>
-        </div>`;
-    }).join('');
-
-    el.innerHTML = `<div class="card rounded-2xl shadow-sm p-5 sm:p-6"><div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-layer-group"></i></div><h2 class="text-base font-bold text-slate-800">Position Summary</h2></div><div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">${cards}</div></div>`;
-    el.classList.remove('hidden');
+    const s={GKP:{bg:'from-amber-400 to-amber-500'},DEF:{bg:'from-blue-400 to-blue-500'},MID:{bg:'from-emerald-400 to-emerald-500'},FWD:{bg:'from-rose-400 to-rose-500'}};
+    const top={}; d.playerStats.forEach(p=>{ if(!top[p.position]||p.totalPointsActive>top[p.position].pts) top[p.position]={name:p.name,pts:p.totalPointsActive,photoId:p.photoId}; });
+    $('positionSummary').innerHTML=`<div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-layer-group"></i></div><h2 class="text-base font-bold">Position Summary</h2></div><div class="grid grid-cols-2 sm:grid-cols-4 gap-3">${d.positionSummary.map(pos=>{ const t=top[pos.position]; return `<div class="bg-gradient-to-br ${(s[pos.position]||{bg:'from-slate-400 to-slate-500'}).bg} rounded-xl p-4 text-white relative overflow-hidden shadow-sm"><div class="relative z-10"><div class="flex items-center justify-between mb-1"><span class="text-[10px] font-semibold uppercase tracking-wider opacity-80">${posName(pos.position)}</span></div><p class="text-2xl sm:text-3xl font-extrabold text-white stat-value">${pos.totalPoints}</p><p class="text-xs opacity-80">${pos.count} players</p>${t?`<div class="flex items-center gap-2 mt-2">${img(t.photoId,t.name)}<div class="text-xs leading-tight"><p class="font-semibold">${t.name}</p><p class="opacity-70">${t.pts} pts</p></div></div>`:''}</div><div class="absolute -bottom-3 -right-3 w-16 h-16 rounded-full bg-white/10"></div></div>`;}).join('')}</div></div>`;
+    $('positionSummary').classList.remove('hidden');
 }
 
 // ---- Charts ----
-function createCharts(points, ranks) { createPointsChart(points); createRankChart(ranks); }
-
-function createPointsChart(weeklyPoints) {
-    const ctx = document.getElementById('pointsChart').getContext('2d');
-    if (pointsChart) pointsChart.destroy();
-    const grad = ctx.createLinearGradient(0,0,0,340); grad.addColorStop(0,'rgba(99,102,241,0.2)'); grad.addColorStop(1,'rgba(99,102,241,0)');
-    const avg = weeklyPoints.reduce((a,b)=>a+b,0)/weeklyPoints.length||0;
-    pointsChart = new Chart(ctx, { type:'line', data: { labels: weeklyPoints.map((_,i)=>'GW'+(i+1)), datasets: [{ label:'Points', data:weeklyPoints, borderColor:'#6366f1', backgroundColor:grad, fill:true, tension:0.3, pointBackgroundColor:weeklyPoints.map(p=>p>=avg?'#6366f1':'#f43f5e'), pointBorderColor:'#fff', pointBorderWidth:2, pointRadius:4, pointHoverRadius:6, borderWidth:2 }] }, options: { responsive:true, maintainAspectRatio:false, plugins: { legend:{display:false}, tooltip:{backgroundColor:'rgba(15,23,42,0.9)',padding:10,cornerRadius:6,callbacks:{label:ctx=>ctx.parsed.y+' pts'}} }, scales: { y:{ beginAtZero:true, grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:10}} }, x:{ grid:{display:false}, ticks:{font:{size:9},maxTicksLimit:20} } } } });
+function createCharts(pts,ranks){ createPointsChart(pts); createRankChart(ranks); }
+function createPointsChart(wp) {
+    const ctx=document.getElementById('pointsChart').getContext('2d'); if(pointsChart) pointsChart.destroy();
+    const g=ctx.createLinearGradient(0,0,0,340); g.addColorStop(0,'rgba(99,102,241,0.2)'); g.addColorStop(1,'rgba(99,102,241,0)');
+    const avg=wp.reduce((a,b)=>a+b,0)/wp.length||0;
+    pointsChart=new Chart(ctx,{type:'line',data:{labels:wp.map((_,i)=>'GW'+(i+1)),datasets:[{label:'Points',data:wp,borderColor:'#6366f1',backgroundColor:g,fill:true,tension:0.3,pointBackgroundColor:wp.map(p=>p>=avg?'#6366f1':'#f43f5e'),pointBorderColor:'#fff',pointRadius:4,pointHoverRadius:6,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(15,23,42,0.9)',padding:10,cornerRadius:6,callbacks:{label:ctx=>ctx.parsed.y+' pts'}}},scales:{y:{beginAtZero:true,grid:{color:'rgba(0,0,0,0.04)'}},x:{grid:{display:false},ticks:{maxTicksLimit:20}}}}});
+}
+function createRankChart(wr) {
+    const ctx=document.getElementById('rankChart').getContext('2d'); if(rankChart) rankChart.destroy();
+    const g=ctx.createLinearGradient(0,0,0,340); g.addColorStop(0,'rgba(244,63,94,0.2)'); g.addColorStop(1,'rgba(244,63,94,0)');
+    rankChart=new Chart(ctx,{type:'line',data:{labels:wr.map((_,i)=>'GW'+(i+1)),datasets:[{label:'Rank',data:wr,borderColor:'#f43f5e',backgroundColor:g,fill:true,tension:0.3,pointBackgroundColor:'#f43f5e',pointBorderColor:'#fff',pointRadius:4,pointHoverRadius:6,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(15,23,42,0.9)',padding:10,cornerRadius:6}},scales:{y:{reverse:true,beginAtZero:true,grid:{color:'rgba(0,0,0,0.04)'},ticks:{callback:val=>val.toLocaleString()}},x:{grid:{display:false},ticks:{maxTicksLimit:20}}}}});
+}
+function createLast3GWsChart(td) {
+    const ctx=document.getElementById('last3GWsChart').getContext('2d'); if(last3GWsChart) last3GWsChart.destroy();
+    const colors=['#6366f1','#8b5cf6','#a855f7','#d946ef','#ec4899','#f43f5e','#fb923c','#fbbf24','#22c55e','#14b8a6'];
+    const s=td.map(p=>({name:p.name,pts:p.last3GWPoints||0})).sort((a,b)=>b.pts-a.pts);
+    last3GWsChart=new Chart(ctx,{type:'bar',data:{labels:s.map(p=>p.name),datasets:[{label:'Points',data:s.map(p=>p.pts),backgroundColor:s.map((_,i)=>colors[i%colors.length]+'cc'),borderColor:s.map((_,i)=>colors[i%colors.length]),borderWidth:1,borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(15,23,42,0.9)',padding:10,cornerRadius:6,callbacks:{label:ctx=>ctx.parsed.x+' pts'}}},scales:{x:{beginAtZero:true,grid:{color:'rgba(0,0,0,0.04)'}},y:{grid:{display:false}}}}});
+}
+function renderFixtures(td) {
+    $('currentTeamFixtures').innerHTML=`<div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-calendar-days"></i></div><h2 class="text-base font-bold">Upcoming Fixtures</h2></div><div class="responsive-table rounded-lg border border-slate-100"><table class="min-w-full divide-y divide-slate-100"><thead><tr class="bg-slate-50 text-[10px] font-semibold text-slate-500 uppercase tracking-wider"><th class="sticky-col px-3 py-2.5 text-left bg-slate-50">Player</th><th class="px-3 py-2.5 text-center" colspan="5">Next 5</th></tr></thead><tbody class="divide-y divide-slate-100">${td.map(p=>`<tr class="hover:bg-slate-50"><td class="sticky-col px-3 py-2.5"><div class="flex items-center gap-2.5">${img(p.photoId,p.name)}<div><p class="text-sm font-semibold text-slate-800">${p.name}</p><p class="text-xs text-slate-400">${p.team} &middot; ${p.position}</p></div></div></td>${p.nextFixtures.map(f=>`<td class="px-1 py-2.5"><div style="background:${fdrBg(f.difficulty)};color:${fdrColor(f.difficulty)}" class="fdr-cell text-[10px] sm:text-xs">${f.opponent}<br><span class="opacity-70">${f.isHome?'H':'A'}</span></div></td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
 }
 
-function createRankChart(weeklyRanks) {
-    const ctx = document.getElementById('rankChart').getContext('2d');
-    if (rankChart) rankChart.destroy();
-    const grad = ctx.createLinearGradient(0,0,0,340); grad.addColorStop(0,'rgba(244,63,94,0.2)'); grad.addColorStop(1,'rgba(244,63,94,0)');
-    rankChart = new Chart(ctx, { type:'line', data: { labels: weeklyRanks.map((_,i)=>'GW'+(i+1)), datasets: [{ label:'Rank', data:weeklyRanks, borderColor:'#f43f5e', backgroundColor:grad, fill:true, tension:0.3, pointBackgroundColor:'#f43f5e', pointBorderColor:'#fff', pointBorderWidth:2, pointRadius:4, pointHoverRadius:6, borderWidth:2 }] }, options: { responsive:true, maintainAspectRatio:false, plugins: { legend:{display:false}, tooltip:{backgroundColor:'rgba(15,23,42,0.9)',padding:10,cornerRadius:6} }, scales: { y:{ reverse:true, beginAtZero:true, grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:10},callback:val=>val.toLocaleString()} }, x:{ grid:{display:false}, ticks:{font:{size:9},maxTicksLimit:20} } } } });
+// ---- Captain Analysis (Feature 3) ----
+function renderCaptainAnalysis(d) {
+    if(!d.captainChoices||!d.captainChoices.length){ $('captainContent').innerHTML='<p class="text-sm text-slate-400">No captain data available.</p>'; return; }
+    const rows = d.captainChoices.map(c => {
+        const missed = c.missedPoints || 0;
+        const cls = missed > 0 ? 'text-red-500' : 'text-emerald-500';
+        return `<tr class="hover:bg-slate-50 text-sm"><td class="px-3 py-2 font-semibold text-slate-600">GW${c.gw}</td><td class="px-3 py-2">${c.captain?.name||'—'}</td><td class="px-3 py-2 font-semibold text-slate-700 stat-value">${c.captain?.points||0}</td><td class="px-3 py-2">${c.bestOption?.name||'—'}</td><td class="px-3 py-2 font-semibold text-slate-700 stat-value">${c.bestOption?.rawPoints||0}</td><td class="px-3 py-2 font-semibold ${cls} stat-value">${missed > 0 ? '-'+missed : missed}</td></tr>`;
+    }).join('');
+    $('captainContent').innerHTML = `<p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">${d.captainChoices.length} Gameweeks</p><div class="responsive-table rounded-lg border border-slate-100"><table class="min-w-full divide-y divide-slate-100"><thead><tr class="bg-slate-50 text-[10px] font-semibold text-slate-500 uppercase tracking-wider"><th class="px-3 py-2 text-left">GW</th><th class="px-3 py-2 text-left">Captain</th><th class="px-3 py-2 text-left">Cap Pts</th><th class="px-3 py-2 text-left">Best Option</th><th class="px-3 py-2 text-left">Best Raw</th><th class="px-3 py-2 text-left">Missed</th></tr></thead><tbody class="divide-y divide-slate-100">${rows}</tbody></table></div>`;
 }
 
-function createLast3GWsChart(teamData) {
-    const ctx = document.getElementById('last3GWsChart').getContext('2d');
-    if (last3GWsChart) last3GWsChart.destroy();
-    const colors = ['#6366f1','#8b5cf6','#a855f7','#d946ef','#ec4899','#f43f5e','#fb923c','#fbbf24','#22c55e','#14b8a6'];
-    const sorted = teamData.map(p=>({name:p.name,pts:p.last3GWPoints||0})).sort((a,b)=>b.pts-a.pts);
-    last3GWsChart = new Chart(ctx, { type:'bar', data: { labels:sorted.map(p=>p.name), datasets: [{ label:'Points', data:sorted.map(p=>p.pts), backgroundColor:sorted.map((_,i)=>colors[i%colors.length]+'cc'), borderColor:sorted.map((_,i)=>colors[i%colors.length]), borderWidth:1, borderRadius:4 }] }, options: { indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins: { legend:{display:false}, tooltip:{backgroundColor:'rgba(15,23,42,0.9)',padding:10,cornerRadius:6,callbacks:{label:ctx=>ctx.parsed.x+' pts'}} }, scales: { x:{ beginAtZero:true, grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:10}} }, y:{ grid:{display:false}, ticks:{font:{size:9}} } } } });
+// ---- Chip Impact (Feature 8) ----
+function renderChipImpact(d) {
+    if(!d.chipImpact||!d.chipImpact.length){ $('chipContent').innerHTML='<p class="text-sm text-slate-400">No chips used this season.</p>'; return; }
+    const cards = d.chipImpact.map(c => {
+        const diff = c.diff || 0;
+        const cls = diff >= 0 ? 'text-emerald-600 bg-emerald-50' : 'text-red-600 bg-red-50';
+        const icon = diff >= 0 ? 'fa-arrow-up' : 'fa-arrow-down';
+        return `<div class="bg-white rounded-xl border border-slate-100 p-4"><p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">GW${c.gw}</p><p class="text-lg font-extrabold text-slate-800 mt-1">${chipLabel(c.chip)}</p><div class="flex items-center gap-3 mt-2"><div class="mini-stat"><span class="value">${c.points}</span><span class="label">Scored</span></div><div class="mini-stat"><span class="value">${c.avgPoints}</span><span class="label">Avg GW</span></div></div><span class="inline-flex items-center gap-1 mt-2 text-sm font-bold ${cls} px-2.5 py-1 rounded-full"><i class="fa-solid ${icon}"></i> ${diff >= 0 ? '+' : ''}${diff} pts vs avg</span></div>`;
+    }).join('');
+    $('chipContent').innerHTML = `<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">${cards}</div>`;
 }
 
-// ---- Fixtures ----
-function renderFixtures(team) {
-    const el = document.getElementById('currentTeamFixtures');
-    const rows = team.map(p => `
-    <tr class="hover:bg-slate-50 transition-colors">
-        <td class="sticky-col px-3 py-3">
-            <div class="flex items-center gap-2.5">
-                ${playerImg(p.photoId, p.name)}
-                <div><p class="text-sm font-semibold text-slate-800">${p.name}</p><p class="text-xs text-slate-400">${p.team} • ${p.position}</p></div>
-            </div>
-        </td>
-        ${p.nextFixtures.map(f => `<td class="px-1.5 py-3"><div style="background:${fdrBg(f.difficulty)};color:${fdrColor(f.difficulty)}" class="fdr-cell">${f.opponent}<br><span class="opacity-70 text-[10px]">${f.isHome?'H':'A'}</span></div></td>`).join('')}
-    </tr>`).join('');
-    el.innerHTML = `
-    <div class="card rounded-2xl shadow-sm p-5 sm:p-6">
-        <div class="flex items-center gap-3 mb-5">
-            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-calendar-days"></i></div>
-            <h2 class="text-base font-bold text-slate-800">Upcoming Fixtures</h2>
-        </div>
-        <div class="responsive-table rounded-lg border border-slate-100">
-            <table class="min-w-full divide-y divide-slate-100">
-                <thead><tr class="bg-slate-50 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                    <th class="sticky-col px-3 py-2.5 text-left bg-slate-50">Player</th>
-                    <th class="px-3 py-2.5 text-center" colspan="5">Next 5 Fixtures</th>
-                </tr></thead>
-                <tbody class="divide-y divide-slate-100">${rows}</tbody>
-            </table>
-        </div>
-    </div>`;
+// ---- Defensive Record (Feature 9) ----
+function renderDefense(d) {
+    if(!d.managerInfo){ $('defenseContent').innerHTML='<p class="text-sm text-slate-400">No data.</p>'; return; }
+    const m = d.managerInfo;
+    const defs = d.playerStats.filter(p => p.position === 'DEF');
+    const gks = d.playerStats.filter(p => p.position === 'GKP');
+    const totalCS = defs.reduce((s,p) => s + (p.cleanSheets||0), 0) + gks.reduce((s,p) => s + (p.cleanSheets||0), 0);
+    const totalGC = defs.reduce((s,p) => s + (p.goalsConceded||0), 0);
+    const totalSaves = gks.reduce((s,p) => s + (p.saves||0), 0);
+    const totalBonus = d.playerStats.reduce((s,p) => s + (p.bonus||0), 0);
+    $('defenseContent').innerHTML = `<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">${[
+        {icon:'fa-shield',label:'Clean Sheets',val:totalCS,color:'emerald'},
+        {icon:'fa-futbol',label:'Goals Conceded',val:totalGC,color:'red'},
+        {icon:'fa-hand',label:'Saves',val:totalSaves,color:'blue'},
+        {icon:'fa-star',label:'Bonus Points',val:totalBonus,color:'yellow'}
+    ].map(s => `<div class="flex items-center gap-3 p-4 rounded-xl bg-slate-50 border border-slate-100"><div class="w-10 h-10 rounded-lg bg-${s.color}-100 text-${s.color}-600 flex items-center justify-center"><i class="fa-solid ${s.icon}"></i></div><div><p class="text-2xl font-extrabold text-slate-800 stat-value">${s.val}</p><p class="text-xs text-slate-500">${s.label}</p></div></div>`).join('')}</div>`;
 }
 
-// ---- Legacy compat (used by suspension/transfer from old code paths) ----
-function populateSuspensionData(d) {
-    const el = document.getElementById('suspensionRisk');
-    el.innerHTML = renderSuspension(d);
+// ---- Season History (Feature 11) ----
+function renderSeasonHistory(d) {
+    if(!d.seasonHistory||!d.seasonHistory.length){ $('seasonContent').innerHTML='<p class="text-sm text-slate-400">No season history available.</p>'; return; }
+    const h = d.seasonHistory;
+    $('seasonContent').innerHTML = `<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">${h.map(s => `<div class="text-center p-3 rounded-xl bg-slate-50 border border-slate-100"><p class="text-xs font-semibold text-slate-500">${s.season}</p><p class="text-lg font-extrabold text-slate-800 stat-value">${s.rank?.toLocaleString()||'—'}</p><p class="text-xs text-slate-400">Rank &middot; ${s.points} pts</p></div>`).join('')}</div>`;
+    const ctx = document.getElementById('seasonChart').getContext('2d');
+    if(seasonChart) seasonChart.destroy();
+    seasonChart = new Chart(ctx, { type:'bar', data: { labels: h.map(s=>s.season), datasets: [{ label: 'Rank', data: h.map(s=>s.rank), backgroundColor: h.map((_,i)=>i===h.length-1?'#963cff':'#cbd5e1'), borderRadius: 4 }] }, options: { responsive:true, maintainAspectRatio:false, plugins: { legend:{display:false}, tooltip:{backgroundColor:'rgba(15,23,42,0.9)',padding:10,cornerRadius:6,callbacks:{label:ctx=>'Rank: '+ctx.parsed.y.toLocaleString()}} }, scales: { y: { reverse:true, grid:{color:'rgba(0,0,0,0.04)'}, ticks:{callback:val=>val.toLocaleString()} }, x: { grid:{display:false} } } } });
 }
-function populateTransferData(d) {
-    const el = document.getElementById('transferTrends');
-    el.innerHTML = renderTransfers(d);
+
+// ---- Compare Managers (Feature 1) ----
+async function compareManagers() {
+    const id1 = $('compareId1').value.trim(), id2 = $('compareId2').value.trim();
+    if(!id1||!id2){ $('compareResults').innerHTML='<p class="text-sm text-amber-600 mt-3">Enter both manager IDs.</p>'; return; }
+    $('compareResults').innerHTML = '<div class="flex justify-center py-8"><div class="animate-spin h-8 w-8 border-2 border-[#963cff] border-t-transparent rounded-full"></div></div>';
+    try {
+        const r = await fetch(`/api/compare-managers/${id1}/${id2}`);
+        if(!r.ok) throw new Error('Compare failed');
+        const d = await r.json();
+        const renderOne = (m, label) => {
+            const mi = m.managerInfo;
+            return `<div class="card rounded-xl p-4"><p class="text-sm font-bold text-slate-800 mb-3">${label}: ${mi.name} (${mi.teamName})</p><div class="space-y-2 text-sm">${[
+                ['Total Points',mi.managerPoints+' pts'],['Rank',mi.overallRanking],['Avg/GW',(mi.managerPoints/mi.currentGameweek).toFixed(1)+' pts'],
+                ['Captain Pts',mi.totalCaptaincyPoints+' pts'],['Bench Lost',mi.totalPointsLostOnBench+' pts'],['Best GW',mi.highestPoints+' (GW'+mi.highestPointsGW+')'],
+                ['Avg Rank',mi.averageRank],['Trend',mi.rankTrendLabel]
+            ].map(([l,v]) => `<div class="flex justify-between"><span class="text-slate-500">${l}</span><span class="font-semibold text-slate-800">${v}</span></div>`).join('')}</div></div>`;
+        };
+        $('compareResults').innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">${renderOne(d.manager1,'Manager 1')}${renderOne(d.manager2,'Manager 2')}</div>`;
+    } catch(e) { $('compareResults').innerHTML = `<p class="text-sm text-red-500 mt-3">${e.message}</p>`; }
 }
+
+// ---- Price Changes (Feature 7) ----
+async function loadPriceChanges() {
+    $('priceContent').innerHTML = '<div class="flex justify-center py-6"><div class="animate-spin h-6 w-6 border-2 border-[#963cff] border-t-transparent rounded-full"></div></div>';
+    try {
+        const r = await fetch('/api/price-changes');
+        if(!r.ok) throw new Error('Failed');
+        const d = await r.json();
+        const card = (p, isRiser) => `<div class="flex items-center gap-3 bg-white rounded-xl border border-slate-100 p-3 hover:shadow-sm transition-shadow">${img(p.photoId,p.name)}<div class="min-w-0 flex-1"><p class="text-sm font-semibold text-slate-800 truncate">${p.name}</p><p class="text-xs text-slate-400">${p.team||''} &middot; ${costStr(p.newCost)}</p></div><div class="text-right flex-shrink-0"><p class="text-sm font-bold ${isRiser?'text-emerald-600':'text-red-600'}">${isRiser?'+':''}${p.change}</p><p class="text-xs text-slate-400">${p.selectedBy}% owned</p></div></div>`;
+        $('priceContent').innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-3"><i class="fa-solid fa-arrow-up mr-1"></i> Risers (${d.risers.length})</p><div class="space-y-2">${d.risers.map(p=>card(p,true)).join('')||'<p class="text-sm text-slate-400">None</p>'}</div></div><div><p class="text-xs font-semibold text-red-600 uppercase tracking-wider mb-3"><i class="fa-solid fa-arrow-down mr-1"></i> Fallers (${d.fallers.length})</p><div class="space-y-2">${d.fallers.map(p=>card(p,false)).join('')||'<p class="text-sm text-slate-400">None</p>'}</div></div></div>`;
+    } catch(e) { $('priceContent').innerHTML = `<p class="text-sm text-red-500">${e.message}</p>`; }
+}
+
+// Legacy compat
+function populateSuspensionData(d) { $('suspensionRisk').innerHTML = renderSuspension(d); }
+function populateTransferData(d) { $('transferTrends').innerHTML = renderTransfers(d); }
 function populateFixtures(d) { renderFixtures(d); }
 </script>
 </body>
