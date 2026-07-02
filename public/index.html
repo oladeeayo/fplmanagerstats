@@ -20,29 +20,29 @@
 <body class="bg-[#f8fafc] min-h-screen custom-scrollbar text-slate-800">
 <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WVJS3TZ7" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
-<div id="app" class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
+<div id="app" class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
 
-  <!-- ===== HERO (compact) ===== -->
-  <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#37003c] via-[#4a0050] to-[#6b0090] p-5 sm:p-7 mb-6">
+  <!-- ===== HERO ===== -->
+  <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#37003c] via-[#4a0050] to-[#6b0090] p-5 sm:p-8 mb-5 shadow-lg">
     <div class="hero-glow hero-glow-1"></div><div class="hero-glow hero-glow-2"></div>
     <div class="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-4">
       <div class="flex items-center gap-4">
-        <div class="w-12 h-12 rounded-xl bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center flex-shrink-0">
-          <span class="text-white text-lg font-black">FP</span>
+        <div class="w-11 h-11 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center flex-shrink-0 shadow-inner">
+          <span class="text-white text-lg font-black tracking-tight">FP</span>
         </div>
         <div>
           <h1 class="text-white text-xl sm:text-2xl font-extrabold tracking-tight">FPL Manager Stats</h1>
-          <p class="text-white/60 text-xs sm:text-sm">Analytics &amp; insights platform</p>
+          <p class="text-white/50 text-xs sm:text-sm font-medium">Analytics &amp; insights platform</p>
         </div>
       </div>
       <div class="flex items-center gap-2 w-full sm:w-auto">
         <div class="relative flex-1 sm:flex-initial">
           <i class="fa-solid fa-hashtag absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-xs"></i>
           <input type="number" id="heroManagerId" placeholder="Manager ID"
-                 class="w-full sm:w-40 pl-8 pr-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-white/30 text-xs focus:outline-none focus:ring-2 focus:ring-[#c084fc]/50 transition-all"
-                 onkeypress="if(event.key==='Enter'){document.getElementById('managerId').value=this.value;analyzeManager();showSection('current');}">
+                 class="w-full sm:w-44 pl-8 pr-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-white/30 text-xs focus:outline-none focus:ring-2 focus:ring-[#c084fc]/50 transition-all"
+                 onkeypress="if(event.key==='Enter'){document.getElementById('managerId').value=this.value;analyzeManager();}">
         </div>
-        <button onclick="document.getElementById('managerId').value=document.getElementById('heroManagerId').value;analyzeManager();showSection('current');"
+        <button onclick="document.getElementById('managerId').value=document.getElementById('heroManagerId').value;analyzeManager();"
                 class="px-4 py-2 bg-white text-[#37003c] font-bold rounded-lg hover:bg-[#e9d5ff] transition-all text-xs whitespace-nowrap shadow-sm">
           <i class="fa-solid fa-magnifying-glass mr-1.5"></i>Analyze
         </button>
@@ -51,121 +51,117 @@
   </div>
 
   <!-- ===== NAV TABS ===== -->
-  <div class="flex items-center gap-1 bg-white rounded-xl p-1 border border-slate-100 shadow-sm mb-6 overflow-x-auto">
-    <button class="section-tab active" data-tab="current" onclick="showSection('current')"><i class="fa-solid fa-play mr-1.5 text-emerald-500"></i>Current Season</button>
-    <button class="section-tab" data-tab="prev1" onclick="showSection('prev1')"><i class="fa-solid fa-clock-rotate-left mr-1.5 text-blue-500"></i>23/24</button>
-    <button class="section-tab" data-tab="prev2" onclick="showSection('prev2')"><i class="fa-solid fa-clock-rotate-left mr-1.5 text-slate-400"></i>22/23</button>
-    <button class="section-tab" data-tab="league" onclick="showSection('league');loadLeagueStandings()"><i class="fa-solid fa-trophy mr-1.5 text-amber-500"></i>League</button>
+  <div class="flex items-center gap-1.5 bg-white rounded-xl p-1.5 border border-slate-100 shadow-sm mb-6 overflow-x-auto">
+    <button class="tab-btn active" data-tab="general" onclick="showSection('general')">
+      <i class="fa-solid fa-chart-simple mr-1.5 text-[#963cff]"></i>General
+    </button>
+    <button class="tab-btn" data-tab="manager" onclick="showSection('manager')">
+      <i class="fa-solid fa-user mr-1.5 text-emerald-500"></i>Manager
+    </button>
+    <button class="tab-btn" data-tab="league" onclick="showSection('league');loadLeagueStandings()">
+      <i class="fa-solid fa-trophy mr-1.5 text-amber-500"></i>League
+    </button>
   </div>
 
   <input type="number" id="managerId" class="hidden">
 
-  <!-- ===== CURRENT SEASON ===== -->
-  <div id="section-current" class="section-content">
-    <div id="globalStats" class="mb-8"></div>
-    <div id="globalPlayers" class="mb-8"></div>
-    <div id="teamFixtures" class="mb-8">
-      <div class="card rounded-2xl p-5 sm:p-6">
-        <div class="flex items-center gap-3 mb-5">
-          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-sm"><i class="fa-solid fa-calendar-days"></i></div>
-          <div><h2 class="text-base font-bold">Team Fixtures</h2><p class="text-xs text-slate-400">All PL teams · next 5 gameweeks</p></div>
+  <!-- ===== GENERAL ===== -->
+  <div id="section-general" class="section-content">
+    <div id="globalStats" class="mb-6"></div>
+    <div id="globalPlayers" class="mb-6"></div>
+    <div id="teamFixtures" class="mb-6">
+      <div class="card p-5 sm:p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-sm shadow-sm"><i class="fa-solid fa-calendar-days"></i></div>
+          <div><h2 class="text-base font-bold text-slate-800">Team Fixtures</h2><p class="text-xs text-slate-400">All 20 PL teams · next 5 gameweeks</p></div>
         </div>
-        <button onclick="loadTeamFixtures()" class="px-5 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg text-sm hover:shadow-md transition-all"><i class="fa-solid fa-rotate mr-2"></i>Load</button>
-        <div id="fixturesGrid" class="mt-4"><p class="text-sm text-slate-400">Click to load.</p></div>
+        <button onclick="loadTeamFixtures()" class="px-5 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg text-sm hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-2"></i>Load Fixtures</button>
+        <div id="fixturesGrid" class="mt-4"><p class="text-sm text-slate-400">Click to load team fixtures with FDR ratings.</p></div>
       </div>
     </div>
-    <div id="suspensionRisk" class="mb-8"></div>
-    <div id="transferTrends" class="mb-8"></div>
-    <div id="generalPriceChanges" class="mb-8">
-      <div class="card rounded-2xl p-5 sm:p-6">
-        <div class="flex items-center gap-3 mb-5">
-          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white text-sm"><i class="fa-solid fa-coins"></i></div>
-          <div><h2 class="text-base font-bold">Price Changes</h2><p class="text-xs text-slate-400">Latest risers and fallers</p></div>
+    <div id="suspensionRisk" class="mb-6"></div>
+    <div id="transferTrends" class="mb-6"></div>
+    <div id="generalPriceChanges" class="mb-6">
+      <div class="card p-5 sm:p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white text-sm shadow-sm"><i class="fa-solid fa-coins"></i></div>
+          <div><h2 class="text-base font-bold text-slate-800">Price Changes</h2><p class="text-xs text-slate-400">Latest risers and fallers</p></div>
         </div>
-        <button onclick="loadPriceChanges('generalPriceContent')" class="px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-lg text-sm hover:shadow-md transition-all"><i class="fa-solid fa-rotate mr-2"></i>Load</button>
-        <div id="generalPriceContent" class="mt-4"><p class="text-sm text-slate-400">Click to load.</p></div>
+        <button onclick="loadPriceChanges('generalPriceContent')" class="px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-lg text-sm hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-2"></i>Load Changes</button>
+        <div id="generalPriceContent" class="mt-4"><p class="text-sm text-slate-400">Click to load latest price changes.</p></div>
       </div>
-    </div>
-    <!-- Manager input on current season -->
-    <div class="max-w-md mx-auto mt-10 mb-8">
-      <div class="card rounded-2xl p-5 text-center">
-        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Get your full analysis</p>
-        <div class="flex items-center gap-2">
-          <input type="number" id="managerInput" placeholder="Enter Manager ID" class="flex-1 px-4 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#963cff]/20"
-                 onkeypress="if(event.key==='Enter'){document.getElementById('managerId').value=this.value;analyzeManager();}">
-          <button onclick="document.getElementById('managerId').value=document.getElementById('managerInput').value;analyzeManager();" class="px-5 py-2.5 bg-gradient-to-r from-[#37003c] to-[#963cff] text-white font-semibold rounded-lg text-sm hover:shadow-md transition-all"><i class="fa-solid fa-magnifying-glass mr-1.5"></i>Go</button>
-        </div>
-      </div>
-    </div>
-    <div id="results" class="space-y-8"></div>
-    <div id="underperformingSection" class="mt-8 hidden"></div>
-    <div id="positionSummary" class="mt-8 hidden"></div>
-    <div id="charts" class="mt-8 space-y-8 hidden">
-      <div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-chart-line"></i></div><h2 class="text-base font-bold">Points Per Gameweek</h2></div><div class="relative h-[280px] sm:h-[340px]"><canvas id="pointsChart"></canvas></div></div>
-      <div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-ranking-star"></i></div><h2 class="text-base font-bold">Rank Per Gameweek</h2></div><div class="relative h-[280px] sm:h-[340px]"><canvas id="rankChart"></canvas></div></div>
-    </div>
-    <div id="currentTeamFixtures" class="mt-8 hidden"></div>
-    <div id="last3GWs" class="mt-8 hidden">
-      <div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-chart-bar"></i></div><h2 class="text-base font-bold">Last 3 GWs</h2></div><div class="relative h-[320px] sm:h-[400px]"><canvas id="last3GWsChart"></canvas></div></div>
-    </div>
-    <div class="mt-8 space-y-8">
-      <div id="managerCaptain" class="card rounded-2xl p-5 sm:p-6 hidden"><div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500 to-amber-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-crown"></i></div><h2 class="text-base font-bold">Captain Analysis</h2></div><div id="captainContent"><p class="text-sm text-slate-400">Run analysis to see captain choices.</p></div></div>
-      <div id="managerChips" class="card rounded-2xl p-5 sm:p-6 hidden"><div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-microchip"></i></div><h2 class="text-base font-bold">Chip Impact</h2></div><div id="chipContent"><p class="text-sm text-slate-400">Run analysis to see chip performance.</p></div></div>
-      <div id="managerDefense" class="card rounded-2xl p-5 sm:p-6 hidden"><div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-shield"></i></div><h2 class="text-base font-bold">Defensive Record</h2></div><div id="defenseContent"><p class="text-sm text-slate-400">Run analysis to see defensive stats.</p></div></div>
     </div>
   </div>
 
-  <!-- ===== 23/24 (Previous Season) ===== -->
-  <div id="section-prev1" class="section-content hidden">
-    <div class="card rounded-2xl p-5 sm:p-6">
-      <div class="flex items-center gap-3 mb-5">
-        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-sm"><i class="fa-solid fa-clock-rotate-left"></i></div>
-        <div><h2 class="text-base font-bold">2023/24 Season</h2><p class="text-xs text-slate-400" id="prev1Subtitle">Enter a Manager ID to see 23/24 stats</p></div>
+  <!-- ===== MANAGER ===== -->
+  <div id="section-manager" class="section-content hidden">
+    <div class="card p-5 sm:p-6 mb-6 text-center">
+      <div class="flex items-center gap-3 justify-center mb-4">
+        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-[#37003c] to-[#963cff] flex items-center justify-center text-white text-sm shadow-sm"><i class="fa-solid fa-user"></i></div>
+        <h2 class="text-base font-bold text-slate-800">Manager Analysis</h2>
       </div>
-      <div id="prev1Content" class="text-sm text-slate-400">Load a manager from <strong>Current Season</strong> tab first to see their 23/24 data.</div>
+      <div class="flex items-center gap-2 max-w-md mx-auto">
+        <input type="number" id="managerInput" placeholder="Enter Manager ID" class="flex-1 px-4 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#963cff]/20"
+               onkeypress="if(event.key==='Enter'){document.getElementById('managerId').value=this.value;analyzeManager();}">
+        <button onclick="document.getElementById('managerId').value=document.getElementById('managerInput').value;analyzeManager();" class="px-5 py-2.5 bg-gradient-to-r from-[#37003c] to-[#963cff] text-white font-semibold rounded-lg text-sm hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-magnifying-glass mr-1.5"></i>Go</button>
+      </div>
     </div>
-  </div>
+    <div id="results" class="space-y-6"></div>
+    <div id="positionSummary" class="mt-6 hidden"></div>
+    <div id="underperformingSection" class="mt-6 hidden"></div>
+    <div id="charts" class="mt-6 space-y-6 hidden">
+      <div class="card p-5 sm:p-6"><div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-xs shadow-sm"><i class="fa-solid fa-chart-line"></i></div><h2 class="text-base font-bold text-slate-800">Points Per Gameweek</h2></div><div class="relative h-[280px] sm:h-[340px]"><canvas id="pointsChart"></canvas></div></div>
+      <div class="card p-5 sm:p-6"><div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center text-white text-xs shadow-sm"><i class="fa-solid fa-ranking-star"></i></div><h2 class="text-base font-bold text-slate-800">Rank Per Gameweek</h2></div><div class="relative h-[280px] sm:h-[340px]"><canvas id="rankChart"></canvas></div></div>
+    </div>
+    <div id="currentTeamFixtures" class="mt-6 hidden"></div>
+    <div id="last3GWs" class="mt-6 hidden">
+      <div class="card p-5 sm:p-6"><div class="flex items-center gap-3 mb-5"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white text-xs shadow-sm"><i class="fa-solid fa-chart-bar"></i></div><h2 class="text-base font-bold text-slate-800">Last 3 GWs</h2></div><div class="relative h-[320px] sm:h-[400px]"><canvas id="last3GWsChart"></canvas></div></div>
+    </div>
+    <div class="mt-6 space-y-6">
+      <div id="managerCaptain" class="card p-5 sm:p-6 hidden"><div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500 to-amber-500 flex items-center justify-center text-white text-xs shadow-sm"><i class="fa-solid fa-crown"></i></div><h2 class="text-base font-bold text-slate-800">Captain Analysis</h2></div><div id="captainContent"><p class="text-sm text-slate-400">Run analysis to see captain choices.</p></div></div>
+      <div id="managerChips" class="card p-5 sm:p-6 hidden"><div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-white text-xs shadow-sm"><i class="fa-solid fa-microchip"></i></div><h2 class="text-base font-bold text-slate-800">Chip Impact</h2></div><div id="chipContent"><p class="text-sm text-slate-400">Run analysis to see chip performance.</p></div></div>
+      <div id="managerDefense" class="card p-5 sm:p-6 hidden"><div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white text-xs shadow-sm"><i class="fa-solid fa-shield"></i></div><h2 class="text-base font-bold text-slate-800">Defensive Record</h2></div><div id="defenseContent"><p class="text-sm text-slate-400">Run analysis to see defensive stats.</p></div></div>
+    </div>
 
-  <!-- ===== 22/23 (Two Seasons Ago) ===== -->
-  <div id="section-prev2" class="section-content hidden">
-    <div class="card rounded-2xl p-5 sm:p-6">
-      <div class="flex items-center gap-3 mb-5">
-        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-slate-500 to-slate-600 flex items-center justify-center text-white text-sm"><i class="fa-solid fa-clock-rotate-left"></i></div>
-        <div><h2 class="text-base font-bold">2022/23 Season</h2><p class="text-xs text-slate-400" id="prev2Subtitle">Enter a Manager ID to see 22/23 stats</p></div>
+    <!-- ===== PREVIOUS SEASON (inside Manager tab) ===== -->
+    <div id="prevSeasonSection" class="mt-8 hidden">
+      <div class="card p-5 sm:p-6">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-sm shadow-sm"><i class="fa-solid fa-clock-rotate-left"></i></div>
+          <div><h2 class="text-base font-bold text-slate-800">Previous Season</h2><p class="text-xs text-slate-400" id="prevSeasonSubtitle">Manager's most recent previous season</p></div>
+        </div>
+        <div id="prevSeasonContent" class="text-sm text-slate-400">Run a manager analysis first to see their previous season data.</div>
       </div>
-      <div id="prev2Content" class="text-sm text-slate-400">Load a manager from <strong>Current Season</strong> tab first to see their 22/23 data.</div>
     </div>
   </div>
 
   <!-- ===== LEAGUE ===== -->
   <div id="section-league" class="section-content hidden">
-    <div class="card rounded-2xl p-5 sm:p-6">
+    <div class="card p-5 sm:p-6">
       <div class="flex flex-wrap items-center justify-between gap-4 mb-5">
         <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white text-sm"><i class="fa-solid fa-trophy"></i></div>
-          <div><h2 class="text-base font-bold">League Standings</h2><p class="text-xs text-slate-400" id="leagueTitle">Classic League</p></div>
+          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white text-sm shadow-sm"><i class="fa-solid fa-trophy"></i></div>
+          <div><h2 class="text-base font-bold text-slate-800">League Standings</h2><p class="text-xs text-slate-400" id="leagueTitle">Classic League · Top 50</p></div>
         </div>
         <div class="flex items-center gap-2">
           <input type="number" id="leagueId" placeholder="League ID" value="314" class="w-24 px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#963cff]/20">
-          <button onclick="loadLeagueStandings()" class="px-4 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-lg text-xs hover:shadow-md transition-all"><i class="fa-solid fa-rotate mr-1"></i>Load</button>
+          <button onclick="loadLeagueStandings()" class="px-4 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-lg text-xs hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-1"></i>Load</button>
         </div>
       </div>
-      <div class="overflow-x-auto responsive-table"><table class="min-w-full text-xs divide-y divide-slate-100">
-        <thead><tr class="bg-slate-50 font-semibold text-slate-500 uppercase tracking-wider">
-          <th class="px-2 py-2.5 text-center sticky-col bg-slate-50 w-8">#</th>
-          <th class="px-2 py-2.5 text-left">Manager</th>
-          <th class="px-2 py-2.5 text-left hide-mobile">Team</th>
-          <th class="px-2 py-2.5 text-center">Pts</th>
-          <th class="px-2 py-2.5 text-center">+/-</th>
-          <th class="px-2 py-2.5 text-center hide-mobile">Diff</th>
-          <th class="px-2 py-2.5 text-center hide-mobile">GW</th>
-          <th class="px-2 py-2.5 text-center hide-mobile">Overall</th>
-          <th class="px-2 py-2.5 text-center hide-mobile">23/24</th>
-          <th class="px-2 py-2.5 text-center hide-mobile">22/23</th>
-          <th class="px-2 py-2.5 text-center hide-mobile">Chips</th>
+      <div class="overflow-x-auto"><table class="min-w-full text-xs">
+        <thead><tr class="text-slate-500 uppercase tracking-wider text-[10px] border-b border-slate-100">
+          <th class="px-2 py-3 text-center sticky-col bg-white w-8 font-semibold">#</th>
+          <th class="px-2 py-3 text-left font-semibold">Manager</th>
+          <th class="px-2 py-3 text-left hide-mobile font-semibold">Team</th>
+          <th class="px-2 py-3 text-center font-semibold">Pts</th>
+          <th class="px-2 py-3 text-center font-semibold">+/-</th>
+          <th class="px-2 py-3 text-center hide-mobile font-semibold">Diff</th>
+          <th class="px-2 py-3 text-center hide-mobile font-semibold">Overall</th>
+          <th class="px-2 py-3 text-center hide-mobile font-semibold">Prev Season</th>
+          <th class="px-2 py-3 text-center hide-mobile font-semibold">Chips</th>
         </tr></thead>
-        <tbody id="leagueStandingsBody" class="divide-y divide-slate-100">
-          <tr><td colspan="11" class="px-2 py-8 text-center text-slate-400">Click "Load" to fetch standings.</td></tr>
+        <tbody id="leagueStandingsBody" class="divide-y divide-slate-50">
+          <tr><td colspan="9" class="px-2 py-10 text-center text-slate-400"><i class="fa-solid fa-arrow-pointer mr-2 text-amber-400"></i>Click <strong>"Load"</strong> to fetch top 50 standings.</td></tr>
         </tbody>
       </table></div>
     </div>
@@ -176,7 +172,7 @@
 </div>
 
 <script>
-let pointsChart, rankChart, last3GWsChart, seasonChart;
+let pointsChart, rankChart, last3GWsChart;
 let cachedAnalysis = null;
 
 const $ = id => document.getElementById(id);
@@ -185,17 +181,17 @@ const fdrBg = d => ({1:'#22c55e',2:'#86efac',3:'#f1f5f9',4:'#fb923c',5:'#ef4444'
 const fdrColor = d => ({1:'#fff',2:'#166534',3:'#475569',4:'#fff',5:'#fff'}[d]||'#475569');
 const costStr = c => c ? '£'+(c/10).toFixed(1)+'m' : '';
 const bar = (p,c) => `<div class="bar-bg"><div class="bar-fill ${c||'bg-[#963cff]'}" style="width:${Math.min(p,100)}%"></div></div>`;
-const img = (c,n) => `<img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${c}.png" alt="${n||''}" class="w-8 h-10 object-cover rounded bg-slate-100 flex-shrink-0" onerror="this.src='https://resources.premierleague.com/premierleague/photos/players/110x140/Photo-Missing.png'">`;
+const img = (c,n) => `<img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${c}.png" alt="${n||''}" class="w-7 h-9 object-cover rounded bg-slate-100 flex-shrink-0" onerror="this.src='https://resources.premierleague.com/premierleague/photos/players/110x140/Photo-Missing.png'">`;
 const chipL = c => ({wildcard:'WC',freehit:'FH',bench_boost:'BB','3xc':'TC',triple_captain:'TC',bboost:'BB'}[c]||c);
-const skel = () => `<div class="space-y-5">${Array(2).fill(`<div class="card rounded-2xl p-6"><div class="shimmer h-6 w-44 rounded-lg mb-6"></div><div class="grid grid-cols-2 sm:grid-cols-4 gap-4">${Array(8).fill('<div class="shimmer h-16 rounded-xl"></div>').join('')}</div></div>`).join('')}</div>`;
+const skel = () => `<div class="space-y-4">${Array(2).fill(`<div class="card p-6"><div class="shimmer h-5 w-40 rounded-lg mb-5"></div><div class="grid grid-cols-2 sm:grid-cols-4 gap-3">${Array(8).fill('<div class="shimmer h-14 rounded-xl"></div>').join('')}</div></div>`).join('')}</div>`;
 
 function showSection(name) {
   document.querySelectorAll('.section-content').forEach(e => e.classList.add('hidden'));
-  document.querySelectorAll('.section-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   const sec = $('section-'+name); if(sec) sec.classList.remove('hidden');
-  const btn = Array.from(document.querySelectorAll('.section-tab')).find(b => b.dataset.tab===name);
+  const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.dataset.tab===name);
   if(btn) btn.classList.add('active');
-  if ((name==='prev1'||name==='prev2') && cachedAnalysis) renderSeasonHistoryTab(name);
+  if (name==='manager' && cachedAnalysis) renderPrevSeason();
 }
 
 // ---- Init ----
@@ -259,17 +255,18 @@ async function loadPriceChanges(tid) {
 // ---- League ----
 async function loadLeagueStandings() {
   const lid = $('leagueId').value || 314;
-  $('leagueStandingsBody').innerHTML = '<tr><td colspan="11" class="px-2 py-8 text-center"><div class="flex justify-center"><div class="animate-spin h-6 w-6 border-2 border-[#963cff] border-t-transparent rounded-full"></div></div></td></tr>';
+  $('leagueStandingsBody').innerHTML = '<tr><td colspan="9" class="px-2 py-8 text-center"><div class="flex justify-center"><div class="animate-spin h-6 w-6 border-2 border-[#963cff] border-t-transparent rounded-full"></div></div></td></tr>';
   try {
     const d = await (await fetch(`/api/league-standings/${lid}`)).json();
     if (!d.standings) throw new Error('No data');
-    $('leagueTitle').textContent = d.leagueName || 'Classic League';
+    $('leagueTitle').textContent = (d.leagueName || 'Classic League') + ' · Top 50';
     $('leagueStandingsBody').innerHTML = d.standings.map((m,i) => {
       const chg = m.rankChange; const ch = chg>0?`<i class="fa-solid fa-arrow-up text-emerald-500"></i> +${chg}`:chg<0?`<i class="fa-solid fa-arrow-down text-red-500"></i> ${chg}`:'<span class="text-slate-400">—</span>';
-      const diff = i===0?'—':((d.standings[0].totalPoints-m.totalPoints).toLocaleString());
-      return `<tr class="${i===0?'bg-amber-50/50':''} hover:bg-slate-50 text-xs"><td class="sticky-col px-2 py-2.5 ${i===0?'bg-amber-50/50':'bg-white'} font-extrabold text-center ${i===0?'text-amber-600':'text-slate-700'}">${m.rank}</td><td class="px-2 py-2.5"><span class="font-semibold text-slate-800">${m.playerName}</span></td><td class="px-2 py-2.5 text-slate-500 hide-mobile">${m.teamName}</td><td class="px-2 py-2.5 text-center font-bold text-slate-800">${(m.totalPoints).toLocaleString()}</td><td class="px-2 py-2.5 text-center">${ch}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${diff}</td><td class="px-2 py-2.5 text-center text-slate-600 hide-mobile">${m.gwPoints}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${m.overallRank}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${m.lastSeasonRank}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${m.seasonBeforeLastRank}</td><td class="px-2 py-2.5 text-center hide-mobile"><span class="text-[10px] text-slate-600">${m.chipsUsed}</span></td></tr>`;
+      const diff = i===0?'—':(d.standings[0].totalPoints-m.totalPoints).toLocaleString();
+      const top = i===0;
+      return `<tr class="${top?'bg-amber-50/30':''} hover:bg-slate-50/50 transition-colors"><td class="sticky-col px-2 py-2.5 ${top?'bg-amber-50/30':'bg-white'} font-extrabold text-center ${top?'text-amber-600':'text-slate-700'} w-8">${m.rank}</td><td class="px-2 py-2.5"><span class="font-semibold text-slate-800">${m.playerName}</span></td><td class="px-2 py-2.5 text-slate-500 hide-mobile max-w-[120px] truncate">${m.teamName}</td><td class="px-2 py-2.5 text-center font-bold text-slate-800">${m.totalPoints.toLocaleString()}</td><td class="px-2 py-2.5 text-center text-xs">${ch}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${diff}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${m.overallRank}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${m.lastSeasonRank}</td><td class="px-2 py-2.5 text-center hide-mobile"><span class="inline-flex items-center gap-1 text-[10px] font-medium text-slate-600 bg-slate-50 px-2 py-0.5 rounded-md">${m.chipsUsed}</span></td></tr>`;
     }).join('');
-  } catch(e) { $('leagueStandingsBody').innerHTML = `<tr><td colspan="11" class="px-2 py-8 text-center text-red-500">${e.message}</td></tr>`; }
+  } catch(e) { $('leagueStandingsBody').innerHTML = `<tr><td colspan="9" class="px-2 py-8 text-center text-red-500">${e.message}</td></tr>`; }
 }
 
 // ---- Manager Analysis ----
@@ -279,8 +276,8 @@ async function analyzeManager() {
   $('results').innerHTML = skel();
   $('charts').classList.add('hidden'); $('currentTeamFixtures').classList.add('hidden'); $('positionSummary').classList.add('hidden'); $('last3GWs').classList.add('hidden');
   ['managerCaptain','managerChips','managerDefense'].forEach(id => $(id).classList.add('hidden'));
-  $('underperformingSection').classList.add('hidden');
-  showSection('current');
+  $('underperformingSection').classList.add('hidden'); $('prevSeasonSection').classList.add('hidden');
+  showSection('manager');
   try {
     const d = await (await fetch(`/api/analyze-manager/${id}`)).json();
     if (!d.managerInfo) throw new Error('Manager not found.');
@@ -290,7 +287,7 @@ async function analyzeManager() {
     $('charts').classList.remove('hidden'); $('currentTeamFixtures').classList.remove('hidden'); $('positionSummary').classList.remove('hidden'); $('last3GWs').classList.remove('hidden');
     renderUnderperforming(d); renderCaptainAnalysis(d); renderChipImpact(d); renderDefense(d);
     ['managerCaptain','managerChips','managerDefense'].forEach(id => $(id).classList.remove('hidden'));
-    renderSeasonHistoryTab('prev1'); renderSeasonHistoryTab('prev2');
+    renderPrevSeason();
   } catch(e) { $('results').innerHTML = `<div class="card rounded-2xl p-5 border border-red-200 bg-red-50/50"><div class="flex items-start gap-3 text-red-700"><i class="fa-solid fa-circle-exclamation mt-0.5"></i><div><p class="font-semibold text-sm">Failed</p><p class="text-xs mt-1">${e.message}</p></div></div></div>`; }
 }
 
@@ -337,35 +334,31 @@ function renderCaptainAnalysis(d){if(!d.captainChoices||!d.captainChoices.length
 function renderChipImpact(d){if(!d.chipImpact||!d.chipImpact.length){$('chipContent').innerHTML='<p class="text-sm text-slate-400">No chips used.</p>';return;}$('chipContent').innerHTML=`<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">${d.chipImpact.map(c=>{const df=c.diff||0;return `<div class="bg-white rounded-xl border border-slate-100 p-4"><p class="text-xs font-semibold text-slate-500 uppercase text-center">GW${c.gw}</p><p class="text-lg font-extrabold text-slate-800 text-center mt-0.5">${chipL(c.chip)}</p><div class="flex justify-center gap-2 mt-2"><div class="mini-stat"><span class="value">${c.points}</span><span class="label">Scored</span></div><div class="mini-stat"><span class="value">${c.avgPoints}</span><span class="label">Avg</span></div></div><p class="text-center text-xs font-bold mt-2 ${df>=0?'text-emerald-600':'text-red-600'}"><i class="fa-solid ${df>=0?'fa-arrow-up':'fa-arrow-down'} mr-1"></i>${df>=0?'+':''}${df} vs avg</p></div>`;}).join('')}</div>`;}
 function renderDefense(d){if(!d.managerInfo){$('defenseContent').innerHTML='<p class="text-sm text-slate-400">No data.</p>';return;}const ps=d.playerStats;const cs=ps.filter(p=>p.position==='DEF'||p.position==='GKP').reduce((s,p)=>s+(p.cleanSheets||0),0);const gc=ps.filter(p=>p.position==='DEF').reduce((s,p)=>s+(p.goalsConceded||0),0);const sv=ps.filter(p=>p.position==='GKP').reduce((s,p)=>s+(p.saves||0),0);const bn=ps.reduce((s,p)=>s+(p.bonus||0),0);$('defenseContent').innerHTML=`<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">${[{ic:'fa-shield',la:'Clean Sheets',va:cs,co:'emerald'},{ic:'fa-futbol',la:'Conceded',va:gc,co:'red'},{ic:'fa-hand',la:'Saves',va:sv,co:'blue'},{ic:'fa-star',la:'Bonus',va:bn,co:'yellow'}].map(s=>`<div class="flex items-center gap-3 p-4 rounded-xl bg-slate-50 border border-slate-100"><div class="w-10 h-10 rounded-lg bg-${s.co}-100 text-${s.co}-600 flex items-center justify-center"><i class="fa-solid ${s.ic}"></i></div><div class="flex-1 text-center"><p class="text-2xl font-extrabold text-slate-800">${(s.va).toLocaleString()}</p><p class="text-xs text-slate-500">${s.la}</p></div></div>`).join('')}</div>`;}
 
-// ---- Season History Tabs ----
-function renderSeasonHistoryTab(tab) {
+// ---- Previous Season (dynamic, single most recent) ----
+function renderPrevSeason() {
   const d = cachedAnalysis;
   if (!d || !d.seasonHistory || d.seasonHistory.length < 2) {
-    $(tab+'Content').innerHTML = '<p class="text-sm text-slate-400">Load a manager from <strong>Current Season</strong> to see their data.</p>';
+    $('prevSeasonSection').classList.add('hidden');
     return;
   }
   const sh = d.seasonHistory;
-  const isPrev1 = tab === 'prev1';
-  const seasonIdx = isPrev1 ? Math.max(0, sh.length-2) : Math.max(0, sh.length-3);
-  const season = sh[seasonIdx];
-  const nextSeason = sh[seasonIdx+1] || null;
+  const curSeason = sh[sh.length-1];
+  const prevSeason = sh[sh.length-2];
+  if (!prevSeason) { $('prevSeasonSection').classList.add('hidden'); return; }
 
-  if (season) {
-    $(tab+'Subtitle').textContent = `Season: ${season.season} · Rank: ${season.rank?.toLocaleString()||'—'} · Points: ${season.points}`;
-    const pointsDiff = nextSeason ? season.points - nextSeason.points : 0;
-    const cls = pointsDiff > 0 ? 'text-emerald-600' : pointsDiff < 0 ? 'text-red-600' : 'text-slate-500';
-    $(tab+'Content').innerHTML = `
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">${[
-        {l:'Rank', v:season.rank?.toLocaleString()||'—'},
-        {l:'Total Points', v:season.points},
-        {l:'Avg Points/GW', v: season.points && season.rank ? (season.points/38).toFixed(1) : '—'},
-        {l:'Vs Prev Season', v:nextSeason ? `<span class="${cls}">${pointsDiff > 0 ? '+'+pointsDiff : pointsDiff}</span>` : '—'}
-      ].map(s => `<div class="text-center p-4 rounded-xl bg-slate-50 border border-slate-100"><p class="text-xs font-semibold text-slate-500">${s.l}</p><p class="text-xl font-extrabold text-slate-800 mt-1">${s.v}</p></div>`).join('')}</div>
-      ${nextSeason ? `<div class="bg-slate-50 rounded-xl p-4 border border-slate-100"><div class="flex items-center justify-between text-sm"><span class="text-slate-500">${season.season} points</span><span class="font-bold text-slate-800">${season.points}</span></div><div class="bar-bg my-2"><div class="bar-fill bg-blue-500" style="width:${Math.min(100, (season.points/(season.points+nextSeason.points))*100)}%"></div></div><div class="flex items-center justify-between text-sm"><span class="text-slate-500">${nextSeason.season} points</span><span class="font-bold text-slate-800">${nextSeason.points}</span></div></div>` : ''}
-    `;
-  } else {
-    $(tab+'Content').innerHTML = '<p class="text-sm text-slate-400">No data available for this season.</p>';
-  }
+  $('prevSeasonSubtitle').textContent = `Season: ${prevSeason.season} · Rank: ${prevSeason.rank?.toLocaleString()||'—'} · Points: ${prevSeason.points}`;
+  const ptsDiff = curSeason ? prevSeason.points - curSeason.points : 0;
+  const cls = ptsDiff > 0 ? 'text-emerald-600' : ptsDiff < 0 ? 'text-red-600' : 'text-slate-500';
+  $('prevSeasonContent').innerHTML = `
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">${[
+      {l:'Rank', v:prevSeason.rank?.toLocaleString()||'—'},
+      {l:'Total Points', v:prevSeason.points?.toLocaleString()},
+      {l:'Avg Points/GW', v:prevSeason.points ? (prevSeason.points/38).toFixed(1) : '—'},
+      {l: curSeason.season+' Diff', v: curSeason ? `<span class="${cls}">${ptsDiff > 0 ? '+'+ptsDiff.toLocaleString() : ptsDiff.toLocaleString()}</span>` : '—'}
+    ].map(s => `<div class="text-center p-4 rounded-xl bg-slate-50 border border-slate-100"><p class="text-xs font-semibold text-slate-500">${s.l}</p><p class="text-xl font-extrabold text-slate-800 mt-1">${s.v}</p></div>`).join('')}</div>
+    ${curSeason ? `<div class="bg-slate-50 rounded-xl p-4 border border-slate-100"><div class="flex items-center justify-between text-sm"><span class="text-slate-500">${prevSeason.season} points</span><span class="font-bold text-slate-800">${prevSeason.points?.toLocaleString()}</span></div><div class="bar-bg my-2"><div class="bar-fill bg-blue-500" style="width:${Math.min(100, (prevSeason.points/(prevSeason.points+curSeason.points))*100)}%"></div></div><div class="flex items-center justify-between text-sm"><span class="text-slate-500">${curSeason.season} points</span><span class="font-bold text-slate-800">${curSeason.points?.toLocaleString()}</span></div></div>` : ''}
+  `;
+  $('prevSeasonSection').classList.remove('hidden');
 }
 </script>
 </body>

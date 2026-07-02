@@ -34,9 +34,16 @@ body {
 .card {
     background: #fff;
     border: 1px solid #f1f5f9;
-    transition: all 0.2s ease;
+    border-radius: 1rem;
+    transition: all 0.25s ease;
 }
-.card:hover { border-color: #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+.card:hover { border-color: #e2e8f0; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+
+/* Table styling */
+.responsive-table { display: block; overflow-x: auto; }
+@media (max-width: 640px) {
+    .hide-mobile { display: none; }
+}
 
 /* Stats */
 .stat-label {
@@ -46,8 +53,9 @@ body {
 .stat-value { font-variant-numeric: tabular-nums; }
 .mini-stat {
     display: flex; flex-direction: column; align-items: center;
-    padding: 0.5rem 0.75rem; background: #f8fafc;
-    border-radius: 0.5rem; min-width: 60px;
+    padding: 0.75rem 1rem; background: #f8fafc;
+    border-radius: 0.75rem; min-width: 70px;
+    border: 1px solid #f1f5f9;
 }
 .mini-stat .value { font-size: 0.875rem; font-weight: 700; color: #0f172a; font-variant-numeric: tabular-nums; }
 .mini-stat .label { font-size: 0.625rem; font-weight: 500; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em; }
@@ -102,10 +110,11 @@ body {
 .tab-btn {
     padding: 0.5rem 1rem; font-size: 0.8rem; font-weight: 600;
     border-radius: 0.5rem; transition: all 0.2s ease; cursor: pointer;
-    color: #64748b; border: 1px solid transparent;
+    color: #64748b; border: 1px solid transparent; white-space: nowrap;
 }
 .tab-btn:hover { background: #f1f5f9; color: #334155; }
-.tab-btn.active { background: #fff; color: #37003c; border-color: #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+.tab-btn.active { background: linear-gradient(135deg, #37003c, #963cff); color: #fff; border-color: transparent; box-shadow: 0 2px 8px rgba(150,60,255,0.25); }
+.tab-btn.active i { color: inherit !important; }
 
 /* Scrollbar */
 .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -113,7 +122,5 @@ body {
 .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
 .sticky-col { position: sticky; left: 0; z-index: 5; background: white; }
 
-@media (max-width: 640px) {
-    .responsive-table { display: block; overflow-x: auto; }
-    .hide-mobile { display: none; }
-}
+/* Table row hover */
+table tbody tr { transition: background 0.15s ease; }
