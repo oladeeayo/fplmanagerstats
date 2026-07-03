@@ -152,3 +152,7 @@ table tbody tr { transition: background 0.15s ease; }
 @media (max-width: 640px) {
   .hide-mobile-table { display: none; }
 }
+
+/* Sortable headers */
+th[cursor\\:pointer] { user-select: none; }
+.sort-icon { font-size: 9px; }

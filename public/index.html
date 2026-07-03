@@ -251,15 +251,15 @@
       </div>
       <div class="overflow-x-auto"><table class="min-w-full text-xs">
         <thead><tr class="text-slate-500 uppercase tracking-wider text-[10px] border-b border-slate-100">
-          <th class="px-2 py-3 text-center sticky-col bg-white w-8 font-semibold">#</th>
-          <th class="px-2 py-3 text-left font-semibold">Manager</th>
-          <th class="px-2 py-3 text-left hide-mobile font-semibold">Team</th>
-          <th class="px-2 py-3 text-center font-semibold">Pts</th>
-          <th class="px-2 py-3 text-center font-semibold">GW</th>
-          <th class="px-2 py-3 text-center font-semibold">+/-</th>
-          <th class="px-2 py-3 text-center hide-mobile font-semibold">Diff</th>
-          <th class="px-2 py-3 text-center hide-mobile font-semibold">Overall</th>
-          <th class="px-2 py-3 text-center hide-mobile font-semibold">24/25</th>
+          <th class="px-2 py-3 text-center sticky-col bg-white w-8 font-semibold cursor-pointer hover:text-slate-700" onclick="sortLeagueTable('rank',true)" data-sort="rank"># <span class="sort-icon"></span></th>
+          <th class="px-2 py-3 text-left font-semibold cursor-pointer hover:text-slate-700" onclick="sortLeagueTable('playerName',false)" data-sort="playerName">Manager <span class="sort-icon"></span></th>
+          <th class="px-2 py-3 text-left hide-mobile font-semibold cursor-pointer hover:text-slate-700" onclick="sortLeagueTable('teamName',false)" data-sort="teamName">Team <span class="sort-icon"></span></th>
+          <th class="px-2 py-3 text-center font-semibold cursor-pointer hover:text-slate-700" onclick="sortLeagueTable('totalPoints',true)" data-sort="totalPoints">Pts <span class="sort-icon"></span></th>
+          <th class="px-2 py-3 text-center font-semibold cursor-pointer hover:text-slate-700" onclick="sortLeagueTable('gwPointsNum',true)" data-sort="gwPointsNum">GW <span class="sort-icon"></span></th>
+          <th class="px-2 py-3 text-center font-semibold cursor-pointer hover:text-slate-700" onclick="sortLeagueTable('rankChange',true)" data-sort="rankChange">+/- <span class="sort-icon"></span></th>
+          <th class="px-2 py-3 text-center hide-mobile font-semibold cursor-pointer hover:text-slate-700" onclick="sortLeagueTable('diff',true)" data-sort="diff">Diff <span class="sort-icon"></span></th>
+          <th class="px-2 py-3 text-center hide-mobile font-semibold cursor-pointer hover:text-slate-700" onclick="sortLeagueTable('overallRankNum',true)" data-sort="overallRankNum">Overall <span class="sort-icon"></span></th>
+          <th class="px-2 py-3 text-center hide-mobile font-semibold cursor-pointer hover:text-slate-700" onclick="sortLeagueTable('lastSeasonRankNum',true)" data-sort="lastSeasonRankNum">24/25 <span class="sort-icon"></span></th>
         </tr></thead>
         <tbody id="leagueStandingsBody" class="divide-y divide-slate-50">
           <tr><td colspan="9" class="px-2 py-10 text-center text-slate-400"><i class="fa-solid fa-arrow-pointer mr-2 text-amber-400"></i>Click <strong>"Load"</strong> to fetch top 50 standings.</td></tr>
@@ -420,15 +420,50 @@ async function loadLeagueStandings() {
     const d = await (await fetch(`/api/league-standings/${lid}`)).json();
     if (!d.standings) throw new Error('No data');
     $('leagueTitle').textContent = (d.leagueName || 'Classic League') + ' · Top 50';
-    window._leagueData = d.standings;
-    $('leagueStandingsBody').innerHTML = d.standings.map((m,i) => {
-      const chg = m.rankChange; const ch = chg>0?`<i class="fa-solid fa-arrow-up text-emerald-500"></i> +${chg}`:chg<0?`<i class="fa-solid fa-arrow-down text-red-500"></i> ${chg}`:'<span class="text-slate-400">—</span>';
-      const diff = i===0?'—':(d.standings[0].totalPoints-m.totalPoints).toLocaleString();
-      const top = i===0;
-      return `<tr class="league-row ${top?'bg-amber-50/30':''} hover:bg-slate-50/50 transition-colors"><td class="sticky-col px-2 py-2.5 ${top?'bg-amber-50/30':'bg-white'} font-extrabold text-center ${top?'text-amber-600':'text-slate-700'} w-8">${m.rank}</td><td class="px-2 py-2.5"><span class="manager-name font-semibold text-slate-800">${m.playerName}</span></td><td class="px-2 py-2.5 text-slate-500 hide-mobile max-w-[120px] truncate">${m.teamName}</td><td class="px-2 py-2.5 text-center font-bold text-slate-800">${m.totalPoints.toLocaleString()}</td><td class="px-2 py-2.5 text-center font-semibold text-slate-700">${m.gwPoints}</td><td class="px-2 py-2.5 text-center text-xs">${ch}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${diff}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${m.overallRank}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${m.lastSeasonRank}</td></tr>`;
-    }).join('');
-    $('leagueCount').textContent = d.standings.length + ' managers';
+    window._leagueData = d.standings.map(m => ({
+      ...m,
+      diff: m.totalPoints - d.standings[0].totalPoints,
+      diffStr: m.rank===1?'—':'-'+(d.standings[0].totalPoints-m.totalPoints).toLocaleString(),
+      gwPointsNum: parseInt(m.gwPoints?.replace(/,/g,'')) || 0,
+      overallRankNum: parseInt(String(m.overallRank).replace(/,/g,'')) || 999999999,
+      lastSeasonRankNum: parseInt(String(m.lastSeasonRank).replace(/,/g,'')) || 999999999
+    }));
+    renderLeagueTable();
   } catch(e) { $('leagueStandingsBody').innerHTML = `<tr><td colspan="9" class="px-2 py-8 text-center text-red-500">${e.message}</td></tr>`; }
+}
+
+let _leagueSort = { field: 'rank', asc: true };
+
+function renderLeagueTable() {
+  const data = window._leagueData || [];
+  const rows = data.map(m => {
+    const chg = m.rankChange; const ch = chg>0?`<i class="fa-solid fa-arrow-up text-emerald-500"></i> +${chg}`:chg<0?`<i class="fa-solid fa-arrow-down text-red-500"></i> ${chg}`:'<span class="text-slate-400">—</span>';
+    const top = m.rank===1;
+    return `<tr class="league-row ${top?'bg-amber-50/30':''} hover:bg-slate-50/50 transition-colors"><td class="sticky-col px-2 py-2.5 ${top?'bg-amber-50/30':'bg-white'} font-extrabold text-center ${top?'text-amber-600':'text-slate-700'} w-8">${m.rank}</td><td class="px-2 py-2.5"><span class="manager-name font-semibold text-slate-800">${m.playerName}</span></td><td class="px-2 py-2.5 text-slate-500 hide-mobile max-w-[120px] truncate">${m.teamName}</td><td class="px-2 py-2.5 text-center font-bold text-slate-800">${m.totalPoints.toLocaleString()}</td><td class="px-2 py-2.5 text-center font-semibold text-slate-700">${m.gwPoints}</td><td class="px-2 py-2.5 text-center text-xs">${ch}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${m.diffStr}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${m.overallRank}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${m.lastSeasonRank}</td></tr>`;
+  }).join('');
+  $('leagueStandingsBody').innerHTML = rows;
+  const tot = data.length;
+  $('leagueCount').textContent = tot + ' managers';
+  document.querySelectorAll('.sort-icon').forEach((el,i)=>{
+    const th = el.closest('th');
+    if(!th) return;
+    const field = th.dataset.sort;
+    el.textContent = field === _leagueSort.field ? (_leagueSort.asc ? ' ▲' : ' ▼') : '';
+  });
+}
+
+function sortLeagueTable(field, numeric) {
+  const data = window._leagueData;
+  if (!data) return;
+  if (_leagueSort.field === field) _leagueSort.asc = !_leagueSort.asc;
+  else { _leagueSort.field = field; _leagueSort.asc = true; }
+  data.sort((a,b) => {
+    const av = numeric ? (a[field]||0) : String(a[field]||'').toLowerCase();
+    const bv = numeric ? (b[field]||0) : String(b[field]||'').toLowerCase();
+    return _leagueSort.asc ? (av > bv ? 1 : -1) : (av > bv ? -1 : 1);
+  });
+  // Keep original rank visible but sort rows
+  renderLeagueTable();
 }
 
 function filterLeagueTable() {
