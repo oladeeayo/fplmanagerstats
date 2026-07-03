@@ -312,30 +312,52 @@ app.get('/api/league-standings/:leagueId', async (req, res) => {
     const enriched = [];
     const entries = standings;
 
-    const batchSize = 5;
+    const batchSize = 3;
     for (let i = 0; i < entries.length; i += batchSize) {
       const batch = entries.slice(i, i + batchSize);
-      const results = await Promise.allSettled(batch.map(e =>
-        apiGet(`https://fantasy.premierleague.com/api/entry/${e.entry}/history/`).catch(() => null)
-      ));
+      const results = await Promise.allSettled(batch.map(async e => {
+        const [histRes, entryRes] = await Promise.all([
+          apiGet(`https://fantasy.premierleague.com/api/entry/${e.entry}/history/`).catch(() => null),
+          apiGet(`https://fantasy.premierleague.com/api/entry/${e.entry}/`).catch(() => null)
+        ]);
+        return { history: histRes?.data, entry: entryRes?.data };
+      }));
       results.forEach((res, idx) => {
         const entry = batch[idx];
-        const data = res.value?.data;
-        const chips = (data?.chips || []).map(c => c.name);
-        const past = data?.past || [];
-        const lastSeasonRank = past.length > 0 ? past[past.length - 1].rank : null;
-        const seasonBeforeLastRank = past.length > 1 ? past[past.length - 2].rank : null;
-        const chipLabels = chips.map(c => ({ wildcard:'WC', freehit:'FH', bench_boost:'BB', '3xc':'TC', triple_captain:'TC', bboost:'BB' }[c]||c));
+        const hist = res.value?.history;
+        const entryData = res.value?.entry;
+        const past = hist?.past || [];
+        const chips = hist?.chips || [];
+        const currentGW = hist?.current?.length || 0;
 
-        // Estimate GW points from total difference
-        const gwPoints = entry.total - (entry.last_rank > 0 ? entry.total - (entry.rank - entry.last_rank) * 10 : 0);
+        // Map season names to find specific past seasons
+        const getSeasonRank = (season) => {
+          const s = past.find(p => p.season_name === season);
+          return s ? s.rank : null;
+        };
+        const lastSeasonRank = getSeasonRank('2024/25');
+        const seasonBeforeLastRank = getSeasonRank('2023/24');
+
+        // Chips filtered from GW20+
+        const chipLabels = chips
+          .filter(c => c.event >= 20)
+          .map(c => {
+            const label = ({ wildcard:'WC', freehit:'FH', bench_boost:'BB', '3xc':'TC', triple_captain:'TC', bboost:'BB' }[c.name.toLowerCase()]||c.name);
+            return `${label} GW${c.event}`;
+          });
+
+        // Overall rank from entry API
+        const overallRank = entryData?.summary_overall_rank || entry.overall_rank;
+
+        // GW points from entry current data
+        const gwPoints = hist?.current?.length > 0 ? hist.current[hist.current.length - 1].points : entry.event_total;
 
         enriched.push({
           rank: entry.rank, entry: entry.entry,
           playerName: entry.player_name, teamName: entry.entry_name,
-          totalPoints: entry.total, overallRank: entry.overall_rank?.toLocaleString() || '—',
+          totalPoints: entry.total, overallRank: overallRank?.toLocaleString() || '—',
           lastRank: entry.last_rank, rankChange: (entry.last_rank || entry.rank) - entry.rank,
-          gwPoints: '—',
+          gwPoints: gwPoints?.toLocaleString() || '—',
           lastSeasonRank: lastSeasonRank?.toLocaleString() || '—',
           seasonBeforeLastRank: seasonBeforeLastRank?.toLocaleString() || '—',
           chipsUsed: chipLabels.length ? chipLabels.join(', ') : 'None',

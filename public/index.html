@@ -251,14 +251,16 @@
           <th class="px-2 py-3 text-left font-semibold">Manager</th>
           <th class="px-2 py-3 text-left hide-mobile font-semibold">Team</th>
           <th class="px-2 py-3 text-center font-semibold">Pts</th>
+          <th class="px-2 py-3 text-center font-semibold">GW</th>
           <th class="px-2 py-3 text-center font-semibold">+/-</th>
           <th class="px-2 py-3 text-center hide-mobile font-semibold">Diff</th>
           <th class="px-2 py-3 text-center hide-mobile font-semibold">Overall</th>
-          <th class="px-2 py-3 text-center hide-mobile font-semibold">Prev Season</th>
+          <th class="px-2 py-3 text-center hide-mobile font-semibold">24/25</th>
+          <th class="px-2 py-3 text-center hide-mobile font-semibold">23/24</th>
           <th class="px-2 py-3 text-center hide-mobile font-semibold">Chips</th>
         </tr></thead>
         <tbody id="leagueStandingsBody" class="divide-y divide-slate-50">
-          <tr><td colspan="9" class="px-2 py-10 text-center text-slate-400"><i class="fa-solid fa-arrow-pointer mr-2 text-amber-400"></i>Click <strong>"Load"</strong> to fetch top 50 standings.</td></tr>
+          <tr><td colspan="11" class="px-2 py-10 text-center text-slate-400"><i class="fa-solid fa-arrow-pointer mr-2 text-amber-400"></i>Click <strong>"Load"</strong> to fetch top 50 standings.</td></tr>
         </tbody>
       </table></div>
     </div>
@@ -411,7 +413,7 @@ async function loadPriceChanges(tid) {
 // ---- League ----
 async function loadLeagueStandings() {
   const lid = $('leagueId').value || 314;
-  $('leagueStandingsBody').innerHTML = '<tr><td colspan="9" class="px-2 py-8 text-center"><div class="flex justify-center"><div class="animate-spin h-6 w-6 border-2 border-[#963cff] border-t-transparent rounded-full"></div></div></td></tr>';
+  $('leagueStandingsBody').innerHTML = '<tr><td colspan="11" class="px-2 py-8 text-center"><div class="flex justify-center"><div class="animate-spin h-6 w-6 border-2 border-[#963cff] border-t-transparent rounded-full"></div></div></td></tr>';
   try {
     const d = await (await fetch(`/api/league-standings/${lid}`)).json();
     if (!d.standings) throw new Error('No data');
@@ -420,9 +422,9 @@ async function loadLeagueStandings() {
       const chg = m.rankChange; const ch = chg>0?`<i class="fa-solid fa-arrow-up text-emerald-500"></i> +${chg}`:chg<0?`<i class="fa-solid fa-arrow-down text-red-500"></i> ${chg}`:'<span class="text-slate-400">—</span>';
       const diff = i===0?'—':(d.standings[0].totalPoints-m.totalPoints).toLocaleString();
       const top = i===0;
-      return `<tr class="${top?'bg-amber-50/30':''} hover:bg-slate-50/50 transition-colors"><td class="sticky-col px-2 py-2.5 ${top?'bg-amber-50/30':'bg-white'} font-extrabold text-center ${top?'text-amber-600':'text-slate-700'} w-8">${m.rank}</td><td class="px-2 py-2.5"><span class="font-semibold text-slate-800">${m.playerName}</span></td><td class="px-2 py-2.5 text-slate-500 hide-mobile max-w-[120px] truncate">${m.teamName}</td><td class="px-2 py-2.5 text-center font-bold text-slate-800">${m.totalPoints.toLocaleString()}</td><td class="px-2 py-2.5 text-center text-xs">${ch}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${diff}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${m.overallRank}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${m.lastSeasonRank}</td><td class="px-2 py-2.5 text-center hide-mobile"><span class="inline-flex items-center gap-1 text-[10px] font-medium text-slate-600 bg-slate-50 px-2 py-0.5 rounded-md">${m.chipsUsed}</span></td></tr>`;
+      return `<tr class="${top?'bg-amber-50/30':''} hover:bg-slate-50/50 transition-colors"><td class="sticky-col px-2 py-2.5 ${top?'bg-amber-50/30':'bg-white'} font-extrabold text-center ${top?'text-amber-600':'text-slate-700'} w-8">${m.rank}</td><td class="px-2 py-2.5"><span class="font-semibold text-slate-800">${m.playerName}</span></td><td class="px-2 py-2.5 text-slate-500 hide-mobile max-w-[120px] truncate">${m.teamName}</td><td class="px-2 py-2.5 text-center font-bold text-slate-800">${m.totalPoints.toLocaleString()}</td><td class="px-2 py-2.5 text-center font-semibold text-slate-700">${m.gwPoints}</td><td class="px-2 py-2.5 text-center text-xs">${ch}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${diff}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${m.overallRank}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${m.lastSeasonRank}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${m.seasonBeforeLastRank}</td><td class="px-2 py-2.5 text-center hide-mobile"><span class="inline-flex items-center gap-1 text-[10px] font-medium text-slate-600 bg-slate-50 px-2 py-0.5 rounded-md">${m.chipsUsed}</span></td></tr>`;
     }).join('');
-  } catch(e) { $('leagueStandingsBody').innerHTML = `<tr><td colspan="9" class="px-2 py-8 text-center text-red-500">${e.message}</td></tr>`; }
+  } catch(e) { $('leagueStandingsBody').innerHTML = `<tr><td colspan="11" class="px-2 py-8 text-center text-red-500">${e.message}</td></tr>`; }
 }
 
 // ---- Manager Analysis ----
