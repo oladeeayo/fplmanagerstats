@@ -245,6 +245,10 @@
           <button onclick="loadLeagueStandings()" class="px-4 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-lg text-xs hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-1"></i>Load</button>
         </div>
       </div>
+      <div class="flex items-center gap-2 mb-3">
+        <input type="text" id="leagueSearch" placeholder="Filter by manager name..." class="flex-1 px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#963cff]/20" oninput="filterLeagueTable()">
+        <span id="leagueCount" class="text-[10px] text-slate-400 font-medium"></span>
+      </div>
       <div class="overflow-x-auto"><table class="min-w-full text-xs">
         <thead><tr class="text-slate-500 uppercase tracking-wider text-[10px] border-b border-slate-100">
           <th class="px-2 py-3 text-center sticky-col bg-white w-8 font-semibold">#</th>
@@ -256,11 +260,9 @@
           <th class="px-2 py-3 text-center hide-mobile font-semibold">Diff</th>
           <th class="px-2 py-3 text-center hide-mobile font-semibold">Overall</th>
           <th class="px-2 py-3 text-center hide-mobile font-semibold">24/25</th>
-          <th class="px-2 py-3 text-center hide-mobile font-semibold">23/24</th>
-          <th class="px-2 py-3 text-center hide-mobile font-semibold">Chips</th>
         </tr></thead>
         <tbody id="leagueStandingsBody" class="divide-y divide-slate-50">
-          <tr><td colspan="11" class="px-2 py-10 text-center text-slate-400"><i class="fa-solid fa-arrow-pointer mr-2 text-amber-400"></i>Click <strong>"Load"</strong> to fetch top 50 standings.</td></tr>
+          <tr><td colspan="9" class="px-2 py-10 text-center text-slate-400"><i class="fa-solid fa-arrow-pointer mr-2 text-amber-400"></i>Click <strong>"Load"</strong> to fetch top 50 standings.</td></tr>
         </tbody>
       </table></div>
     </div>
@@ -413,18 +415,32 @@ async function loadPriceChanges(tid) {
 // ---- League ----
 async function loadLeagueStandings() {
   const lid = $('leagueId').value || 314;
-  $('leagueStandingsBody').innerHTML = '<tr><td colspan="11" class="px-2 py-8 text-center"><div class="flex justify-center"><div class="animate-spin h-6 w-6 border-2 border-[#963cff] border-t-transparent rounded-full"></div></div></td></tr>';
+  $('leagueStandingsBody').innerHTML = '<tr><td colspan="9" class="px-2 py-8 text-center"><div class="flex justify-center"><div class="animate-spin h-6 w-6 border-2 border-[#963cff] border-t-transparent rounded-full"></div></div></td></tr>';
   try {
     const d = await (await fetch(`/api/league-standings/${lid}`)).json();
     if (!d.standings) throw new Error('No data');
     $('leagueTitle').textContent = (d.leagueName || 'Classic League') + ' · Top 50';
+    window._leagueData = d.standings;
     $('leagueStandingsBody').innerHTML = d.standings.map((m,i) => {
       const chg = m.rankChange; const ch = chg>0?`<i class="fa-solid fa-arrow-up text-emerald-500"></i> +${chg}`:chg<0?`<i class="fa-solid fa-arrow-down text-red-500"></i> ${chg}`:'<span class="text-slate-400">—</span>';
       const diff = i===0?'—':(d.standings[0].totalPoints-m.totalPoints).toLocaleString();
       const top = i===0;
-      return `<tr class="${top?'bg-amber-50/30':''} hover:bg-slate-50/50 transition-colors"><td class="sticky-col px-2 py-2.5 ${top?'bg-amber-50/30':'bg-white'} font-extrabold text-center ${top?'text-amber-600':'text-slate-700'} w-8">${m.rank}</td><td class="px-2 py-2.5"><span class="font-semibold text-slate-800">${m.playerName}</span></td><td class="px-2 py-2.5 text-slate-500 hide-mobile max-w-[120px] truncate">${m.teamName}</td><td class="px-2 py-2.5 text-center font-bold text-slate-800">${m.totalPoints.toLocaleString()}</td><td class="px-2 py-2.5 text-center font-semibold text-slate-700">${m.gwPoints}</td><td class="px-2 py-2.5 text-center text-xs">${ch}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${diff}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${m.overallRank}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${m.lastSeasonRank}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${m.seasonBeforeLastRank}</td><td class="px-2 py-2.5 text-center hide-mobile"><span class="inline-flex items-center gap-1 text-[10px] font-medium text-slate-600 bg-slate-50 px-2 py-0.5 rounded-md">${m.chipsUsed}</span></td></tr>`;
+      return `<tr class="league-row ${top?'bg-amber-50/30':''} hover:bg-slate-50/50 transition-colors"><td class="sticky-col px-2 py-2.5 ${top?'bg-amber-50/30':'bg-white'} font-extrabold text-center ${top?'text-amber-600':'text-slate-700'} w-8">${m.rank}</td><td class="px-2 py-2.5"><span class="manager-name font-semibold text-slate-800">${m.playerName}</span></td><td class="px-2 py-2.5 text-slate-500 hide-mobile max-w-[120px] truncate">${m.teamName}</td><td class="px-2 py-2.5 text-center font-bold text-slate-800">${m.totalPoints.toLocaleString()}</td><td class="px-2 py-2.5 text-center font-semibold text-slate-700">${m.gwPoints}</td><td class="px-2 py-2.5 text-center text-xs">${ch}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${diff}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${m.overallRank}</td><td class="px-2 py-2.5 text-center text-slate-500 hide-mobile">${m.lastSeasonRank}</td></tr>`;
     }).join('');
-  } catch(e) { $('leagueStandingsBody').innerHTML = `<tr><td colspan="11" class="px-2 py-8 text-center text-red-500">${e.message}</td></tr>`; }
+    $('leagueCount').textContent = d.standings.length + ' managers';
+  } catch(e) { $('leagueStandingsBody').innerHTML = `<tr><td colspan="9" class="px-2 py-8 text-center text-red-500">${e.message}</td></tr>`; }
+}
+
+function filterLeagueTable() {
+  const q = $('leagueSearch')?.value?.toLowerCase().trim() || '';
+  const rows = document.querySelectorAll('#leagueStandingsBody .league-row');
+  let count = 0;
+  rows.forEach(r => {
+    const name = r.querySelector('.manager-name')?.textContent?.toLowerCase() || '';
+    if (!q || name.includes(q)) { r.style.display = ''; count++; }
+    else { r.style.display = 'none'; }
+  });
+  $('leagueCount').textContent = count + ' of ' + (window._leagueData?.length || 0) + ' managers';
 }
 
 // ---- Manager Analysis ----
