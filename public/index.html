@@ -61,6 +61,9 @@
     <button class="tab-btn" data-tab="fixtures" onclick="showSection('fixtures');loadFixturesTab()">
       <i class="fa-solid fa-calendar mr-1.5 text-violet-500"></i>Fixtures
     </button>
+    <button class="tab-btn" data-tab="captain" onclick="showSection('captain');loadCaptainTab()">
+      <i class="fa-solid fa-crown mr-1.5 text-yellow-500"></i>Captain
+    </button>
   </div>
 
   <input type="number" id="managerId" class="hidden">
@@ -323,6 +326,23 @@
         <button onclick="loadFixturesTab()" class="px-5 py-2 bg-gradient-to-r from-violet-500 to-purple-500 text-white font-semibold rounded-lg text-sm hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-2"></i>Load Fixtures</button>
         <div id="fixturesTableContainer" class="mt-4"><p class="text-sm text-slate-400">Click to load fixture data.</p></div>
       </div>
+    </div>
+  </div>
+
+  <!-- ===== CAPTAIN ===== -->
+  <div id="section-captain" class="section-content hidden">
+    <div class="card p-5 sm:p-6">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-yellow-500 to-amber-500 flex items-center justify-center text-white text-sm shadow-sm"><i class="fa-solid fa-crown"></i></div>
+        <div><h2 class="text-base font-bold text-slate-800">Captain Picks</h2><p class="text-xs text-slate-400">Top 10 captain options ranked by xPts model</p></div>
+      </div>
+      <div class="flex flex-wrap items-center gap-3 mb-4">
+        <label class="text-xs font-semibold text-slate-500">Gameweek:</label>
+        <select id="captainGWSelect" class="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white" onchange="loadCaptainTab()">
+        </select>
+      </div>
+      <button onclick="loadCaptainTab()" class="px-5 py-2 bg-gradient-to-r from-yellow-500 to-amber-500 text-white font-semibold rounded-lg text-sm hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-2"></i>Load Captain Picks</button>
+      <div id="captainPicksContent" class="mt-4"><p class="text-sm text-slate-400">Click to load top captain recommendations.</p></div>
     </div>
   </div>
 
@@ -1206,6 +1226,123 @@ function renderFixturesTab(d) {
 
   html += `</div></div>`;
   $('fixturesTableContainer').innerHTML = html;
+}
+
+// ---- Captain Tab ----
+async function loadCaptainTab() {
+  if (!$('captainGWSelect').options.length) {
+    for (let gw = 1; gw <= 38; gw++) {
+      const opt = document.createElement('option');
+      opt.value = gw; opt.text = 'GW ' + gw;
+      $('captainGWSelect').add(opt);
+    }
+  }
+  const gw = $('captainGWSelect').value || 1;
+  $('captainPicksContent').innerHTML = '<div class="flex justify-center py-8"><div class="animate-spin h-6 w-6 border-2 border-yellow-500 border-t-transparent rounded-full"></div></div>';
+  try {
+    const d = await (await fetch(`/api/captain-picks?gw=${gw}`)).json();
+    if (!d.captainPicks) throw new Error('No data');
+    renderCaptainTab(d);
+  } catch(e) {
+    $('captainPicksContent').innerHTML = `<p class="text-sm text-red-500 text-center">${e.message}</p>`;
+  }
+}
+
+function renderCaptainTab(d) {
+  const { captainPicks, currentGW, selectedGW } = d;
+
+  const fdrBg2 = f => ({1:'#22c55e',2:'#86efac',3:'#f1f5f9',4:'#fb923c',5:'#ef4444'}[f]||'#f1f5f9');
+  const fdrClr2 = f => ({1:'#fff',2:'#166534',3:'#475569',4:'#fff',5:'#fff'}[f]||'#475569');
+  const posBadge = p => {
+    const cls = p === 'FWD' ? 'bg-rose-100 text-rose-700' : p === 'MID' ? 'bg-sky-100 text-sky-700' : 'bg-emerald-100 text-emerald-700';
+    return `<span class="inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold ${cls}">${p}</span>`;
+  };
+
+  let html = `<div class="card p-5 sm:p-6">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-yellow-500 to-amber-500 flex items-center justify-center text-white text-sm shadow-sm"><i class="fa-solid fa-crown"></i></div>
+      <div><h2 class="text-base font-bold text-slate-800">Top Captain Picks — GW ${selectedGW}</h2>
+        <p class="text-xs text-slate-400">${selectedGW === currentGW ? 'Current gameweek' : selectedGW > currentGW ? 'Upcoming gameweek' : 'Past gameweek'} · xPts model ranking</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+      <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-center">
+        <p class="text-[10px] text-slate-400 font-medium uppercase">Top Pick</p>
+        <p class="text-sm font-bold text-slate-800 mt-0.5">${captainPicks[0]?.name || '—'}</p>
+        <p class="text-[10px] text-slate-500">${captainPicks[0]?.teamShort || ''} · ${captainPicks[0]?.position || ''}</p>
+      </div>
+      <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-center">
+        <p class="text-[10px] text-slate-400 font-medium uppercase">Best xPts</p>
+        <p class="text-sm font-bold text-amber-600 mt-0.5">${captainPicks[0]?.xpts || 0}</p>
+        <p class="text-[10px] text-slate-500">predicted pts</p>
+      </div>
+      <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-center">
+        <p class="text-[10px] text-slate-400 font-medium uppercase">Best Fixture</p>
+        <p class="text-sm font-bold text-slate-800 mt-0.5">${captainPicks.find(p => p.fdr === Math.min(...captainPicks.map(x => x.fdr)))?.name || '—'}</p>
+        <p class="text-[10px] text-slate-500">FDR ${Math.min(...captainPicks.map(p => p.fdr))}</p>
+      </div>
+      <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-center">
+        <p class="text-[10px] text-slate-400 font-medium uppercase">Top Form</p>
+        <p class="text-sm font-bold text-slate-800 mt-0.5">${captainPicks[0]?.name || '—'}</p>
+        <p class="text-[10px] text-slate-500">Form: ${captainPicks[0]?.form || 0}</p>
+      </div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-xs">
+        <thead><tr class="bg-slate-50 font-semibold text-slate-500 uppercase tracking-wider text-[10px]">
+          <th class="px-3 py-2 text-center">#</th>
+          <th class="px-3 py-2 text-left">Player</th>
+          <th class="px-3 py-2 text-center">xPts</th>
+          <th class="px-3 py-2 text-center">Form</th>
+          <th class="px-3 py-2 text-center">xGI</th>
+          <th class="px-3 py-2 text-center">Fixture</th>
+          <th class="px-3 py-2 text-center">FDR</th>
+          <th class="px-3 py-2 text-center">Own%</th>
+          <th class="px-3 py-2 text-center">Pts</th>
+        </tr></thead>
+        <tbody class="divide-y divide-slate-100">`;
+
+  captainPicks.forEach((p, i) => {
+    const isTop3 = i < 3;
+    const rowCls = isTop3 ? 'bg-yellow-50/50' : '';
+    const nameCls = isTop3 ? 'text-amber-700 font-bold' : 'text-slate-700 font-semibold';
+    const crown = i === 0 ? ' <i class="fa-solid fa-crown text-yellow-500 text-[10px] ml-1"></i>' : '';
+
+    html += `<tr class="hover:bg-slate-50 ${rowCls}">
+      <td class="px-3 py-2.5 text-center font-bold text-slate-400">${i + 1}</td>
+      <td class="px-3 py-2.5">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded overflow-hidden bg-slate-100 flex-shrink-0">
+            <img src="https://resources.premierleague.com/premierleague25/photos/players/110/${p.code}.png" alt="" class="w-full h-full object-cover" onerror="this.style.display='none'">
+          </div>
+          <div>
+            <p class="${nameCls}">${p.name}${crown}</p>
+            <p class="text-[10px] text-slate-500">${p.teamShort} ${posBadge(p.position)}</p>
+          </div>
+        </div>
+      </td>
+      <td class="px-3 py-2.5 text-center font-bold ${isTop3 ? 'text-amber-600' : 'text-slate-700'}">${p.xpts}</td>
+      <td class="px-3 py-2.5 text-center font-semibold text-slate-700">${p.form?.toFixed(1) || '0'}</td>
+      <td class="px-3 py-2.5 text-center font-semibold text-slate-700">${p.xGI?.toFixed(1) || '0'}</td>
+      <td class="px-3 py-2.5 text-center font-semibold text-slate-700">${p.fixture}</td>
+      <td class="px-3 py-2.5 text-center">
+        <span class="inline-flex items-center justify-center w-6 h-6 rounded text-[10px] font-bold" style="background:${fdrBg2(p.fdr)};color:${fdrClr2(p.fdr)}">${p.fdr}</span>
+      </td>
+      <td class="px-3 py-2.5 text-center text-slate-600">${p.selectedBy?.toFixed(1) || '0'}%</td>
+      <td class="px-3 py-2.5 text-center font-semibold text-slate-700">${p.totalPts}</td>
+    </tr>`;
+  });
+
+  html += `</tbody></table></div>
+
+    <div class="mt-4 p-3 bg-slate-50 rounded-lg border border-slate-100">
+      <p class="text-[10px] text-slate-500 leading-relaxed"><strong class="text-slate-600">xPts Formula:</strong> (xGI × 6) + (Form × 2.5) + (PPG × 1.5) + (ICT/100 × 2) × Fixture Modifier × Home Advantage</p>
+    </div>
+  </div>`;
+
+  $('captainPicksContent').innerHTML = html;
 }
 </script>
 </body>
