@@ -490,7 +490,7 @@ const ZONE_MAP = {
   "CB": "lcb", "LCB": "lcb", "RCB": "rcb",
   "LWB": "lb", "RWB": "rb",
   "CDM": "ldm", "DM": "ldm",
-  "LM": "lw", "CM": "cam", "RM": "rw",
+  "LM": "lw", "CM": "ldm", "RM": "rw",
   "CAM": "cam",
   "LW": "lw", "RW": "rw",
   "LF": "lw", "CF": "st", "RF": "rw",
