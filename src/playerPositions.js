@@ -487,12 +487,23 @@ const DETAILED_POSITIONS = {
 const ZONE_MAP = {
   "GK": "goal",
   "CB": "central_defence", "LCB": "left_defence", "RCB": "right_defence",
-  "LB": "left_defence", "RB": "right_defence", "LWB": "left_defence", "RWB": "right_defence",
-  "CDM": "central_mid", "CM": "central_mid",
+  "LB": "left_defence", "RB": "right_defence",
+  "LWB": "left_defence", "RWB": "right_defence",
+  "CDM": "central_defence", "DM": "central_defence",
+  "CM": "central_attack", "LM": "left_attack", "RM": "right_attack",
   "CAM": "central_attack",
   "LW": "left_attack", "RW": "right_attack",
-  "LM": "left_mid", "RM": "right_mid",
   "ST": "central_attack", "CF": "central_attack", "SS": "central_attack"
+};
+
+const POSITION_LABELS = {
+  "GK": "GK", "CB": "CB", "LCB": "LCB", "RCB": "RCB",
+  "LB": "LB", "RB": "RB", "LWB": "LWB", "RWB": "RWB",
+  "CDM": "DM", "DM": "DM",
+  "CM": "CM", "LM": "LM", "RM": "RM",
+  "CAM": "AM",
+  "LW": "LW", "RW": "RW",
+  "ST": "ST", "CF": "CF", "SS": "SS"
 };
 
 const ZONE_LABELS = {
@@ -500,11 +511,6 @@ const ZONE_LABELS = {
   "left_defence": "Left Defence",
   "central_defence": "Central Defence",
   "right_defence": "Right Defence",
-  "left_central_defence": "Left Centre Back",
-  "right_central_defence": "Right Centre Back",
-  "left_mid": "Left Midfield",
-  "central_mid": "Central Midfield",
-  "right_mid": "Right Midfield",
   "left_attack": "Left Attack",
   "central_attack": "Central Attack",
   "right_attack": "Right Attack"
@@ -513,4 +519,4 @@ const ZONE_LABELS = {
 const ATTACKING_ZONES = ["left_attack", "central_attack", "right_attack"];
 const DEFENSIVE_ZONES = ["left_defence", "central_defence", "right_defence"];
 
-module.exports = { DETAILED_POSITIONS, ZONE_MAP, ZONE_LABELS, ATTACKING_ZONES, DEFENSIVE_ZONES };
+module.exports = { DETAILED_POSITIONS, ZONE_MAP, ZONE_LABELS, POSITION_LABELS, ATTACKING_ZONES, DEFENSIVE_ZONES };

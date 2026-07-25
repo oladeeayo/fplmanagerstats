@@ -16,7 +16,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 app.use(express.json());
 
 const POSITION_MAP = ["GKP", "DEF", "MID", "FWD"];
-const { DETAILED_POSITIONS, ZONE_MAP, ZONE_LABELS, ATTACKING_ZONES, DEFENSIVE_ZONES } = require('./playerPositions');
+const { DETAILED_POSITIONS, ZONE_MAP, ZONE_LABELS, POSITION_LABELS, ATTACKING_ZONES, DEFENSIVE_ZONES } = require('./playerPositions');
 
 const apiGet = url => axios.get(url, { timeout: 15000 });
 
@@ -419,39 +419,96 @@ app.get('/api/zone-analysis', async (req, res) => {
       };
     });
 
-    // Infer zones for players without detailed positions
+    // Assign zones for ALL players using position-based mapping
+    // Group players by team and detect formation from active player counts
     const teamGroups = {};
     playersWithZones.forEach(p => {
       if (!teamGroups[p.team]) teamGroups[p.team] = { DEF: [], MID: [], FWD: [] };
-      if (p.broadPosition === 'DEF' && !p.zone) teamGroups[p.team].DEF.push(p);
-      if ((p.broadPosition === 'MID' || p.broadPosition === 'FWD') && !p.zone) {
-        teamGroups[p.team][p.broadPosition].push(p);
+      if (!p.zone) {
+        teamGroups[p.team][p.broadPosition === 'DEF' ? 'DEF' : p.broadPosition === 'FWD' ? 'FWD' : 'MID'].push(p);
       }
     });
-    Object.values(teamGroups).forEach(group => {
+
+    Object.entries(teamGroups).forEach(([teamId, group]) => {
+      const defCount = group.DEF.length;
+      const midCount = group.MID.length;
+      const fwdCount = group.FWD.length;
+
+      // Distribute unmapped DEFs based on count
       group.DEF.forEach((p, i) => {
-        if (p.zone) return;
-        const total = group.DEF.length;
-        if (i === 0) p.zone = 'left_defence';
-        else if (i === total - 1 && total > 1) p.zone = 'right_defence';
-        else p.zone = 'central_defence';
-        p.detailedPosition = p.zone === 'left_defence' ? 'LB' : p.zone === 'right_defence' ? 'RB' : 'CB';
+        if (defCount >= 4) {
+          if (i === 0) { p.zone = 'left_defence'; p.detailedPosition = 'LB'; }
+          else if (i === 1) { p.zone = 'central_defence'; p.detailedPosition = 'LCB'; }
+          else if (i === defCount - 2) { p.zone = 'central_defence'; p.detailedPosition = 'RCB'; }
+          else if (i >= defCount - 1) { p.zone = 'right_defence'; p.detailedPosition = 'RB'; }
+          else { p.zone = 'central_defence'; p.detailedPosition = 'CB'; }
+        } else if (defCount === 3) {
+          if (i === 0) { p.zone = 'left_defence'; p.detailedPosition = 'LCB'; }
+          else if (i === defCount - 1) { p.zone = 'right_defence'; p.detailedPosition = 'RCB'; }
+          else { p.zone = 'central_defence'; p.detailedPosition = 'CB'; }
+        } else {
+          if (i === 0) { p.zone = 'left_defence'; p.detailedPosition = 'LB'; }
+          else if (i === defCount - 1 && defCount > 1) { p.zone = 'right_defence'; p.detailedPosition = 'RB'; }
+          else { p.zone = 'central_defence'; p.detailedPosition = 'CB'; }
+        }
       });
-      group.MID.forEach((p, i) => {
-        if (p.zone) return;
-        const total = group.MID.length;
-        if (i === 0) p.zone = 'left_attack';
-        else if (i === total - 1 && total > 1) p.zone = 'right_attack';
-        else p.zone = 'central_attack';
-        p.detailedPosition = p.zone === 'left_attack' ? 'LW' : p.zone === 'right_attack' ? 'RW' : 'CM';
-      });
+
+      // Distribute unmapped MID: infer formation shape
+      // Detect if team plays with a DM by checking if any DEF+MID suggests a defensive setup
+      // Simple heuristic: if 4+ DEF and 3 MID → likely 4-3-3 with a DM
+      //                    if 4+ DEF and 4 MID → likely 4-4-2
+      //                    if 3 DEF and 5 MID → likely 3-5-2
+      if (midCount > 0) {
+        const hasDM = (defCount >= 4 && midCount <= 3) || (defCount >= 3 && midCount <= 3);
+        const hasWideMids = midCount >= 4;
+
+        if (hasDM && midCount >= 1) {
+          // First MID is likely a DM → goes to defence
+          const dm = group.MID[0];
+          dm.zone = 'central_defence';
+          dm.detailedPosition = 'DM';
+          // Rest are attacking mids
+          const remaining = group.MID.slice(1);
+          remaining.forEach((p, i) => {
+            if (remaining.length >= 3) {
+              if (i === 0) { p.zone = 'left_attack'; p.detailedPosition = 'LM'; }
+              else if (i === remaining.length - 1) { p.zone = 'right_attack'; p.detailedPosition = 'RM'; }
+              else { p.zone = 'central_attack'; p.detailedPosition = 'CM'; }
+            } else if (remaining.length === 2) {
+              if (i === 0) { p.zone = 'left_attack'; p.detailedPosition = 'LM'; }
+              else { p.zone = 'right_attack'; p.detailedPosition = 'RM'; }
+            } else {
+              p.zone = 'central_attack'; p.detailedPosition = 'CM';
+            }
+          });
+        } else {
+          // No DM, distribute across attack zones
+          group.MID.forEach((p, i) => {
+            if (hasWideMids) {
+              if (i === 0) { p.zone = 'left_attack'; p.detailedPosition = 'LM'; }
+              else if (i === midCount - 1) { p.zone = 'right_attack'; p.detailedPosition = 'RM'; }
+              else { p.zone = 'central_attack'; p.detailedPosition = 'CM'; }
+            } else {
+              if (i === 0 && midCount > 2) { p.zone = 'left_attack'; p.detailedPosition = 'LM'; }
+              else if (i === midCount - 1 && midCount > 2) { p.zone = 'right_attack'; p.detailedPosition = 'RM'; }
+              else { p.zone = 'central_attack'; p.detailedPosition = 'CM'; }
+            }
+          });
+        }
+      }
+
+      // Distribute unmapped FWDs
       group.FWD.forEach((p, i) => {
-        if (p.zone) return;
-        const total = group.FWD.length;
-        if (i === 0 && total > 2) p.zone = 'left_attack';
-        else if (i === total - 1 && total > 2) p.zone = 'right_attack';
-        else p.zone = 'central_attack';
-        p.detailedPosition = p.zone === 'left_attack' ? 'LW' : p.zone === 'right_attack' ? 'RW' : 'ST';
+        if (fwdCount >= 3) {
+          if (i === 0) { p.zone = 'left_attack'; p.detailedPosition = 'LW'; }
+          else if (i === fwdCount - 1) { p.zone = 'right_attack'; p.detailedPosition = 'RW'; }
+          else { p.zone = 'central_attack'; p.detailedPosition = 'ST'; }
+        } else if (fwdCount === 2) {
+          if (i === 0) { p.zone = 'central_attack'; p.detailedPosition = 'ST'; }
+          else { p.zone = 'central_attack'; p.detailedPosition = 'ST'; }
+        } else {
+          p.zone = 'central_attack'; p.detailedPosition = 'ST';
+        }
       });
     });
 

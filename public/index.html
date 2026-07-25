@@ -742,18 +742,57 @@ const PILL = (text, cls) => `<span class="inline-flex items-center px-2 py-0.5 r
 function buildPitchSVG(team, side) {
   const gwId = side + Math.random().toString(36).slice(2,8);
   
-  // Defensive zones: split central into LCB and RCB
+  // Get dominant position in a zone
+  function getDominantPos(players) {
+    if (!players?.length) return null;
+    const counts = {};
+    players.forEach(p => { const pos = p.position; if (pos) counts[pos] = (counts[pos]||0) + 1; });
+    return Object.entries(counts).sort((a,b) => b[1] - a[1])[0]?.[0] || null;
+  }
+
+  function getTopPlayer(data) {
+    const players = data?.players || [];
+    if (!players.length) return null;
+    return [...players].sort((a,b) => ((b.xG||0)+(b.xA||0)) - ((a.xG||0)+(a.xA||0)))[0];
+  }
+
+  const atkData = team.attack || {};
+  const defData = team.defence || {};
+
+  // Defence labels
+  const leftDefPos = getDominantPos(defData.left_defence?.players) || 'LB';
+  const centralDefPos = getDominantPos(defData.central_defence?.players) || 'CB';
+  const rightDefPos = getDominantPos(defData.right_defence?.players) || 'RB';
+
+  // Attack labels  
+  const leftAtkPos = getDominantPos(atkData.left_attack?.players) || 'LW';
+  const centralAtkPlayers = atkData.central_attack?.players || [];
+  const hasST = centralAtkPlayers.some(p => p.position === 'ST');
+  const hasCM = centralAtkPlayers.some(p => p.position === 'CM');
+  const hasCAM = centralAtkPlayers.some(p => p.position === 'CAM');
+  const rightAtkPos = getDominantPos(atkData.right_attack?.players) || 'RW';
+
+  // Build zone definitions with smart labels
+  const isDM = centralDefPos === 'DM';
   const defZones = [
-    { id: 'left_defence', label: 'LB', x: 2, y: 52, w: 22, h: 42 },
-    { id: 'central_defence_l', label: 'LCB', x: 24, y: 52, w: 23, h: 42, mainId: 'central_defence' },
-    { id: 'central_defence_r', label: 'RCB', x: 47, y: 52, w: 23, h: 42, mainId: 'central_defence' },
-    { id: 'right_defence', label: 'RB', x: 70, y: 52, w: 22, h: 42 }
+    { id: 'left_defence', label: leftDefPos, x: 2, y: 52, w: 22, h: 42 },
+    { id: 'central_defence_l', label: isDM ? 'DM' : 'LCB', x: 24, y: 52, w: 23, h: 42, mainId: 'central_defence' },
+    { id: 'central_defence_r', label: isDM ? 'DM' : 'RCB', x: 47, y: 52, w: 23, h: 42, mainId: 'central_defence' },
+    { id: 'right_defence', label: rightDefPos, x: 70, y: 52, w: 22, h: 42 }
   ];
+
+  // For attack: if central has both ST and CM, show ST left / AM right. If mostly ST, show ST / ST. If mostly CM, show CM / AM.
+  let centralL, centralR;
+  if (hasST && hasCM) { centralL = 'ST'; centralR = 'AM'; }
+  else if (hasST && hasCAM) { centralL = 'ST'; centralR = 'AM'; }
+  else if (hasCM) { centralL = 'CM'; centralR = 'AM'; }
+  else { centralL = 'ST'; centralR = 'AM'; }
+
   const atkZones = [
-    { id: 'left_attack', label: 'LW', x: 2, y: 3, w: 22, h: 42 },
-    { id: 'central_attack_l', label: 'ST', x: 24, y: 3, w: 23, h: 42, mainId: 'central_attack' },
-    { id: 'central_attack_r', label: 'CAM', x: 47, y: 3, w: 23, h: 42, mainId: 'central_attack' },
-    { id: 'right_attack', label: 'RW', x: 70, y: 3, w: 22, h: 42 }
+    { id: 'left_attack', label: leftAtkPos, x: 2, y: 3, w: 22, h: 42 },
+    { id: 'central_attack_l', label: centralL, x: 24, y: 3, w: 23, h: 42, mainId: 'central_attack' },
+    { id: 'central_attack_r', label: centralR, x: 47, y: 3, w: 23, h: 42, mainId: 'central_attack' },
+    { id: 'right_attack', label: rightAtkPos, x: 70, y: 3, w: 22, h: 42 }
   ];
 
   const maxAtk = Math.max(...['left_attack','central_attack','right_attack'].map(z => (team.attack[z]?.xG || 0) + (team.attack[z]?.xA || 0)), 0.1);
@@ -837,7 +876,7 @@ function buildPitchSVG(team, side) {
 
 function renderPlayerChip(p, extra) {
   const posCls = p.broadPos === 'GKP' ? 'badge-gkp' : p.broadPos === 'DEF' ? 'badge-def' : p.broadPos === 'MID' ? 'badge-mid' : 'badge-fwd';
-  const posLabel = p.broadPos || p.position || '?';
+  const posLabel = p.position || p.broadPos || '?';
   const mainStat = p.defensivePick ? `${p.influence?.toFixed(0) || 0} inf` : `${((p.xG||0)+(p.xA||0)).toFixed(1)} xGI`;
   return `<div class="flex items-center gap-2 bg-white rounded-lg border border-slate-100 px-2.5 py-2 min-w-0">
     ${img(p.code, p.name)}
