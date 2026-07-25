@@ -16,6 +16,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 app.use(express.json());
 
 const POSITION_MAP = ["GKP", "DEF", "MID", "FWD"];
+const { DETAILED_POSITIONS, ZONE_MAP, ZONE_LABELS, ATTACKING_ZONES, DEFENSIVE_ZONES } = require('./playerPositions');
 
 const apiGet = url => axios.get(url, { timeout: 15000 });
 
@@ -375,6 +376,317 @@ app.get('/api/league-standings/:leagueId', async (req, res) => {
   } catch (e) {
     console.error('League error:', e.message);
     res.status(500).json({ error: 'Failed to fetch league standings' });
+  }
+});
+
+// ---- Zone Analysis ----
+app.get('/api/zone-analysis', async (req, res) => {
+  try {
+    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
+    const fixtures = (await apiGet('https://fantasy.premierleague.com/api/fixtures/')).data;
+
+    const teams = bs.teams;
+    const elements = bs.elements;
+    const currentGW = bs.events.find(e => e.is_current)?.id || 1;
+
+    // Assign detailed positions to players
+    const playersWithZones = elements.map(p => {
+      // Try multiple name variations for position lookup
+      const detailedPos = DETAILED_POSITIONS[p.web_name]
+        || DETAILED_POSITIONS[p.second_name]
+        || DETAILED_POSITIONS[p.first_name + ' ' + p.second_name]
+        || DETAILED_POSITIONS[p.first_name]
+        || null;
+      const broadPos = POSITION_MAP[p.element_type - 1];
+      const zone = detailedPos ? (ZONE_MAP[detailedPos] || null) : null;
+      return {
+        id: p.id,
+        name: p.web_name,
+        secondName: p.second_name,
+        firstName: p.first_name,
+        team: p.team,
+        teamName: (teams.find(t => t.id === p.team) || {}).short_name || '',
+        broadPosition: broadPos,
+        detailedPosition: detailedPos,
+        zone: zone,
+        goals: p.goals_scored || 0,
+        assists: p.assists || 0,
+        expectedGoals: parseFloat(p.expected_goals) || 0,
+        expectedAssists: parseFloat(p.expected_assists) || 0,
+        expectedGoalInvolvements: parseFloat(p.expected_goal_involvements) || 0,
+        threat: parseFloat(p.threat) || 0,
+        creativity: parseFloat(p.creativity) || 0,
+        influence: parseFloat(p.influence) || 0,
+        ictIndex: parseFloat(p.ict_index) || 0,
+        form: parseFloat(p.form) || 0,
+        minutes: p.minutes || 0,
+        cleanSheets: p.clean_sheets || 0,
+        goalsConceded: p.goals_conceded || 0,
+        saves: p.saves || 0,
+        yellowCards: p.yellow_cards || 0,
+        redCards: p.red_cards || 0,
+        nowCost: p.now_cost || 0,
+        selectedByPercent: parseFloat(p.selected_by_percent) || 0,
+        totalPoints: p.total_points || 0,
+        code: p.code
+      };
+    });
+
+    // Infer zones for players without detailed positions
+    // Group players by team and position, then assign zones based on order
+    const teamGroups = {};
+    playersWithZones.forEach(p => {
+      if (!teamGroups[p.team]) teamGroups[p.team] = { DEF: [], MID: [], FWD: [] };
+      if (p.broadPosition === 'DEF' && !p.zone) teamGroups[p.team].DEF.push(p);
+      if ((p.broadPosition === 'MID' || p.broadPosition === 'FWD') && !p.zone) {
+        teamGroups[p.team][p.broadPosition].push(p);
+      }
+    });
+
+    // Assign zones based on player order within position group
+    Object.values(teamGroups).forEach(group => {
+      // Defenders: distribute as LB, CB, CB, RB pattern
+      group.DEF.forEach((p, i) => {
+        const total = group.DEF.length;
+        if (i === 0) p.zone = 'left_defence';
+        else if (i === total - 1 && total > 1) p.zone = 'right_defence';
+        else p.zone = 'central_defence';
+        p.detailedPosition = p.zone === 'left_defence' ? 'LB' : p.zone === 'right_defence' ? 'RB' : 'CB';
+      });
+      // Midfielders: distribute as LW, CM, CM, RW pattern
+      group.MID.forEach((p, i) => {
+        const total = group.MID.length;
+        if (i === 0) p.zone = 'left_attack';
+        else if (i === total - 1 && total > 1) p.zone = 'right_attack';
+        else p.zone = 'central_attack';
+        p.detailedPosition = p.zone === 'left_attack' ? 'LW' : p.zone === 'right_attack' ? 'RW' : 'CM';
+      });
+      // Forwards: distribute as LW, ST, RW pattern
+      group.FWD.forEach((p, i) => {
+        const total = group.FWD.length;
+        if (i === 0 && total > 2) p.zone = 'left_attack';
+        else if (i === total - 1 && total > 2) p.zone = 'right_attack';
+        else p.zone = 'central_attack';
+        p.detailedPosition = p.zone === 'left_attack' ? 'LW' : p.zone === 'right_attack' ? 'RW' : 'ST';
+      });
+    });
+
+    // Analyze each team's attacking zones
+    const teamAnalysis = teams.map(team => {
+      const teamPlayers = playersWithZones.filter(p => p.team === team.id);
+      const activePlayers = teamPlayers.filter(p => p.minutes > 100);
+
+      // Attacking output by zone
+      const attackByZone = {};
+      ATTACKING_ZONES.forEach(z => { attackByZone[z] = { goals: 0, assists: 0, xG: 0, xA: 0, threat: 0, players: [] }; });
+
+      const attackers = activePlayers.filter(p => p.broadPosition === 'MID' || p.broadPosition === 'FWD');
+      const hasAttackZone = attackers.filter(p => p.zone && ATTACKING_ZONES.includes(p.zone));
+
+      if (hasAttackZone.length > 0) {
+        hasAttackZone.forEach(p => {
+          attackByZone[p.zone].goals += p.goals;
+          attackByZone[p.zone].assists += p.assists;
+          attackByZone[p.zone].xG += p.expectedGoals;
+          attackByZone[p.zone].xA += p.expectedAssists;
+          attackByZone[p.zone].threat += p.threat;
+          attackByZone[p.zone].players.push({
+            name: p.name, position: p.detailedPosition,
+            goals: p.goals, assists: p.assists, xG: p.expectedGoals, xA: p.expectedAssists,
+            form: p.form, cost: p.nowCost, id: p.id, code: p.code
+          });
+        });
+      } else {
+        // Distribute attackers across zones by position type
+        attackers.forEach(p => {
+          let zone = 'central_attack';
+          if (p.broadPosition === 'MID') zone = 'central_mid';
+          else if (p.broadPosition === 'FWD') zone = 'central_attack';
+
+          attackByZone[zone].goals += p.goals;
+          attackByZone[zone].assists += p.assists;
+          attackByZone[zone].xG += p.expectedGoals;
+          attackByZone[zone].xA += p.expectedAssists;
+          attackByZone[zone].threat += p.threat;
+          attackByZone[zone].players.push({
+            name: p.name, position: p.detailedPosition || p.broadPosition,
+            goals: p.goals, assists: p.assists, xG: p.expectedGoals, xA: p.expectedAssists,
+            form: p.form, cost: p.nowCost, id: p.id, code: p.code
+          });
+        });
+      }
+
+      // Defensive record by zone
+      const defByZone = {};
+      DEFENSIVE_ZONES.forEach(z => { defByZone[z] = { cleanSheets: 0, goalsConceded: 0, influence: 0, players: [] }; });
+
+      // Get total team goals conceded from GK or first outfield player
+      const teamGC = activePlayers.reduce((s, p) => s + p.goalsConceded, 0);
+      const defenders = activePlayers.filter(p => p.broadPosition === 'DEF');
+      const hasZoneMapped = defenders.filter(p => p.zone && DEFENSIVE_ZONES.includes(p.zone));
+
+      // If we have zone-mapped defenders, use them; otherwise distribute evenly
+      if (hasZoneMapped.length > 0) {
+        hasZoneMapped.forEach(p => {
+          defByZone[p.zone].goalsConceded += p.goalsConceded;
+          defByZone[p.zone].influence += p.influence;
+          defByZone[p.zone].players.push({
+            name: p.name, position: p.detailedPosition,
+            cleanSheets: p.cleanSheets, goalsConceded: p.goalsConceded,
+            influence: p.influence, form: p.form, cost: p.nowCost, id: p.id, code: p.code
+          });
+        });
+      } else if (defenders.length > 0) {
+        // Distribute GC evenly across zones based on defender count
+        const gcPerDef = defenders.length > 0 ? teamGC / defenders.length : 0;
+        const leftDefs = defenders.filter((_, i) => i % 3 === 0);
+        const centerDefs = defenders.filter((_, i) => i % 3 === 1);
+        const rightDefs = defenders.filter((_, i) => i % 3 === 2);
+
+        [['left_defence', leftDefs], ['central_defence', centerDefs], ['right_defence', rightDefs]].forEach(([zone, zoneDefs]) => {
+          const gc = Math.round(zoneDefs.length * gcPerDef);
+          defByZone[zone].goalsConceded = gc;
+          zoneDefs.forEach(p => {
+            defByZone[zone].influence += p.influence;
+            defByZone[zone].players.push({
+              name: p.name, position: p.detailedPosition || 'DEF',
+              cleanSheets: p.cleanSheets, goalsConceded: p.goalsConceded,
+              influence: p.influence, form: p.form, cost: p.nowCost, id: p.id, code: p.code
+            });
+          });
+        });
+      } else {
+        // No defenders found, use total GC for central
+        defByZone['central_defence'].goalsConceded = teamGC;
+      }
+
+      // GK stats
+      const gk = activePlayers.find(p => p.broadPosition === 'GKP');
+      const gkStats = gk ? {
+        name: gk.name, saves: gk.saves, cleanSheets: gk.cleanSheets,
+        goalsConceded: gk.goalsConceded, form: gk.form, id: gk.id, code: gk.code
+      } : null;
+
+      // Overall team attacking strength
+      const totalGoals = activePlayers.reduce((s, p) => s + p.goals, 0);
+      const totalAssists = activePlayers.reduce((s, p) => s + p.assists, 0);
+      const totalXG = activePlayers.reduce((s, p) => s + p.expectedGoals, 0);
+      const totalXA = activePlayers.reduce((s, p) => s + p.expectedAssists, 0);
+
+      // Find strongest attacking zone
+      let strongestAttack = 'left_attack';
+      let maxAttack = 0;
+      ATTACKING_ZONES.forEach(z => {
+        const score = attackByZone[z].xG + attackByZone[z].xA;
+        if (score > maxAttack) { maxAttack = score; strongestAttack = z; }
+      });
+
+      // Find weakest defensive zone
+      let weakestDefence = 'left_defence';
+      let maxConceded = 0;
+      DEFENSIVE_ZONES.forEach(z => {
+        const conceded = defByZone[z].goalsConceded;
+        if (conceded > maxConceded) { maxConceded = conceded; weakestDefence = z; }
+      });
+
+      return {
+        teamId: team.id,
+        teamName: team.short_name || team.name,
+        teamFullName: team.name,
+        attackByZone,
+        defByZone,
+        gkStats,
+        totalGoals,
+        totalAssists,
+        totalXG,
+        totalXA,
+        strongestAttack,
+        strongestAttackZone: ZONE_LABELS[strongestAttack],
+        weakestDefence,
+        weakestDefenceZone: ZONE_LABELS[weakestDefence]
+      };
+    });
+
+    // Generate matchup recommendations
+    const recommendations = [];
+    for (let i = 0; i < teams.length; i++) {
+      for (let j = i + 1; j < teams.length; j++) {
+        const teamA = teamAnalysis[i];
+        const teamB = teamAnalysis[j];
+
+        // Check if they have upcoming fixtures against each other
+        const upcomingFixture = fixtures.find(f =>
+          f.event > currentGW && f.event <= currentGW + 5 &&
+          ((f.team_h === teamA.teamId && f.team_a === teamB.teamId) ||
+           (f.team_h === teamB.teamId && f.team_a === teamA.teamId))
+        );
+
+        if (!upcomingFixture) continue;
+
+        const isTeamAHome = upcomingFixture.team_h === teamA.teamId;
+        const fixtureGW = upcomingFixture.event;
+
+        // Team A attacking vs Team B defending
+        const aStrongest = teamA.strongestAttack;
+        const bWeakest = teamB.weakestDefence;
+
+        // Find players in Team A's strongest zone
+        const aPlayers = teamAnalysis.find(t => t.teamId === teamA.teamId);
+        const attackPlayers = aPlayers?.attackByZone[aStrongest]?.players || [];
+
+        // Team B attacking vs Team A defending
+        const bStrongest = teamB.strongestAttack;
+        const aWeakest = teamA.weakestDefence;
+        const bAttackPlayers = teamAnalysis.find(t => t.teamId === teamB.teamId)?.attackByZone[bStrongest]?.players || [];
+
+        if (attackPlayers.length > 0) {
+          recommendations.push({
+            fixtureGW,
+            teamA: teamA.teamName,
+            teamB: teamB.teamName,
+            isTeamAHome,
+            type: 'attack',
+            attackingTeam: teamA.teamName,
+            defendingTeam: teamB.teamName,
+            attackZone: ZONE_LABELS[aStrongest],
+            weakZone: ZONE_LABELS[bWeakest],
+            zoneMatch: aStrongest.replace('attack', 'defence') === bWeakest,
+            players: attackPlayers.sort((a, b) => (b.xG + b.xA) - (a.xG + a.xA)).slice(0, 3),
+            strength: Math.round((aPlayers.attackByZone[aStrongest].xG + aPlayers.attackByZone[aStrongest].xA) * 10) / 10
+          });
+        }
+
+        if (bAttackPlayers.length > 0) {
+          recommendations.push({
+            fixtureGW,
+            teamA: teamA.teamName,
+            teamB: teamB.teamName,
+            isTeamAHome,
+            type: 'attack',
+            attackingTeam: teamB.teamName,
+            defendingTeam: teamA.teamName,
+            attackZone: ZONE_LABELS[bStrongest],
+            weakZone: ZONE_LABELS[aWeakest],
+            zoneMatch: bStrongest.replace('attack', 'defence') === aWeakest,
+            players: bAttackPlayers.sort((a, b) => (b.xG + b.xA) - (a.xG + a.xA)).slice(0, 3),
+            strength: Math.round((teamAnalysis.find(t => t.teamId === teamB.teamId)?.attackByZone[bStrongest]?.xG + teamAnalysis.find(t => t.teamId === teamB.teamId)?.attackByZone[bStrongest]?.xA) * 10) / 10
+          });
+        }
+      }
+    }
+
+    // Sort recommendations by strength
+    recommendations.sort((a, b) => b.strength - a.strength);
+
+    res.json({
+      teamAnalysis: teamAnalysis.sort((a, b) => b.totalXG - a.totalXG),
+      recommendations: recommendations.slice(0, 30),
+      currentGW,
+      zoneLabels: ZONE_LABELS
+    });
+  } catch (e) {
+    console.error('Zone analysis error:', e.message);
+    res.status(500).json({ error: 'Failed to perform zone analysis' });
   }
 });
 
