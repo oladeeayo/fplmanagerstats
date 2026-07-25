@@ -418,24 +418,6 @@ app.get('/api/zone-analysis', async (req, res) => {
       };
     });
 
-    // 4-2-3-1 zone slots
-    const DEF_SLOTS = ['lb', 'lcb', 'rcb', 'rb'];
-    const MID_SLOTS = ['ldm', 'rdm', 'lw', 'cam', 'rw'];
-    const FWD_SLOTS = ['st'];
-
-    // Map detailed position to preferred zone slot
-    const posToSlot = {
-      'LB': 'lb', 'RB': 'rb', 'LCB': 'lcb', 'RCB': 'rcb', 'CB': 'lcb',
-      'LWB': 'lb', 'RWB': 'rb',
-      'CDM': 'ldm', 'DM': 'ldm',
-      'CM': 'rdm',
-      'CAM': 'cam',
-      'LW': 'lw', 'RW': 'rw',
-      'LM': 'lw', 'RM': 'rw',
-      'ST': 'st', 'CF': 'st', 'SS': 'st',
-      'GK': 'gk'
-    };
-
     // Assign zones per team using 4-2-3-1
     const teamGroups = {};
     playersWithZones.forEach(p => {
@@ -446,21 +428,55 @@ app.get('/api/zone-analysis', async (req, res) => {
       else teamGroups[p.team].MID.push(p);
     });
 
+    // 4-2-3-1 slot definitions with accepted detailed positions
+    const DEF_SLOTS = [
+      { zone: 'lb', accepts: ['LB', 'LWB'] },
+      { zone: 'lcb', accepts: ['LCB', 'CB'] },
+      { zone: 'rcb', accepts: ['RCB', 'CB'] },
+      { zone: 'rb', accepts: ['RB', 'RWB'] }
+    ];
+    const MID_SLOTS = [
+      { zone: 'ldm', accepts: ['CDM', 'DM'] },
+      { zone: 'rdm', accepts: ['CDM', 'DM', 'CM'] },
+      { zone: 'lw', accepts: ['LW', 'LM'] },
+      { zone: 'cam', accepts: ['CAM'] },
+      { zone: 'rw', accepts: ['RW', 'RM'] }
+    ];
+    const FWD_SLOTS = [
+      { zone: 'st', accepts: ['ST', 'CF', 'SS'] }
+    ];
+
+    function assignSlots(players, slots) {
+      const filled = {};
+      const used = new Set();
+      // Pass 1: match by detailed position
+      for (const slot of slots) {
+        const match = players
+          .filter(p => !used.has(p.id) && p.detailedPosition && slot.accepts.includes(p.detailedPosition))
+          .sort((a, b) => b.minutes - a.minutes)[0];
+        if (match) { filled[slot.zone] = match; used.add(match.id); }
+      }
+      // Pass 2: fill remaining slots by minutes
+      const remaining = players.filter(p => !used.has(p.id)).sort((a, b) => b.minutes - a.minutes);
+      let ri = 0;
+      for (const slot of slots) {
+        if (!filled[slot.zone] && ri < remaining.length) {
+          filled[slot.zone] = remaining[ri]; used.add(remaining[ri].id); ri++;
+        }
+      }
+      // Apply zones
+      for (const [zone, player] of Object.entries(filled)) {
+        player.zone = zone;
+        player.detailedPosition = zone.toUpperCase().replace('LDM','CDM').replace('RDM','CDM').replace('LCB','LCB').replace('RCB','RCB');
+      }
+      return filled;
+    }
+
     Object.entries(teamGroups).forEach(([teamId, group]) => {
-      // GK: always gk
       group.GKP.forEach(p => { p.zone = 'gk'; p.detailedPosition = 'GK'; });
-
-      // Sort DEF by minutes played (starters first), take top 4
-      const topDef = [...group.DEF].sort((a, b) => b.minutes - a.minutes).slice(0, 4);
-      topDef.forEach((p, i) => { p.zone = DEF_SLOTS[i]; p.detailedPosition = DEF_SLOTS[i].toUpperCase(); });
-
-      // Sort MID by minutes, take top 5
-      const topMid = [...group.MID].sort((a, b) => b.minutes - a.minutes).slice(0, 5);
-      topMid.forEach((p, i) => { p.zone = MID_SLOTS[i]; p.detailedPosition = MID_SLOTS[i] === 'ldm' || MID_SLOTS[i] === 'rdm' ? 'CDM' : MID_SLOTS[i].toUpperCase(); });
-
-      // FWD: always st
-      const topFwd = [...group.FWD].sort((a, b) => b.minutes - a.minutes).slice(0, 1);
-      topFwd.forEach(p => { p.zone = 'st'; p.detailedPosition = 'ST'; });
+      assignSlots(group.DEF, DEF_SLOTS);
+      assignSlots(group.MID, MID_SLOTS);
+      assignSlots(group.FWD, FWD_SLOTS);
     });
 
     // Build team analysis (reusable for all GW matchups)
