@@ -393,13 +393,14 @@ app.get('/api/zone-analysis', async (req, res) => {
     // Helper: get team by id
     const getTeam = id => teams.find(t => t.id === id) || { short_name: '?', name: 'Unknown' };
 
-    // Build player objects from FPL data — no DETAILED_POSITIONS needed
+    // Assign detailed positions to players using web_name lookup
     const playersWithZones = elements.map(p => {
+      const detailedPos = DETAILED_POSITIONS[p.web_name] || null;
       const broadPos = POSITION_MAP[p.element_type - 1];
       return {
         id: p.id, name: p.web_name, secondName: p.second_name, team: p.team,
         teamName: getTeam(p.team).short_name, broadPosition: broadPos,
-        detailedPosition: null, zone: null,
+        detailedPosition: detailedPos, zone: detailedPos ? (ZONE_MAP[detailedPos] || null) : null,
         goals: p.goals_scored || 0, assists: p.assists || 0,
         expectedGoals: parseFloat(p.expected_goals) || 0,
         expectedAssists: parseFloat(p.expected_assists) || 0,
@@ -427,58 +428,45 @@ app.get('/api/zone-analysis', async (req, res) => {
       else teamGroups[p.team].MID.push(p);
     });
 
-    // Assign 4-2-3-1 zones using FPL stats to infer actual positions
-    // DEF: top 4 by minutes. Low creativity = CB, high creativity = FB.
-    // MID: top 5 by minutes. Low creativity+threat = CDM. High creativity = CAM. High threat = winger.
-    // FWD: top 1 by minutes = ST.
+    // Assign 4-2-3-1 zones
+    // Players with zone from DETAILED_POSITIONS keep it.
+    // Players without zone get assigned by position group.
     Object.entries(teamGroups).forEach(([teamId, group]) => {
-      // GK: top by minutes
-      const gk = [...group.GKP].sort((a, b) => b.minutes - a.minutes)[0];
-      if (gk) { gk.zone = 'gk'; gk.detailedPosition = 'GK'; }
+      // GK
+      const gkWithZone = group.GKP.find(p => p.zone);
+      if (gkWithZone) { /* already set */ }
+      else { const gk = [...group.GKP].sort((a, b) => b.minutes - a.minutes)[0]; if (gk) { gk.zone = 'gk'; gk.detailedPosition = 'GK'; } }
 
-      // DEF: top 4 by minutes, split by creativity
-      const topDef = [...group.DEF].sort((a, b) => b.minutes - a.minutes).slice(0, 4);
-      if (topDef.length >= 4) {
-        const byCreativity = [...topDef].sort((a, b) => a.creativity - b.creativity);
-        const cbs = byCreativity.slice(0, 2);
-        const fbs = byCreativity.slice(2);
-        // CBs: higher influence = RCB
-        cbs.sort((a, b) => b.influence - a.influence);
-        cbs[0].zone = 'rcb'; cbs[0].detailedPosition = 'RCB';
-        cbs[1].zone = 'lcb'; cbs[1].detailedPosition = 'LCB';
-        // FBs: higher creativity = RB (more attacking)
-        fbs.sort((a, b) => b.creativity - a.creativity);
-        fbs[0].zone = 'rb'; fbs[0].detailedPosition = 'RB';
-        fbs[1].zone = 'lb'; fbs[1].detailedPosition = 'LB';
-      } else {
-        const fallback = ['lb', 'lcb', 'rcb', 'rb'];
-        topDef.forEach((p, i) => { p.zone = fallback[i]; p.detailedPosition = fallback[i].toUpperCase(); });
+      // DEF: 4-2-3-1 = LB, LCB, RCB, RB
+      const defZones = ['lb', 'lcb', 'rcb', 'rb'];
+      const defWithZone = group.DEF.filter(p => p.zone);
+      const defWithout = group.DEF.filter(p => !p.zone).sort((a, b) => b.minutes - a.minutes);
+      // Fill unfilled DEF zones with remaining players
+      const filledDefZones = defWithZone.map(p => p.zone);
+      const openDefZones = defZones.filter(z => !filledDefZones.includes(z));
+      openDefZones.forEach((z, i) => {
+        if (i < defWithout.length) { defWithout[i].zone = z; defWithout[i].detailedPosition = z.toUpperCase(); }
+      });
+
+      // MID: 4-2-3-1 = LDM, RDM, LW, CAM, RW
+      const midZones = ['ldm', 'rdm', 'lw', 'cam', 'rw'];
+      const midWithZone = group.MID.filter(p => p.zone);
+      const midWithout = group.MID.filter(p => !p.zone).sort((a, b) => b.minutes - a.minutes);
+      const filledMidZones = midWithZone.map(p => p.zone);
+      const openMidZones = midZones.filter(z => !filledMidZones.includes(z));
+      openMidZones.forEach((z, i) => {
+        if (i < midWithout.length) {
+          midWithout[i].zone = z;
+          midWithout[i].detailedPosition = (z === 'ldm' || z === 'rdm') ? 'CDM' : z.toUpperCase();
+        }
+      });
+
+      // FWD: ST
+      const fwdWithZone = group.FWD.find(p => p.zone);
+      if (!fwdWithZone) {
+        const fwd = [...group.FWD].sort((a, b) => b.minutes - a.minutes)[0];
+        if (fwd) { fwd.zone = 'st'; fwd.detailedPosition = 'ST'; }
       }
-
-      // MID: top 5 by minutes
-      const topMid = [...group.MID].sort((a, b) => b.minutes - a.minutes).slice(0, 5);
-      if (topMid.length >= 5) {
-        const byCreativity = [...topMid].sort((a, b) => a.creativity - b.creativity);
-        const cdms = byCreativity.slice(0, 2);
-        const cams = byCreativity.slice(2, 3);
-        const wingers = byCreativity.slice(3);
-        // CDMs: higher influence = RDM
-        cdms.sort((a, b) => b.influence - a.influence);
-        cdms[0].zone = 'rdm'; cdms[0].detailedPosition = 'RDM';
-        cdms[1].zone = 'ldm'; cdms[1].detailedPosition = 'LDM';
-        cams[0].zone = 'cam'; cams[0].detailedPosition = 'CAM';
-        // Wingers: higher creativity = RW
-        wingers.sort((a, b) => b.creativity - a.creativity);
-        wingers[0].zone = 'rw'; wingers[0].detailedPosition = 'RW';
-        wingers[1].zone = 'lw'; wingers[1].detailedPosition = 'LW';
-      } else {
-        const fallback = ['ldm', 'rdm', 'lw', 'cam', 'rw'];
-        topMid.forEach((p, i) => { if (i < fallback.length) { p.zone = fallback[i]; p.detailedPosition = fallback[i].toUpperCase(); } });
-      }
-
-      // FWD: top 1 by minutes = ST
-      const topFwd = [...group.FWD].sort((a, b) => b.minutes - a.minutes).slice(0, 1);
-      topFwd.forEach(p => { p.zone = 'st'; p.detailedPosition = 'ST'; });
     });
 
     // Build team analysis (reusable for all GW matchups)
