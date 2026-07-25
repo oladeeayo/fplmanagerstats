@@ -473,9 +473,13 @@ app.get('/api/zone-analysis', async (req, res) => {
     const buildTeamAnalysis = (teamId) => {
       const teamPlayers = playersWithZones.filter(p => p.team === teamId);
       const active = teamPlayers.filter(p => p.minutes > 0);
-      // If season hasn't started, use all players with zones
-      const pool = active.length > 0 ? active : teamPlayers.filter(p => p.zone);
-      const starters = [...pool].sort((a, b) => b.minutes - a.minutes || b.form - a.form).slice(0, 15);
+      // Pick best player per zone (by form, then minutes)
+      const bestPerZone = {};
+      ALL_ZONES.forEach(z => {
+        const candidates = (active.length > 0 ? active : teamPlayers).filter(p => p.zone === z);
+        if (candidates.length) bestPerZone[z] = candidates.sort((a, b) => b.form - a.form || b.minutes - a.minutes)[0];
+      });
+      const starters = Object.values(bestPerZone).filter(Boolean);
 
       const zoneStats = {};
       ALL_ZONES.forEach(z => { zoneStats[z] = { goals: 0, assists: 0, xG: 0, xA: 0, threat: 0, creativity: 0, goalsConceded: 0, xGC: 0, cleanSheets: 0, influence: 0, players: [] }; });
