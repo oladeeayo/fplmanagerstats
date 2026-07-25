@@ -740,7 +740,7 @@ const COST = c => c ? '\u00A3' + (c/10).toFixed(1) + 'm' : '';
 const PILL = (text, cls) => `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${cls}">${text}</span>`;
 
 function buildPitchSVG(team, side) {
-  // FPL-style pitch with proper markings
+  // FPL-style pitch with proper markings - tall and stretched
   const zones = [
     { id: 'left_attack', x: 8, y: 8, w: 36, h: 28 },
     { id: 'central_attack', x: 44, y: 8, w: 12, h: 28 },
@@ -753,7 +753,7 @@ function buildPitchSVG(team, side) {
   const maxAtk = Math.max(...['left_attack','central_attack','right_attack'].map(z => (team.attack[z]?.xG || 0) + (team.attack[z]?.xA || 0)), 1);
   const maxDef = Math.max(...['left_defence','central_defence','right_defence'].map(z => team.defence[z]?.goalsConceded || 0), 1);
 
-  return `<svg viewBox="0 0 100 100" class="w-full h-full" style="max-height:200px">
+  return `<svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" class="w-full" style="aspect-ratio:3/4;display:block">
     <!-- Pitch background -->
     <defs>
       <linearGradient id="pitchGrad" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -762,15 +762,15 @@ function buildPitchSVG(team, side) {
         <stop offset="100%" style="stop-color:#2d8a4e"/>
       </linearGradient>
     </defs>
-    <rect x="0" y="0" width="100" height="100" rx="3" fill="url(#pitchGrad)"/>
+    <rect x="0" y="0" width="100" height="100" fill="url(#pitchGrad)"/>
 
     <!-- Pitch stripes -->
-    <rect x="0" y="0" width="100" height="20" fill="rgba(255,255,255,0.03)"/>
-    <rect x="0" y="40" width="100" height="20" fill="rgba(255,255,255,0.03)"/>
-    <rect x="0" y="80" width="100" height="20" fill="rgba(255,255,255,0.03)"/>
+    <rect x="0" y="0" width="100" height="16.67" fill="rgba(255,255,255,0.03)"/>
+    <rect x="0" y="33.33" width="100" height="16.67" fill="rgba(255,255,255,0.03)"/>
+    <rect x="0" y="66.67" width="100" height="16.67" fill="rgba(255,255,255,0.03)"/>
 
     <!-- Pitch outline -->
-    <rect x="2" y="2" width="96" height="96" rx="2" fill="none" stroke="white" stroke-width="0.5" opacity="0.6"/>
+    <rect x="2" y="2" width="96" height="96" fill="none" stroke="white" stroke-width="0.5" opacity="0.6"/>
 
     <!-- Halfway line -->
     <line x1="2" y1="50" x2="98" y2="50" stroke="white" stroke-width="0.4" opacity="0.5"/>
@@ -779,13 +779,13 @@ function buildPitchSVG(team, side) {
     <circle cx="50" cy="50" r="10" fill="none" stroke="white" stroke-width="0.4" opacity="0.5"/>
     <circle cx="50" cy="50" r="0.8" fill="white" opacity="0.5"/>
 
-    <!-- Top penalty area (attacking) -->
-    <rect x="25" y="2" width="50" y="2" height="16" fill="none" stroke="white" stroke-width="0.35" opacity="0.45"/>
+    <!-- Top penalty area -->
+    <rect x="25" y="2" width="50" height="16" fill="none" stroke="white" stroke-width="0.35" opacity="0.45"/>
     <rect x="35" y="2" width="30" height="6" fill="none" stroke="white" stroke-width="0.3" opacity="0.4"/>
     <circle cx="50" cy="12" r="0.6" fill="white" opacity="0.4"/>
     <path d="M 40 18 Q 50 14 60 18" fill="none" stroke="white" stroke-width="0.3" opacity="0.4"/>
 
-    <!-- Bottom penalty area (defending) -->
+    <!-- Bottom penalty area -->
     <rect x="25" y="82" width="50" height="16" fill="none" stroke="white" stroke-width="0.35" opacity="0.45"/>
     <rect x="35" y="92" width="30" height="6" fill="none" stroke="white" stroke-width="0.3" opacity="0.4"/>
     <circle cx="50" cy="88" r="0.6" fill="white" opacity="0.4"/>
