@@ -500,6 +500,8 @@ const ZONE_LABELS = {
   "left_defence": "Left Defence",
   "central_defence": "Central Defence",
   "right_defence": "Right Defence",
+  "left_central_defence": "Left Centre Back",
+  "right_central_defence": "Right Centre Back",
   "left_mid": "Left Midfield",
   "central_mid": "Central Midfield",
   "right_mid": "Right Midfield",
