@@ -870,4 +870,86 @@ app.get('/api/fixtures-detail', async (req, res) => {
   }
 });
 
+// ---- Captain Picks (xPts model) ----
+app.get('/api/captain-picks', async (req, res) => {
+  try {
+    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
+    const fixtures = (await apiGet('https://fantasy.premierleague.com/api/fixtures/')).data;
+    const teams = bs.teams;
+    const elements = bs.elements;
+    const currentGW = bs.events.find(e => e.is_current)?.id || 1;
+    const selectedGW = parseInt(req.query.gw) || currentGW;
+    const getTeam = id => teams.find(t => t.id === id) || { short_name: '?', name: 'Unknown' };
+
+    // Get next fixture for each team in the selected GW
+    const getOpponent = (teamId) => {
+      const fx = fixtures.find(f => f.event === selectedGW && (f.team_h === teamId || f.team_a === teamId));
+      if (!fx) return null;
+      const isHome = fx.team_h === teamId;
+      const oppId = isHome ? fx.team_a : fx.team_h;
+      return { opponent: getTeam(oppId).short_name, isHome, difficulty: fx.difficulty || 3 };
+    };
+
+    // Calculate xPts for each player
+    const captainCandidates = elements
+      .filter(p => p.minutes > 0 && (p.element_type === 4 || p.element_type === 3)) // FWD or MID only
+      .map(p => {
+        const xGI = parseFloat(p.expected_goal_involvements) || 0;
+        const form = parseFloat(p.form) || 0;
+        const ppg = parseFloat(p.points_per_game) || 0;
+        const ict = parseFloat(p.ict_index) || 0;
+        const goals = p.goals_scored || 0;
+        const assists = p.assists || 0;
+        const totalPts = p.total_points || 0;
+        const cost = p.now_cost || 0;
+        const team = getTeam(p.team);
+        const fixture = getOpponent(p.team);
+
+        // xPts formula: weighted combination of xGI, form, PPG, fixture
+        const xGI_component = xGI * 6; // xGI weighted heavily
+        const form_component = form * 2.5;
+        const ppg_component = ppg * 1.5;
+        const ict_component = (ict / 100) * 2;
+
+        // Fixture modifier: lower difficulty = higher bonus
+        let fixtureMod = 1.0;
+        if (fixture) {
+          if (fixture.difficulty === 1) fixtureMod = 1.4;
+          else if (fixture.difficulty === 2) fixtureMod = 1.2;
+          else if (fixture.difficulty === 3) fixtureMod = 1.0;
+          else if (fixture.difficulty === 4) fixtureMod = 0.8;
+          else if (fixture.difficulty === 5) fixtureMod = 0.6;
+
+          // Home advantage
+          if (fixture.isHome) fixtureMod *= 1.1;
+        }
+
+        // Raw xPts before fixture adjustment
+        const rawXpts = xGI_component + form_component + ppg_component + ict_component;
+        const xpts = Math.round(rawXpts * fixtureMod * 10) / 10;
+
+        return {
+          id: p.id, name: p.web_name, secondName: p.second_name,
+          team: team.name, teamShort: team.short_name,
+          position: POSITION_MAP[p.element_type - 1],
+          form, ppg, xGI, goals, assists, totalPts, cost, ict,
+          fixture: fixture ? fixture.opponent : '—',
+          isHome: fixture ? fixture.isHome : false,
+          fdr: fixture ? fixture.difficulty : 3,
+          selectedBy: parseFloat(p.selected_by_percent) || 0,
+          code: p.code, xpts, rawXpts,
+          bonus: p.bonus || 0,
+          minutes: p.minutes || 0
+        };
+      })
+      .sort((a, b) => b.xpts - a.xpts)
+      .slice(0, 15);
+
+    res.json({ currentGW, selectedGW, captainPicks: captainCandidates });
+  } catch (e) {
+    console.error('Captain picks error:', e.message);
+    res.status(500).json({ error: 'Failed to calculate captain picks' });
+  }
+});
+
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
