@@ -436,10 +436,15 @@ app.get('/api/zone-analysis', async (req, res) => {
       const midCount = group.MID.length;
       const fwdCount = group.FWD.length;
 
-      group.GKP.forEach(p => { p.zone = 'gk'; p.detailedPosition = 'GK'; });
+      group.GKP.forEach(p => { if (!p.zone) { p.zone = 'gk'; p.detailedPosition = 'GK'; } });
 
-      // 4-2-3-1: DEF = LB, LCB, RCB, RB
-      group.DEF.forEach((p, i) => {
+      // Filter out players that already have zones assigned
+      const defWithoutZone = group.DEF.filter(p => !p.zone);
+      const midWithoutZone = group.MID.filter(p => !p.zone);
+      const fwdWithoutZone = group.FWD.filter(p => !p.zone);
+
+      // 4-2-3-1: DEF = LB, LCB, RCB, RB (assign only players without zones)
+      defWithoutZone.forEach((p, i) => {
         if (i === 0) { p.zone = 'lb'; p.detailedPosition = 'LB'; }
         else if (i === 1) { p.zone = 'lcb'; p.detailedPosition = 'LCB'; }
         else if (i === 2) { p.zone = 'rcb'; p.detailedPosition = 'RCB'; }
@@ -447,31 +452,20 @@ app.get('/api/zone-analysis', async (req, res) => {
       });
 
       // 4-2-3-1: MID = 2 CDM (ldm, rdm) + 3 AM (lw, cam, rw)
-      if (midCount >= 5) {
-        // More than 5 mids: take first 2 as CDM, next 3 as AM, rest ignored
-        group.MID[0].zone = 'ldm'; group.MID[0].detailedPosition = 'CDM';
-        group.MID[1].zone = 'rdm'; group.MID[1].detailedPosition = 'CDM';
-        group.MID[2].zone = 'lw'; group.MID[2].detailedPosition = 'LW';
-        group.MID[3].zone = 'cam'; group.MID[3].detailedPosition = 'CAM';
-        group.MID[4].zone = 'rw'; group.MID[4].detailedPosition = 'RW';
-      } else if (midCount === 4) {
-        group.MID[0].zone = 'ldm'; group.MID[0].detailedPosition = 'CDM';
-        group.MID[1].zone = 'rdm'; group.MID[1].detailedPosition = 'CDM';
-        group.MID[2].zone = 'lw'; group.MID[2].detailedPosition = 'LW';
-        group.MID[3].zone = 'cam'; group.MID[3].detailedPosition = 'CAM';
-      } else if (midCount === 3) {
-        group.MID[0].zone = 'ldm'; group.MID[0].detailedPosition = 'CDM';
-        group.MID[1].zone = 'lw'; group.MID[1].detailedPosition = 'LW';
-        group.MID[2].zone = 'cam'; group.MID[2].detailedPosition = 'CAM';
-      } else if (midCount === 2) {
-        group.MID[0].zone = 'ldm'; group.MID[0].detailedPosition = 'CDM';
-        group.MID[1].zone = 'cam'; group.MID[1].detailedPosition = 'CAM';
-      } else if (midCount === 1) {
-        group.MID[0].zone = 'cam'; group.MID[0].detailedPosition = 'CAM';
-      }
+      // Assign only players without zones
+      const midSlots = ['ldm', 'rdm', 'lw', 'cam', 'rw'];
+      midWithoutZone.forEach((p, i) => {
+        if (i < midSlots.length) {
+          p.zone = midSlots[i];
+          p.detailedPosition = midSlots[i] === 'ldm' || midSlots[i] === 'rdm' ? 'CDM' : midSlots[i].toUpperCase();
+        } else {
+          // Overflow: assign to cam
+          p.zone = 'cam'; p.detailedPosition = 'CAM';
+        }
+      });
 
-      // 4-2-3-1: FWD = ST
-      group.FWD.forEach((p, i) => {
+      // 4-2-3-1: FWD = ST (assign only players without zones)
+      fwdWithoutZone.forEach((p, i) => {
         p.zone = 'st'; p.detailedPosition = 'ST';
       });
     });

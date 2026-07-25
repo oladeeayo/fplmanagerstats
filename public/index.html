@@ -786,11 +786,11 @@ function buildPitchSVG(team, side) {
 
   // Pitch row definitions — 4-2-3-1 formation
   const rows = [
-    { y: 2, h: 12, zones: [{ id: 'st', x: 32, w: 30 }] },
-    { y: 14, h: 12, zones: [{ id: 'lw', x: 4, w: 28 }, { id: 'cam', x: 32, w: 30 }, { id: 'rw', x: 62, w: 28 }] },
-    { y: 26, h: 12, zones: [{ id: 'ldm', x: 18, w: 28 }, { id: 'rdm', x: 48, w: 28 }] },
-    { y: 38, h: 12, zones: [{ id: 'lb', x: 4, w: 20 }, { id: 'lcb', x: 24, w: 22 }, { id: 'rcb', x: 48, w: 22 }, { id: 'rb', x: 70, w: 20 }] },
-    { y: 50, h: 12, zones: [{ id: 'gk', x: 32, w: 30 }] }
+    { y: 4, h: 11, zones: [{ id: 'st', x: 32, w: 30 }] },
+    { y: 16, h: 11, zones: [{ id: 'lw', x: 4, w: 28 }, { id: 'cam', x: 33, w: 28 }, { id: 'rw', x: 62, w: 28 }] },
+    { y: 28, h: 11, zones: [{ id: 'ldm', x: 18, w: 28 }, { id: 'rdm', x: 48, w: 28 }] },
+    { y: 40, h: 11, zones: [{ id: 'lb', x: 4, w: 20 }, { id: 'lcb', x: 25, w: 21 }, { id: 'rcb', x: 48, w: 21 }, { id: 'rb', x: 70, w: 20 }] },
+    { y: 52, h: 11, zones: [{ id: 'gk', x: 32, w: 30 }] }
   ];
 
   const allVals = ALL_ZONES.filter(z => z !== 'gk').map(z => {
@@ -825,7 +825,7 @@ function buildPitchSVG(team, side) {
       ${top ? `<text x="${x + w/2}" y="${y + h/2 + 6}" text-anchor="middle" fill="white" font-size="2.8" opacity="0.45">${top.name?.split(' ').pop() || ''}</text>` : ''}`;
   }
 
-  return `<svg viewBox="0 0 94 84" preserveAspectRatio="xMidYMid meet" class="w-full" style="display:block;border-radius:6px">
+  return `<svg viewBox="0 0 94 68" preserveAspectRatio="xMidYMid meet" class="w-full" style="display:block;border-radius:6px">
     <defs>
       <linearGradient id="pg${gwId}" x1="0%" y1="0%" x2="100%" y2="100%">
         <stop offset="0%" stop-color="#1a7a3a"/>
@@ -834,25 +834,25 @@ function buildPitchSVG(team, side) {
         <stop offset="100%" stop-color="#177231"/>
       </linearGradient>
     </defs>
-    <rect x="0" y="0" width="94" height="84" rx="6" fill="url(#pg${gwId})"/>
-    <rect x="1" y="1" width="92" height="82" rx="5" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="0.5"/>
+    <rect x="0" y="0" width="94" height="68" rx="6" fill="url(#pg${gwId})"/>
+    <rect x="1" y="1" width="92" height="66" rx="5" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="0.5"/>
 
     <!-- Halfway line -->
-    <line x1="1" y1="42" x2="93" y2="42" stroke="rgba(255,255,255,0.3)" stroke-width="0.4"/>
-    <circle cx="47" cy="42" r="7" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.35"/>
-    <circle cx="47" cy="42" r="0.6" fill="rgba(255,255,255,0.3)"/>
+    <line x1="1" y1="34" x2="93" y2="34" stroke="rgba(255,255,255,0.3)" stroke-width="0.4"/>
+    <circle cx="47" cy="34" r="7" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.35"/>
+    <circle cx="47" cy="34" r="0.6" fill="rgba(255,255,255,0.3)"/>
 
     <!-- Penalty areas -->
-    <rect x="22" y="1" width="50" height="12" rx="0.5" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.35"/>
-    <rect x="32" y="1" width="30" height="4" rx="0.3" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.25"/>
-    <rect x="22" y="71" width="50" height="12" rx="0.5" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.35"/>
-    <rect x="32" y="79" width="30" height="4" rx="0.3" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.25"/>
+    <rect x="22" y="1" width="50" height="10" rx="0.5" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.35"/>
+    <rect x="32" y="1" width="30" height="3" rx="0.3" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.25"/>
+    <rect x="22" y="57" width="50" height="10" rx="0.5" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.35"/>
+    <rect x="32" y="64" width="30" height="3" rx="0.3" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.25"/>
 
     <!-- Corner arcs -->
     <path d="M 1 3.5 Q 3 1 5.5 1" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.25"/>
     <path d="M 88.5 1 Q 91 1 93 3.5" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.25"/>
-    <path d="M 1 80.5 Q 3 83 5.5 83" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.25"/>
-    <path d="M 88.5 83 Q 91 83 93 80.5" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.25"/>
+    <path d="M 1 64.5 Q 3 67 5.5 67" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.25"/>
+    <path d="M 88.5 67 Q 91 67 93 64.5" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.25"/>
 
     <!-- Zone cells -->
     ${rows.map(row => row.zones.map(z => zoneCell(z.id, z.x, row.y, z.w, row.h)).join('')).join('')}
