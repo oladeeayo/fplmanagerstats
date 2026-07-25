@@ -726,13 +726,34 @@ function renderPlayerTable() {
 
 // ---- Zones Tab ----
 const ZONE_COLORS = {
-  left_attack: { bg: 'bg-rose-500', light: 'bg-rose-100', text: 'text-rose-700', label: 'LW' },
-  central_attack: { bg: 'bg-rose-600', light: 'bg-rose-100', text: 'text-rose-700', label: 'ST' },
-  right_attack: { bg: 'bg-rose-500', light: 'bg-rose-100', text: 'text-rose-700', label: 'RW' },
-  left_defence: { bg: 'bg-sky-500', light: 'bg-sky-100', text: 'text-sky-700', label: 'LB' },
-  central_defence: { bg: 'bg-sky-600', light: 'bg-sky-100', text: 'text-sky-700', label: 'CB' },
-  right_defence: { bg: 'bg-sky-500', light: 'bg-sky-100', text: 'text-sky-700', label: 'RB' }
+  st: { bg: 'bg-rose-500', light: 'bg-rose-100', text: 'text-rose-700', label: 'ST' },
+  lf: { bg: 'bg-rose-500', light: 'bg-rose-100', text: 'text-rose-700', label: 'LF' },
+  cf: { bg: 'bg-rose-600', light: 'bg-rose-100', text: 'text-rose-700', label: 'CF' },
+  rf: { bg: 'bg-rose-500', light: 'bg-rose-100', text: 'text-rose-700', label: 'RF' },
+  lw: { bg: 'bg-rose-500', light: 'bg-rose-100', text: 'text-rose-700', label: 'LW' },
+  cam: { bg: 'bg-rose-600', light: 'bg-rose-100', text: 'text-rose-700', label: 'CAM' },
+  rw: { bg: 'bg-rose-500', light: 'bg-rose-100', text: 'text-rose-700', label: 'RW' },
+  lb: { bg: 'bg-sky-500', light: 'bg-sky-100', text: 'text-sky-700', label: 'LB' },
+  lwb: { bg: 'bg-sky-500', light: 'bg-sky-100', text: 'text-sky-700', label: 'LWB' },
+  cb: { bg: 'bg-sky-600', light: 'bg-sky-100', text: 'text-sky-700', label: 'CB' },
+  rwb: { bg: 'bg-sky-500', light: 'bg-sky-100', text: 'text-sky-700', label: 'RWB' },
+  rb: { bg: 'bg-sky-500', light: 'bg-sky-100', text: 'text-sky-700', label: 'RB' },
+  cdm: { bg: 'bg-sky-600', light: 'bg-sky-100', text: 'text-sky-700', label: 'CDM' },
+  lm: { bg: 'bg-violet-500', light: 'bg-violet-100', text: 'text-violet-700', label: 'LM' },
+  cm: { bg: 'bg-violet-500', light: 'bg-violet-100', text: 'text-violet-700', label: 'CM' },
+  rm: { bg: 'bg-violet-500', light: 'bg-violet-100', text: 'text-violet-700', label: 'RM' },
+  gk: { bg: 'bg-amber-500', light: 'bg-amber-100', text: 'text-amber-700', label: 'GK' }
 };
+
+const ZONE_LABELS = {
+  gk:'GK', lb:'LB', lwb:'LWB', cb:'CB', rwb:'RWB', rb:'RB',
+  cdm:'CDM', lm:'LM', cm:'CM', rm:'RM',
+  cam:'CAM', lw:'LW', rw:'RW',
+  lf:'LF', cf:'CF', rf:'RF', st:'ST'
+};
+const ATTACKING_ZONES = ['lw','lf','cf','rf','rw','cam','st'];
+const DEFENSIVE_ZONES = ['lb','lwb','cb','rwb','rb','cdm'];
+const ALL_ZONES = ['gk','lb','lwb','cb','rwb','rb','cdm','lm','cm','rm','cam','lw','rw','lf','cf','rf','st'];
 
 const FDR_BG = d => ({ 1:'#22c55e', 2:'#86efac', 3:'#f1f5f9', 4:'#fb923c', 5:'#ef4444' }[d] || '#f1f5f9');
 const FDR_CLR = d => ({ 1:'#fff', 2:'#166534', 3:'#475569', 4:'#fff', 5:'#fff' }[d] || '#475569');
@@ -741,81 +762,85 @@ const PILL = (text, cls) => `<span class="inline-flex items-center px-2 py-0.5 r
 
 function buildPitchSVG(team, side) {
   const gwId = side + Math.random().toString(36).slice(2,8);
-  
-  // Get dominant position in a zone
-  function getDominantPos(players) {
-    if (!players?.length) return null;
-    const counts = {};
-    players.forEach(p => { const pos = p.position; if (pos) counts[pos] = (counts[pos]||0) + 1; });
-    return Object.entries(counts).sort((a,b) => b[1] - a[1])[0]?.[0] || null;
-  }
+  const zs = team.zoneStats || {};
 
-  function getTopPlayer(data) {
-    const players = data?.players || [];
-    if (!players.length) return null;
-    return [...players].sort((a,b) => ((b.xG||0)+(b.xA||0)) - ((a.xG||0)+(a.xA||0)))[0];
-  }
-
-  const atkData = team.attack || {};
-  const defData = team.defence || {};
-
-  // Defence labels
-  const leftDefPos = getDominantPos(defData.left_defence?.players) || 'LB';
-  const centralDefPos = getDominantPos(defData.central_defence?.players) || 'CB';
-  const rightDefPos = getDominantPos(defData.right_defence?.players) || 'RB';
-
-  // Attack labels  
-  const leftAtkPos = getDominantPos(atkData.left_attack?.players) || 'LW';
-  const centralAtkPlayers = atkData.central_attack?.players || [];
-  const hasST = centralAtkPlayers.some(p => p.position === 'ST');
-  const hasCM = centralAtkPlayers.some(p => p.position === 'CM');
-  const hasCAM = centralAtkPlayers.some(p => p.position === 'CAM');
-  const rightAtkPos = getDominantPos(atkData.right_attack?.players) || 'RW';
-
-  // Build zone definitions with smart labels
-  const isDM = centralDefPos === 'DM';
-  const defZones = [
-    { id: 'left_defence', label: leftDefPos, x: 2, y: 52, w: 22, h: 42 },
-    { id: 'central_defence_l', label: isDM ? 'DM' : 'LCB', x: 24, y: 52, w: 23, h: 42, mainId: 'central_defence' },
-    { id: 'central_defence_r', label: isDM ? 'DM' : 'RCB', x: 47, y: 52, w: 23, h: 42, mainId: 'central_defence' },
-    { id: 'right_defence', label: rightDefPos, x: 70, y: 52, w: 22, h: 42 }
+  // Pitch row definitions matching the formation diagram
+  const rows = [
+    { y: 2, h: 10, zones: [{ id: 'st', x: 32, w: 30 }] },
+    { y: 12, h: 10, zones: [{ id: 'lf', x: 4, w: 28 }, { id: 'cf', x: 32, w: 30 }, { id: 'rf', x: 62, w: 28 }] },
+    { y: 22, h: 10, zones: [{ id: 'lw', x: 4, w: 28 }, { id: 'cam', x: 32, w: 30 }, { id: 'rw', x: 62, w: 28 }] },
+    { y: 32, h: 10, zones: [{ id: 'lm', x: 4, w: 28 }, { id: 'cm', x: 32, w: 30 }, { id: 'rm', x: 62, w: 28 }] },
+    { y: 42, h: 10, zones: [{ id: 'cdm', x: 22, w: 50 }] },
+    { y: 52, h: 10, zones: [{ id: 'lwb', x: 4, w: 40 }, { id: 'rwb', x: 56, w: 40 }] },
+    { y: 62, h: 10, zones: [{ id: 'lb', x: 4, w: 28 }, { id: 'cb', x: 32, w: 30 }, { id: 'rb', x: 62, w: 28 }] },
+    { y: 72, h: 10, zones: [{ id: 'gk', x: 32, w: 30 }] }
   ];
 
-  // For attack: if central has both ST and CM, show ST left / AM right. If mostly ST, show ST / ST. If mostly CM, show CM / AM.
-  let centralL, centralR;
-  if (hasST && hasCM) { centralL = 'ST'; centralR = 'AM'; }
-  else if (hasST && hasCAM) { centralL = 'ST'; centralR = 'AM'; }
-  else if (hasCM) { centralL = 'CM'; centralR = 'AM'; }
-  else { centralL = 'ST'; centralR = 'AM'; }
+  const allVals = ALL_ZONES.filter(z => z !== 'gk').map(z => {
+    const d = zs[z];
+    const isAtt = ATTACKING_ZONES.includes(z);
+    return isAtt ? ((d?.xG || 0) + (d?.xA || 0)) : (d?.goalsConceded || 0);
+  });
+  const maxAtk = Math.max(...ATTACKING_ZONES.map(z => ((zs[z]?.xG || 0) + (zs[z]?.xA || 0))), 0.1);
+  const maxDef = Math.max(...DEFENSIVE_ZONES.map(z => zs[z]?.goalsConceded || 0), 1);
 
-  const atkZones = [
-    { id: 'left_attack', label: leftAtkPos, x: 2, y: 3, w: 22, h: 42 },
-    { id: 'central_attack_l', label: centralL, x: 24, y: 3, w: 23, h: 42, mainId: 'central_attack' },
-    { id: 'central_attack_r', label: centralR, x: 47, y: 3, w: 23, h: 42, mainId: 'central_attack' },
-    { id: 'right_attack', label: rightAtkPos, x: 70, y: 3, w: 22, h: 42 }
-  ];
-
-  const maxAtk = Math.max(...['left_attack','central_attack','right_attack'].map(z => (team.attack[z]?.xG || 0) + (team.attack[z]?.xA || 0)), 0.1);
-  const maxDef = Math.max(...['left_defence','central_defence','right_defence'].map(z => team.defence[z]?.goalsConceded || 0), 1);
-
-  function zoneOverlay(z, isAtt) {
-    const mainZone = z.mainId || z.id;
-    const data = isAtt ? team.attack[mainZone] : team.defence[mainZone];
-    const val = isAtt ? ((data?.xG || 0) + (data?.xA || 0)) : (data?.goalsConceded || 0);
-    const max = isAtt ? maxAtk : maxDef;
+  function zoneCell(z, x, y, w, h) {
+    const isAtt = ATTACKING_ZONES.includes(z);
+    const isGK = z === 'gk';
+    const d = zs[z] || {};
+    const val = isAtt ? ((d.xG || 0) + (d.xA || 0)) : (d.goalsConceded || 0);
+    const max = isAtt ? maxAtk : (isGK ? 1 : maxDef);
     const intensity = Math.min(val / max, 1);
-    const r = isAtt ? 220 : 56, g = isAtt ? 68 : 130, b = isAtt ? 68 : 200;
-    const fillColor = `rgba(${r},${g},${b},${0.08 + intensity * 0.5})`;
-    const borderColor = `rgba(${r},${g},${b},${0.25 + intensity * 0.4})`;
-    const players = data?.players || [];
+    let r, g, b;
+    if (isAtt) { r = 220; g = 68; b = 68; }
+    else if (isGK) { r = 160; g = 130; b = 60; }
+    else { r = 56; g = 130; b = 200; }
+    const fillColor = `rgba(${r},${g},${b},${0.06 + intensity * 0.45})`;
+    const borderColor = `rgba(${r},${g},${b},${0.2 + intensity * 0.4})`;
+    const players = d.players || [];
     const sorted = [...players].sort((a,b) => isAtt ? ((b.xG||0)+(b.xA||0)) - ((a.xG||0)+(a.xA||0)) : (b.influence||0) - (a.influence||0));
     const top = sorted[0];
+    const label = ZONE_LABELS[z] || z.toUpperCase();
 
-    return `<rect x="${z.x}" y="${z.y}" width="${z.w}" height="${z.h}" rx="4" fill="${fillColor}" stroke="${borderColor}" stroke-width="0.8"/>
-      <text x="${z.x + z.w/2}" y="${z.y + 14}" text-anchor="middle" fill="white" font-size="5.5" font-weight="800" letter-spacing="0.5" opacity="0.9">${z.label}</text>
-      <text x="${z.x + z.w/2}" y="${z.y + 22}" text-anchor="middle" fill="white" font-size="4.5" font-weight="600" opacity="0.75">${isAtt ? val.toFixed(1)+' xGI' : val+' GC'}</text>
-      ${top ? `<text x="${z.x + z.w/2}" y="${z.y + 30}" text-anchor="middle" fill="white" font-size="3.5" opacity="0.5">${top.name?.split(' ').pop() || ''}</text>` : ''}`;
+    return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="${fillColor}" stroke="${borderColor}" stroke-width="0.6"/>
+      <text x="${x + w/2}" y="${y + h/2 - 2.5}" text-anchor="middle" fill="white" font-size="4.2" font-weight="800" letter-spacing="0.3" opacity="0.9">${label}</text>
+      <text x="${x + w/2}" y="${y + h/2 + 2}" text-anchor="middle" fill="white" font-size="3.4" font-weight="600" opacity="0.7">${isAtt ? val.toFixed(1)+' xGI' : isGK ? (d.cs||0)+' CS' : val+' GC'}</text>
+      ${top ? `<text x="${x + w/2}" y="${y + h/2 + 6}" text-anchor="middle" fill="white" font-size="2.8" opacity="0.45">${top.name?.split(' ').pop() || ''}</text>` : ''}`;
   }
+
+  return `<svg viewBox="0 0 94 84" preserveAspectRatio="xMidYMid meet" class="w-full" style="display:block;border-radius:6px">
+    <defs>
+      <linearGradient id="pg${gwId}" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#1a7a3a"/>
+        <stop offset="30%" stop-color="#22943f"/>
+        <stop offset="60%" stop-color="#1e8538"/>
+        <stop offset="100%" stop-color="#177231"/>
+      </linearGradient>
+    </defs>
+    <rect x="0" y="0" width="94" height="84" rx="6" fill="url(#pg${gwId})"/>
+    <rect x="1" y="1" width="92" height="82" rx="5" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="0.5"/>
+
+    <!-- Halfway line -->
+    <line x1="1" y1="42" x2="93" y2="42" stroke="rgba(255,255,255,0.3)" stroke-width="0.4"/>
+    <circle cx="47" cy="42" r="7" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.35"/>
+    <circle cx="47" cy="42" r="0.6" fill="rgba(255,255,255,0.3)"/>
+
+    <!-- Penalty areas -->
+    <rect x="22" y="1" width="50" height="12" rx="0.5" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.35"/>
+    <rect x="32" y="1" width="30" height="4" rx="0.3" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.25"/>
+    <rect x="22" y="71" width="50" height="12" rx="0.5" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.35"/>
+    <rect x="32" y="79" width="30" height="4" rx="0.3" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.25"/>
+
+    <!-- Corner arcs -->
+    <path d="M 1 3.5 Q 3 1 5.5 1" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.25"/>
+    <path d="M 88.5 1 Q 91 1 93 3.5" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.25"/>
+    <path d="M 1 80.5 Q 3 83 5.5 83" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.25"/>
+    <path d="M 88.5 83 Q 91 83 93 80.5" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.25"/>
+
+    <!-- Zone cells -->
+    ${rows.map(row => row.zones.map(z => zoneCell(z.id, z.x, row.y, z.w, row.h)).join('')).join('')}
+  </svg>`;
+}
 
   return `<svg viewBox="0 0 94 97" preserveAspectRatio="xMidYMid meet" class="w-full" style="display:block;border-radius:6px">
     <defs>
@@ -974,7 +999,7 @@ function renderZonesTab(d) {
             <p class="text-xs font-bold text-slate-700">${fixture.homeTeam} Attack</p>
             <span class="text-[10px] text-slate-400">Strong: ${home.strongestAttackZone}</span>
           </div>
-          <div class="rounded-lg overflow-hidden mb-3 shadow-md">${buildPitchSVG({ attack: home.attack, defence: home.defence }, 'home')}</div>
+          <div class="rounded-lg overflow-hidden mb-3 shadow-md">${buildPitchSVG({ zoneStats: home.zoneStats }, 'home')}</div>
           <div class="space-y-1.5">
             <div class="flex items-center justify-between text-[10px]"><span class="text-slate-500">Total xGI</span><span class="font-bold text-slate-700">${(home.totalXG + home.totalXA).toFixed(1)}</span></div>
             <div class="flex items-center justify-between text-[10px]"><span class="text-slate-500">Goals Scored</span><span class="font-bold text-slate-700">${home.totalGoals}</span></div>
@@ -1050,7 +1075,7 @@ function renderZonesTab(d) {
             <p class="text-xs font-bold text-slate-700">${fixture.awayTeam} Attack</p>
             <span class="text-[10px] text-slate-400">Strong: ${away.strongestAttackZone}</span>
           </div>
-          <div class="rounded-lg overflow-hidden mb-3 shadow-md">${buildPitchSVG({ attack: away.attack, defence: away.defence }, 'away')}</div>
+          <div class="rounded-lg overflow-hidden mb-3 shadow-md">${buildPitchSVG({ zoneStats: away.zoneStats }, 'away')}</div>
           <div class="space-y-1.5">
             <div class="flex items-center justify-between text-[10px]"><span class="text-slate-500">Total xGI</span><span class="font-bold text-slate-700">${(away.totalXG + away.totalXA).toFixed(1)}</span></div>
             <div class="flex items-center justify-between text-[10px]"><span class="text-slate-500">Goals Scored</span><span class="font-bold text-slate-700">${away.totalGoals}</span></div>

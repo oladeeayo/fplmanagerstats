@@ -485,38 +485,50 @@ const DETAILED_POSITIONS = {
 };
 
 const ZONE_MAP = {
-  "GK": "goal",
-  "CB": "central_defence", "LCB": "left_defence", "RCB": "right_defence",
-  "LB": "left_defence", "RB": "right_defence",
-  "LWB": "left_defence", "RWB": "right_defence",
-  "CDM": "central_defence", "DM": "central_defence",
-  "CM": "central_attack", "LM": "left_attack", "RM": "right_attack",
-  "CAM": "central_attack",
-  "LW": "left_attack", "RW": "right_attack",
-  "ST": "central_attack", "CF": "central_attack", "SS": "central_attack"
+  "GK": "gk",
+  "LB": "lb", "RB": "rb",
+  "CB": "cb", "LCB": "cb", "RCB": "cb",
+  "LWB": "lwb", "RWB": "rwb",
+  "CDM": "cdm", "DM": "cdm",
+  "LM": "lm", "CM": "cm", "RM": "rm",
+  "CAM": "cam",
+  "LW": "lw", "RW": "rw",
+  "LF": "lf", "CF": "cf", "RF": "rf",
+  "ST": "st", "SS": "cf"
+};
+
+const ZONE_GROUP = {
+  gk: 'gk',
+  lb: 'defence', cb: 'defence', rb: 'defence',
+  lwb: 'defence', rwb: 'defence',
+  cdm: 'midfield', lm: 'midfield', cm: 'midfield', rm: 'midfield',
+  cam: 'midfield', lw: 'attack', rw: 'attack',
+  lf: 'attack', cf: 'attack', rf: 'attack', st: 'attack'
 };
 
 const POSITION_LABELS = {
   "GK": "GK", "CB": "CB", "LCB": "LCB", "RCB": "RCB",
   "LB": "LB", "RB": "RB", "LWB": "LWB", "RWB": "RWB",
-  "CDM": "DM", "DM": "DM",
+  "CDM": "CDM", "DM": "CDM",
   "CM": "CM", "LM": "LM", "RM": "RM",
-  "CAM": "AM",
+  "CAM": "CAM",
   "LW": "LW", "RW": "RW",
-  "ST": "ST", "CF": "CF", "SS": "SS"
+  "LF": "LF", "CF": "CF", "RF": "RF",
+  "ST": "ST", "SS": "SS"
 };
 
 const ZONE_LABELS = {
-  "goal": "Goal",
-  "left_defence": "Left Defence",
-  "central_defence": "Central Defence",
-  "right_defence": "Right Defence",
-  "left_attack": "Left Attack",
-  "central_attack": "Central Attack",
-  "right_attack": "Right Attack"
+  gk: "GK",
+  lb: "LB", cb: "CB", rb: "RB",
+  lwb: "LWB", rwb: "RWB",
+  cdm: "CDM", lm: "LM", cm: "CM", rm: "RM",
+  cam: "CAM", lw: "LW", rw: "RW",
+  lf: "LF", cf: "CF", rf: "RF", st: "ST"
 };
 
-const ATTACKING_ZONES = ["left_attack", "central_attack", "right_attack"];
-const DEFENSIVE_ZONES = ["left_defence", "central_defence", "right_defence"];
+const ATTACKING_ZONES = ["lw", "lf", "cf", "rf", "rw", "cam", "st"];
+const DEFENSIVE_ZONES = ["lb", "lwb", "cb", "rwb", "rb", "cdm"];
+const MIDFIELD_ZONES = ["lm", "cm", "rm"];
+const ALL_ZONES = ["gk", "lb", "lwb", "cb", "rwb", "rb", "cdm", "lm", "cm", "rm", "cam", "lw", "rw", "lf", "cf", "rf", "st"];
 
-module.exports = { DETAILED_POSITIONS, ZONE_MAP, ZONE_LABELS, POSITION_LABELS, ATTACKING_ZONES, DEFENSIVE_ZONES };
+module.exports = { DETAILED_POSITIONS, ZONE_MAP, ZONE_LABELS, ZONE_GROUP, POSITION_LABELS, ATTACKING_ZONES, DEFENSIVE_ZONES, MIDFIELD_ZONES, ALL_ZONES };
