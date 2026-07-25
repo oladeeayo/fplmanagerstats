@@ -430,6 +430,7 @@ app.get('/api/zone-analysis', async (req, res) => {
     });
     Object.values(teamGroups).forEach(group => {
       group.DEF.forEach((p, i) => {
+        if (p.zone) return;
         const total = group.DEF.length;
         if (i === 0) p.zone = 'left_defence';
         else if (i === total - 1 && total > 1) p.zone = 'right_defence';
@@ -437,6 +438,7 @@ app.get('/api/zone-analysis', async (req, res) => {
         p.detailedPosition = p.zone === 'left_defence' ? 'LB' : p.zone === 'right_defence' ? 'RB' : 'CB';
       });
       group.MID.forEach((p, i) => {
+        if (p.zone) return;
         const total = group.MID.length;
         if (i === 0) p.zone = 'left_attack';
         else if (i === total - 1 && total > 1) p.zone = 'right_attack';
@@ -444,6 +446,7 @@ app.get('/api/zone-analysis', async (req, res) => {
         p.detailedPosition = p.zone === 'left_attack' ? 'LW' : p.zone === 'right_attack' ? 'RW' : 'CM';
       });
       group.FWD.forEach((p, i) => {
+        if (p.zone) return;
         const total = group.FWD.length;
         if (i === 0 && total > 2) p.zone = 'left_attack';
         else if (i === total - 1 && total > 2) p.zone = 'right_attack';
