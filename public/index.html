@@ -727,7 +727,7 @@ function renderPlayerTable() {
 // ---- Zones Tab ----
 const ZONE_COLORS = {
   left_attack: { bg: 'bg-rose-500', light: 'bg-rose-100', text: 'text-rose-700', label: 'LW' },
-  central_attack: { bg: 'bg-rose-600', light: 'bg-rose-100', text: 'text-rose-700', label: 'ST/CAM' },
+  central_attack: { bg: 'bg-rose-600', light: 'bg-rose-100', text: 'text-rose-700', label: 'ST' },
   right_attack: { bg: 'bg-rose-500', light: 'bg-rose-100', text: 'text-rose-700', label: 'RW' },
   left_defence: { bg: 'bg-sky-500', light: 'bg-sky-100', text: 'text-sky-700', label: 'LB' },
   central_defence: { bg: 'bg-sky-600', light: 'bg-sky-100', text: 'text-sky-700', label: 'CB' },
@@ -740,84 +740,98 @@ const COST = c => c ? '\u00A3' + (c/10).toFixed(1) + 'm' : '';
 const PILL = (text, cls) => `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${cls}">${text}</span>`;
 
 function buildPitchSVG(team, side) {
-  // FPL-style pitch with proper markings - tall and stretched
-  const zones = [
-    { id: 'left_attack', x: 8, y: 8, w: 36, h: 28 },
-    { id: 'central_attack', x: 44, y: 8, w: 12, h: 28 },
-    { id: 'right_attack', x: 56, y: 8, w: 36, h: 28 },
-    { id: 'left_defence', x: 8, y: 64, w: 36, h: 28 },
-    { id: 'central_defence', x: 44, y: 64, w: 12, h: 28 },
-    { id: 'right_defence', x: 56, y: 64, w: 36, h: 28 }
+  const gwId = side + Math.random().toString(36).slice(2,8);
+  
+  // Defensive zones: split central into LCB and RCB
+  const defZones = [
+    { id: 'left_defence', label: 'LB', x: 2, y: 52, w: 22, h: 42 },
+    { id: 'central_defence_l', label: 'LCB', x: 24, y: 52, w: 23, h: 42, mainId: 'central_defence' },
+    { id: 'central_defence_r', label: 'RCB', x: 47, y: 52, w: 23, h: 42, mainId: 'central_defence' },
+    { id: 'right_defence', label: 'RB', x: 70, y: 52, w: 22, h: 42 }
+  ];
+  const atkZones = [
+    { id: 'left_attack', label: 'LW', x: 2, y: 3, w: 22, h: 42 },
+    { id: 'central_attack_l', label: 'ST', x: 24, y: 3, w: 23, h: 42, mainId: 'central_attack' },
+    { id: 'central_attack_r', label: 'CAM', x: 47, y: 3, w: 23, h: 42, mainId: 'central_attack' },
+    { id: 'right_attack', label: 'RW', x: 70, y: 3, w: 22, h: 42 }
   ];
 
-  const maxAtk = Math.max(...['left_attack','central_attack','right_attack'].map(z => (team.attack[z]?.xG || 0) + (team.attack[z]?.xA || 0)), 1);
+  const maxAtk = Math.max(...['left_attack','central_attack','right_attack'].map(z => (team.attack[z]?.xG || 0) + (team.attack[z]?.xA || 0)), 0.1);
   const maxDef = Math.max(...['left_defence','central_defence','right_defence'].map(z => team.defence[z]?.goalsConceded || 0), 1);
 
-  return `<svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" class="w-full" style="aspect-ratio:3/4;display:block">
-    <!-- Pitch background -->
+  function zoneOverlay(z, isAtt) {
+    const mainZone = z.mainId || z.id;
+    const data = isAtt ? team.attack[mainZone] : team.defence[mainZone];
+    const val = isAtt ? ((data?.xG || 0) + (data?.xA || 0)) : (data?.goalsConceded || 0);
+    const max = isAtt ? maxAtk : maxDef;
+    const intensity = Math.min(val / max, 1);
+    const r = isAtt ? 220 : 56, g = isAtt ? 68 : 130, b = isAtt ? 68 : 200;
+    const fillColor = `rgba(${r},${g},${b},${0.08 + intensity * 0.5})`;
+    const borderColor = `rgba(${r},${g},${b},${0.25 + intensity * 0.4})`;
+    const players = data?.players || [];
+    const sorted = [...players].sort((a,b) => isAtt ? ((b.xG||0)+(b.xA||0)) - ((a.xG||0)+(a.xA||0)) : (b.influence||0) - (a.influence||0));
+    const top = sorted[0];
+
+    return `<rect x="${z.x}" y="${z.y}" width="${z.w}" height="${z.h}" rx="4" fill="${fillColor}" stroke="${borderColor}" stroke-width="0.8"/>
+      <text x="${z.x + z.w/2}" y="${z.y + 14}" text-anchor="middle" fill="white" font-size="5.5" font-weight="800" letter-spacing="0.5" opacity="0.9">${z.label}</text>
+      <text x="${z.x + z.w/2}" y="${z.y + 22}" text-anchor="middle" fill="white" font-size="4.5" font-weight="600" opacity="0.75">${isAtt ? val.toFixed(1)+' xGI' : val+' GC'}</text>
+      ${top ? `<text x="${z.x + z.w/2}" y="${z.y + 30}" text-anchor="middle" fill="white" font-size="3.5" opacity="0.5">${top.name?.split(' ').pop() || ''}</text>` : ''}`;
+  }
+
+  return `<svg viewBox="0 0 94 97" preserveAspectRatio="xMidYMid meet" class="w-full" style="display:block;border-radius:6px">
     <defs>
-      <linearGradient id="pitchGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" style="stop-color:#2d8a4e"/>
-        <stop offset="50%" style="stop-color:#228b22"/>
-        <stop offset="100%" style="stop-color:#2d8a4e"/>
+      <linearGradient id="pg${gwId}" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#1a7a3a"/>
+        <stop offset="30%" stop-color="#22943f"/>
+        <stop offset="60%" stop-color="#1e8538"/>
+        <stop offset="100%" stop-color="#177231"/>
       </linearGradient>
+      <filter id="shadow${gwId}"><feDropShadow dx="0" dy="1" stdDeviation="0.5" flood-opacity="0.15"/></filter>
     </defs>
-    <rect x="0" y="0" width="100" height="100" fill="url(#pitchGrad)"/>
+
+    <rect x="0" y="0" width="94" height="97" rx="6" fill="url(#pg${gwId})"/>
 
     <!-- Pitch stripes -->
-    <rect x="0" y="0" width="100" height="16.67" fill="rgba(255,255,255,0.03)"/>
-    <rect x="0" y="33.33" width="100" height="16.67" fill="rgba(255,255,255,0.03)"/>
-    <rect x="0" y="66.67" width="100" height="16.67" fill="rgba(255,255,255,0.03)"/>
+    <rect x="0" y="0" width="94" height="16.2" fill="rgba(255,255,255,0.025)"/>
+    <rect x="0" y="32.4" width="94" height="16.2" fill="rgba(255,255,255,0.025)"/>
+    <rect x="0" y="64.6" width="94" height="16.2" fill="rgba(255,255,255,0.025)"/>
 
     <!-- Pitch outline -->
-    <rect x="2" y="2" width="96" height="96" fill="none" stroke="white" stroke-width="0.5" opacity="0.6"/>
+    <rect x="1" y="1" width="92" height="95" rx="5" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="0.6"/>
 
     <!-- Halfway line -->
-    <line x1="2" y1="50" x2="98" y2="50" stroke="white" stroke-width="0.4" opacity="0.5"/>
+    <line x1="1" y1="48.5" x2="93" y2="48.5" stroke="rgba(255,255,255,0.4)" stroke-width="0.5"/>
 
     <!-- Centre circle -->
-    <circle cx="50" cy="50" r="10" fill="none" stroke="white" stroke-width="0.4" opacity="0.5"/>
-    <circle cx="50" cy="50" r="0.8" fill="white" opacity="0.5"/>
+    <circle cx="47" cy="48.5" r="9" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="0.4"/>
+    <circle cx="47" cy="48.5" r="0.8" fill="rgba(255,255,255,0.4)"/>
 
     <!-- Top penalty area -->
-    <rect x="25" y="2" width="50" height="16" fill="none" stroke="white" stroke-width="0.35" opacity="0.45"/>
-    <rect x="35" y="2" width="30" height="6" fill="none" stroke="white" stroke-width="0.3" opacity="0.4"/>
-    <circle cx="50" cy="12" r="0.6" fill="white" opacity="0.4"/>
-    <path d="M 40 18 Q 50 14 60 18" fill="none" stroke="white" stroke-width="0.3" opacity="0.4"/>
+    <rect x="22" y="1" width="50" height="14" rx="1" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="0.4"/>
+    <rect x="32" y="1" width="30" height="5" rx="0.5" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.3"/>
+    <circle cx="47" cy="10" r="0.6" fill="rgba(255,255,255,0.3)"/>
+    <path d="M 37 15 Q 47 12 57 15" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.3"/>
 
     <!-- Bottom penalty area -->
-    <rect x="25" y="82" width="50" height="16" fill="none" stroke="white" stroke-width="0.35" opacity="0.45"/>
-    <rect x="35" y="92" width="30" height="6" fill="none" stroke="white" stroke-width="0.3" opacity="0.4"/>
-    <circle cx="50" cy="88" r="0.6" fill="white" opacity="0.4"/>
-    <path d="M 40 82 Q 50 86 60 82" fill="none" stroke="white" stroke-width="0.3" opacity="0.4"/>
+    <rect x="22" y="82" width="50" height="14" rx="1" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="0.4"/>
+    <rect x="32" y="91" width="30" height="5" rx="0.5" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.3"/>
+    <circle cx="47" cy="87" r="0.6" fill="rgba(255,255,255,0.3)"/>
+    <path d="M 37 82 Q 47 85 57 82" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.3"/>
 
     <!-- Corner arcs -->
-    <path d="M 2 4 Q 4 2 6 2" fill="none" stroke="white" stroke-width="0.25" opacity="0.35"/>
-    <path d="M 94 2 Q 96 2 98 4" fill="none" stroke="white" stroke-width="0.25" opacity="0.35"/>
-    <path d="M 2 96 Q 4 98 6 98" fill="none" stroke="white" stroke-width="0.25" opacity="0.35"/>
-    <path d="M 94 98 Q 96 98 98 96" fill="none" stroke="white" stroke-width="0.25" opacity="0.35"/>
+    <path d="M 1 4.5 Q 3.5 1 6 1" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.3"/>
+    <path d="M 88 1 Q 91 1 93 4.5" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.3"/>
+    <path d="M 1 92.5 Q 3.5 96 6 96" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.3"/>
+    <path d="M 88 96 Q 91 96 93 92.5" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.3"/>
 
-    <!-- Goal lines -->
-    <line x1="42" y1="2" x2="58" y2="2" stroke="white" stroke-width="0.6" opacity="0.3"/>
-    <line x1="42" y1="98" x2="58" y2="98" stroke="white" stroke-width="0.6" opacity="0.3"/>
+    <!-- Goal outlines -->
+    <rect x="38" y="0" width="18" height="2" rx="0.5" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.4"/>
+    <rect x="38" y="95" width="18" height="2" rx="0.5" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.4"/>
 
-    <!-- Zone overlays -->
-    ${zones.map(z => {
-      const isAtt = z.id.includes('attack');
-      const val = isAtt ? ((team.attack[z.id]?.xG || 0) + (team.attack[z.id]?.xA || 0)) : (team.defence[z.id]?.goalsConceded || 0);
-      const max = isAtt ? maxAtk : maxDef;
-      const intensity = Math.min(val / max, 1);
-      const color = isAtt ? `rgba(239,68,68,${0.15 + intensity * 0.55})` : `rgba(30,64,175,${0.15 + intensity * 0.55})`;
-      const label = ZONE_COLORS[z.id]?.label || '';
-      const players = isAtt ? (team.attack[z.id]?.players || []) : (team.defence[z.id]?.players || []);
-      const topPlayer = players.sort((a,b) => isAtt ? ((b.xG||0)+(b.xA||0)) - ((a.xG||0)+(a.xA||0)) : (b.influence||0) - (a.influence||0))[0];
-
-      return `<rect x="${z.x}" y="${z.y}" width="${z.w}" height="${z.h}" rx="1.5" fill="${color}" stroke="rgba(255,255,255,0.15)" stroke-width="0.2"/>
-        <text x="${z.x + z.w/2}" y="${z.y + z.h/2 - 3.5}" text-anchor="middle" fill="white" font-size="3.8" font-weight="bold" opacity="0.95" style="text-shadow:0 1px 2px rgba(0,0,0,0.4)">${label}</text>
-        <text x="${z.x + z.w/2}" y="${z.y + z.h/2 + 1}" text-anchor="middle" fill="white" font-size="3.2" font-weight="600" opacity="0.85">${isAtt ? val.toFixed(1)+' xGI' : val+' GC'}</text>
-        ${topPlayer ? `<text x="${z.x + z.w/2}" y="${z.y + z.h/2 + 5}" text-anchor="middle" fill="white" font-size="2.6" opacity="0.6">${topPlayer.name}</text>` : ''}
-      `;
-    }).join('')}
+    <!-- Attack zones -->
+    ${atkZones.map(z => zoneOverlay(z, true)).join('')}
+    <!-- Defence zones -->
+    ${defZones.map(z => zoneOverlay(z, false)).join('')}
   </svg>`;
 }
 
@@ -921,7 +935,7 @@ function renderZonesTab(d) {
             <p class="text-xs font-bold text-slate-700">${fixture.homeTeam} Attack</p>
             <span class="text-[10px] text-slate-400">Strong: ${home.strongestAttackZone}</span>
           </div>
-          <div class="bg-green-700 rounded-lg p-1 mb-3">${buildPitchSVG({ attack: home.attack, defence: home.defence }, 'home')}</div>
+          <div class="rounded-lg overflow-hidden mb-3 shadow-md">${buildPitchSVG({ attack: home.attack, defence: home.defence }, 'home')}</div>
           <div class="space-y-1.5">
             <div class="flex items-center justify-between text-[10px]"><span class="text-slate-500">Total xGI</span><span class="font-bold text-slate-700">${(home.totalXG + home.totalXA).toFixed(1)}</span></div>
             <div class="flex items-center justify-between text-[10px]"><span class="text-slate-500">Goals Scored</span><span class="font-bold text-slate-700">${home.totalGoals}</span></div>
@@ -997,7 +1011,7 @@ function renderZonesTab(d) {
             <p class="text-xs font-bold text-slate-700">${fixture.awayTeam} Attack</p>
             <span class="text-[10px] text-slate-400">Strong: ${away.strongestAttackZone}</span>
           </div>
-          <div class="bg-green-700 rounded-lg p-1 mb-3">${buildPitchSVG({ attack: away.attack, defence: away.defence }, 'away')}</div>
+          <div class="rounded-lg overflow-hidden mb-3 shadow-md">${buildPitchSVG({ attack: away.attack, defence: away.defence }, 'away')}</div>
           <div class="space-y-1.5">
             <div class="flex items-center justify-between text-[10px]"><span class="text-slate-500">Total xGI</span><span class="font-bold text-slate-700">${(away.totalXG + away.totalXA).toFixed(1)}</span></div>
             <div class="flex items-center justify-between text-[10px]"><span class="text-slate-500">Goals Scored</span><span class="font-bold text-slate-700">${away.totalGoals}</span></div>
