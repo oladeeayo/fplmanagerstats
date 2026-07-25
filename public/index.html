@@ -818,11 +818,12 @@ function buildPitchSVG(team, side) {
     const sorted = [...players].sort((a,b) => isAtt ? ((b.xG||0)+(b.xA||0)) - ((a.xG||0)+(a.xA||0)) : (b.influence||0) - (a.influence||0));
     const top = sorted[0];
     const label = ZONE_LABELS[z] || z.toUpperCase();
+    const names = sorted.slice(0, 3).map(p => p.name?.split(' ').pop() || '').filter(Boolean);
 
     return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="${fillColor}" stroke="${borderColor}" stroke-width="0.6"/>
-      <text x="${x + w/2}" y="${y + h/2 - 2.5}" text-anchor="middle" fill="white" font-size="4.2" font-weight="800" letter-spacing="0.3" opacity="0.9">${label}</text>
-      <text x="${x + w/2}" y="${y + h/2 + 2}" text-anchor="middle" fill="white" font-size="3.4" font-weight="600" opacity="0.7">${isAtt ? val.toFixed(1)+' xGI' : isGK ? (d.cs||0)+' CS' : val+' GC'}</text>
-      ${top ? `<text x="${x + w/2}" y="${y + h/2 + 6}" text-anchor="middle" fill="white" font-size="2.8" opacity="0.45">${top.name?.split(' ').pop() || ''}</text>` : ''}`;
+      <text x="${x + w/2}" y="${y + h/2 - 4}" text-anchor="middle" fill="white" font-size="4" font-weight="800" letter-spacing="0.3" opacity="0.9">${label}</text>
+      <text x="${x + w/2}" y="${y + h/2}" text-anchor="middle" fill="white" font-size="3.2" font-weight="600" opacity="0.7">${isAtt ? val.toFixed(1)+' xGI' : isGK ? (d.cs||0)+' CS' : val+' GC'}</text>
+      ${names.length ? `<text x="${x + w/2}" y="${y + h/2 + 4.5}" text-anchor="middle" fill="white" font-size="2.6" opacity="0.5">${names.join(' · ')}</text>` : ''}`;
   }
 
   return `<svg viewBox="0 0 94 82" preserveAspectRatio="xMidYMid meet" class="w-full" style="display:block;border-radius:6px">
