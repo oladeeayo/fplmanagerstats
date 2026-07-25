@@ -784,16 +784,13 @@ function buildPitchSVG(team, side) {
   const gwId = side + Math.random().toString(36).slice(2,8);
   const zs = team.zoneStats || {};
 
-  // Pitch row definitions matching the formation diagram
+  // Pitch row definitions — 4-2-3-1 formation
   const rows = [
-    { y: 2, h: 10, zones: [{ id: 'st', x: 32, w: 30 }] },
-    { y: 12, h: 10, zones: [{ id: 'lf', x: 4, w: 28 }, { id: 'cf', x: 32, w: 30 }, { id: 'rf', x: 62, w: 28 }] },
-    { y: 22, h: 10, zones: [{ id: 'lw', x: 4, w: 28 }, { id: 'cam', x: 32, w: 30 }, { id: 'rw', x: 62, w: 28 }] },
-    { y: 32, h: 10, zones: [{ id: 'lm', x: 4, w: 28 }, { id: 'cm', x: 32, w: 30 }, { id: 'rm', x: 62, w: 28 }] },
-    { y: 42, h: 10, zones: [{ id: 'cdm', x: 22, w: 50 }] },
-    { y: 52, h: 10, zones: [{ id: 'lwb', x: 4, w: 40 }, { id: 'rwb', x: 56, w: 40 }] },
-    { y: 62, h: 10, zones: [{ id: 'lb', x: 4, w: 28 }, { id: 'cb', x: 32, w: 30 }, { id: 'rb', x: 62, w: 28 }] },
-    { y: 72, h: 10, zones: [{ id: 'gk', x: 32, w: 30 }] }
+    { y: 2, h: 12, zones: [{ id: 'st', x: 32, w: 30 }] },
+    { y: 14, h: 12, zones: [{ id: 'lw', x: 4, w: 28 }, { id: 'cam', x: 32, w: 30 }, { id: 'rw', x: 62, w: 28 }] },
+    { y: 26, h: 12, zones: [{ id: 'ldm', x: 18, w: 28 }, { id: 'rdm', x: 48, w: 28 }] },
+    { y: 38, h: 12, zones: [{ id: 'lb', x: 4, w: 20 }, { id: 'lcb', x: 24, w: 22 }, { id: 'rcb', x: 48, w: 22 }, { id: 'rb', x: 70, w: 20 }] },
+    { y: 50, h: 12, zones: [{ id: 'gk', x: 32, w: 30 }] }
   ];
 
   const allVals = ALL_ZONES.filter(z => z !== 'gk').map(z => {

@@ -438,74 +438,41 @@ app.get('/api/zone-analysis', async (req, res) => {
 
       group.GKP.forEach(p => { p.zone = 'gk'; p.detailedPosition = 'GK'; });
 
+      // 4-2-3-1: DEF = LB, LCB, RCB, RB
       group.DEF.forEach((p, i) => {
-        if (defCount >= 4) {
-          if (i === 0) { p.zone = 'lb'; p.detailedPosition = 'LB'; }
-          else if (i === 1) { p.zone = 'cb'; p.detailedPosition = 'LCB'; }
-          else if (i === defCount - 2) { p.zone = 'cb'; p.detailedPosition = 'RCB'; }
-          else if (i >= defCount - 1) { p.zone = 'rb'; p.detailedPosition = 'RB'; }
-          else { p.zone = 'cb'; p.detailedPosition = 'CB'; }
-        } else if (defCount === 3) {
-          if (i === 0) { p.zone = 'cb'; p.detailedPosition = 'LCB'; }
-          else if (i === defCount - 1) { p.zone = 'cb'; p.detailedPosition = 'RCB'; }
-          else { p.zone = 'cb'; p.detailedPosition = 'CB'; }
-        } else {
-          if (i === 0) { p.zone = 'lb'; p.detailedPosition = 'LB'; }
-          else if (i === defCount - 1 && defCount > 1) { p.zone = 'rb'; p.detailedPosition = 'RB'; }
-          else { p.zone = 'cb'; p.detailedPosition = 'CB'; }
-        }
+        if (i === 0) { p.zone = 'lb'; p.detailedPosition = 'LB'; }
+        else if (i === 1) { p.zone = 'lcb'; p.detailedPosition = 'LCB'; }
+        else if (i === 2) { p.zone = 'rcb'; p.detailedPosition = 'RCB'; }
+        else { p.zone = 'rb'; p.detailedPosition = 'RB'; }
       });
 
-      if (midCount > 0) {
-        const hasDM = (defCount >= 4 && midCount <= 4) || (defCount >= 3 && midCount <= 3);
-        if (hasDM && midCount >= 2) {
-          group.MID[0].zone = 'cdm'; group.MID[0].detailedPosition = 'CDM';
-          const remaining = group.MID.slice(1);
-          remaining.forEach((p, i) => {
-            if (remaining.length >= 3) {
-              if (i === 0) { p.zone = 'lm'; p.detailedPosition = 'LM'; }
-              else if (i === remaining.length - 1) { p.zone = 'rm'; p.detailedPosition = 'RM'; }
-              else { p.zone = 'cm'; p.detailedPosition = 'CM'; }
-            } else if (remaining.length === 2) {
-              if (i === 0) { p.zone = 'cm'; p.detailedPosition = 'CM'; }
-              else { p.zone = 'cam'; p.detailedPosition = 'CAM'; }
-            } else {
-              p.zone = 'cam'; p.detailedPosition = 'CAM';
-            }
-          });
-        } else if (midCount >= 4) {
-          group.MID.forEach((p, i) => {
-            if (i === 0) { p.zone = 'lm'; p.detailedPosition = 'LM'; }
-            else if (i === midCount - 1) { p.zone = 'rm'; p.detailedPosition = 'RM'; }
-            else { p.zone = 'cm'; p.detailedPosition = 'CM'; }
-          });
-        } else {
-          group.MID.forEach((p, i) => {
-            if (midCount >= 3) {
-              if (i === 0) { p.zone = 'lm'; p.detailedPosition = 'LM'; }
-              else if (i === midCount - 1) { p.zone = 'rm'; p.detailedPosition = 'RM'; }
-              else { p.zone = 'cm'; p.detailedPosition = 'CM'; }
-            } else if (midCount === 2) {
-              if (i === 0) { p.zone = 'cm'; p.detailedPosition = 'CM'; }
-              else { p.zone = 'cam'; p.detailedPosition = 'CAM'; }
-            } else {
-              p.zone = 'cam'; p.detailedPosition = 'CAM';
-            }
-          });
-        }
+      // 4-2-3-1: MID = 2 CDM (ldm, rdm) + 3 AM (lw, cam, rw)
+      if (midCount >= 5) {
+        // More than 5 mids: take first 2 as CDM, next 3 as AM, rest ignored
+        group.MID[0].zone = 'ldm'; group.MID[0].detailedPosition = 'CDM';
+        group.MID[1].zone = 'rdm'; group.MID[1].detailedPosition = 'CDM';
+        group.MID[2].zone = 'lw'; group.MID[2].detailedPosition = 'LW';
+        group.MID[3].zone = 'cam'; group.MID[3].detailedPosition = 'CAM';
+        group.MID[4].zone = 'rw'; group.MID[4].detailedPosition = 'RW';
+      } else if (midCount === 4) {
+        group.MID[0].zone = 'ldm'; group.MID[0].detailedPosition = 'CDM';
+        group.MID[1].zone = 'rdm'; group.MID[1].detailedPosition = 'CDM';
+        group.MID[2].zone = 'lw'; group.MID[2].detailedPosition = 'LW';
+        group.MID[3].zone = 'cam'; group.MID[3].detailedPosition = 'CAM';
+      } else if (midCount === 3) {
+        group.MID[0].zone = 'ldm'; group.MID[0].detailedPosition = 'CDM';
+        group.MID[1].zone = 'lw'; group.MID[1].detailedPosition = 'LW';
+        group.MID[2].zone = 'cam'; group.MID[2].detailedPosition = 'CAM';
+      } else if (midCount === 2) {
+        group.MID[0].zone = 'ldm'; group.MID[0].detailedPosition = 'CDM';
+        group.MID[1].zone = 'cam'; group.MID[1].detailedPosition = 'CAM';
+      } else if (midCount === 1) {
+        group.MID[0].zone = 'cam'; group.MID[0].detailedPosition = 'CAM';
       }
 
+      // 4-2-3-1: FWD = ST
       group.FWD.forEach((p, i) => {
-        if (fwdCount >= 3) {
-          if (i === 0) { p.zone = 'lw'; p.detailedPosition = 'LW'; }
-          else if (i === fwdCount - 1) { p.zone = 'rw'; p.detailedPosition = 'RW'; }
-          else { p.zone = 'st'; p.detailedPosition = 'ST'; }
-        } else if (fwdCount === 2) {
-          if (i === 0) { p.zone = 'cf'; p.detailedPosition = 'CF'; }
-          else { p.zone = 'st'; p.detailedPosition = 'ST'; }
-        } else {
-          p.zone = 'st'; p.detailedPosition = 'ST';
-        }
+        p.zone = 'st'; p.detailedPosition = 'ST';
       });
     });
 
