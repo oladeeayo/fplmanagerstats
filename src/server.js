@@ -395,7 +395,8 @@ app.get('/api/zone-analysis', async (req, res) => {
 
     // Assign detailed positions to players
     const playersWithZones = elements.map(p => {
-      const detailedPos = DETAILED_POSITIONS[p.web_name] || DETAILED_POSITIONS[p.second_name] || null;
+      const fullName = `${p.first_name || ''} ${p.second_name || ''}`.trim();
+      const detailedPos = DETAILED_POSITIONS[p.web_name] || DETAILED_POSITIONS[p.second_name] || DETAILED_POSITIONS[fullName] || null;
       const broadPos = POSITION_MAP[p.element_type - 1];
       return {
         id: p.id, name: p.web_name, secondName: p.second_name, team: p.team,
@@ -483,7 +484,11 @@ app.get('/api/zone-analysis', async (req, res) => {
     const buildTeamAnalysis = (teamId) => {
       const teamPlayers = playersWithZones.filter(p => p.team === teamId);
       const active = teamPlayers.filter(p => p.minutes > 0);
-      const starters = [...active].sort((a, b) => b.minutes - a.minutes).slice(0, 15);
+
+      // Starters: prefer players with assigned zones (actual XI), then fill by form
+      const withZone = active.filter(p => p.zone).sort((a, b) => b.form - a.form);
+      const withoutZone = active.filter(p => !p.zone).sort((a, b) => b.minutes - a.minutes);
+      const starters = [...withZone, ...withoutZone].slice(0, 15);
 
       const zoneStats = {};
       ALL_ZONES.forEach(z => { zoneStats[z] = { goals: 0, assists: 0, xG: 0, xA: 0, threat: 0, creativity: 0, goalsConceded: 0, xGC: 0, cleanSheets: 0, influence: 0, players: [] }; });
