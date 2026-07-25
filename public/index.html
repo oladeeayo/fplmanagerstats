@@ -36,7 +36,7 @@
         </div>
       </div>
       <div class="hidden sm:flex items-center gap-2">
-        <span class="text-white/40 text-xs"><i class="fa-regular fa-circle-check mr-1"></i>12 features</span>
+        <span class="text-white/40 text-xs"><i class="fa-regular fa-circle-check mr-1"></i>13 features</span>
       </div>
     </div>
   </div>
@@ -54,6 +54,9 @@
     </button>
     <button class="tab-btn" data-tab="players" onclick="showSection('players');loadPlayersTab()">
       <i class="fa-solid fa-users mr-1.5 text-sky-500"></i>Players
+    </button>
+    <button class="tab-btn" data-tab="zones" onclick="showSection('zones');loadZonesTab()">
+      <i class="fa-solid fa-futbol mr-1.5 text-rose-500"></i>Zones
     </button>
   </div>
 
@@ -278,6 +281,21 @@
         </div>
         <button onclick="loadPlayersTab()" class="px-5 py-2 bg-gradient-to-r from-sky-500 to-cyan-500 text-white font-semibold rounded-lg text-sm hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-2"></i>Load Players</button>
         <div id="playersTableContainer" class="mt-4"><p class="text-sm text-slate-400">Click to load player stats.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ZONES ===== -->
+  <div id="section-zones" class="section-content hidden">
+    <div id="zonesContent" class="space-y-6">
+      <div class="card p-5 sm:p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center text-white text-sm shadow-sm"><i class="fa-solid fa-futbol"></i></div>
+          <div><h2 class="text-base font-bold text-slate-800">Zone Analysis</h2><p class="text-xs text-slate-400">Attacking zones, defensive weaknesses &amp; matchup picks</p></div>
+        </div>
+        <p class="text-xs text-slate-500 mb-4">Analyzes where each team creates danger and where their opponents are vulnerable. Uses player position data to map attacking output to pitch zones.</p>
+        <button onclick="loadZonesTab()" class="px-5 py-2 bg-gradient-to-r from-rose-500 to-pink-500 text-white font-semibold rounded-lg text-sm hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-2"></i>Load Zone Analysis</button>
+        <div id="zonesTableContainer" class="mt-4"><p class="text-sm text-slate-400">Click to load zone analysis.</p></div>
       </div>
     </div>
   </div>
@@ -681,6 +699,208 @@ function renderPlayerTable() {
       <td class="px-2 py-2 text-center hide-mobile-table text-slate-600">${costStr(p.cost)}</td>
     </tr>`;
   }).join('');
+}
+
+// ---- Zones Tab ----
+async function loadZonesTab() {
+  $('zonesTableContainer').innerHTML = '<div class="flex justify-center py-6"><div class="animate-spin h-6 w-6 border-2 border-rose-500 border-t-transparent rounded-full"></div></div>';
+  try {
+    const d = await (await fetch('/api/zone-analysis')).json();
+    if (!d.teamAnalysis) throw new Error('No data available');
+    window._zoneData = d;
+    renderZoneAnalysis(d);
+  } catch(e) {
+    $('zonesTableContainer').innerHTML = `<p class="text-sm text-red-500 text-center">${e.message}</p>`;
+  }
+}
+
+function renderZoneAnalysis(d) {
+  const { teamAnalysis, recommendations, currentGW } = d;
+
+  // Pitch zone visual for a team
+  const pitchVisual = (team, size) => {
+    const sz = size || 'normal';
+    const w = sz === 'small' ? 'w-32 h-44' : 'w-48 h-64';
+    const zones = [
+      { id: 'left_attack', label: 'LW', color: 'bg-rose-500', textColor: 'text-white' },
+      { id: 'central_attack', label: 'ST', color: 'bg-rose-600', textColor: 'text-white' },
+      { id: 'right_attack', label: 'RW', color: 'bg-rose-500', textColor: 'text-white' },
+      { id: 'left_mid', label: 'LM', color: 'bg-amber-400', textColor: 'text-white' },
+      { id: 'central_mid', label: 'CM', color: 'bg-amber-500', textColor: 'text-white' },
+      { id: 'right_mid', label: 'RM', color: 'bg-amber-400', textColor: 'text-white' },
+      { id: 'left_defence', label: 'LB', color: 'bg-sky-400', textColor: 'text-white' },
+      { id: 'central_defence', label: 'CB', color: 'bg-sky-500', textColor: 'text-white' },
+      { id: 'right_defence', label: 'RB', color: 'bg-sky-400', textColor: 'text-white' },
+    ];
+
+    // Get max values for normalization
+    const allAttack = teamAnalysis.map(t => {
+      const left = t.attackByZone.left_attack?.xG + t.attackByZone.left_attack?.xA || 0;
+      const central = t.attackByZone.central_attack?.xG + t.attackByZone.central_attack?.xA || 0;
+      const right = t.attackByZone.right_attack?.xG + t.attackByZone.right_attack?.xA || 0;
+      return { left, central, right };
+    });
+    const maxLeft = Math.max(...allAttack.map(a => a.left), 1);
+    const maxCentral = Math.max(...allAttack.map(a => a.central), 1);
+    const maxRight = Math.max(...allAttack.map(a => a.right), 1);
+
+    const leftVal = (team.attackByZone.left_attack?.xG + team.attackByZone.left_attack?.xA) || 0;
+    const centralVal = (team.attackByZone.central_attack?.xG + team.attackByZone.central_attack?.xA) || 0;
+    const rightVal = (team.attackByZone.right_attack?.xG + team.attackByZone.right_attack?.xA) || 0;
+
+    const attackVals = {
+      left_attack: leftVal,
+      central_attack: centralVal,
+      right_attack: rightVal
+    };
+
+    const defVals = {
+      left_defence: team.defByZone.left_defence?.goalsConceded || 0,
+      central_defence: team.defByZone.central_defence?.goalsConceded || 0,
+      right_defence: team.defByZone.right_defence?.goalsConceded || 0
+    };
+    const maxDef = Math.max(...Object.values(defVals), 1);
+
+    return `
+      <div class="${w} relative rounded-lg overflow-hidden border border-slate-200 bg-green-600 mx-auto">
+        <div class="absolute inset-0 flex flex-col">
+          <!-- Attack row -->
+          <div class="flex-1 grid grid-cols-3 border-b border-white/30">
+            ${zones.slice(0, 3).map(z => {
+              const val = attackVals[z.id] || 0;
+              const intensity = Math.min(val / Math.max(leftVal, centralVal, rightVal, 1), 1);
+              const bg = z.id === team.strongestAttack ? 'bg-rose-500' : 'bg-rose-400/70';
+              return `<div class="flex flex-col items-center justify-center border-r border-white/20 ${bg} ${z.textColor}">
+                <span class="text-[9px] font-bold opacity-80">${z.label}</span>
+                <span class="text-sm font-extrabold">${val.toFixed(1)}</span>
+              </div>`;
+            }).join('')}
+          </div>
+          <!-- Mid row -->
+          <div class="flex-1 grid grid-cols-3 border-b border-white/30">
+            ${zones.slice(3, 6).map(z => `
+              <div class="flex flex-col items-center justify-center border-r border-white/20 ${z.color} ${z.textColor} opacity-80">
+                <span class="text-[9px] font-bold">${z.label}</span>
+              </div>
+            `).join('')}
+          </div>
+          <!-- Defence row -->
+          <div class="flex-1 grid grid-cols-3">
+            ${zones.slice(6, 9).map(z => {
+              const val = defVals[z.id] || 0;
+              const isWeak = z.id === team.weakestDefence;
+              const bg = isWeak ? 'bg-red-600' : 'bg-sky-500/80';
+              return `<div class="flex flex-col items-center justify-center border-r border-white/20 ${bg} ${z.textColor}">
+                <span class="text-[9px] font-bold opacity-80">${z.label}</span>
+                <span class="text-xs font-bold">${val} GC</span>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  };
+
+  // Team strength table
+  const teamRows = teamAnalysis.map(t => {
+    const leftAtt = (t.attackByZone.left_attack?.xG + t.attackByZone.left_attack?.xA) || 0;
+    const centralAtt = (t.attackByZone.central_attack?.xG + t.attackByZone.central_attack?.xA) || 0;
+    const rightAtt = (t.attackByZone.right_attack?.xG + t.attackByZone.right_attack?.xA) || 0;
+    const totalAtt = leftAtt + centralAtt + rightAtt;
+
+    const leftDef = t.defByZone.left_defence?.goalsConceded || 0;
+    const centralDef = t.defByZone.central_defence?.goalsConceded || 0;
+    const rightDef = t.defByZone.right_defence?.goalsConceded || 0;
+
+    const barHtml = (val, max, color) => {
+      const pct = max > 0 ? (val / max) * 100 : 0;
+      return `<div class="w-full bg-slate-100 rounded-full h-1.5"><div class="${color} h-1.5 rounded-full" style="width:${pct}%"></div></div>`;
+    };
+
+    return `<tr class="hover:bg-slate-50 text-xs">
+      <td class="sticky-col px-3 py-3 bg-white font-bold text-slate-800">${t.teamName}</td>
+      <td class="px-2 py-3 text-center font-semibold">${t.totalXG.toFixed(1)}</td>
+      <td class="px-2 py-3">
+        <div class="space-y-1">
+          <div class="flex items-center gap-1.5"><span class="text-[10px] w-7 text-right text-rose-500 font-medium">L</span>${barHtml(leftAtt, Math.max(leftAtt, centralAtt, rightAtt, 1), 'bg-rose-400')}<span class="text-[10px] w-6 font-medium">${leftAtt.toFixed(1)}</span></div>
+          <div class="flex items-center gap-1.5"><span class="text-[10px] w-7 text-right text-rose-600 font-medium">C</span>${barHtml(centralAtt, Math.max(leftAtt, centralAtt, rightAtt, 1), 'bg-rose-500')}<span class="text-[10px] w-6 font-medium">${centralAtt.toFixed(1)}</span></div>
+          <div class="flex items-center gap-1.5"><span class="text-[10px] w-7 text-right text-rose-500 font-medium">R</span>${barHtml(rightAtt, Math.max(leftAtt, centralAtt, rightAtt, 1), 'bg-rose-400')}<span class="text-[10px] w-6 font-medium">${rightAtt.toFixed(1)}</span></div>
+        </div>
+      </td>
+      <td class="px-2 py-3"><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700">${t.strongestAttackZone}</span></td>
+      <td class="px-2 py-3">
+        <div class="space-y-1">
+          <div class="flex items-center gap-1.5"><span class="text-[10px] w-7 text-right text-sky-500 font-medium">L</span>${barHtml(leftDef, Math.max(leftDef, centralDef, rightDef, 1), 'bg-sky-400')}<span class="text-[10px] w-6 font-medium">${leftDef}</span></div>
+          <div class="flex items-center gap-1.5"><span class="text-[10px] w-7 text-right text-sky-600 font-medium">C</span>${barHtml(centralDef, Math.max(leftDef, centralDef, rightDef, 1), 'bg-sky-500')}<span class="text-[10px] w-6 font-medium">${centralDef}</span></div>
+          <div class="flex items-center gap-1.5"><span class="text-[10px] w-7 text-right text-sky-500 font-medium">R</span>${barHtml(rightDef, Math.max(leftDef, centralDef, rightDef, 1), 'bg-sky-400')}<span class="text-[10px] w-6 font-medium">${rightDef}</span></div>
+        </div>
+      </td>
+      <td class="px-2 py-3"><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700">${t.weakestDefenceZone}</span></td>
+    </tr>`;
+  }).join('');
+
+  // Matchup recommendations
+  const recRows = recommendations.map(r => {
+    const playerChips = r.players.map(p =>
+      `<div class="flex items-center gap-1.5 bg-white rounded-lg border border-slate-100 px-2 py-1.5">${img(p.code, p.name)}<div class="min-w-0"><p class="text-[10px] font-semibold text-slate-800 truncate">${p.name}</p><p class="text-[9px] text-slate-400">${p.position} · ${(p.xG + p.xA).toFixed(1)} xGI</p></div></div>`
+    ).join('');
+
+    const matchBadge = r.zoneMatch
+      ? '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700"><i class="fa-solid fa-bullseye"></i> Zone Match</span>'
+      : '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">Partial</span>';
+
+    return `<div class="bg-white rounded-xl border border-slate-100 p-4">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold text-slate-800">${r.attackingTeam}</span>
+          <i class="fa-solid fa-arrow-right text-slate-300 text-[10px]"></i>
+          <span class="text-xs font-semibold text-slate-600">${r.defendingTeam}</span>
+          <span class="text-[10px] text-slate-400">(GW${r.fixtureGW}${r.isTeamAHome ? ' H' : ' A'})</span>
+        </div>
+        ${matchBadge}
+      </div>
+      <div class="flex items-center gap-2 mb-3">
+        <span class="text-[10px] font-medium text-rose-600 bg-rose-50 px-2 py-0.5 rounded">Attack: ${r.attackZone}</span>
+        <i class="fa-solid fa-crosshairs text-slate-300 text-[10px]"></i>
+        <span class="text-[10px] font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded">Weak: ${r.weakZone}</span>
+        <span class="text-[10px] font-medium text-slate-500 ml-auto">${r.strength.toFixed(1)} xGI</span>
+      </div>
+      <div class="flex flex-wrap gap-1.5">${playerChips}</div>
+    </div>`;
+  }).join('');
+
+  $('zonesTableContainer').innerHTML = `
+    <!-- Attacking Zones Summary -->
+    <div class="card p-5 sm:p-6">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center text-white text-xs shadow-sm"><i class="fa-solid fa-crosshairs"></i></div>
+        <div><h2 class="text-base font-bold text-slate-800">Team Zone Analysis</h2><p class="text-xs text-slate-400">Attacking strength &amp; defensive weaknesses by zone · GW ${currentGW}</p></div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-xs">
+          <thead><tr class="bg-slate-50 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+            <th class="sticky-col px-3 py-2.5 text-left bg-slate-50">Team</th>
+            <th class="px-2 py-2.5 text-center">xGI</th>
+            <th class="px-2 py-2.5 text-center min-w-[140px]">Attack (L/C/R)</th>
+            <th class="px-2 py-2.5 text-center">Strong Zone</th>
+            <th class="px-2 py-2.5 text-center min-w-[140px]">Conceded (L/C/R)</th>
+            <th class="px-2 py-2.5 text-center">Weak Zone</th>
+          </tr></thead>
+          <tbody class="divide-y divide-slate-100">${teamRows}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Matchup Picks -->
+    <div class="card p-5 sm:p-6">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-xs shadow-sm"><i class="fa-solid fa-bullseye"></i></div>
+        <div><h2 class="text-base font-bold text-slate-800">Best Matchup Picks</h2><p class="text-xs text-slate-400">Players to target based on attacking zones vs defensive weaknesses</p></div>
+      </div>
+      <p class="text-xs text-slate-500 mb-4">Zone Match = the attacking team's strongest zone directly targets the opponent's weakest defensive zone.</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">${recRows}</div>
+    </div>
+  `;
 }
 </script>
 </body>
