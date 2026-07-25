@@ -393,15 +393,13 @@ app.get('/api/zone-analysis', async (req, res) => {
     // Helper: get team by id
     const getTeam = id => teams.find(t => t.id === id) || { short_name: '?', name: 'Unknown' };
 
-    // Assign detailed positions to players
+    // Build player objects from FPL data — no DETAILED_POSITIONS needed
     const playersWithZones = elements.map(p => {
-      const fullName = `${p.first_name || ''} ${p.second_name || ''}`.trim();
-      const detailedPos = DETAILED_POSITIONS[p.web_name] || DETAILED_POSITIONS[p.second_name] || DETAILED_POSITIONS[fullName] || null;
       const broadPos = POSITION_MAP[p.element_type - 1];
       return {
         id: p.id, name: p.web_name, secondName: p.second_name, team: p.team,
         teamName: getTeam(p.team).short_name, broadPosition: broadPos,
-        detailedPosition: detailedPos, zone: null,
+        detailedPosition: null, zone: null,
         goals: p.goals_scored || 0, assists: p.assists || 0,
         expectedGoals: parseFloat(p.expected_goals) || 0,
         expectedAssists: parseFloat(p.expected_assists) || 0,
@@ -419,7 +417,7 @@ app.get('/api/zone-analysis', async (req, res) => {
       };
     });
 
-    // Assign zones per team using 4-2-3-1
+    // Group players by team
     const teamGroups = {};
     playersWithZones.forEach(p => {
       if (!teamGroups[p.team]) teamGroups[p.team] = { GKP: [], DEF: [], MID: [], FWD: [] };
@@ -429,55 +427,58 @@ app.get('/api/zone-analysis', async (req, res) => {
       else teamGroups[p.team].MID.push(p);
     });
 
-    // 4-2-3-1 slot definitions with accepted detailed positions
-    const DEF_SLOTS = [
-      { zone: 'lb', accepts: ['LB', 'LWB'] },
-      { zone: 'lcb', accepts: ['LCB', 'CB'] },
-      { zone: 'rcb', accepts: ['RCB', 'CB'] },
-      { zone: 'rb', accepts: ['RB', 'RWB'] }
-    ];
-    const MID_SLOTS = [
-      { zone: 'ldm', accepts: ['CDM', 'DM'] },
-      { zone: 'rdm', accepts: ['CDM', 'DM', 'CM'] },
-      { zone: 'lw', accepts: ['LW', 'LM'] },
-      { zone: 'cam', accepts: ['CAM'] },
-      { zone: 'rw', accepts: ['RW', 'RM'] }
-    ];
-    const FWD_SLOTS = [
-      { zone: 'st', accepts: ['ST', 'CF', 'SS'] }
-    ];
-
-    function assignSlots(players, slots) {
-      const filled = {};
-      const used = new Set();
-      // Pass 1: match by detailed position
-      for (const slot of slots) {
-        const match = players
-          .filter(p => !used.has(p.id) && p.detailedPosition && slot.accepts.includes(p.detailedPosition))
-          .sort((a, b) => b.minutes - a.minutes)[0];
-        if (match) { filled[slot.zone] = match; used.add(match.id); }
-      }
-      // Pass 2: fill remaining slots by minutes
-      const remaining = players.filter(p => !used.has(p.id)).sort((a, b) => b.minutes - a.minutes);
-      let ri = 0;
-      for (const slot of slots) {
-        if (!filled[slot.zone] && ri < remaining.length) {
-          filled[slot.zone] = remaining[ri]; used.add(remaining[ri].id); ri++;
-        }
-      }
-      // Apply zones
-      for (const [zone, player] of Object.entries(filled)) {
-        player.zone = zone;
-        player.detailedPosition = zone.toUpperCase().replace('LDM','CDM').replace('RDM','CDM').replace('LCB','LCB').replace('RCB','RCB');
-      }
-      return filled;
-    }
-
+    // Assign 4-2-3-1 zones using FPL stats to infer actual positions
+    // DEF: top 4 by minutes. Low creativity = CB, high creativity = FB.
+    // MID: top 5 by minutes. Low creativity+threat = CDM. High creativity = CAM. High threat = winger.
+    // FWD: top 1 by minutes = ST.
     Object.entries(teamGroups).forEach(([teamId, group]) => {
-      group.GKP.forEach(p => { p.zone = 'gk'; p.detailedPosition = 'GK'; });
-      assignSlots(group.DEF, DEF_SLOTS);
-      assignSlots(group.MID, MID_SLOTS);
-      assignSlots(group.FWD, FWD_SLOTS);
+      // GK: top by minutes
+      const gk = [...group.GKP].sort((a, b) => b.minutes - a.minutes)[0];
+      if (gk) { gk.zone = 'gk'; gk.detailedPosition = 'GK'; }
+
+      // DEF: top 4 by minutes, split by creativity
+      const topDef = [...group.DEF].sort((a, b) => b.minutes - a.minutes).slice(0, 4);
+      if (topDef.length >= 4) {
+        const byCreativity = [...topDef].sort((a, b) => a.creativity - b.creativity);
+        const cbs = byCreativity.slice(0, 2);
+        const fbs = byCreativity.slice(2);
+        // CBs: higher influence = RCB
+        cbs.sort((a, b) => b.influence - a.influence);
+        cbs[0].zone = 'rcb'; cbs[0].detailedPosition = 'RCB';
+        cbs[1].zone = 'lcb'; cbs[1].detailedPosition = 'LCB';
+        // FBs: higher creativity = RB (more attacking)
+        fbs.sort((a, b) => b.creativity - a.creativity);
+        fbs[0].zone = 'rb'; fbs[0].detailedPosition = 'RB';
+        fbs[1].zone = 'lb'; fbs[1].detailedPosition = 'LB';
+      } else {
+        const fallback = ['lb', 'lcb', 'rcb', 'rb'];
+        topDef.forEach((p, i) => { p.zone = fallback[i]; p.detailedPosition = fallback[i].toUpperCase(); });
+      }
+
+      // MID: top 5 by minutes
+      const topMid = [...group.MID].sort((a, b) => b.minutes - a.minutes).slice(0, 5);
+      if (topMid.length >= 5) {
+        const byCreativity = [...topMid].sort((a, b) => a.creativity - b.creativity);
+        const cdms = byCreativity.slice(0, 2);
+        const cams = byCreativity.slice(2, 3);
+        const wingers = byCreativity.slice(3);
+        // CDMs: higher influence = RDM
+        cdms.sort((a, b) => b.influence - a.influence);
+        cdms[0].zone = 'rdm'; cdms[0].detailedPosition = 'RDM';
+        cdms[1].zone = 'ldm'; cdms[1].detailedPosition = 'LDM';
+        cams[0].zone = 'cam'; cams[0].detailedPosition = 'CAM';
+        // Wingers: higher creativity = RW
+        wingers.sort((a, b) => b.creativity - a.creativity);
+        wingers[0].zone = 'rw'; wingers[0].detailedPosition = 'RW';
+        wingers[1].zone = 'lw'; wingers[1].detailedPosition = 'LW';
+      } else {
+        const fallback = ['ldm', 'rdm', 'lw', 'cam', 'rw'];
+        topMid.forEach((p, i) => { if (i < fallback.length) { p.zone = fallback[i]; p.detailedPosition = fallback[i].toUpperCase(); } });
+      }
+
+      // FWD: top 1 by minutes = ST
+      const topFwd = [...group.FWD].sort((a, b) => b.minutes - a.minutes).slice(0, 1);
+      topFwd.forEach(p => { p.zone = 'st'; p.detailedPosition = 'ST'; });
     });
 
     // Build team analysis (reusable for all GW matchups)
