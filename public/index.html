@@ -842,63 +842,6 @@ function buildPitchSVG(team, side) {
   </svg>`;
 }
 
-  return `<svg viewBox="0 0 94 97" preserveAspectRatio="xMidYMid meet" class="w-full" style="display:block;border-radius:6px">
-    <defs>
-      <linearGradient id="pg${gwId}" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#1a7a3a"/>
-        <stop offset="30%" stop-color="#22943f"/>
-        <stop offset="60%" stop-color="#1e8538"/>
-        <stop offset="100%" stop-color="#177231"/>
-      </linearGradient>
-      <filter id="shadow${gwId}"><feDropShadow dx="0" dy="1" stdDeviation="0.5" flood-opacity="0.15"/></filter>
-    </defs>
-
-    <rect x="0" y="0" width="94" height="97" rx="6" fill="url(#pg${gwId})"/>
-
-    <!-- Pitch stripes -->
-    <rect x="0" y="0" width="94" height="16.2" fill="rgba(255,255,255,0.025)"/>
-    <rect x="0" y="32.4" width="94" height="16.2" fill="rgba(255,255,255,0.025)"/>
-    <rect x="0" y="64.6" width="94" height="16.2" fill="rgba(255,255,255,0.025)"/>
-
-    <!-- Pitch outline -->
-    <rect x="1" y="1" width="92" height="95" rx="5" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="0.6"/>
-
-    <!-- Halfway line -->
-    <line x1="1" y1="48.5" x2="93" y2="48.5" stroke="rgba(255,255,255,0.4)" stroke-width="0.5"/>
-
-    <!-- Centre circle -->
-    <circle cx="47" cy="48.5" r="9" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="0.4"/>
-    <circle cx="47" cy="48.5" r="0.8" fill="rgba(255,255,255,0.4)"/>
-
-    <!-- Top penalty area -->
-    <rect x="22" y="1" width="50" height="14" rx="1" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="0.4"/>
-    <rect x="32" y="1" width="30" height="5" rx="0.5" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.3"/>
-    <circle cx="47" cy="10" r="0.6" fill="rgba(255,255,255,0.3)"/>
-    <path d="M 37 15 Q 47 12 57 15" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.3"/>
-
-    <!-- Bottom penalty area -->
-    <rect x="22" y="82" width="50" height="14" rx="1" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="0.4"/>
-    <rect x="32" y="91" width="30" height="5" rx="0.5" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.3"/>
-    <circle cx="47" cy="87" r="0.6" fill="rgba(255,255,255,0.3)"/>
-    <path d="M 37 82 Q 47 85 57 82" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.3"/>
-
-    <!-- Corner arcs -->
-    <path d="M 1 4.5 Q 3.5 1 6 1" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.3"/>
-    <path d="M 88 1 Q 91 1 93 4.5" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.3"/>
-    <path d="M 1 92.5 Q 3.5 96 6 96" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.3"/>
-    <path d="M 88 96 Q 91 96 93 92.5" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.3"/>
-
-    <!-- Goal outlines -->
-    <rect x="38" y="0" width="18" height="2" rx="0.5" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.4"/>
-    <rect x="38" y="95" width="18" height="2" rx="0.5" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.4"/>
-
-    <!-- Attack zones -->
-    ${atkZones.map(z => zoneOverlay(z, true)).join('')}
-    <!-- Defence zones -->
-    ${defZones.map(z => zoneOverlay(z, false)).join('')}
-  </svg>`;
-}
-
 function renderPlayerChip(p, extra) {
   const posCls = p.broadPos === 'GKP' ? 'badge-gkp' : p.broadPos === 'DEF' ? 'badge-def' : p.broadPos === 'MID' ? 'badge-mid' : 'badge-fwd';
   const posLabel = p.position || p.broadPos || '?';
