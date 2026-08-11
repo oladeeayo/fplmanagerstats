@@ -1040,4 +1040,484 @@ app.post('/api/ownership/snapshot', async (req, res) => {
   }
 });
 
+// ---- Price Change Predictor ----
+app.get('/api/price-predictions', async (req, res) => {
+  try {
+    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
+    const elements = bs.elements;
+    const teams = bs.teams;
+    const getTeam = id => teams.find(t => t.id === id);
+
+    // Price change formula based on transfer velocity and current cost
+    const players = elements
+      .filter(p => p.status !== 'u' && p.status !== 's')
+      .map(p => {
+        const netTransfers = (p.transfers_in_event || 0) - (p.transfers_out_event || 0);
+        const cost = p.now_cost || 50;
+        const ownership = parseFloat(p.selected_by_percent) || 0;
+        
+        // Simple price change velocity model
+        // Positive = likely to rise, Negative = likely to fall
+        const velocity = netTransfers / Math.max(ownership, 1) * 100;
+        
+        // Estimate hours until change (rough approximation)
+        const absVelocity = Math.abs(velocity);
+        let hoursUntilChange = null;
+        if (absVelocity > 50) hoursUntilChange = Math.max(1, Math.round(48 - absVelocity * 0.5));
+        else if (absVelocity > 20) hoursUntilChange = Math.round(48 + (50 - absVelocity) * 2);
+        else if (absVelocity > 5) hoursUntilChange = Math.round(72 + (20 - absVelocity) * 5);
+
+        return {
+          id: p.id, name: p.web_name, code: p.code,
+          team: getTeam(p.team)?.short_name || '',
+          position: POSITION_MAP[p.element_type - 1],
+          cost: cost, costStr: '£' + (cost / 10).toFixed(1) + 'm',
+          netTransfers, velocity: Math.round(velocity * 10) / 10,
+          hoursUntilChange,
+          ownership,
+          direction: velocity > 0 ? 'up' : velocity < 0 ? 'down' : 'stable',
+          // Price already changed today
+          priceChanged: p.cost_change_event !== 0,
+          priceChangeAmount: p.cost_change_event
+        };
+      })
+      .sort((a, b) => Math.abs(b.velocity) - Math.abs(a.velocity));
+
+    const risers = players.filter(p => p.velocity > 0 && !p.priceChanged).slice(0, 20);
+    const fallers = players.filter(p => p.velocity < 0 && !p.priceChanged).slice(0, 20);
+    const recentChanges = elements
+      .filter(p => p.cost_change_event !== 0)
+      .map(p => ({
+        id: p.id, name: p.web_name, code: p.code,
+        team: getTeam(p.team)?.short_name || '',
+        position: POSITION_MAP[p.element_type - 1],
+        cost: p.now_cost, change: p.cost_change_event,
+        direction: p.cost_change_event > 0 ? 'up' : 'down'
+      }))
+      .sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
+
+    res.json({ risers, fallers, recentChanges });
+  } catch (e) {
+    console.error('Price predictions error:', e.message);
+    res.status(500).json({ error: 'Failed to calculate predictions' });
+  }
+});
+
+// ---- Differential Finder ----
+app.get('/api/differentials', async (req, res) => {
+  try {
+    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
+    const fixtures = (await apiGet('https://fantasy.premierleague.com/api/fixtures/')).data;
+    const elements = bs.elements;
+    const teams = bs.teams;
+    const currentGW = bs.events.find(e => e.is_current)?.id || 1;
+    const getTeam = id => teams.find(t => t.id === id);
+
+    // Get next 5 fixtures for FDR calculation
+    const getNextFDR = (teamId) => {
+      let fdrSum = 0, count = 0;
+      for (let gw = currentGW; gw <= Math.min(currentGW + 4, 38); gw++) {
+        const fx = fixtures.find(f => f.event === gw && (f.team_h === teamId || f.team_a === teamId));
+        if (fx) { fdrSum += fx.difficulty || 3; count++; }
+      }
+      return count > 0 ? (fdrSum / count).toFixed(1) : '3.0';
+    };
+
+    // Calculate xGI per 90 minutes
+    const differentials = elements
+      .filter(p => p.total_points > 0 || parseFloat(p.form) > 0)
+      .map(p => {
+        const ownership = parseFloat(p.selected_by_percent) || 0;
+        const xGI = parseFloat(p.expected_goal_involvements) || 0;
+        const form = parseFloat(p.form) || 0;
+        const totalPts = p.total_points || 0;
+        const cost = p.now_cost || 50;
+        const mins = p.minutes || 0;
+        const xGI90 = mins > 0 ? (xGI / mins) * 90 : 0;
+        const ptsPerMillion = cost > 0 ? (totalPts / (cost / 10)) : 0;
+        const avgFDR = getNextFDR(p.team);
+
+        return {
+          id: p.id, name: p.web_name, code: p.code,
+          team: getTeam(p.team)?.short_name || '',
+          teamFull: getTeam(p.team)?.name || '',
+          position: POSITION_MAP[p.element_type - 1],
+          cost, costStr: '£' + (cost / 10).toFixed(1) + 'm',
+          ownership, xGI, form, totalPts,
+          xGI90: xGI90.toFixed(2),
+          ptsPerMillion: ptsPerMillion.toFixed(1),
+          avgFDR,
+          minutes: mins,
+          goals: p.goals_scored || 0,
+          assists: p.assists || 0,
+          // Differential score: low ownership + high output
+          diffScore: Math.round((xGI90 * 10 + form * 2 + ptsPerMillion) * (100 - Math.min(ownership, 50)) / 100)
+        };
+      })
+      .filter(p => p.ownership < 15 && p.xGI > 0 && p.minutes > 200)
+      .sort((a, b) => b.diffScore - a.diffScore);
+
+    res.json({ 
+      differentials: differentials.slice(0, 50),
+      template: elements
+        .filter(p => parseFloat(p.selected_by_percent) > 30)
+        .map(p => p.web_name)
+    });
+  } catch (e) {
+    console.error('Differentials error:', e.message);
+    res.status(500).json({ error: 'Failed to calculate differentials' });
+  }
+});
+
+// ---- Set Piece Takers ----
+app.get('/api/set-pieces', async (req, res) => {
+  try {
+    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
+    const elements = bs.elements;
+    const teams = bs.teams;
+    const getTeam = id => teams.find(t => t.id === id);
+
+    // Group players by team and sort by minutes/goals for set piece order
+    const teamPlayers = {};
+    elements.forEach(p => {
+      if (!teamPlayers[p.team]) teamPlayers[p.team] = [];
+      teamPlayers[p.team].push({
+        id: p.id, name: p.web_name, code: p.code,
+        position: POSITION_MAP[p.element_type - 1],
+        team: getTeam(p.team)?.short_name || '',
+        minutes: p.minutes || 0,
+        goals: p.goals_scored || 0,
+        assists: p.assists || 0,
+        bonus: p.bonus || 0,
+        cost: p.now_cost,
+        form: parseFloat(p.form) || 0,
+        totalPoints: p.total_points || 0,
+        selectedBy: parseFloat(p.selected_by_percent) || 0
+      });
+    });
+
+    const setPieces = {};
+    Object.entries(teamPlayers).forEach(([teamId, players]) => {
+      const sorted = [...players].sort((a, b) => b.minutes - a.minutes);
+      const goalscorers = [...players].sort((a, b) => b.goals - a.goals);
+      const assisters = [...players].sort((a, b) => b.assists - a.assists);
+      const bonusMagnet = [...players].sort((a, b) => b.bonus - a.bonus);
+      
+      const team = getTeam(parseInt(teamId));
+      setPieces[teamId] = {
+        teamName: team?.short_name || '?',
+        teamFull: team?.name || '?',
+        // Likely penalty taker: highest minutes + goals combo
+        penalties: sorted.filter(p => p.position === 'FWD' || p.position === 'MID')
+          .sort((a, b) => (b.goals * 2 + b.minutes) - (a.goals * 2 + a.minutes))
+          .slice(0, 2)
+          .map(p => ({ ...p, role: 'Penalty Taker' })),
+        // Likely free kick taker: high creativity + minutes
+        freeKicks: sorted.filter(p => p.position !== 'GKP')
+          .sort((a, b) => (b.assists * 2 + b.minutes) - (a.assists * 2 + a.minutes))
+          .slice(0, 2)
+          .map(p => ({ ...p, role: 'Free Kicks' })),
+        // Corners: typically wide players
+        corners: sorted.filter(p => p.position === 'MID' || p.position === 'DEF')
+          .sort((a, b) => (b.assists + b.minutes / 100) - (a.assists + a.minutes / 100))
+          .slice(0, 2)
+          .map(p => ({ ...p, role: 'Corners' })),
+        // Top bonus magnet
+        bonusMagnet: bonusMagnet.slice(0, 3).map(p => ({ ...p, role: 'Bonus Magnet' }))
+      };
+    });
+
+    res.json({ setPieces });
+  } catch (e) {
+    console.error('Set pieces error:', e.message);
+    res.status(500).json({ error: 'Failed to calculate set pieces' });
+  }
+});
+
+// ---- Manager ROI ----
+app.get('/api/manager-roi/:managerId', async (req, res) => {
+  try {
+    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
+    const managerData = await analyzeManager(req.params.managerId, bs, 314);
+    
+    const players = managerData.playerStats || [];
+    const totalValue = players.reduce((s, p) => s + (p.nowCost || 0), 0) / 10;
+    const totalPoints = players.reduce((s, p) => s + (p.totalPointsActive || 0), 0);
+    
+    // ROI = Points per Million spent
+    const roi = totalValue > 0 ? (totalPoints / totalValue).toFixed(2) : 0;
+    
+    // Per-player ROI
+    const playerROI = players.map(p => ({
+      name: p.name, team: p.team, position: p.position,
+      code: p.photoId,
+      cost: (p.nowCost / 10).toFixed(1),
+      points: p.totalPointsActive,
+      roi: p.nowCost > 0 ? (p.totalPointsActive / (p.nowCost / 10)).toFixed(2) : '0.00',
+      starts: p.starts,
+      ppg: p.starts > 0 ? (p.totalPointsActive / p.starts).toFixed(1) : '0.0'
+    })).sort((a, b) => parseFloat(b.roi) - parseFloat(a.roi));
+
+    // Value ratings
+    const valueRatings = playerROI.map(p => ({
+      ...p,
+      rating: parseFloat(p.roi) >= 15 ? 'Elite' : 
+              parseFloat(p.roi) >= 10 ? 'Great Value' :
+              parseFloat(p.roi) >= 7 ? 'Fair' :
+              parseFloat(p.roi) >= 4 ? 'Overpriced' : 'Poor Value'
+    }));
+
+    res.json({
+      managerName: managerData.managerInfo.name,
+      totalValue: totalValue.toFixed(1),
+      totalPoints,
+      roi,
+      playerROI: valueRatings,
+      bestValue: valueRatings[0],
+      worstValue: valueRatings[valueRatings.length - 1]
+    });
+  } catch (e) {
+    console.error('Manager ROI error:', e.message);
+    res.status(500).json({ error: 'Failed to calculate ROI' });
+  }
+});
+
+// ---- Chip Strategy ----
+app.get('/api/chip-strategy', async (req, res) => {
+  try {
+    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
+    const fixtures = (await apiGet('https://fantasy.premierleague.com/api/fixtures/')).data;
+    const elements = bs.elements;
+    const teams = bs.teams;
+    const currentGW = bs.events.find(e => e.is_current)?.id || 1;
+    const getTeam = id => teams.find(t => t.id === id);
+
+    // Find DGWs (Double Gameweeks) and BGWs (Blank Gameweeks)
+    const gwFixtureCount = {};
+    for (let gw = currentGW; gw <= Math.min(currentGW + 10, 38); gw++) {
+      const gwFixtures = fixtures.filter(f => f.event === gw);
+      gwFixtureCount[gw] = gwFixtures.length;
+    }
+    
+    const avgFixtures = Object.values(gwFixtureCount).reduce((s, v) => s + v, 0) / Object.values(gwFixtureCount).length;
+    const dgws = Object.entries(gwFixtureCount).filter(([gw, count]) => count > avgFixtures * 1.3).map(([gw]) => parseInt(gw));
+    const bgws = Object.entries(gwFixtureCount).filter(([gw, count]) => count < avgFixtures * 0.7).map(([gw]) => parseInt(gw));
+
+    // Best chips by position
+    const bestByPosition = {
+      FWD: elements.filter(p => p.element_type === 4 && p.minutes > 0)
+        .sort((a, b) => (parseFloat(b.expected_goal_involvements) || 0) - (parseFloat(a.expected_goal_involvements) || 0))
+        .slice(0, 5)
+        .map(p => ({ name: p.web_name, team: getTeam(p.team)?.short_name, xGI: p.expected_goal_involvements, form: p.form, code: p.code })),
+      MID: elements.filter(p => p.element_type === 3 && p.minutes > 0)
+        .sort((a, b) => (parseFloat(b.expected_goal_involvements) || 0) - (parseFloat(a.expected_goal_involvements) || 0))
+        .slice(0, 5)
+        .map(p => ({ name: p.web_name, team: getTeam(p.team)?.short_name, xGI: p.expected_goal_involvements, form: p.form, code: p.code }))
+    };
+
+    // Recommendations
+    const recommendations = [];
+    if (dgws.length > 0) {
+      recommendations.push({
+        chip: 'Bench Boost',
+        reason: `DGW${dgws[0]} has ${gwFixtureCount[dgws[0]]} fixtures - maximize bench points`,
+        bestGW: dgws[0],
+        priority: 'High'
+      });
+      recommendations.push({
+        chip: 'Triple Captain',
+        reason: `DGW${dgws[0]} is ideal for TC on a premium asset`,
+        bestGW: dgws[0],
+        priority: 'Medium'
+      });
+    }
+    if (bgws.length > 0) {
+      recommendations.push({
+        chip: 'Free Hit',
+        reason: `BGW${bgws[0]} only has ${gwFixtureCount[bgws[0]]} fixtures - build a one-week team`,
+        bestGW: bgws[0],
+        priority: bgws.length > 2 ? 'High' : 'Medium'
+      });
+    }
+
+    res.json({
+      currentGW,
+      gwFixtureCount,
+      dgws, bgws,
+      recommendations,
+      bestByPosition,
+      chipTips: [
+        'Use Wildcard when 4+ transfers needed',
+        'Bench Boost on DGWs with strong bench',
+        'Triple Captain on form player with easy DGW fixture',
+        'Free Hit to navigate BGWs or build DGW team'
+      ]
+    });
+  } catch (e) {
+    console.error('Chip strategy error:', e.message);
+    res.status(500).json({ error: 'Failed to calculate chip strategy' });
+  }
+});
+
+// ---- Expected Points Projections ----
+app.get('/api/xpts-projections', async (req, res) => {
+  try {
+    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
+    const fixtures = (await apiGet('https://fantasy.premierleague.com/api/fixtures/')).data;
+    const elements = bs.elements;
+    const teams = bs.teams;
+    const currentGW = bs.events.find(e => e.is_current)?.id || 1;
+    const getTeam = id => teams.find(t => t.id === id);
+
+    // Project points for next 5 GWs for each player
+    const projections = elements
+      .filter(p => parseFloat(p.form) > 0 || p.total_points > 0)
+      .map(p => {
+        const form = parseFloat(p.form) || 0;
+        const ppg = parseFloat(p.points_per_game) || 0;
+        const xGI = parseFloat(p.expected_goal_involvements) || 0;
+        const team = p.team;
+        
+        // Get next 5 fixtures
+        const nextFixtures = [];
+        let totalXpts = 0;
+        
+        for (let gw = currentGW; gw <= Math.min(currentGW + 4, 38); gw++) {
+          const fx = fixtures.find(f => f.event === gw && (f.team_h === team || f.team_a === team));
+          if (fx) {
+            const isHome = fx.team_h === team;
+            const fdr = fx.difficulty || 3;
+            const oppId = isHome ? fx.team_a : fx.team_h;
+            const opp = getTeam(oppId);
+            
+            // xPts calculation
+            const baseXpts = (xGI * 3 + form * 1.5 + ppg * 1) / 5;
+            const fdrMod = fdr === 1 ? 1.4 : fdr === 2 ? 1.2 : fdr === 3 ? 1.0 : fdr === 4 ? 0.8 : 0.6;
+            const homeMod = isHome ? 1.1 : 1.0;
+            const gwXpts = Math.round(baseXpts * fdrMod * homeMod * 10) / 10;
+            
+            totalXpts += gwXpts;
+            nextFixtures.push({
+              gw, opponent: opp?.short_name || '?', isHome, fdr, xpts: gwXpts
+            });
+          }
+        }
+
+        return {
+          id: p.id, name: p.web_name, code: p.code,
+          team: getTeam(team)?.short_name || '',
+          position: POSITION_MAP[p.element_type - 1],
+          cost: p.now_cost, costStr: '£' + (p.now_cost / 10).toFixed(1) + 'm',
+          form, ppg, xGI,
+          totalXpts: Math.round(totalXpts * 10) / 10,
+          xptsPerMillion: p.now_cost > 0 ? (totalXpts / (p.now_cost / 10)).toFixed(1) : '0.0',
+          nextFixtures,
+          totalPoints: p.total_points || 0,
+          ownership: parseFloat(p.selected_by_percent) || 0
+        };
+      })
+      .sort((a, b) => b.totalXpts - a.totalXpts);
+
+    // Team projections (sum of all starters)
+    const teamProjections = {};
+    projections.forEach(p => {
+      if (!teamProjections[p.team]) teamProjections[p.team] = { team: p.team, totalXpts: 0, count: 0 };
+      teamProjections[p.team].totalXpts += p.totalXpts;
+      teamProjections[p.team].count++;
+    });
+
+    res.json({
+      currentGW,
+      playerProjections: projections.slice(0, 100),
+      teamProjections: Object.values(teamProjections).sort((a, b) => b.totalXpts - a.totalXpts),
+      topByPosition: {
+        FWD: projections.filter(p => p.position === 'FWD').slice(0, 10),
+        MID: projections.filter(p => p.position === 'MID').slice(0, 10),
+        DEF: projections.filter(p => p.position === 'DEF').slice(0, 10),
+        GKP: projections.filter(p => p.position === 'GKP').slice(0, 5)
+      }
+    });
+  } catch (e) {
+    console.error('xPts projections error:', e.message);
+    res.status(500).json({ error: 'Failed to calculate projections' });
+  }
+});
+
+// ---- Deadline Info ----
+app.get('/api/deadline', async (req, res) => {
+  try {
+    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
+    const events = bs.events;
+    const currentGW = events.find(e => e.is_current);
+    const nextGW = events.find(e => e.is_next);
+    
+    // Get deadline times
+    const deadlineTime = nextGW?.deadline_time || currentGW?.deadline_time;
+    const deadlineDate = deadlineTime ? new Date(deadlineTime) : null;
+    
+    res.json({
+      currentGW: currentGW?.id || 1,
+      nextGW: nextGW?.id || currentGW?.id + 1,
+      deadlineTime: deadlineDate?.toISOString() || null,
+      deadlineTimestamp: deadlineDate?.getTime() || null,
+      gameweekDeadline: deadlineTime || 'TBA',
+      isFinished: currentGW?.finished || false
+    });
+  } catch (e) {
+    console.error('Deadline error:', e.message);
+    res.status(500).json({ error: 'Failed to fetch deadline' });
+  }
+});
+
+// ---- Injury News ----
+app.get('/api/injury-news', async (req, res) => {
+  try {
+    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
+    const elements = bs.elements;
+    const teams = bs.teams;
+    const getTeam = id => teams.find(t => t.id === id);
+
+    // Status codes: a=available, d=doubtful, i=injured, s=suspended, u=unavailable, p=phasing in
+    const statusLabels = {
+      'd': 'Doubtful', 'i': 'Injured', 's': 'Suspended', 
+      'u': 'Unavailable', 'p': 'Phasing In', 'n': 'Not Available'
+    };
+
+    const injuries = elements
+      .filter(p => p.status !== 'a' && p.status !== 'r')
+      .map(p => ({
+        id: p.id, name: p.web_name, code: p.code,
+        team: getTeam(p.team)?.short_name || '',
+        teamFull: getTeam(p.team)?.name || '',
+        position: POSITION_MAP[p.element_type - 1],
+        status: statusLabels[p.status] || p.statusCode,
+        statusCode: p.status,
+        news: p.news || 'No update',
+        cost: p.now_cost,
+        costStr: '£' + (p.now_cost / 10).toFixed(1) + 'm',
+        ownership: parseFloat(p.selected_by_percent) || 0,
+        form: parseFloat(p.form) || 0,
+        totalPoints: p.total_points || 0,
+        chanceOfPlaying: p.chance_of_playing_next_round,
+        // Severity sorting: suspended > injured > doubtful > unavailable
+        severity: p.status === 's' ? 4 : p.status === 'i' ? 3 : p.status === 'd' ? 2 : 1
+      }))
+      .sort((a, b) => b.severity - a.severity || b.ownership - a.ownership);
+
+    res.json({
+      injuries,
+      summary: {
+        total: injuries.length,
+        injured: injuries.filter(p => p.statusCode === 'i').length,
+        suspended: injuries.filter(p => p.statusCode === 's').length,
+        doubtful: injuries.filter(p => p.statusCode === 'd').length,
+        unavailable: injuries.filter(p => p.statusCode === 'u').length
+      }
+    });
+  } catch (e) {
+    console.error('Injury news error:', e.message);
+    res.status(500).json({ error: 'Failed to fetch injury news' });
+  }
+});
+
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
