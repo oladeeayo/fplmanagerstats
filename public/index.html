@@ -2,521 +2,187 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>FPL Manager Stats</title>
     <meta name="description" content="Fantasy Premier League Manager Statistics Dashboard">
     <meta name="theme-color" content="#0D0D0D">
-
-    <!-- Fonts -->
+    <link rel="icon" href="football.ico">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-    <!-- Material Symbols -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap">
-
-    <!-- Styles -->
     <link rel="stylesheet" href="design-system.css">
-
     <style>
-        /* Additional page-specific styles */
-        .material-symbols-outlined {
-            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-            vertical-align: middle;
-        }
-        .material-symbols-outlined.filled {
-            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-        }
-
-        /* Tab content visibility */
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+        .material-symbols-outlined.filled { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-
-        /* Loading overlay */
-        #loading-overlay {
-            position: fixed; inset: 0;
-            background: var(--md-sys-color-background);
-            z-index: 9999;
-            display: flex; align-items: center; justify-content: center;
-            flex-direction: column; gap: var(--space-md);
-        }
+        #loading-overlay { position: fixed; inset: 0; background: var(--md-sys-color-background); z-index: 9999; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: var(--space-md); }
         #loading-overlay.hidden { display: none; }
-        .spinner {
-            width: 40px; height: 40px;
-            border: 3px solid var(--md-sys-color-outline);
-            border-top-color: var(--md-sys-color-primary);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
+        .spinner { width: 40px; height: 40px; border: 3px solid var(--md-sys-color-outline); border-top-color: var(--md-sys-color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* Error toast */
-        #error-toast {
-            position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
-            background: var(--md-sys-color-error); color: #000;
-            padding: var(--space-sm) var(--space-lg);
-            border-radius: var(--radius-pill); font-size: 0.875rem; font-weight: 600;
-            z-index: 10000; transition: all var(--transition-normal);
-        }
+        #error-toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: var(--md-sys-color-error); color: #000; padding: var(--space-sm) var(--space-lg); border-radius: var(--radius-pill); font-size: 0.875rem; font-weight: 600; z-index: 10000; transition: all var(--transition-normal); }
         #error-toast.hidden { opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(20px); }
-
-        /* Sidebar nav items */
-        .sidebar-nav-item {
-            display: flex; align-items: center; gap: var(--space-md);
-            padding: var(--space-sm) var(--space-md);
-            border-radius: var(--radius-md);
-            color: var(--md-sys-color-on-surface-variant);
-            text-decoration: none; font-size: 0.875rem; font-weight: 500;
-            cursor: pointer; transition: all var(--transition-fast);
-        }
+        .sidebar-nav-item { display: flex; align-items: center; gap: var(--space-md); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); color: var(--md-sys-color-on-surface-variant); text-decoration: none; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: all var(--transition-fast); }
         .sidebar-nav-item:hover { background: var(--md-sys-color-surface-container); color: var(--md-sys-color-on-surface); }
-        .sidebar-nav-item.active {
-            background: var(--fpl-accent-dim);
-            color: var(--md-sys-color-primary);
-        }
+        .sidebar-nav-item.active { background: var(--fpl-accent-dim); color: var(--md-sys-color-primary); }
         .sidebar-nav-item .material-symbols-outlined { font-size: 20px; }
-
-        /* Fixture difficulty chart cells */
-        .fdr-cell {
-            display: inline-flex; align-items: center; justify-content: center;
-            width: 24px; height: 24px; border-radius: var(--radius-sm);
-            font-family: var(--font-mono); font-size: 0.625rem; font-weight: 700;
-        }
-
-        /* Ownership chart */
         .chart-bars { display: flex; flex-direction: column; gap: var(--space-sm); }
         .chart-bar-group { display: flex; align-items: center; gap: var(--space-sm); }
         .chart-bar-label { width: 40px; font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); text-align: right; }
         .chart-bar-track { flex: 1; height: 24px; background: var(--md-sys-color-surface-container-high); border-radius: var(--radius-sm); overflow: hidden; }
         .chart-bar { height: 100%; border-radius: var(--radius-sm); transition: width var(--transition-slow); }
         .chart-bar-value { width: 60px; font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); }
-        .chart-legend { display: flex; flex-wrap: wrap; gap: var(--space-md); margin-top: var(--space-md); }
-        .legend-item { display: flex; align-items: center; gap: var(--space-xs); font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); }
-        .legend-color { width: 12px; height: 12px; border-radius: var(--radius-sm); }
-
-        /* Transfer arrows */
-        .transfer-arrow { font-size: 0.875rem; font-weight: 700; }
-        .transfer-arrow.up { color: var(--fdr-1); }
-        .transfer-arrow.down { color: var(--fdr-5); }
-
-        /* Form colors */
         .form-excellent { color: var(--fdr-1); }
         .form-good { color: var(--fdr-2); }
         .form-average { color: var(--fdr-3); }
         .form-poor { color: var(--fdr-5); }
-
-        /* Table footer */
-        .table-footer {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: var(--space-md);
-            border-top: 1px solid var(--md-sys-color-outline-variant);
-        }
-        .pagination { display: flex; gap: var(--space-xs); }
-
-        /* Responsive adjustments */
+        .stat-detail { font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); margin-top: var(--space-xs); }
         @media (max-width: 768px) {
             .grid-5 { grid-template-columns: repeat(2, 1fr); }
-            .table-container { font-size: 0.75rem; }
-            th, td { padding: var(--space-xs) var(--space-sm); }
+            .grid-4 { grid-template-columns: repeat(2, 1fr); }
+            .grid-3 { grid-template-columns: 1fr; }
+            .grid-2 { grid-template-columns: 1fr; }
+            .topbar { padding: 0 var(--space-sm); }
+            .layout-content { padding: var(--space-md); padding-bottom: 80px; }
+            .page-header { flex-direction: column; align-items: flex-start; gap: var(--space-sm); }
         }
     </style>
 </head>
 <body>
-    <!-- Loading Overlay -->
-    <div id="loading-overlay">
-        <div class="spinner"></div>
-        <span style="font-family: var(--font-display); color: var(--md-sys-color-primary);">FPL Stats</span>
-    </div>
-
-    <!-- Error Toast -->
+    <div id="loading-overlay"><div class="spinner"></div><span style="font-family:var(--font-display);color:var(--md-sys-color-primary);">FPL Stats</span></div>
     <div id="error-toast" class="hidden"></div>
-
-    <!-- Sidebar Overlay (Mobile) -->
     <div id="sidebar-overlay" class="sidebar-overlay"></div>
 
     <div class="layout">
         <!-- Sidebar -->
         <aside id="sidebar" class="layout-sidebar">
-            <div style="padding: var(--space-lg); border-bottom: 1px solid var(--md-sys-color-outline-variant);">
+            <div style="padding:var(--space-lg);border-bottom:1px solid var(--md-sys-color-outline-variant);">
                 <div class="topbar-title">
-                    <span class="material-symbols-outlined filled" style="font-size: 32px;">sports_soccer</span>
-                    <div>
-                        <div style="font-size: 1.125rem; font-weight: 700;">FPL Stats</div>
-                        <div style="font-size: 0.625rem; color: var(--md-sys-color-on-surface-variant); font-weight: 400;">Manager Dashboard</div>
-                    </div>
+                    <span class="material-symbols-outlined filled" style="font-size:32px;">sports_soccer</span>
+                    <div><div style="font-size:1.125rem;font-weight:700;">FPL Stats</div><div style="font-size:0.625rem;color:var(--md-sys-color-on-surface-variant);font-weight:400;">Manager Dashboard</div></div>
                 </div>
             </div>
-
-            <nav style="padding: var(--space-md); flex: 1;">
-                <div style="margin-bottom: var(--space-md);">
-                    <div style="font-size: 0.625rem; color: var(--md-sys-color-on-surface-variant); text-transform: uppercase; letter-spacing: 0.1em; padding: var(--space-sm) var(--space-md); font-weight: 600;">Menu</div>
-                    <a class="sidebar-nav-item active" data-tab="general" onclick="FPL.navigateTo('general')">
-                        <span class="material-symbols-outlined">dashboard</span> Dashboard
-                    </a>
-                    <a class="sidebar-nav-item" data-tab="manager" onclick="FPL.navigateTo('manager')">
-                        <span class="material-symbols-outlined">groups</span> Team Analysis
-                    </a>
-                    <a class="sidebar-nav-item" data-tab="league" onclick="FPL.navigateTo('league')">
-                        <span class="material-symbols-outlined">leaderboard</span> Standings
-                    </a>
-                    <a class="sidebar-nav-item" data-tab="players" onclick="FPL.navigateTo('players')">
-                        <span class="material-symbols-outlined">person_search</span> Player Stats
-                    </a>
-                    <a class="sidebar-nav-item" data-tab="zones" onclick="FPL.navigateTo('zones')">
-                        <span class="material-symbols-outlined">sports</span> Tactics
-                    </a>
-                    <a class="sidebar-nav-item" data-tab="fixtures" onclick="FPL.navigateTo('fixtures')">
-                        <span class="material-symbols-outlined">calendar_month</span> Fixtures
-                    </a>
-                    <a class="sidebar-nav-item" data-tab="captain" onclick="FPL.navigateTo('captain')">
-                        <span class="material-symbols-outlined">star</span> Captaincy
-                    </a>
-                    <a class="sidebar-nav-item" data-tab="ownership" onclick="FPL.navigateTo('ownership')">
-                        <span class="material-symbols-outlined">pie_chart</span> Ownership
-                    </a>
+            <nav style="padding:var(--space-md);flex:1;">
+                <div style="margin-bottom:var(--space-md);">
+                    <div style="font-size:0.625rem;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.1em;padding:var(--space-sm) var(--space-md);font-weight:600;">Menu</div>
+                    <a class="sidebar-nav-item active" data-tab="general" onclick="FPL.navigateTo('general')"><span class="material-symbols-outlined">dashboard</span> Dashboard</a>
+                    <a class="sidebar-nav-item" data-tab="manager" onclick="FPL.navigateTo('manager')"><span class="material-symbols-outlined">groups</span> Team Analysis</a>
+                    <a class="sidebar-nav-item" data-tab="league" onclick="FPL.navigateTo('league')"><span class="material-symbols-outlined">leaderboard</span> Standings</a>
+                    <a class="sidebar-nav-item" data-tab="players" onclick="FPL.navigateTo('players')"><span class="material-symbols-outlined">person_search</span> Player Stats</a>
+                    <a class="sidebar-nav-item" data-tab="zones" onclick="FPL.navigateTo('zones')"><span class="material-symbols-outlined">sports</span> Tactics</a>
+                    <a class="sidebar-nav-item" data-tab="fixtures" onclick="FPL.navigateTo('fixtures')"><span class="material-symbols-outlined">calendar_month</span> Fixtures</a>
+                    <a class="sidebar-nav-item" data-tab="captain" onclick="FPL.navigateTo('captain')"><span class="material-symbols-outlined">star</span> Captaincy</a>
+                    <a class="sidebar-nav-item" data-tab="ownership" onclick="FPL.navigateTo('ownership')"><span class="material-symbols-outlined">pie_chart</span> Ownership</a>
                 </div>
-
                 <div class="divider"></div>
-
                 <div>
-                    <div style="font-size: 0.625rem; color: var(--md-sys-color-on-surface-variant); text-transform: uppercase; letter-spacing: 0.1em; padding: var(--space-sm) var(--space-md); font-weight: 600;">More</div>
-                    <a class="sidebar-nav-item" onclick="FPL.showDialog('connect-dialog')">
-                        <span class="material-symbols-outlined">link</span> Connect FPL ID
-                    </a>
-                    <a class="sidebar-nav-item" onclick="FPL.navigateTo('general'); setTimeout(() => FPL.initHistory(), 100)">
-                        <span class="material-symbols-outlined">history</span> History
-                    </a>
-                    <a class="sidebar-nav-item" onclick="FPL.navigateTo('general'); setTimeout(() => FPL.initSettings(), 100)">
-                        <span class="material-symbols-outlined">settings</span> Settings
-                    </a>
+                    <div style="font-size:0.625rem;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.1em;padding:var(--space-sm) var(--space-md);font-weight:600;">More</div>
+                    <a class="sidebar-nav-item" onclick="FPL.showDialog('connect-dialog')"><span class="material-symbols-outlined">link</span> Connect FPL ID</a>
+                    <a class="sidebar-nav-item" onclick="FPL.initHistory()"><span class="material-symbols-outlined">history</span> History</a>
+                    <a class="sidebar-nav-item" onclick="FPL.initSettings()"><span class="material-symbols-outlined">settings</span> Settings</a>
                 </div>
             </nav>
-
-            <div style="padding: var(--space-md); border-top: 1px solid var(--md-sys-color-outline-variant);">
-                <div id="manager-id-display" style="font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); text-align: center;">
-                    No manager connected
-                </div>
+            <div style="padding:var(--space-md);border-top:1px solid var(--md-sys-color-outline-variant);">
+                <div id="manager-id-display" style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);text-align:center;">No manager connected</div>
             </div>
         </aside>
 
-        <!-- Main Content -->
+        <!-- Main -->
         <div class="layout-main">
-            <!-- Top Bar -->
             <header class="topbar">
                 <div class="topbar-left">
-                    <button id="mobile-menu-btn" class="mobile-menu-btn">
-                        <span class="material-symbols-outlined">menu</span>
-                    </button>
-                    <span class="topbar-title">
-                        <span class="material-symbols-outlined filled" style="font-size: 24px;">sports_soccer</span>
-                        FPL Stats
-                    </span>
+                    <button id="mobile-menu-btn" class="mobile-menu-btn"><span class="material-symbols-outlined">menu</span></button>
+                    <span class="topbar-title"><span class="material-symbols-outlined filled" style="font-size:24px;">sports_soccer</span> FPL Stats</span>
                 </div>
                 <div class="topbar-right">
-                    <button class="btn btn-primary btn-sm" onclick="FPL.showDialog('connect-dialog')">
-                        <span class="material-symbols-outlined" style="font-size: 18px;">link</span>
-                        Connect FPL ID
-                    </button>
+                    <button class="btn btn-primary btn-sm" onclick="FPL.showDialog('connect-dialog')"><span class="material-symbols-outlined" style="font-size:18px;">link</span> Connect</button>
                 </div>
             </header>
 
-            <!-- Page Content -->
             <main class="layout-content">
-
-                <!-- ==================== DASHBOARD (General) ==================== -->
+                <!-- DASHBOARD -->
                 <div id="content-general" class="tab-content active">
-                    <div class="page-header">
-                        <div>
-                            <h1 class="page-title">Dashboard</h1>
-                            <p class="page-subtitle">Your FPL overview and key metrics</p>
-                        </div>
-                        <div style="text-align: right;">
-                            <div style="font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant);">Last updated</div>
-                            <div id="last-updated" class="mono" style="font-size: 0.875rem; color: var(--md-sys-color-on-surface);">--</div>
-                        </div>
-                    </div>
+                    <div class="page-header"><div><h1 class="page-title">Dashboard</h1><p class="page-subtitle">Your FPL overview and key metrics</p></div><div style="text-align:right;"><div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">Last updated</div><div id="last-updated" class="mono" style="font-size:0.875rem;">--</div></div></div>
 
-                    <!-- Gameweek Selector -->
-                    <div class="card mb-lg">
-                        <div class="card-body" style="display: flex; align-items: center; justify-content: center; gap: var(--space-lg); padding: var(--space-md) var(--space-lg);">
-                            <button class="btn btn-outline btn-sm" onclick="FPL.changeGW(-1)" style="width: 36px; height: 36px; padding: 0;">
-                                <span class="material-symbols-outlined">chevron_left</span>
-                            </button>
-                            <div style="text-align: center;">
-                                <div style="font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant);">Gameweek</div>
-                                <div id="current-gw" class="mono" style="font-size: 1.5rem; font-weight: 800; color: var(--md-sys-color-primary);">--</div>
-                            </div>
-                            <button class="btn btn-outline btn-sm" onclick="FPL.changeGW(1)" style="width: 36px; height: 36px; padding: 0;">
-                                <span class="material-symbols-outlined">chevron_right</span>
-                            </button>
-                            <div style="padding-left: var(--space-lg); border-left: 1px solid var(--md-sys-color-outline-variant);">
-                                <div style="font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant);">Deadline</div>
-                                <div id="deadline-time" class="mono" style="font-size: 0.875rem;">--</div>
-                            </div>
-                        </div>
-                    </div>
+                    <div class="card mb-lg"><div class="card-body" style="display:flex;align-items:center;justify-content:center;gap:var(--space-lg);padding:var(--space-md) var(--space-lg);">
+                        <button class="btn btn-outline btn-sm" onclick="FPL.changeGW(-1)" style="width:36px;height:36px;padding:0;"><span class="material-symbols-outlined">chevron_left</span></button>
+                        <div style="text-align:center;"><div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">Gameweek</div><div id="current-gw" class="mono" style="font-size:1.5rem;font-weight:800;color:var(--md-sys-color-primary);">--</div></div>
+                        <button class="btn btn-outline btn-sm" onclick="FPL.changeGW(1)" style="width:36px;height:36px;padding:0;"><span class="material-symbols-outlined">chevron_right</span></button>
+                        <div style="padding-left:var(--space-lg);border-left:1px solid var(--md-sys-color-outline-variant);"><div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">Deadline</div><div id="deadline-time" class="mono" style="font-size:0.875rem;">--</div></div>
+                    </div></div>
 
-                    <!-- Stat Cards Row -->
                     <div class="grid grid-5 mb-lg">
-                        <div class="stat-card">
-                            <div class="stat-label">Overall Rank</div>
-                            <div id="stat-overall-rank" class="stat-value">--</div>
-                            <div id="stat-overall-rank-change" class="stat-change positive">
-                                <span class="material-symbols-outlined" style="font-size: 14px;">trending_up</span> --
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-label">Total Points</div>
-                            <div id="stat-total-points" class="stat-value">--</div>
-                            <div id="stat-total-points-change" class="stat-change positive">
-                                <span class="material-symbols-outlined" style="font-size: 14px;">add</span> --
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-label">GW Rank</div>
-                            <div id="stat-gw-rank" class="stat-value">--</div>
-                            <div id="stat-gw-rank-change" class="stat-change positive">
-                                <span class="material-symbols-outlined" style="font-size: 14px;">trending_up</span> --
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-label">Transfer Cost</div>
-                            <div id="stat-transfer-cost" class="stat-value">--</div>
-                            <div class="stat-change" style="color: var(--md-sys-color-on-surface-variant);">pts deducted</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-label">Team Value</div>
-                            <div id="stat-team-value" class="stat-value">--</div>
-                            <div id="stat-team-value-change" class="stat-change positive">
-                                <span class="material-symbols-outlined" style="font-size: 14px;">trending_up</span> --
-                            </div>
-                        </div>
+                        <div class="stat-card"><div class="stat-label">Overall Rank</div><div id="stat-overall-rank" class="stat-value">--</div><div id="stat-overall-rank-change" class="stat-change positive"><span class="material-symbols-outlined" style="font-size:14px;">trending_up</span> --</div></div>
+                        <div class="stat-card"><div class="stat-label">Total Points</div><div id="stat-total-points" class="stat-value">--</div><div id="stat-total-points-change" class="stat-change positive"><span class="material-symbols-outlined" style="font-size:14px;">add</span> --</div></div>
+                        <div class="stat-card"><div class="stat-label">GW Rank</div><div id="stat-gw-rank" class="stat-value">--</div><div id="stat-gw-rank-change" class="stat-change positive"><span class="material-symbols-outlined" style="font-size:14px;">trending_up</span> --</div></div>
+                        <div class="stat-card"><div class="stat-label">Transfer Cost</div><div id="stat-transfer-cost" class="stat-value">--</div><div class="stat-change" style="color:var(--md-sys-color-on-surface-variant);">pts deducted</div></div>
+                        <div class="stat-card"><div class="stat-label">Team Value</div><div id="stat-team-value" class="stat-value">--</div><div id="stat-team-value-change" class="stat-change positive"><span class="material-symbols-outlined" style="font-size:14px;">trending_up</span> --</div></div>
                     </div>
 
-                    <!-- Two Column Layout -->
                     <div class="grid grid-2 mb-lg">
-                        <!-- Manager Info Card -->
-                        <div class="card">
-                            <div class="card-header">
-                                <h3>
-                                    <span class="material-symbols-outlined" style="font-size: 20px; color: var(--md-sys-color-primary);">person</span>
-                                    Manager Info
-                                </h3>
-                            </div>
-                            <div class="card-body">
-                                <div id="manager-info-content">
-                                    <div class="empty-state">
-                                        <span class="material-symbols-outlined">person_off</span>
-                                        <p>Connect your FPL ID to see your stats</p>
-                                        <button class="btn btn-primary btn-sm mt-md" onclick="FPL.showDialog('connect-dialog')">Connect Now</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Transfer Activity Card -->
-                        <div class="card">
-                            <div class="card-header">
-                                <h3>
-                                    <span class="material-symbols-outlined" style="font-size: 20px; color: var(--md-sys-color-primary);">swap_horiz</span>
-                                    Transfer Activity
-                                </h3>
-                            </div>
-                            <div class="card-body">
-                                <div id="transfer-activity-content">
-                                    <div class="empty-state">
-                                        <span class="material-symbols-outlined">swap_horiz</span>
-                                        <p>No transfers this gameweek</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <div class="card"><div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">person</span> Manager Info</h3></div><div class="card-body"><div id="manager-info-content"><div class="empty-state"><span class="material-symbols-outlined">person_off</span><p>Connect your FPL ID to see your stats</p><button class="btn btn-primary btn-sm mt-md" onclick="FPL.showDialog('connect-dialog')">Connect Now</button></div></div></div></div>
+                        <div class="card"><div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">swap_horiz</span> Transfer Activity</h3></div><div class="card-body"><div id="transfer-activity-content"><div class="empty-state"><span class="material-symbols-outlined">swap_horiz</span><p>No transfers this gameweek</p></div></div></div></div>
                     </div>
 
-                    <!-- Recent Form Card -->
-                    <div class="card mb-lg">
-                        <div class="card-header">
-                            <h3>
-                                <span class="material-symbols-outlined" style="font-size: 20px; color: var(--md-sys-color-primary);">trending_up</span>
-                                Recent Form
-                            </h3>
-                        </div>
-                        <div class="card-body">
-                            <div id="recent-form-content" style="display: flex; flex-wrap: wrap; gap: var(--space-sm);">
-                                <div class="empty-state" style="width: 100%;">
-                                    <span class="material-symbols-outlined">show_chart</span>
-                                    <p>Connect your FPL ID to see recent form</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <div class="card mb-lg"><div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">trending_up</span> Recent Form</h3></div><div class="card-body"><div id="recent-form-content" style="display:flex;flex-wrap:wrap;gap:var(--space-sm);"><div class="empty-state" style="width:100%;"><span class="material-symbols-outlined">show_chart</span><p>Connect your FPL ID to see recent form</p></div></div></div></div>
 
-                    <!-- History Section (populated by JS) -->
                     <div id="history-section" class="mb-lg"></div>
-
-                    <!-- Settings Section (populated by JS) -->
                     <div id="settings-section"></div>
                 </div>
 
-                <!-- ==================== TEAM ANALYSIS ==================== -->
+                <!-- TEAM ANALYSIS -->
                 <div id="content-manager" class="tab-content">
-                    <div class="page-header">
-                        <div>
-                            <h1 class="page-title">Team Analysis</h1>
-                            <p class="page-subtitle">Visualize your squad formation and performance</p>
-                        </div>
-                    </div>
-
+                    <div class="page-header"><div><h1 class="page-title">Team Analysis</h1><p class="page-subtitle">Visualize your squad formation and performance</p></div></div>
                     <div class="flex items-center justify-between mb-lg">
-                        <div class="flex items-center gap-md">
-                            <h2 style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700;" id="team-name-display">--</h2>
-                            <span class="chip chip-primary" id="formation-display">---</span>
-                        </div>
-                        <div class="flex items-center gap-sm">
-                            <button class="btn btn-outline btn-sm">
-                                <span class="material-symbols-outlined" style="font-size: 16px;">edit</span> Edit Team
-                            </button>
-                            <button class="btn btn-primary btn-sm">
-                                <span class="material-symbols-outlined" style="font-size: 16px;">visibility</span> View Pitch
-                            </button>
+                        <div class="flex items-center gap-md"><h2 style="font-family:var(--font-display);font-size:1.25rem;font-weight:700;" id="team-name-display">--</h2><span class="chip chip-primary" id="formation-display">---</span></div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:70% 30%;gap:var(--space-lg);margin-bottom:var(--space-lg);">
+                        <div class="card"><div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">sports_soccer</span> Formation: <span id="formation-display-2">---</span></h3></div><div class="card-body"><div class="pitch" id="pitch-container" style="min-height:450px;"><div class="empty-state" style="height:100%;"><span class="material-symbols-outlined">sports_soccer</span><p>Connect your FPL ID to view your pitch</p></div></div></div></div>
+                        <div style="display:flex;flex-direction:column;gap:var(--space-md);">
+                            <div class="card"><div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">analytics</span> Team Overview</h3></div><div class="card-body"><div class="grid grid-2" style="gap:var(--space-sm);"><div class="stat-card"><span class="stat-label">Team Value</span><span id="tv-value" class="stat-value" style="font-size:1.25rem;">--</span></div><div class="stat-card"><span class="stat-label">Bank</span><span id="tv-bank" class="stat-value" style="font-size:1.25rem;">--</span></div><div class="stat-card"><span class="stat-label">ITB</span><span id="tv-itb" class="stat-value" style="font-size:1.25rem;">--</span></div><div class="stat-card"><span class="stat-label">GW Points</span><span id="tv-gw-pts" class="stat-value" style="font-size:1.25rem;">--</span></div></div></div></div>
+                            <div class="card"><div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">group</span> Player Breakdown</h3></div><div class="card-body" style="padding:0;"><table style="width:100%;font-size:0.75rem;"><thead><tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);"><th style="padding:var(--space-sm);text-align:left;color:var(--md-sys-color-on-surface-variant);">Position</th><th style="padding:var(--space-sm);text-align:center;color:var(--md-sys-color-on-surface-variant);">Count</th><th style="padding:var(--space-sm);text-align:center;color:var(--md-sys-color-on-surface-variant);">Avg Pts</th><th style="padding:var(--space-sm);text-align:right;color:var(--md-sys-color-on-surface-variant);">Value</th></tr></thead><tbody id="player-breakdown-body"></tbody></table></div></div>
                         </div>
                     </div>
-
-                    <div style="display: grid; grid-template-columns: 70% 30%; gap: var(--space-lg); margin-bottom: var(--space-lg);">
-                        <div class="card">
-                            <div class="card-header">
-                                <h3><span class="material-symbols-outlined" style="font-size: 20px; color: var(--md-sys-color-primary);">sports_soccer</span> Formation: <span id="formation-display-2">---</span></h3>
-                            </div>
-                            <div class="card-body">
-                                <div class="pitch" id="pitch-container" style="min-height: 450px;">
-                                    <div class="empty-state" style="height: 100%;">
-                                        <span class="material-symbols-outlined">sports_soccer</span>
-                                        <p>Connect your FPL ID to view your pitch</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div style="display: flex; flex-direction: column; gap: var(--space-md);">
-                            <div class="card">
-                                <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size: 20px; color: var(--md-sys-color-primary);">analytics</span> Team Overview</h3></div>
-                                <div class="card-body">
-                                    <div class="grid grid-2" style="gap: var(--space-sm);">
-                                        <div class="stat-card"><span class="stat-label">Team Value</span><span id="tv-value" class="stat-value" style="font-size: 1.25rem;">--</span></div>
-                                        <div class="stat-card"><span class="stat-label">Bank</span><span id="tv-bank" class="stat-value" style="font-size: 1.25rem;">--</span></div>
-                                        <div class="stat-card"><span class="stat-label">ITB</span><span id="tv-itb" class="stat-value" style="font-size: 1.25rem;">--</span></div>
-                                        <div class="stat-card"><span class="stat-label">GW Points</span><span id="tv-gwpts" class="stat-value" style="font-size: 1.25rem;">--</span></div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="card">
-                                <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size: 20px; color: var(--md-sys-color-primary);">group</span> Player Breakdown</h3></div>
-                                <div class="card-body" style="padding: 0;">
-                                    <table style="width: 100%; font-size: 0.75rem;">
-                                        <thead><tr style="border-bottom: 1px solid var(--md-sys-color-outline-variant);"><th style="padding: var(--space-sm); text-align: left; color: var(--md-sys-color-on-surface-variant);">Position</th><th style="padding: var(--space-sm); text-align: center; color: var(--md-sys-color-on-surface-variant);">Count</th><th style="padding: var(--space-sm); text-align: center; color: var(--md-sys-color-on-surface-variant);">Avg Pts</th><th style="padding: var(--space-sm); text-align: right; color: var(--md-sys-color-on-surface-variant);">Value</th></tr></thead>
-                                        <tbody id="player-breakdown-body"></tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size: 20px; color: var(--md-sys-color-primary);">list</span> Player Details</h3></div>
-                        <div class="card-body" style="padding: 0; overflow-x: auto;">
-                            <table style="width: 100%; font-size: 0.8125rem;">
-                                <thead><tr style="border-bottom: 2px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container-high);">
-                                    <th style="padding: var(--space-md); text-align: left;">Position</th>
-                                    <th style="padding: var(--space-md); text-align: left;">Name</th>
-                                    <th style="padding: var(--space-md); text-align: center;">Points</th>
-                                    <th style="padding: var(--space-md); text-align: center;">Form</th>
-                                    <th style="padding: var(--space-md); text-align: center;">Price</th>
-                                    <th style="padding: var(--space-md); text-align: center;">Ownership</th>
-                                    <th style="padding: var(--space-md); text-align: center;">Next Fixture</th>
-                                </tr></thead>
-                                <tbody id="player-details-body"></tbody>
-                            </table>
-                        </div>
-                    </div>
+                    <div class="card"><div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">list</span> Player Details</h3></div><div class="card-body" style="padding:0;overflow-x:auto;"><table style="width:100%;font-size:0.8125rem;"><thead><tr style="border-bottom:2px solid var(--md-sys-color-outline-variant);background:var(--md-sys-color-surface-container-high);"><th style="padding:var(--space-md);text-align:left;">Position</th><th style="padding:var(--space-md);text-align:left;">Name</th><th style="padding:var(--space-md);text-align:center;">Points</th><th style="padding:var(--space-md);text-align:center;">Form</th><th style="padding:var(--space-md);text-align:center;">Price</th><th style="padding:var(--space-md);text-align:center;">Ownership</th><th style="padding:var(--space-md);text-align:center;">Next Fixture</th></tr></thead><tbody id="player-details-body"></tbody></table></div></div>
                 </div>
 
-                <!-- ==================== LEAGUE STANDINGS ==================== -->
+                <!-- LEAGUE STANDINGS -->
                 <div id="content-league" class="tab-content">
-                    <div class="page-header">
-                        <h1 class="page-title">League Standings</h1>
-                        <button class="btn btn-primary" onclick="FPL.loadLeagueData()">
-                            <span class="material-symbols-outlined" style="font-size: 18px;">refresh</span> Refresh
-                        </button>
-                    </div>
-
-                    <div class="flex items-center justify-between mb-lg">
-                        <select id="league-selector" class="input" style="min-width: 280px;" onchange="FPL.loadLeagueData()">
-                            <option value="">Select a league...</option>
-                        </select>
-                        <div class="tabs" style="border-radius: var(--radius-md); overflow: hidden; background: var(--md-sys-color-surface-container); border: none;">
-                            <button class="tab active" onclick="FPL.toggleLeagueView('overall')" style="border: none;">Overall</button>
-                            <button class="tab" onclick="FPL.toggleLeagueView('gameweek')" style="border: none;">Gameweek</button>
-                        </div>
-                    </div>
-
+                    <div class="page-header"><h1 class="page-title">League Standings</h1><button class="btn btn-primary" onclick="FPL.loadLeagueData()"><span class="material-symbols-outlined" style="font-size:18px;">refresh</span> Refresh</button></div>
                     <div class="grid grid-4 mb-lg">
-                        <div class="stat-card"><div class="stat-label">Your Rank</div><div id="league-rank" class="stat-value">--</div><div id="league-rank-detail" style="font-size: 0.8125rem; color: var(--md-sys-color-on-surface-variant);">--</div></div>
-                        <div class="stat-card"><div class="stat-label">Points Behind Leader</div><div id="league-behind" class="stat-value" style="color: var(--md-sys-color-error);">--</div><div id="league-leader" style="font-size: 0.8125rem; color: var(--md-sys-color-on-surface-variant);">--</div></div>
-                        <div class="stat-card"><div class="stat-label">Average Points</div><div id="league-avg" class="stat-value">--</div><div id="league-avg-diff" style="font-size: 0.8125rem;">--</div></div>
-                        <div class="stat-card"><div class="stat-label">League Size</div><div id="league-size" class="stat-value">--</div><div style="font-size: 0.8125rem; color: var(--md-sys-color-on-surface-variant);">Active managers</div></div>
+                        <div class="stat-card"><div class="stat-label">Your Rank</div><div id="league-rank" class="stat-value">--</div><div id="league-rank-detail" style="font-size:0.8125rem;color:var(--md-sys-color-on-surface-variant);">--</div></div>
+                        <div class="stat-card"><div class="stat-label">Points Behind Leader</div><div id="league-behind" class="stat-value" style="color:var(--md-sys-color-error);">--</div><div id="league-leader" style="font-size:0.8125rem;color:var(--md-sys-color-on-surface-variant);">--</div></div>
+                        <div class="stat-card"><div class="stat-label">Average Points</div><div id="league-avg" class="stat-value">--</div></div>
+                        <div class="stat-card"><div class="stat-label">League Size</div><div id="league-size" class="stat-value">--</div><div style="font-size:0.8125rem;color:var(--md-sys-color-on-surface-variant);">Active managers</div></div>
                     </div>
-
                     <div class="card">
-                        <div class="card-header">
-                            <h2 id="league-name-display" style="font-family: var(--font-display); font-size: 1.125rem; font-weight: 600;">--</h2>
-                            <span style="font-size: 0.8125rem; color: var(--md-sys-color-on-surface-variant);">Season 2025/26</span>
-                        </div>
-                        <div class="table-container">
-                            <table style="width: 100%; border-collapse: collapse; font-size: 0.9375rem;">
-                                <thead><tr style="border-bottom: 1px solid var(--md-sys-color-outline-variant);">
-                                    <th style="padding: 0.875rem 1rem; text-align: left; cursor: pointer;">#</th>
-                                    <th style="padding: 0.875rem 1rem; text-align: left; cursor: pointer;">Manager Name</th>
-                                    <th style="padding: 0.875rem 1rem; text-align: right; cursor: pointer;">GW</th>
-                                    <th style="padding: 0.875rem 1rem; text-align: right; cursor: pointer;">Overall</th>
-                                    <th style="padding: 0.875rem 1rem; text-align: right; cursor: pointer;">Transfers</th>
-                                    <th style="padding: 0.875rem 1rem; text-align: center;">Chip</th>
-                                    <th style="padding: 0.875rem 1rem; text-align: center;">Arrow</th>
-                                </tr></thead>
-                                <tbody id="league-standings-body"></tbody>
-                            </table>
-                        </div>
+                        <div class="card-header"><h2 id="league-name-display" style="font-family:var(--font-display);font-size:1.125rem;font-weight:600;">--</h2></div>
+                        <div class="table-container"><table style="width:100%;border-collapse:collapse;font-size:0.9375rem;"><thead><tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);">
+                            <th style="padding:0.875rem 1rem;text-align:left;">#</th>
+                            <th style="padding:0.875rem 1rem;text-align:left;">Manager Name</th>
+                            <th style="padding:0.875rem 1rem;text-align:right;">GW</th>
+                            <th style="padding:0.875rem 1rem;text-align:right;">Overall</th>
+                            <th style="padding:0.875rem 1rem;text-align:right;">Chips</th>
+                            <th style="padding:0.875rem 1rem;text-align:center;">Arrow</th>
+                        </tr></thead><tbody id="league-standings-body"></tbody></table></div>
                     </div>
                 </div>
 
-                <!-- ==================== PLAYER STATS ==================== -->
+                <!-- PLAYER STATS -->
                 <div id="content-players" class="tab-content">
-                    <div class="page-header">
-                        <h1 class="page-title">Player Statistics</h1>
-                        <p class="page-subtitle">Browse and compare all Premier League players</p>
-                    </div>
-
-                    <!-- Filters -->
-                    <div class="flex items-center gap-md mb-lg" style="flex-wrap: wrap;">
-                        <div class="tabs" style="border: none; background: var(--md-sys-color-surface-container); border-radius: var(--radius-md);">
-                            <button class="tab active" data-filter="all" onclick="FPL.filterPlayers('all', this)">All</button>
-                            <button class="tab" data-filter="GKP" onclick="FPL.filterPlayers('GKP', this)">GKP</button>
-                            <button class="tab" data-filter="DEF" onclick="FPL.filterPlayers('DEF', this)">DEF</button>
-                            <button class="tab" data-filter="MID" onclick="FPL.filterPlayers('MID', this)">MID</button>
-                            <button class="tab" data-filter="FWD" onclick="FPL.filterPlayers('FWD', this)">FWD</button>
+                    <div class="page-header"><h1 class="page-title">Player Statistics</h1><p class="page-subtitle">Browse and compare all Premier League players</p></div>
+                    <div class="flex items-center gap-md mb-lg" style="flex-wrap:wrap;">
+                        <div class="tabs" style="border:none;background:var(--md-sys-color-surface-container);border-radius:var(--radius-md);">
+                            <button class="tab active" onclick="FPL.filterPlayers('all',this)">All</button>
+                            <button class="tab" onclick="FPL.filterPlayers('GKP',this)">GKP</button>
+                            <button class="tab" onclick="FPL.filterPlayers('DEF',this)">DEF</button>
+                            <button class="tab" onclick="FPL.filterPlayers('MID',this)">MID</button>
+                            <button class="tab" onclick="FPL.filterPlayers('FWD',this)">FWD</button>
                         </div>
-                        <select id="team-filter" class="input" style="width: 180px;" onchange="FPL.applyPlayerFilters()">
-                            <option value="">All Teams</option>
-                        </select>
-                        <select id="sort-filter" class="input" style="width: 180px;" onchange="FPL.applyPlayerFilters()">
-                            <option value="total_points">Sort by: Points</option>
-                            <option value="form">Sort by: Form</option>
-                            <option value="now_cost">Sort by: Price</option>
-                            <option value="selected_by_percent">Sort by: Ownership</option>
-                        </select>
-                        <input type="text" id="player-search" class="input" placeholder="Search players..." style="width: 220px;" oninput="FPL.applyPlayerFilters()">
+                        <select id="team-filter" class="input" style="width:180px;" onchange="FPL.renderPlayers()"><option value="">All Teams</option></select>
+                        <input type="text" id="player-search" class="input" placeholder="Search players..." style="width:220px;" oninput="FPL.renderPlayers()">
                     </div>
-
-                    <!-- Stat Cards -->
                     <div class="grid grid-5 mb-lg">
                         <div class="stat-card"><div class="stat-label">Total Players</div><div id="ps-total" class="stat-value">--</div></div>
                         <div class="stat-card"><div class="stat-label">Avg Points</div><div id="ps-avg" class="stat-value">--</div></div>
@@ -524,730 +190,153 @@
                         <div class="stat-card"><div class="stat-label">Most Owned</div><div id="ps-most-owned" class="stat-value">--</div></div>
                         <div class="stat-card"><div class="stat-label">Most Transferred In</div><div id="ps-most-in" class="stat-value">--</div></div>
                     </div>
-
-                    <!-- Players Table -->
-                    <div class="card">
-                        <div class="table-container">
-                            <table style="width: 100%; border-collapse: collapse; font-size: 0.8125rem;">
-                                <thead><tr style="border-bottom: 2px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container-high);">
-                                    <th style="padding: var(--space-sm) var(--space-md); text-align: left; cursor: pointer;" onclick="FPL.sortPlayers('id')">#</th>
-                                    <th style="padding: var(--space-sm) var(--space-md); text-align: left; cursor: pointer;" onclick="FPL.sortPlayers('web_name')">Player Name</th>
-                                    <th style="padding: var(--space-sm) var(--space-md); text-align: left; cursor: pointer;" onclick="FPL.sortPlayers('team')">Team</th>
-                                    <th style="padding: var(--space-sm) var(--space-md); text-align: center; cursor: pointer;" onclick="FPL.sortPlayers('element_type')">Position</th>
-                                    <th style="padding: var(--space-sm) var(--space-md); text-align: right; cursor: pointer;" onclick="FPL.sortPlayers('total_points')">Points</th>
-                                    <th style="padding: var(--space-sm) var(--space-md); text-align: center; cursor: pointer;" onclick="FPL.sortPlayers('form')">Form</th>
-                                    <th style="padding: var(--space-sm) var(--space-md); text-align: right; cursor: pointer;" onclick="FPL.sortPlayers('now_cost')">Price</th>
-                                    <th style="padding: var(--space-sm) var(--space-md); text-align: right; cursor: pointer;" onclick="FPL.sortPlayers('selected_by_percent')">Ownership</th>
-                                    <th style="padding: var(--space-sm) var(--space-md); text-align: center;">Next</th>
-                                </tr></thead>
-                                <tbody id="players-table-body"></tbody>
-                            </table>
-                        </div>
-                    </div>
+                    <div class="card"><div class="table-container"><table style="width:100%;border-collapse:collapse;font-size:0.8125rem;"><thead><tr style="border-bottom:2px solid var(--md-sys-color-outline-variant);background:var(--md-sys-color-surface-container-high);">
+                        <th style="padding:var(--space-sm) var(--space-md);text-align:left;">#</th>
+                        <th style="padding:var(--space-sm) var(--space-md);text-align:left;">Player Name</th>
+                        <th style="padding:var(--space-sm) var(--space-md);text-align:left;">Team</th>
+                        <th style="padding:var(--space-sm) var(--space-md);text-align:center;">Position</th>
+                        <th style="padding:var(--space-sm) var(--space-md);text-align:right;">Points</th>
+                        <th style="padding:var(--space-sm) var(--space-md);text-align:center;">Form</th>
+                        <th style="padding:var(--space-sm) var(--space-md);text-align:right;">Price</th>
+                        <th style="padding:var(--space-sm) var(--space-md);text-align:right;">Ownership</th>
+                        <th style="padding:var(--space-sm) var(--space-md);text-align:center;">Next</th>
+                    </tr></thead><tbody id="players-table-body"></tbody></table></div></div>
                 </div>
 
-                <!-- ==================== TACTICS / ZONES ==================== -->
+                <!-- TACTICS/ZONES -->
                 <div id="content-zones" class="tab-content">
-                    <div class="page-header">
-                        <div>
-                            <h1 class="page-title">Tactical Zones</h1>
-                            <p class="page-subtitle">Expected Points Analysis</p>
-                        </div>
+                    <div class="page-header"><div><h1 class="page-title">Tactical Zones</h1><p class="page-subtitle">Expected Points Analysis</p></div></div>
+                    <div class="tabs mb-lg" style="border:none;background:var(--md-sys-color-surface-container);border-radius:var(--radius-md);display:inline-flex;">
+                        <button class="tab active" onclick="FPL.switchZoneView('points',this)">Points by Zone</button>
+                        <button class="tab" onclick="FPL.switchZoneView('value',this)">Value by Zone</button>
+                        <button class="tab" onclick="FPL.switchZoneView('ownership',this)">Ownership by Zone</button>
                     </div>
-
-                    <div class="tabs mb-lg" style="border: none; background: var(--md-sys-color-surface-container); border-radius: var(--radius-md); display: inline-flex;">
-                        <button class="tab active" onclick="FPL.switchZoneView('points', this)">Points by Zone</button>
-                        <button class="tab" onclick="FPL.switchZoneView('value', this)">Value by Zone</button>
-                        <button class="tab" onclick="FPL.switchZoneView('ownership', this)">Ownership by Zone</button>
-                    </div>
-
-                    <div style="display: grid; grid-template-columns: 60% 40%; gap: var(--space-lg); margin-bottom: var(--space-lg);">
-                        <div class="card">
-                            <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size: 20px; color: var(--md-sys-color-primary);">sports_soccer</span> Zone Visualization</h3></div>
-                            <div class="card-body">
-                                <div class="pitch" id="zones-pitch" style="min-height: 450px;">
-                                    <div class="pitch-zone" style="top:65%;left:5%;width:28%;height:25%;"><span class="zone-label">DEF-LEFT</span><span class="zone-value" id="zone-def-left">--</span><span class="zone-sub">avg --</span></div>
-                                    <div class="pitch-zone" style="top:65%;left:36%;width:28%;height:25%;"><span class="zone-label">DEF-CENTER</span><span class="zone-value" id="zone-def-center">--</span><span class="zone-sub">avg --</span></div>
-                                    <div class="pitch-zone" style="top:65%;left:67%;width:28%;height:25%;"><span class="zone-label">DEF-RIGHT</span><span class="zone-value" id="zone-def-right">--</span><span class="zone-sub">avg --</span></div>
-                                    <div class="pitch-zone" style="top:35%;left:5%;width:28%;height:25%;"><span class="zone-label">MID-LEFT</span><span class="zone-value" id="zone-mid-left">--</span><span class="zone-sub">avg --</span></div>
-                                    <div class="pitch-zone" style="top:35%;left:36%;width:28%;height:25%;"><span class="zone-label">MID-CENTER</span><span class="zone-value" id="zone-mid-center">--</span><span class="zone-sub">avg --</span></div>
-                                    <div class="pitch-zone" style="top:35%;left:67%;width:28%;height:25%;"><span class="zone-label">MID-RIGHT</span><span class="zone-value" id="zone-mid-right">--</span><span class="zone-sub">avg --</span></div>
-                                    <div class="pitch-zone" style="top:5%;left:10%;width:25%;height:25%;"><span class="zone-label">FWD-LEFT</span><span class="zone-value" id="zone-fwd-left">--</span><span class="zone-sub">avg --</span></div>
-                                    <div class="pitch-zone" style="top:5%;left:38%;width:24%;height:25%;"><span class="zone-label">FWD-CENTER</span><span class="zone-value" id="zone-fwd-center">--</span><span class="zone-sub">avg --</span></div>
-                                    <div class="pitch-zone" style="top:5%;left:65%;width:25%;height:25%;"><span class="zone-label">FWD-RIGHT</span><span class="zone-value" id="zone-fwd-right">--</span><span class="zone-sub">avg --</span></div>
-                                </div>
+                    <div style="display:grid;grid-template-columns:60% 40%;gap:var(--space-lg);margin-bottom:var(--space-lg);">
+                        <div class="card"><div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">sports_soccer</span> Zone Visualization</h3></div><div class="card-body">
+                            <div class="pitch" id="zones-pitch" style="min-height:450px;">
+                                <div class="pitch-zone" style="top:65%;left:5%;width:28%;height:25%;"><span class="zone-label">DEF-LEFT</span><span class="zone-value" id="zone-def-left">--</span></div>
+                                <div class="pitch-zone" style="top:65%;left:36%;width:28%;height:25%;"><span class="zone-label">DEF-CENTER</span><span class="zone-value" id="zone-def-center">--</span></div>
+                                <div class="pitch-zone" style="top:65%;left:67%;width:28%;height:25%;"><span class="zone-label">DEF-RIGHT</span><span class="zone-value" id="zone-def-right">--</span></div>
+                                <div class="pitch-zone" style="top:35%;left:5%;width:28%;height:25%;"><span class="zone-label">MID-LEFT</span><span class="zone-value" id="zone-mid-left">--</span></div>
+                                <div class="pitch-zone" style="top:35%;left:36%;width:28%;height:25%;"><span class="zone-label">MID-CENTER</span><span class="zone-value" id="zone-mid-center">--</span></div>
+                                <div class="pitch-zone" style="top:35%;left:67%;width:28%;height:25%;"><span class="zone-label">MID-RIGHT</span><span class="zone-value" id="zone-mid-right">--</span></div>
+                                <div class="pitch-zone" style="top:5%;left:10%;width:25%;height:25%;"><span class="zone-label">FWD-LEFT</span><span class="zone-value" id="zone-fwd-left">--</span></div>
+                                <div class="pitch-zone" style="top:5%;left:38%;width:24%;height:25%;"><span class="zone-label">FWD-CENTER</span><span class="zone-value" id="zone-fwd-center">--</span></div>
+                                <div class="pitch-zone" style="top:5%;left:65%;width:25%;height:25%;"><span class="zone-label">FWD-RIGHT</span><span class="zone-value" id="zone-fwd-right">--</span></div>
                             </div>
-                        </div>
-
-                        <div style="display: flex; flex-direction: column; gap: var(--space-md);">
-                            <div class="card">
-                                <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size: 20px; color: var(--md-sys-color-primary);">bar_chart</span> Zone Breakdown</h3></div>
-                                <div class="card-body" id="zone-breakdown-content">
-                                    <div class="empty-state"><span class="material-symbols-outlined">analytics</span><p>Load zones data to see breakdown</p></div>
-                                </div>
-                            </div>
-                            <div class="card">
-                                <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size: 20px; color: var(--md-sys-color-primary);">emoji_events</span> Top Performers</h3></div>
-                                <div class="card-body" id="zone-top-performers">
-                                    <div class="empty-state"><span class="material-symbols-outlined">leaderboard</span><p>Load zones data to see top performers</p></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size: 20px; color: var(--md-sys-color-primary);">bar_chart</span> Zone Comparison</h3></div>
-                        <div class="card-body" id="zone-chart-container">
-                            <div class="empty-state"><span class="material-symbols-outlined">insert_chart</span><p>Zone comparison chart will appear here</p></div>
+                        </div></div>
+                        <div style="display:flex;flex-direction:column;gap:var(--space-md);">
+                            <div class="card"><div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">bar_chart</span> Zone Breakdown</h3></div><div class="card-body" id="zone-breakdown-content"><div class="empty-state"><span class="material-symbols-outlined">analytics</span><p>Load data to see breakdown</p></div></div></div>
+                            <div class="card"><div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">emoji_events</span> Top Performers</h3></div><div class="card-body" id="zone-top-performers"><div class="empty-state"><span class="material-symbols-outlined">leaderboard</span><p>Load data to see top performers</p></div></div></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- ==================== FIXTURES ==================== -->
+                <!-- FIXTURES -->
                 <div id="content-fixtures" class="tab-content">
-                    <div class="page-header">
-                        <h1 class="page-title">Fixtures</h1>
-                        <p class="page-subtitle">Premier League fixture schedule & difficulty ratings</p>
-                    </div>
-
-                    <!-- Gameweek Navigation -->
-                    <div class="card mb-lg">
-                        <div class="card-body" style="display: flex; align-items: center; justify-content: center; gap: var(--space-lg); padding: var(--space-md) var(--space-lg);">
-                            <button class="btn btn-outline" onclick="FPL.changeFixtureGW(-1)" style="width: 40px; height: 40px; padding: 0;">
-                                <span class="material-symbols-outlined">chevron_left</span>
-                            </button>
-                            <div style="text-align: center;">
-                                <div style="font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant);">Gameweek</div>
-                                <div id="fixture-gw-display" class="mono" style="font-size: 1.5rem; font-weight: 800; color: var(--md-sys-color-primary);">--</div>
-                            </div>
-                            <button class="btn btn-outline" onclick="FPL.changeFixtureGW(1)" style="width: 40px; height: 40px; padding: 0;">
-                                <span class="material-symbols-outlined">chevron_right</span>
-                            </button>
-                            <div style="padding-left: var(--space-lg); border-left: 1px solid var(--md-sys-color-outline-variant);">
-                                <label style="font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); display: block; margin-bottom: 4px;">Jump to GW</label>
-                                <select id="fixture-gw-jump" class="input" style="width: 140px;" onchange="FPL.jumpToFixtureGW(this.value)"></select>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Two Column Layout -->
-                    <div style="display: grid; grid-template-columns: 65% 35%; gap: var(--space-lg); margin-bottom: var(--space-lg);">
-                        <div class="card">
-                            <div class="card-header">
-                                <h2 style="font-size: 16px; font-weight: 700;">This Gameweek</h2>
-                                <span class="chip chip-primary" id="fixture-count-chip">-- Fixtures</span>
-                            </div>
-                            <div class="card-body" style="padding: 0;" id="fixtures-list-body">
-                                <div class="empty-state"><span class="material-symbols-outlined">calendar_month</span><p>Loading fixtures...</p></div>
-                            </div>
-                        </div>
-
-                        <div style="display: flex; flex-direction: column; gap: var(--space-lg);">
-                            <div class="card">
-                                <div class="card-header"><h2 style="font-size: 16px; font-weight: 700;">Fixture Difficulty</h2></div>
-                                <div class="card-body" style="padding: 0;" id="fixture-difficulty-body">
-                                    <div class="empty-state"><span class="material-symbols-outlined">signal_cellular_alt</span><p>Loading...</p></div>
-                                </div>
-                            </div>
-                            <div class="card">
-                                <div class="card-header"><h2 style="font-size: 16px; font-weight: 700;">Upcoming Fixtures</h2></div>
-                                <div class="card-body" id="upcoming-fixtures-body">
-                                    <div class="empty-state"><span class="material-symbols-outlined">schedule</span><p>Loading...</p></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Season Fixture Chart -->
-                    <div class="card">
-                        <div class="card-header">
-                            <h2 style="font-size: 16px; font-weight: 700;">Season Fixture Chart</h2>
-                            <div style="display: flex; align-items: center; gap: 12px;">
-                                <div style="display: flex; gap: 6px;">
-                                    <div class="fdr-badge fdr-1" style="width: 16px; height: 16px; font-size: 9px;">1</div>
-                                    <div class="fdr-badge fdr-2" style="width: 16px; height: 16px; font-size: 9px;">2</div>
-                                    <div class="fdr-badge fdr-3" style="width: 16px; height: 16px; font-size: 9px;">3</div>
-                                    <div class="fdr-badge fdr-4" style="width: 16px; height: 16px; font-size: 9px;">4</div>
-                                    <div class="fdr-badge fdr-5" style="width: 16px; height: 16px; font-size: 9px;">5</div>
-                                </div>
-                                <span style="font-size: 11px; color: var(--md-sys-color-on-surface-variant);">Scroll →</span>
-                            </div>
-                        </div>
-                        <div class="card-body" style="padding: 0; overflow-x: auto;" id="season-chart-body">
-                            <div class="empty-state"><span class="material-symbols-outlined">grid_on</span><p>Loading season chart...</p></div>
+                    <div class="page-header"><h1 class="page-title">Fixtures</h1><p class="page-subtitle">Premier League fixture schedule & difficulty ratings</p></div>
+                    <div class="card mb-lg"><div class="card-body" style="display:flex;align-items:center;justify-content:center;gap:var(--space-lg);padding:var(--space-md) var(--space-lg);">
+                        <button class="btn btn-outline" onclick="FPL.changeGW(-1)" style="width:40px;height:40px;padding:0;"><span class="material-symbols-outlined">chevron_left</span></button>
+                        <div style="text-align:center;"><div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">Gameweek</div><div id="fixture-gw-display" class="mono" style="font-size:1.5rem;font-weight:800;color:var(--md-sys-color-primary);">--</div></div>
+                        <button class="btn btn-outline" onclick="FPL.changeGW(1)" style="width:40px;height:40px;padding:0;"><span class="material-symbols-outlined">chevron_right</span></button>
+                        <div style="padding-left:var(--space-lg);border-left:1px solid var(--md-sys-color-outline-variant);"><label style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);display:block;margin-bottom:4px;">Jump to GW</label><select id="fixture-gw-jump" class="input" style="width:140px;" onchange="FPL.jumpToFixtureGW(this.value)"></select></div>
+                    </div></div>
+                    <div style="display:grid;grid-template-columns:65% 35%;gap:var(--space-lg);margin-bottom:var(--space-lg);">
+                        <div class="card"><div class="card-header"><h2 style="font-size:16px;font-weight:700;">This Gameweek</h2><span class="chip chip-primary" id="fixture-count-chip">-- Fixtures</span></div><div class="card-body" style="padding:0;" id="fixtures-list-body"><div class="empty-state"><span class="material-symbols-outlined">calendar_month</span><p>Loading fixtures...</p></div></div></div>
+                        <div style="display:flex;flex-direction:column;gap:var(--space-lg);">
+                            <div class="card"><div class="card-header"><h2 style="font-size:16px;font-weight:700;">Fixture Difficulty</h2></div><div class="card-body" style="padding:0;" id="fixture-difficulty-body"><div class="empty-state"><span class="material-symbols-outlined">signal_cellular_alt</span><p>Loading...</p></div></div></div>
+                            <div class="card"><div class="card-header"><h2 style="font-size:16px;font-weight:700;">Upcoming Fixtures</h2></div><div class="card-body" id="upcoming-fixtures-body"><div class="empty-state"><span class="material-symbols-outlined">schedule</span><p>Loading...</p></div></div></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- ==================== CAPTAINCY ==================== -->
+                <!-- CAPTAINCY -->
                 <div id="content-captain" class="tab-content">
-                    <div class="page-header">
-                        <h1 class="page-title">Captaincy Analysis</h1>
-                        <p class="page-subtitle">Make informed captain decisions</p>
-                    </div>
-
-                    <!-- Gameweek Selector -->
-                    <div class="card mb-lg">
-                        <div class="card-body" style="display: flex; align-items: center; justify-content: center; gap: var(--space-lg); padding: var(--space-md) var(--space-lg);">
-                            <button class="btn btn-outline" onclick="FPL.changeCaptainGW(-1)" style="width: 40px; height: 40px; padding: 0;">
-                                <span class="material-symbols-outlined">chevron_left</span>
-                            </button>
-                            <div style="text-align: center;">
-                                <div style="font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant);">Gameweek</div>
-                                <div id="captain-gw-display" class="mono" style="font-size: 1.5rem; font-weight: 800; color: var(--md-sys-color-primary);">--</div>
-                            </div>
-                            <button class="btn btn-outline" onclick="FPL.changeCaptainGW(1)" style="width: 40px; height: 40px; padding: 0;">
-                                <span class="material-symbols-outlined">chevron_right</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Stat Cards -->
+                    <div class="page-header"><h1 class="page-title">Captaincy Analysis</h1><p class="page-subtitle">Make informed captain decisions</p></div>
+                    <div class="card mb-lg"><div class="card-body" style="display:flex;align-items:center;justify-content:center;gap:var(--space-lg);padding:var(--space-md) var(--space-lg);">
+                        <button class="btn btn-outline" onclick="FPL.changeGW(-1)" style="width:40px;height:40px;padding:0;"><span class="material-symbols-outlined">chevron_left</span></button>
+                        <div style="text-align:center;"><div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">Gameweek</div><div id="captain-gw-display" class="mono" style="font-size:1.5rem;font-weight:800;color:var(--md-sys-color-primary);">--</div></div>
+                        <button class="btn btn-outline" onclick="FPL.changeGW(1)" style="width:40px;height:40px;padding:0;"><span class="material-symbols-outlined">chevron_right</span></button>
+                    </div></div>
                     <div class="grid grid-4 mb-lg">
-                        <div class="stat-card"><div class="stat-label">Most Captained</div><div id="cap-most" class="stat-value" style="font-size: 1.25rem;">--</div></div>
-                        <div class="stat-card"><div class="stat-label">Most Viced</div><div id="cap-vice" class="stat-value" style="font-size: 1.25rem;">--</div></div>
-                        <div class="stat-card"><div class="stat-label">Avg Captain Points</div><div id="cap-avg" class="stat-value" style="font-size: 1.25rem;">--</div></div>
-                        <div class="stat-card"><div class="stat-label">Your Captain Points</div><div id="cap-yours" class="stat-value" style="font-size: 1.25rem;">--</div></div>
+                        <div class="stat-card"><div class="stat-label">Most Captained</div><div id="cap-most" class="stat-value" style="font-size:1.25rem;">--</div></div>
+                        <div class="stat-card"><div class="stat-label">Most Viced</div><div id="cap-vice" class="stat-value" style="font-size:1.25rem;">--</div></div>
+                        <div class="stat-card"><div class="stat-label">Avg Captain Points</div><div id="cap-avg" class="stat-value" style="font-size:1.25rem;">--</div></div>
+                        <div class="stat-card"><div class="stat-label">Your Captain Points</div><div id="cap-yours" class="stat-value" style="font-size:1.25rem;">--</div></div>
                     </div>
-
-                    <!-- Two Column Layout -->
-                    <div class="grid grid-2 mb-lg">
-                        <div class="card">
-                            <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size: 20px; color: var(--md-sys-color-primary);">star</span> Captain Picks</h3></div>
-                            <div class="card-body" style="padding: 0;">
-                                <table style="width: 100%; font-size: 0.8125rem;">
-                                    <thead><tr style="border-bottom: 2px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container-high);">
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: left;">#</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: left;">Player</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: right;">Points</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: center;">Captain %</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: center;">VC %</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: center;">Next</th>
-                                    </tr></thead>
-                                    <tbody id="captain-picks-body"></tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <div style="display: flex; flex-direction: column; gap: var(--space-md);">
-                            <div class="card">
-                                <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size: 20px; color: var(--md-sys-color-primary);">history</span> Your Captain History</h3></div>
-                                <div class="card-body" id="captain-history-body">
-                                    <div class="empty-state"><span class="material-symbols-outlined">history</span><p>Connect your FPL ID to view captain history</p></div>
-                                </div>
-                            </div>
-                            <div class="card">
-                                <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size: 20px; color: var(--md-sys-color-primary);">psychology</span> Captain Recommendation</h3></div>
-                                <div class="card-body" id="captain-recommendation-body">
-                                    <div class="empty-state"><span class="material-symbols-outlined">auto_awesome</span><p>AI recommendation will appear here</p></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Captain vs VC Comparison -->
                     <div class="card">
-                        <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size: 20px; color: var(--md-sys-color-primary);">compare</span> Captain vs Vice Captain Comparison</h3></div>
-                        <div class="card-body" id="captain-comparison-body">
-                            <div class="empty-state"><span class="material-symbols-outlined">compare_arrows</span><p>Select a captain to compare</p></div>
-                        </div>
+                        <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">star</span> Captain Picks (xPts Model)</h3></div>
+                        <div class="card-body" style="padding:0;"><table style="width:100%;font-size:0.8125rem;"><thead><tr style="border-bottom:2px solid var(--md-sys-color-outline-variant);background:var(--md-sys-color-surface-container-high);">
+                            <th style="padding:var(--space-sm) var(--space-md);text-align:left;">#</th>
+                            <th style="padding:var(--space-sm) var(--space-md);text-align:left;">Player</th>
+                            <th style="padding:var(--space-sm) var(--space-md);text-align:right;">Points</th>
+                            <th style="padding:var(--space-sm) var(--space-md);text-align:center;">xPts</th>
+                            <th style="padding:var(--space-sm) var(--space-md);text-align:center;">Strength</th>
+                            <th style="padding:var(--space-sm) var(--space-md);text-align:center;">Next</th>
+                        </tr></thead><tbody id="captain-picks-body"></tbody></table></div>
                     </div>
                 </div>
 
-                <!-- ==================== OWNERSHIP ==================== -->
+                <!-- OWNERSHIP -->
                 <div id="content-ownership" class="tab-content">
-                    <div class="page-header">
-                        <h1 class="page-title">Ownership & Transfers</h1>
-                        <p class="page-subtitle">Track player popularity and transfer trends</p>
-                    </div>
-
-                    <!-- Tabs -->
+                    <div class="page-header"><h1 class="page-title">Ownership & Transfers</h1><p class="page-subtitle">Track player popularity and transfer trends</p></div>
                     <div class="tabs mb-lg">
-                        <button class="tab active" onclick="FPL.switchOwnershipTab('ownership', this)">Ownership</button>
-                        <button class="tab" onclick="FPL.switchOwnershipTab('transfers-in', this)">Transfers In</button>
-                        <button class="tab" onclick="FPL.switchOwnershipTab('transfers-out', this)">Transfers Out</button>
+                        <button class="tab active" onclick="FPL.switchOwnershipTab('ownership',this)">Ownership</button>
+                        <button class="tab" onclick="FPL.switchOwnershipTab('transfers-in',this)">Transfers In</button>
+                        <button class="tab" onclick="FPL.switchOwnershipTab('transfers-out',this)">Transfers Out</button>
                     </div>
-
-                    <!-- Stat Cards -->
                     <div class="grid grid-4 mb-lg">
-                        <div class="stat-card"><div class="stat-label">Highest Ownership</div><div id="own-highest" class="stat-value own-high">--</div><div id="own-highest-detail" class="stat-detail" style="font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant);">--</div></div>
-                        <div class="stat-card"><div class="stat-label">Most Transferred In</div><div id="own-most-in" class="stat-value" style="color: var(--md-sys-color-primary);">--</div><div id="own-most-in-detail" class="stat-detail" style="font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant);">--</div></div>
-                        <div class="stat-card"><div class="stat-label">Most Transferred Out</div><div id="own-most-out" class="stat-value" style="color: var(--md-sys-color-error);">--</div><div id="own-most-out-detail" class="stat-detail" style="font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant);">--</div></div>
-                        <div class="stat-card"><div class="stat-label">Your Differentials</div><div id="own-diff" class="stat-value" style="color: #ffd700;">--</div><div style="font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant);">Players under 5% owned</div></div>
+                        <div class="stat-card"><div class="stat-label">Most Transferred In</div><div id="own-most-in" class="stat-value" style="color:var(--md-sys-color-primary);">--</div><div id="own-most-in-detail" class="stat-detail">--</div></div>
+                        <div class="stat-card"><div class="stat-label">Most Transferred Out</div><div id="own-most-out" class="stat-value" style="color:var(--md-sys-color-error);">--</div><div id="own-most-out-detail" class="stat-detail">--</div></div>
                     </div>
-
-                    <!-- Ownership Tab Content -->
-                    <div id="tab-content-ownership" class="tab-pane active">
-                        <div class="card">
-                            <div class="table-container">
-                                <table style="width: 100%; border-collapse: collapse; font-size: 0.8125rem;">
-                                    <thead><tr style="border-bottom: 2px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container-high);">
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: left;">#</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: left;">Player Name</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: left;">Team</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: center;">Position</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: right;">Ownership %</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: right;">Price</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: right;">Points</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: right;">Selected By</th>
-                                    </tr></thead>
-                                    <tbody id="ownership-table-body"></tbody>
-                                </table>
-                            </div>
-                        </div>
+                    <div id="tab-content-ownership">
+                        <div class="card"><div class="table-container"><table style="width:100%;border-collapse:collapse;font-size:0.8125rem;"><thead><tr style="border-bottom:2px solid var(--md-sys-color-outline-variant);background:var(--md-sys-color-surface-container-high);">
+                            <th style="padding:var(--space-sm) var(--space-md);text-align:left;">#</th>
+                            <th style="padding:var(--space-sm) var(--space-md);text-align:left;">Player Name</th>
+                            <th style="padding:var(--space-sm) var(--space-md);text-align:left;">Team</th>
+                            <th style="padding:var(--space-sm) var(--space-md);text-align:center;">Position</th>
+                            <th style="padding:var(--space-sm) var(--space-md);text-align:right;">Ownership %</th>
+                            <th style="padding:var(--space-sm) var(--space-md);text-align:right;">Price</th>
+                            <th style="padding:var(--space-sm) var(--space-md);text-align:right;">Points</th>
+                        </tr></thead><tbody id="ownership-table-body"></tbody></table></div></div>
                     </div>
-
-                    <!-- Transfers In Tab Content -->
-                    <div id="tab-content-transfers-in" class="tab-pane" style="display: none;">
-                        <div class="flex items-center gap-md mb-md">
-                            <label style="font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant);">GW Selector</label>
-                            <select id="gw-selector-in" class="input" style="width: 180px;" onchange="FPL.loadTransfersIn()">
-                                <option value="all">All Gameweeks</option>
-                            </select>
-                        </div>
-                        <div class="card">
-                            <div class="table-container">
-                                <table style="width: 100%; border-collapse: collapse; font-size: 0.8125rem;">
-                                    <thead><tr style="border-bottom: 2px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container-high);">
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: left;">#</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: left;">Player Name</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: left;">Team</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: center;">Position</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: right;">Transfers In</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: right;">Price</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: right;">Points</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: center;">Form</th>
-                                    </tr></thead>
-                                    <tbody id="transfers-in-table-body"></tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Transfers Out Tab Content -->
-                    <div id="tab-content-transfers-out" class="tab-pane" style="display: none;">
-                        <div class="flex items-center gap-md mb-md">
-                            <label style="font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant);">GW Selector</label>
-                            <select id="gw-selector-out" class="input" style="width: 180px;" onchange="FPL.loadTransfersOut()">
-                                <option value="all">All Gameweeks</option>
-                            </select>
-                        </div>
-                        <div class="card">
-                            <div class="table-container">
-                                <table style="width: 100%; border-collapse: collapse; font-size: 0.8125rem;">
-                                    <thead><tr style="border-bottom: 2px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container-high);">
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: left;">#</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: left;">Player Name</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: left;">Team</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: center;">Position</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: right;">Transfers Out</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: right;">Price</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: right;">Points</th>
-                                        <th style="padding: var(--space-sm) var(--space-md); text-align: center;">Form</th>
-                                    </tr></thead>
-                                    <tbody id="transfers-out-table-body"></tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Ownership Distribution -->
-                    <div class="card mt-lg">
-                        <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size: 20px; color: var(--md-sys-color-primary);">bar_chart</span> Ownership Distribution</h3></div>
-                        <div class="card-body" id="ownership-distribution-body">
-                            <div class="chart-bars">
-                                <div class="chart-bar-group"><div class="chart-bar-label">0%</div><div class="chart-bar-track"><div class="chart-bar" style="width: 85%; background: var(--md-sys-color-on-surface-variant);"></div></div><div class="chart-bar-value mono">--</div></div>
-                                <div class="chart-bar-group"><div class="chart-bar-label">1-5%</div><div class="chart-bar-track"><div class="chart-bar" style="width: 45%; background: var(--fdr-4);"></div></div><div class="chart-bar-value mono">--</div></div>
-                                <div class="chart-bar-group"><div class="chart-bar-label">5-10%</div><div class="chart-bar-track"><div class="chart-bar" style="width: 28%; background: var(--fdr-3);"></div></div><div class="chart-bar-value mono">--</div></div>
-                                <div class="chart-bar-group"><div class="chart-bar-label">10-20%</div><div class="chart-bar-track"><div class="chart-bar" style="width: 22%; background: var(--fdr-3);"></div></div><div class="chart-bar-value mono">--</div></div>
-                                <div class="chart-bar-group"><div class="chart-bar-label">20-50%</div><div class="chart-bar-track"><div class="chart-bar" style="width: 12%; background: var(--fdr-2);"></div></div><div class="chart-bar-value mono">--</div></div>
-                                <div class="chart-bar-group"><div class="chart-bar-label">50%+</div><div class="chart-bar-track"><div class="chart-bar" style="width: 5%; background: var(--md-sys-color-primary);"></div></div><div class="chart-bar-value mono">--</div></div>
-                            </div>
-                        </div>
-                    </div>
+                    <div id="tab-content-transfers-in" style="display:none;"><div class="card"><div class="card-body"><div class="empty-state"><p>Transfers In data</p></div></div></div></div>
+                    <div id="tab-content-transfers-out" style="display:none;"><div class="card"><div class="card-body"><div class="empty-state"><p>Transfers Out data</p></div></div></div></div>
+                    <div class="card mt-lg"><div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">bar_chart</span> Ownership Distribution</h3></div><div class="card-body" id="ownership-distribution-body"><div class="chart-bars"><div class="chart-bar-group"><div class="chart-bar-label">0%</div><div class="chart-bar-track"><div class="chart-bar" style="width:85%;background:var(--md-sys-color-on-surface-variant);"></div></div></div><div class="chart-bar-group"><div class="chart-bar-label">1-5%</div><div class="chart-bar-track"><div class="chart-bar" style="width:45%;background:var(--fdr-4);"></div></div></div><div class="chart-bar-group"><div class="chart-bar-label">5-10%</div><div class="chart-bar-track"><div class="chart-bar" style="width:28%;background:var(--fdr-3);"></div></div></div><div class="chart-bar-group"><div class="chart-bar-label">10-20%</div><div class="chart-bar-track"><div class="chart-bar" style="width:22%;background:var(--fdr-3);"></div></div></div><div class="chart-bar-group"><div class="chart-bar-label">20-50%</div><div class="chart-bar-track"><div class="chart-bar" style="width:12%;background:var(--fdr-2);"></div></div></div><div class="chart-bar-group"><div class="chart-bar-label">50%+</div><div class="chart-bar-track"><div class="chart-bar" style="width:5%;background:var(--md-sys-color-primary);"></div></div></div></div></div></div>
                 </div>
-
             </main>
         </div>
     </div>
 
     <!-- Mobile Bottom Nav -->
     <nav class="bottom-nav">
-        <a class="bottom-nav-item active" data-tab="general" onclick="FPL.navigateTo('general')">
-            <span class="material-symbols-outlined">dashboard</span>
-            <span>Dashboard</span>
-        </a>
-        <a class="bottom-nav-item" data-tab="manager" onclick="FPL.navigateTo('manager')">
-            <span class="material-symbols-outlined">groups</span>
-            <span>Team</span>
-        </a>
-        <a class="bottom-nav-item" data-tab="players" onclick="FPL.navigateTo('players')">
-            <span class="material-symbols-outlined">person_search</span>
-            <span>Players</span>
-        </a>
-        <a class="bottom-nav-item" data-tab="fixtures" onclick="FPL.navigateTo('fixtures')">
-            <span class="material-symbols-outlined">calendar_month</span>
-            <span>Fixtures</span>
-        </a>
-        <a class="bottom-nav-item" data-tab="captain" onclick="FPL.navigateTo('captain')">
-            <span class="material-symbols-outlined">star</span>
-            <span>Captain</span>
-        </a>
-        <a class="bottom-nav-item" data-tab="ownership" onclick="FPL.navigateTo('ownership')">
-            <span class="material-symbols-outlined">pie_chart</span>
-            <span>Ownership</span>
-        </a>
+        <a class="bottom-nav-item active" data-tab="general" onclick="FPL.navigateTo('general')"><span class="material-symbols-outlined">dashboard</span><span>Home</span></a>
+        <a class="bottom-nav-item" data-tab="manager" onclick="FPL.navigateTo('manager')"><span class="material-symbols-outlined">groups</span><span>Team</span></a>
+        <a class="bottom-nav-item" data-tab="players" onclick="FPL.navigateTo('players')"><span class="material-symbols-outlined">person_search</span><span>Players</span></a>
+        <a class="bottom-nav-item" data-tab="fixtures" onclick="FPL.navigateTo('fixtures')"><span class="material-symbols-outlined">calendar_month</span><span>Fixtures</span></a>
+        <a class="bottom-nav-item" data-tab="captain" onclick="FPL.navigateTo('captain')"><span class="material-symbols-outlined">star</span><span>Captain</span></a>
+        <a class="bottom-nav-item" data-tab="ownership" onclick="FPL.navigateTo('ownership')"><span class="material-symbols-outlined">pie_chart</span><span>Own</span></a>
     </nav>
 
-    <!-- Connect FPL ID Dialog -->
+    <!-- Connect Dialog -->
     <div id="connect-dialog" class="dialog-overlay">
         <div class="dialog">
-            <div class="dialog-header">
-                <h3 style="font-family: var(--font-display); font-weight: 700;">Connect FPL ID</h3>
-                <button class="btn btn-ghost btn-icon" onclick="FPL.hideDialog('connect-dialog')">
-                    <span class="material-symbols-outlined">close</span>
-                </button>
-            </div>
+            <div class="dialog-header"><h3 style="font-family:var(--font-display);font-weight:700;">Connect FPL ID</h3><button class="btn btn-ghost btn-icon" onclick="FPL.hideDialog('connect-dialog')"><span class="material-symbols-outlined">close</span></button></div>
             <div class="dialog-body">
-                <p style="font-size: 0.875rem; color: var(--md-sys-color-on-surface-variant); margin-bottom: var(--space-md);">
-                    Enter your FPL Manager ID to connect your team. You can find this in the URL when viewing your team on the FPL website.
-                </p>
-                <div class="input-group">
-                    <label class="input-label">Manager ID</label>
-                    <input type="number" id="connect-manager-id" class="input" placeholder="e.g. 123456">
-                </div>
+                <p style="font-size:0.875rem;color:var(--md-sys-color-on-surface-variant);margin-bottom:var(--space-md);">Enter your FPL Manager ID. Find it in the URL when viewing your team on the FPL website.</p>
+                <div class="input-group"><label class="input-label">Manager ID</label><input type="number" id="connect-manager-id" class="input" placeholder="e.g. 123456"></div>
             </div>
-            <div class="dialog-footer">
-                <button class="btn btn-outline" onclick="FPL.hideDialog('connect-dialog')">Cancel</button>
-                <button class="btn btn-primary" onclick="FPL.connectManager()">
-                    <span class="material-symbols-outlined" style="font-size: 18px;">link</span> Connect
-                </button>
-            </div>
+            <div class="dialog-footer"><button class="btn btn-outline" onclick="FPL.hideDialog('connect-dialog')">Cancel</button><button class="btn btn-primary" onclick="FPL.connectManager()"><span class="material-symbols-outlined" style="font-size:18px;">link</span> Connect</button></div>
         </div>
     </div>
 
-    <!-- Scripts -->
     <script src="common.js"></script>
     <script>
-        // ==================== FPL Dashboard Logic ====================
-        Object.assign(FPL, {
-            async connectManager() {
-                const input = document.getElementById('connect-manager-id');
-                const id = input?.value?.trim();
-                if (!id) return;
-                this.state.managerId = id;
-                localStorage.setItem('fplManagerId', id);
-                this.hideDialog('connect-dialog');
-                await this.loadManagerData(id);
-                this.render();
-                document.getElementById('manager-id-display').textContent = `Manager ID: ${id}`;
-            },
-
-            render() {
-                const s = this.state;
-                const b = s.bootstrapData;
-                if (!b) return;
-
-                // Update GW display
-                document.getElementById('current-gw').textContent = s.selectedGW || s.currentGW;
-                document.getElementById('fixture-gw-display').textContent = s.selectedGW || s.currentGW;
-                document.getElementById('captain-gw-display').textContent = s.selectedGW || s.currentGW;
-
-                // Update last updated
-                document.getElementById('last-updated').textContent = new Date().toLocaleString();
-
-                // Update manager info
-                if (s.managerData) {
-                    const m = s.managerData;
-                    document.getElementById('manager-id-display').textContent = `Manager: ${m.name || 'Unknown'}`;
-
-                    // Dashboard stats
-                    if (s.gameweekHistory && s.gameweekHistory.current) {
-                        const latest = s.gameweekHistory.current[s.gameweekHistory.current.length - 1];
-                        const prev = s.gameweekHistory.current[s.gameweekHistory.current.length - 2];
-
-                        document.getElementById('stat-overall-rank').textContent = this.formatNumber(m.summary_overall_rank);
-                        document.getElementById('stat-total-points').textContent = this.formatNumber(m.summary_overall_points);
-                        document.getElementById('stat-gw-rank').textContent = this.formatNumber(latest?.rank || 0);
-                        document.getElementById('stat-transfer-cost').textContent = latest?.event_transfers_cost || 0;
-                        document.getElementById('stat-team-value').textContent = '£' + (m.last_deadline_total_value / 10).toFixed(1);
-
-                        if (prev) {
-                            const rankDiff = prev.rank - latest.rank;
-                            document.getElementById('stat-overall-rank-change').innerHTML = rankDiff >= 0 ?
-                                `<span class="material-symbols-outlined" style="font-size: 14px;">trending_up</span> +${this.formatNumber(rankDiff)}` :
-                                `<span class="material-symbols-outlined" style="font-size: 14px;">trending_down</span> ${this.formatNumber(rankDiff)}`;
-                        }
-
-                        // Recent form
-                        this.renderRecentForm();
-                    }
-
-                    // Manager info card
-                    document.getElementById('manager-info-content').innerHTML = `
-                        <div class="flex items-center gap-md mb-md">
-                            <div style="width: 48px; height: 48px; border-radius: var(--radius-md); background: var(--fpl-accent-dim); display: flex; align-items: center; justify-content: center;">
-                                <span class="material-symbols-outlined" style="font-size: 24px; color: var(--md-sys-color-primary);">person</span>
-                            </div>
-                            <div>
-                                <div style="font-weight: 600; font-size: 1rem;">${m.name || 'Unknown'}</div>
-                                <div style="font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant);">ID: ${m.id}</div>
-                            </div>
-                        </div>
-                        <div class="divider"></div>
-                        <div class="grid grid-2" style="gap: var(--space-sm); margin-top: var(--space-md);">
-                            <div><span style="font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant);">Overall Rank</span><div class="mono" style="font-weight: 600;">${this.formatNumber(m.summary_overall_rank)}</div></div>
-                            <div><span style="font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant);">Total Points</span><div class="mono" style="font-weight: 600;">${this.formatNumber(m.summary_overall_points)}</div></div>
-                            <div><span style="font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant);">GW Points</span><div class="mono" style="font-weight: 600;">${s.gameweekHistory?.current?.[s.gameweekHistory.current.length - 1]?.points || '--'}</div></div>
-                            <div><span style="font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant);">League</span><div class="mono" style="font-weight: 600;">${m.leagues?.classic?.[0]?.name || '--'}</div></div>
-                        </div>`;
-
-                    // Transfer activity
-                    this.renderTransferActivity();
-                }
-
-                // Update fixture GW jump selector
-                this.updateFixtureGWJump();
-
-                // Render current tab content
-                this.renderCurrentTab();
-            },
-
-            renderRecentForm() {
-                const container = document.getElementById('recent-form-content');
-                const history = this.state.gameweekHistory?.current;
-                if (!history || history.length === 0) {
-                    container.innerHTML = '<div class="empty-state" style="width: 100%;"><span class="material-symbols-outlined">show_chart</span><p>No recent form data</p></div>';
-                    return;
-                }
-
-                const last5 = history.slice(-5);
-                container.innerHTML = last5.map(gw => `
-                    <div style="display: flex; flex-direction: column; align-items: center; padding: var(--space-sm) var(--space-md); background: var(--md-sys-color-surface-container); border-radius: var(--radius-md); min-width: 60px;">
-                        <div style="font-size: 0.625rem; color: var(--md-sys-color-on-surface-variant);">GW${gw.gameweek}</div>
-                        <div class="mono" style="font-size: 1.25rem; font-weight: 700; color: ${gw.points >= 50 ? 'var(--md-sys-color-primary)' : gw.points >= 30 ? 'var(--fdr-3)' : 'var(--fdr-5)'};">${gw.points}</div>
-                        <div style="font-size: 0.5rem; color: var(--md-sys-color-on-surface-variant);">pts</div>
-                    </div>
-                `).join('');
-            },
-
-            renderTransferActivity() {
-                const container = document.getElementById('transfer-activity-content');
-                const history = this.state.gameweekHistory?.current;
-                if (!history || history.length === 0) {
-                    container.innerHTML = '<div class="empty-state"><span class="material-symbols-outlined">swap_horiz</span><p>No transfer data</p></div>';
-                    return;
-                }
-
-                const latest = history[history.length - 1];
-                if (!latest || latest.event_transfers === 0) {
-                    container.innerHTML = '<div class="empty-state"><span class="material-symbols-outlined">swap_horiz</span><p>No transfers this gameweek</p></div>';
-                    return;
-                }
-
-                container.innerHTML = `
-                    <div class="flex items-center justify-between mb-sm">
-                        <span style="font-size: 0.875rem; font-weight: 600;">GW${latest.gameweek} Transfers</span>
-                        <span class="chip">${latest.event_transfers} transfer(s)</span>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <span style="font-size: 0.875rem;">Cost</span>
-                        <span class="mono" style="color: ${latest.event_transfers_cost > 0 ? 'var(--md-sys-color-error)' : 'var(--md-sys-color-primary)'};">${latest.event_transfers_cost > 0 ? '-' + latest.event_transfers_cost + ' pts' : 'Free'}</span>
-                    </div>`;
-            },
-
-            changeGW(delta) {
-                const newGW = (this.state.selectedGW || this.state.currentGW) + delta;
-                if (newGW >= 1 && newGW <= 38) {
-                    this.state.selectedGW = newGW;
-                    this.render();
-                }
-            },
-
-            changeFixtureGW(delta) {
-                this.changeGW(delta);
-            },
-
-            changeCaptainGW(delta) {
-                this.changeGW(delta);
-            },
-
-            jumpToFixtureGW(gw) {
-                this.state.selectedGW = parseInt(gw);
-                this.render();
-            },
-
-            updateFixtureGWJump() {
-                const select = document.getElementById('fixture-gw-jump');
-                if (!select) return;
-                select.innerHTML = '';
-                for (let i = 1; i <= 38; i++) {
-                    const opt = document.createElement('option');
-                    opt.value = i;
-                    opt.textContent = `Gameweek ${i}`;
-                    opt.selected = i === (this.state.selectedGW || this.state.currentGW);
-                    select.appendChild(opt);
-                }
-            },
-
-            renderCurrentTab() {
-                switch (this.state.activeTab) {
-                    case 'players': this.renderPlayers(); break;
-                    case 'league': this.renderLeague(); break;
-                    case 'fixtures': this.renderFixtures(); break;
-                    case 'captain': this.renderCaptaincy(); break;
-                    case 'ownership': this.renderOwnership(); break;
-                    case 'zones': this.renderZones(); break;
-                    case 'manager': this.renderTeamAnalysis(); break;
-                }
-            },
-
-            renderPlayers() {
-                if (!this.state.bootstrapData) return;
-                const players = this.state.bootstrapData.players;
-                const tbody = document.getElementById('players-table-body');
-                if (!tbody) return;
-
-                // Update stats
-                document.getElementById('ps-total').textContent = players.length;
-                const avgPts = Math.round(players.reduce((a, p) => a + p.total_points, 0) / players.length);
-                document.getElementById('ps-avg').textContent = avgPts;
-                const highest = players.reduce((a, p) => p.total_points > a.total_points ? p : a, players[0]);
-                document.getElementById('ps-highest').textContent = highest.total_points;
-                const mostOwned = players.reduce((a, p) => parseFloat(p.selected_by_percent) > parseFloat(a.selected_by_percent) ? p : a, players[0]);
-                document.getElementById('ps-most-owned').textContent = mostOwned.selected_by_percent + '%';
-
-                // Populate team filter
-                const teamSelect = document.getElementById('team-filter');
-                if (teamSelect.options.length <= 1) {
-                    this.state.bootstrapData.teams.forEach(t => {
-                        const opt = document.createElement('option');
-                        opt.value = t.id;
-                        opt.textContent = t.short_name;
-                        teamSelect.appendChild(opt);
-                    });
-                }
-
-                // Sort and render
-                const sorted = [...players].sort((a, b) => b.total_points - a.total_points);
-                const posColors = { 1: '#FFD700', 2: '#4FC3F7', 3: '#81C784', 4: '#E57373' };
-                const posNames = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
-
-                tbody.innerHTML = sorted.slice(0, 50).map((p, i) => `
-                    <tr style="border-bottom: 1px solid var(--md-sys-color-outline-variant);">
-                        <td style="padding: var(--space-sm) var(--space-md);">${i + 1}</td>
-                        <td style="padding: var(--space-sm) var(--space-md); font-weight: 600;">${p.web_name}</td>
-                        <td style="padding: var(--space-sm) var(--space-md);">${this.state.teamMap[p.team]?.short_name || '???'}</td>
-                        <td style="padding: var(--space-sm) var(--space-md); text-align: center;">
-                            <span style="display: inline-flex; padding: 2px 8px; border-radius: var(--radius-pill); font-size: 0.6875rem; font-weight: 700; background: ${posColors[p.element_type]}20; color: ${posColors[p.element_type]};">${posNames[p.element_type]}</span>
-                        </td>
-                        <td style="padding: var(--space-sm) var(--space-md); text-align: right; font-family: var(--font-mono); font-weight: 700; color: var(--md-sys-color-primary);">${p.total_points}</td>
-                        <td style="padding: var(--space-sm) var(--space-md); text-align: center; font-family: var(--font-mono);">${p.form}</td>
-                        <td style="padding: var(--space-sm) var(--space-md); text-align: right; font-family: var(--font-mono);">£${(p.now_cost / 10).toFixed(1)}m</td>
-                        <td style="padding: var(--space-sm) var(--space-md); text-align: right; font-family: var(--font-mono);" class="${this.getOwnershipClass(parseFloat(p.selected_by_percent))}">${p.selected_by_percent}%</td>
-                        <td style="padding: var(--space-sm) var(--space-md); text-align: center;">--</td>
-                    </tr>
-                `).join('');
-            },
-
-            filterPlayers(pos, el) {
-                document.querySelectorAll('#content-players .tabs .tab').forEach(t => t.classList.remove('active'));
-                el.classList.add('active');
-                this.state.playerFilter = pos;
-                this.applyPlayerFilters();
-            },
-
-            applyPlayerFilters() {
-                // Simplified - just re-render for now
-                this.renderPlayers();
-            },
-
-            sortPlayers(field) {
-                // Toggle sort
-                if (this.state.playerSort === field) {
-                    this.state.playerSortDir = this.state.playerSortDir === 'desc' ? 'asc' : 'desc';
-                } else {
-                    this.state.playerSort = field;
-                    this.state.playerSortDir = 'desc';
-                }
-                this.renderPlayers();
-            },
-
-            renderLeague() {
-                const container = document.getElementById('league-standings-body');
-                if (!container) return;
-                container.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: var(--space-lg); color: var(--md-sys-color-on-surface-variant);">Connect your FPL ID to view league standings</td></tr>';
-            },
-
-            async loadLeagueData() {
-                if (!this.state.managerId) return;
-                try {
-                    const leagueId = this.state.managerData?.leagues?.classic?.[0]?.id;
-                    if (!leagueId) return;
-                    const data = await this.fetch(this.API.leagueStandings(leagueId));
-                    this.state.leagueData = data;
-                    this.renderLeague();
-                } catch (err) {
-                    console.error('Error loading league:', err);
-                }
-            },
-
-            toggleLeagueView(view) {
-                // Toggle between overall and gameweek view
-                document.querySelectorAll('#content-league .tabs .tab').forEach(t => t.classList.remove('active'));
-                event.target.classList.add('active');
-            },
-
-            renderFixtures() {
-                const container = document.getElementById('fixtures-list-body');
-                if (!container) return;
-                container.innerHTML = '<div class="empty-state"><span class="material-symbols-outlined">calendar_month</span><p>Fixtures data will load from API</p></div>';
-            },
-
-            renderCaptaincy() {
-                const container = document.getElementById('captain-picks-body');
-                if (!container) return;
-                container.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: var(--space-lg); color: var(--md-sys-color-on-surface-variant);">Captaincy data will load from API</td></tr>';
-            },
-
-            renderOwnership() {
-                const container = document.getElementById('ownership-table-body');
-                if (!container) return;
-                container.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: var(--space-lg); color: var(--md-sys-color-on-surface-variant);">Ownership data will load from API</td></tr>';
-            },
-
-            renderZones() {
-                // Zone rendering placeholder
-            },
-
-            renderTeamAnalysis() {
-                // Team analysis rendering placeholder
-            },
-
-            switchZoneView(view, el) {
-                document.querySelectorAll('#content-zones .tabs .tab').forEach(t => t.classList.remove('active'));
-                el.classList.add('active');
-            },
-
-            switchOwnershipTab(tab, el) {
-                document.querySelectorAll('#content-ownership .tabs .tab').forEach(t => t.classList.remove('active'));
-                el.classList.add('active');
-
-                document.getElementById('tab-content-ownership').style.display = tab === 'ownership' ? 'block' : 'none';
-                document.getElementById('tab-content-transfers-in').style.display = tab === 'transfers-in' ? 'block' : 'none';
-                document.getElementById('tab-content-transfers-out').style.display = tab === 'transfers-out' ? 'block' : 'none';
-            },
-
-            loadTransfersIn() {},
-            loadTransfersOut() {}
-        });
-
-        // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             FPL.init().then(() => {
                 document.getElementById('loading-overlay').classList.add('hidden');
                 if (FPL.state.managerId) {
-                    document.getElementById('manager-id-display').textContent = `Manager ID: ${FPL.state.managerId}`;
+                    document.getElementById('manager-id-display').textContent = 'Manager ID: ' + FPL.state.managerId;
                 }
             });
         });
