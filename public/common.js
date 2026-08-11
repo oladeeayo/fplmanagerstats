@@ -57,6 +57,7 @@ const FPL = {
 
     async init() {
         this.showLoading();
+        this.state.playerFilter = 'all';
         try {
             const [bootstrap, fixtures, deadline] = await Promise.all([
                 this.apiFetch(this.API.bootstrap),
@@ -87,6 +88,9 @@ const FPL = {
                 }
             }
 
+            // Populate GW jump selector
+            this.updateFixtureGWJump();
+
             // Load manager data if connected
             if (this.state.managerId) {
                 await this.loadManagerData(this.state.managerId);
@@ -112,6 +116,11 @@ const FPL = {
             // Update manager ID display
             const display = document.getElementById('manager-id-display');
             if (display) display.textContent = `Manager: ${data.managerInfo?.name || managerId}`;
+
+            // Auto-load league if we have a league ID stored
+            if (this.state.leagueId) {
+                await this.loadLeagueData();
+            }
         } catch (err) {
             console.error('Error loading manager data:', err);
             this.showError('Failed to load manager data');
@@ -450,11 +459,12 @@ const FPL = {
         document.getElementById('formation-display').textContent = formation;
         document.getElementById('formation-display-2').textContent = formation;
 
-        // Team value stats
+        // Team value stats - currentTeam items use totalPoints (not totalPointsActive)
         const totalValue = team.reduce((s, p) => s + (p.nowCost || 0), 0) / 10;
+        const bank = (1000 - team.reduce((s, p) => s + (p.nowCost || 0), 0)) / 10;
         document.getElementById('tv-value').textContent = '£' + totalValue.toFixed(1);
-        document.getElementById('tv-bank').textContent = '£' + ((1000 - team.reduce((s, p) => s + (p.nowCost || 0), 0)) / 10).toFixed(1);
-        document.getElementById('tv-itb').textContent = '£' + ((1000 - team.reduce((s, p) => s + (p.nowCost || 0), 0)) / 10).toFixed(1);
+        document.getElementById('tv-bank').textContent = '£' + bank.toFixed(1);
+        document.getElementById('tv-itb').textContent = '£' + bank.toFixed(1);
         document.getElementById('tv-gw-pts').textContent = info?.highestPoints || '--';
 
         // Pitch visualization
@@ -518,7 +528,7 @@ const FPL = {
         team.forEach(p => {
             if (!breakdown[p.position]) breakdown[p.position] = { count: 0, totalPts: 0, totalValue: 0 };
             breakdown[p.position].count++;
-            breakdown[p.position].totalPts += p.totalPointsActive || 0;
+            breakdown[p.position].totalPts += p.totalPoints || 0;
             breakdown[p.position].totalValue += (p.nowCost || 0) / 10;
         });
 
@@ -558,7 +568,7 @@ const FPL = {
                         <span style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">${p.teamShort}</span>
                     </div>
                 </td>
-                <td style="padding:var(--space-md);text-align:center;font-family:var(--font-mono);font-weight:700;color:var(--md-sys-color-primary);">${p.totalPointsActive || 0}</td>
+                <td style="padding:var(--space-md);text-align:center;font-family:var(--font-mono);font-weight:700;color:var(--md-sys-color-primary);">${p.totalPoints || 0}</td>
                 <td style="padding:var(--space-md);text-align:center;font-family:var(--font-mono);">${p.form || '--'}</td>
                 <td style="padding:var(--space-md);text-align:center;font-family:var(--font-mono);">£${((p.nowCost || 0) / 10).toFixed(1)}m</td>
                 <td style="padding:var(--space-md);text-align:center;font-family:var(--font-mono);" class="${this.getOwnershipClass(parseFloat(p.selectedBy))}">${p.selectedBy || '--'}%</td>
@@ -601,8 +611,21 @@ const FPL = {
             });
         }
 
-        // Sort and render
-        const sorted = [...players].sort((a, b) => b.total_points - a.total_points);
+        // Sort and apply filters
+        let sorted = [...players].sort((a, b) => b.total_points - a.total_points);
+        const posFilter = this.state.playerFilter || 'all';
+        if (posFilter !== 'all') {
+            const posMap = { 'GKP': 1, 'DEF': 2, 'MID': 3, 'FWD': 4 };
+            sorted = sorted.filter(p => p.element_type === posMap[posFilter]);
+        }
+        const teamFilter = document.getElementById('team-filter')?.value;
+        if (teamFilter) {
+            sorted = sorted.filter(p => p.team === parseInt(teamFilter));
+        }
+        const searchTerm = document.getElementById('player-search')?.value?.toLowerCase();
+        if (searchTerm) {
+            sorted = sorted.filter(p => p.web_name.toLowerCase().includes(searchTerm) || (p.second_name || '').toLowerCase().includes(searchTerm));
+        }
         const posColors = { 1: '#FFD700', 2: '#4FC3F7', 3: '#81C784', 4: '#E57373' };
         const posNames = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
 
@@ -637,7 +660,13 @@ const FPL = {
         if (!tbody) return;
 
         if (!data || !data.standings || data.standings.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:var(--space-lg);color:var(--md-sys-color-on-surface-variant);">Connect your FPL ID and select a league to view standings</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:var(--space-lg);color:var(--md-sys-color-on-surface-variant);">' +
+                (this.state.leagueId ?
+                    'Loading league data...' :
+                    'Set your League ID in Settings to view standings') + '</td></tr>';
+            if (this.state.leagueId) {
+                this.loadLeagueData();
+            }
             return;
         }
 
@@ -870,7 +899,6 @@ const FPL = {
                         </td>
                         <td style="padding:var(--space-sm) var(--space-md);text-align:right;font-family:var(--font-mono);">£${(p.now_cost / 10).toFixed(1)}m</td>
                         <td style="padding:var(--space-sm) var(--space-md);text-align:right;font-family:var(--font-mono);font-weight:700;color:var(--md-sys-color-primary);">${p.total_points}</td>
-                        <td style="padding:var(--space-sm) var(--space-md);text-align:right;font-family:var(--font-mono);">${p.selected_by_percent}%</td>
                     </tr>`;
                 }).join('');
             }
@@ -943,11 +971,78 @@ const FPL = {
         document.getElementById('tab-content-ownership').style.display = tab === 'ownership' ? 'block' : 'none';
         document.getElementById('tab-content-transfers-in').style.display = tab === 'transfers-in' ? 'block' : 'none';
         document.getElementById('tab-content-transfers-out').style.display = tab === 'transfers-out' ? 'block' : 'none';
+        // Render appropriate data for transfers tabs
+        if (tab === 'transfers-in') this.renderTransfersIn();
+        if (tab === 'transfers-out') this.renderTransfersOut();
     },
 
     switchZoneView(view, el) {
         document.querySelectorAll('#content-zones .tabs .tab').forEach(t => t.classList.remove('active'));
         el.classList.add('active');
+    },
+
+    renderTransfersIn() {
+        const container = document.getElementById('tab-content-transfers-in');
+        if (!container) return;
+        const bootstrap = this.state.bootstrapData;
+        if (!bootstrap) return;
+        const players = [...bootstrap.elements]
+            .sort((a, b) => (b.transfers_in_event || 0) - (a.transfers_in_event || 0))
+            .slice(0, 30);
+        const posColors = { 1: '#FFD700', 2: '#4FC3F7', 3: '#81C784', 4: '#E57373' };
+        const posNames = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+        container.innerHTML = `<div class="card"><div class="table-container"><table style="width:100%;border-collapse:collapse;font-size:0.8125rem;"><thead><tr style="border-bottom:2px solid var(--md-sys-color-outline-variant);background:var(--md-sys-color-surface-container-high);">
+            <th style="padding:var(--space-sm) var(--space-md);text-align:left;">#</th>
+            <th style="padding:var(--space-sm) var(--space-md);text-align:left;">Player</th>
+            <th style="padding:var(--space-sm) var(--space-md);text-align:left;">Team</th>
+            <th style="padding:var(--space-sm) var(--space-md);text-align:center;">Pos</th>
+            <th style="padding:var(--space-sm) var(--space-md);text-align:right;">Transfers In</th>
+            <th style="padding:var(--space-sm) var(--space-md);text-align:right;">Price</th>
+            <th style="padding:var(--space-sm) var(--space-md);text-align:right;">Points</th>
+        </tr></thead><tbody>${players.map((p, i) => {
+            const team = bootstrap.teams.find(t => t.id === p.team);
+            return `<tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);">
+                <td style="padding:var(--space-sm) var(--space-md);">${i + 1}</td>
+                <td style="padding:var(--space-sm) var(--space-md);font-weight:600;">${p.web_name}</td>
+                <td style="padding:var(--space-sm) var(--space-md);">${team?.short_name || '???'}</td>
+                <td style="padding:var(--space-sm) var(--space-md);text-align:center;"><span style="padding:2px 8px;border-radius:var(--radius-pill);font-size:0.6875rem;font-weight:700;background:${posColors[p.element_type]}20;color:${posColors[p.element_type]};">${posNames[p.element_type]}</span></td>
+                <td style="padding:var(--space-sm) var(--space-md);text-align:right;font-family:var(--font-mono);font-weight:700;color:var(--md-sys-color-primary);">+${this.formatNumber(p.transfers_in_event || 0)}</td>
+                <td style="padding:var(--space-sm) var(--space-md);text-align:right;font-family:var(--font-mono);">£${(p.now_cost / 10).toFixed(1)}m</td>
+                <td style="padding:var(--space-sm) var(--space-md);text-align:right;font-family:var(--font-mono);">${p.total_points}</td>
+            </tr>`;
+        }).join('')}</tbody></table></div></div>`;
+    },
+
+    renderTransfersOut() {
+        const container = document.getElementById('tab-content-transfers-out');
+        if (!container) return;
+        const bootstrap = this.state.bootstrapData;
+        if (!bootstrap) return;
+        const players = [...bootstrap.elements]
+            .sort((a, b) => (b.transfers_out_event || 0) - (a.transfers_out_event || 0))
+            .slice(0, 30);
+        const posColors = { 1: '#FFD700', 2: '#4FC3F7', 3: '#81C784', 4: '#E57373' };
+        const posNames = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+        container.innerHTML = `<div class="card"><div class="table-container"><table style="width:100%;border-collapse:collapse;font-size:0.8125rem;"><thead><tr style="border-bottom:2px solid var(--md-sys-color-outline-variant);background:var(--md-sys-color-surface-container-high);">
+            <th style="padding:var(--space-sm) var(--space-md);text-align:left;">#</th>
+            <th style="padding:var(--space-sm) var(--space-md);text-align:left;">Player</th>
+            <th style="padding:var(--space-sm) var(--space-md);text-align:left;">Team</th>
+            <th style="padding:var(--space-sm) var(--space-md);text-align:center;">Pos</th>
+            <th style="padding:var(--space-sm) var(--space-md);text-align:right;">Transfers Out</th>
+            <th style="padding:var(--space-sm) var(--space-md);text-align:right;">Price</th>
+            <th style="padding:var(--space-sm) var(--space-md);text-align:right;">Points</th>
+        </tr></thead><tbody>${players.map((p, i) => {
+            const team = bootstrap.teams.find(t => t.id === p.team);
+            return `<tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);">
+                <td style="padding:var(--space-sm) var(--space-md);">${i + 1}</td>
+                <td style="padding:var(--space-sm) var(--space-md);font-weight:600;">${p.web_name}</td>
+                <td style="padding:var(--space-sm) var(--space-md);">${team?.short_name || '???'}</td>
+                <td style="padding:var(--space-sm) var(--space-md);text-align:center;"><span style="padding:2px 8px;border-radius:var(--radius-pill);font-size:0.6875rem;font-weight:700;background:${posColors[p.element_type]}20;color:${posColors[p.element_type]};">${posNames[p.element_type]}</span></td>
+                <td style="padding:var(--space-sm) var(--space-md);text-align:right;font-family:var(--font-mono);font-weight:700;color:var(--md-sys-color-error);">-${this.formatNumber(p.transfers_out_event || 0)}</td>
+                <td style="padding:var(--space-sm) var(--space-md);text-align:right;font-family:var(--font-mono);">£${(p.now_cost / 10).toFixed(1)}m</td>
+                <td style="padding:var(--space-sm) var(--space-md);text-align:right;font-family:var(--font-mono);">${p.total_points}</td>
+            </tr>`;
+        }).join('')}</tbody></table></div></div>`;
     },
 
     toggleLeagueView(view) {
@@ -958,6 +1053,7 @@ const FPL = {
     filterPlayers(pos, el) {
         document.querySelectorAll('#content-players .tabs .tab').forEach(t => t.classList.remove('active'));
         el.classList.add('active');
+        this.state.playerFilter = pos;
         this.renderPlayers();
     },
 
@@ -1002,6 +1098,16 @@ const FPL = {
         localStorage.setItem('fplManagerId', id);
         this.hideDialog('connect-dialog');
         this.loadManagerData(id).then(() => this.render());
+    },
+
+    connectLeague() {
+        const input = document.getElementById('connect-league-id');
+        const id = input?.value?.trim();
+        if (!id) return;
+        this.state.leagueId = id;
+        localStorage.setItem('fplLeagueId', id);
+        this.hideDialog('connect-dialog');
+        this.loadLeagueData();
     },
 
     updateManagerId() {
@@ -1060,6 +1166,14 @@ const FPL = {
                     </div>
                     <small style="color:var(--md-sys-color-on-surface-variant);">Find your Manager ID in the URL when viewing your team.</small>
                 </div>
+                <div class="input-group mb-md">
+                    <label class="input-label">League ID</label>
+                    <div style="display:flex;gap:8px;">
+                        <input type="number" class="input" id="settings-league-id" placeholder="Enter your League ID" value="${this.state.leagueId || ''}">
+                        <button class="btn btn-primary" onclick="FPL.updateLeagueId()">Save</button>
+                    </div>
+                    <small style="color:var(--md-sys-color-on-surface-variant);">Classic League ID for standings view.</small>
+                </div>
                 <div class="divider"></div>
                 <div class="flex items-center justify-between">
                     <span>Clear saved data</span>
@@ -1067,6 +1181,15 @@ const FPL = {
                 </div>
             </div>
         </div>`;
+    },
+
+    updateLeagueId() {
+        const input = document.getElementById('settings-league-id');
+        const id = input?.value?.trim();
+        if (!id) return;
+        this.state.leagueId = id;
+        localStorage.setItem('fplLeagueId', id);
+        this.loadLeagueData();
     }
 };
 

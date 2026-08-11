@@ -38,15 +38,6 @@
         .form-average { color: var(--fdr-3); }
         .form-poor { color: var(--fdr-5); }
         .stat-detail { font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); margin-top: var(--space-xs); }
-        @media (max-width: 768px) {
-            .grid-5 { grid-template-columns: repeat(2, 1fr); }
-            .grid-4 { grid-template-columns: repeat(2, 1fr); }
-            .grid-3 { grid-template-columns: 1fr; }
-            .grid-2 { grid-template-columns: 1fr; }
-            .topbar { padding: 0 var(--space-sm); }
-            .layout-content { padding: var(--space-md); padding-bottom: 80px; }
-            .page-header { flex-direction: column; align-items: flex-start; gap: var(--space-sm); }
-        }
     </style>
 </head>
 <body>
@@ -137,7 +128,7 @@
                     <div class="flex items-center justify-between mb-lg">
                         <div class="flex items-center gap-md"><h2 style="font-family:var(--font-display);font-size:1.25rem;font-weight:700;" id="team-name-display">--</h2><span class="chip chip-primary" id="formation-display">---</span></div>
                     </div>
-                    <div style="display:grid;grid-template-columns:70% 30%;gap:var(--space-lg);margin-bottom:var(--space-lg);">
+                    <div style="display:grid;grid-template-columns:70% 30%;gap:var(--space-lg);margin-bottom:var(--space-lg);" class="team-analysis-grid">
                         <div class="card"><div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">sports_soccer</span> Formation: <span id="formation-display-2">---</span></h3></div><div class="card-body"><div class="pitch" id="pitch-container" style="min-height:450px;"><div class="empty-state" style="height:100%;"><span class="material-symbols-outlined">sports_soccer</span><p>Connect your FPL ID to view your pitch</p></div></div></div></div>
                         <div style="display:flex;flex-direction:column;gap:var(--space-md);">
                             <div class="card"><div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">analytics</span> Team Overview</h3></div><div class="card-body"><div class="grid grid-2" style="gap:var(--space-sm);"><div class="stat-card"><span class="stat-label">Team Value</span><span id="tv-value" class="stat-value" style="font-size:1.25rem;">--</span></div><div class="stat-card"><span class="stat-label">Bank</span><span id="tv-bank" class="stat-value" style="font-size:1.25rem;">--</span></div><div class="stat-card"><span class="stat-label">ITB</span><span id="tv-itb" class="stat-value" style="font-size:1.25rem;">--</span></div><div class="stat-card"><span class="stat-label">GW Points</span><span id="tv-gw-pts" class="stat-value" style="font-size:1.25rem;">--</span></div></div></div></div>
@@ -211,7 +202,7 @@
                         <button class="tab" onclick="FPL.switchZoneView('value',this)">Value by Zone</button>
                         <button class="tab" onclick="FPL.switchZoneView('ownership',this)">Ownership by Zone</button>
                     </div>
-                    <div style="display:grid;grid-template-columns:60% 40%;gap:var(--space-lg);margin-bottom:var(--space-lg);">
+                    <div style="display:grid;grid-template-columns:60% 40%;gap:var(--space-lg);margin-bottom:var(--space-lg);" class="zones-layout-grid">
                         <div class="card"><div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">sports_soccer</span> Zone Visualization</h3></div><div class="card-body">
                             <div class="pitch" id="zones-pitch" style="min-height:450px;">
                                 <div class="pitch-zone" style="top:65%;left:5%;width:28%;height:25%;"><span class="zone-label">DEF-LEFT</span><span class="zone-value" id="zone-def-left">--</span></div>
@@ -241,7 +232,7 @@
                         <button class="btn btn-outline" onclick="FPL.changeGW(1)" style="width:40px;height:40px;padding:0;"><span class="material-symbols-outlined">chevron_right</span></button>
                         <div style="padding-left:var(--space-lg);border-left:1px solid var(--md-sys-color-outline-variant);"><label style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);display:block;margin-bottom:4px;">Jump to GW</label><select id="fixture-gw-jump" class="input" style="width:140px;" onchange="FPL.jumpToFixtureGW(this.value)"></select></div>
                     </div></div>
-                    <div style="display:grid;grid-template-columns:65% 35%;gap:var(--space-lg);margin-bottom:var(--space-lg);">
+                    <div style="display:grid;grid-template-columns:65% 35%;gap:var(--space-lg);margin-bottom:var(--space-lg);" class="fixtures-layout-grid">
                         <div class="card"><div class="card-header"><h2 style="font-size:16px;font-weight:700;">This Gameweek</h2><span class="chip chip-primary" id="fixture-count-chip">-- Fixtures</span></div><div class="card-body" style="padding:0;" id="fixtures-list-body"><div class="empty-state"><span class="material-symbols-outlined">calendar_month</span><p>Loading fixtures...</p></div></div></div>
                         <div style="display:flex;flex-direction:column;gap:var(--space-lg);">
                             <div class="card"><div class="card-header"><h2 style="font-size:16px;font-weight:700;">Fixture Difficulty</h2></div><div class="card-body" style="padding:0;" id="fixture-difficulty-body"><div class="empty-state"><span class="material-symbols-outlined">signal_cellular_alt</span><p>Loading...</p></div></div></div>
@@ -324,7 +315,9 @@
             <div class="dialog-header"><h3 style="font-family:var(--font-display);font-weight:700;">Connect FPL ID</h3><button class="btn btn-ghost btn-icon" onclick="FPL.hideDialog('connect-dialog')"><span class="material-symbols-outlined">close</span></button></div>
             <div class="dialog-body">
                 <p style="font-size:0.875rem;color:var(--md-sys-color-on-surface-variant);margin-bottom:var(--space-md);">Enter your FPL Manager ID. Find it in the URL when viewing your team on the FPL website.</p>
-                <div class="input-group"><label class="input-label">Manager ID</label><input type="number" id="connect-manager-id" class="input" placeholder="e.g. 123456"></div>
+                <div class="input-group mb-md"><label class="input-label">Manager ID</label><input type="number" id="connect-manager-id" class="input" placeholder="e.g. 123456"></div>
+                <p style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);margin-bottom:var(--space-sm);">Optionally add a Classic League ID to view standings.</p>
+                <div class="input-group"><label class="input-label">League ID (optional)</label><input type="number" id="connect-league-id" class="input" placeholder="e.g. 314" value="${localStorage.getItem('fplLeagueId') || ''}"></div>
             </div>
             <div class="dialog-footer"><button class="btn btn-outline" onclick="FPL.hideDialog('connect-dialog')">Cancel</button><button class="btn btn-primary" onclick="FPL.connectManager()"><span class="material-symbols-outlined" style="font-size:18px;">link</span> Connect</button></div>
         </div>
