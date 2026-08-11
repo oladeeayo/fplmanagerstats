@@ -77,24 +77,28 @@
     <div id="globalPlayers" class="mb-6"></div>
     <div id="teamFixtures" class="mb-6">
       <div class="card p-5 sm:p-6">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-sm shadow-sm"><i class="fa-solid fa-calendar-days"></i></div>
-          <div><h2 class="text-base font-bold text-slate-800">Team Fixtures</h2><p class="text-xs text-slate-400">All 20 PL teams · next 5 gameweeks</p></div>
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-sm shadow-sm"><i class="fa-solid fa-calendar-days"></i></div>
+            <div><h2 class="text-base font-bold text-slate-800">Team Fixtures</h2><p class="text-xs text-slate-400">All 20 PL teams · next 5 gameweeks</p></div>
+          </div>
+          <button onclick="loadTeamFixtures()" class="px-4 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg text-xs hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-1"></i>Refresh</button>
         </div>
-        <button onclick="loadTeamFixtures()" class="px-5 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg text-sm hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-2"></i>Load Fixtures</button>
-        <div id="fixturesGrid" class="mt-4"><p class="text-sm text-slate-400">Click to load team fixtures with FDR ratings.</p></div>
+        <div id="fixturesGrid" class="mt-2"><p class="text-sm text-slate-400">Loading team fixtures...</p></div>
       </div>
     </div>
     <div id="suspensionRisk" class="mb-6"></div>
     <div id="transferTrends" class="mb-6"></div>
     <div id="generalPriceChanges" class="mb-6">
       <div class="card p-5 sm:p-6">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white text-sm shadow-sm"><i class="fa-solid fa-coins"></i></div>
-          <div><h2 class="text-base font-bold text-slate-800">Price Changes</h2><p class="text-xs text-slate-400">Latest risers and fallers</p></div>
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white text-sm shadow-sm"><i class="fa-solid fa-coins"></i></div>
+            <div><h2 class="text-base font-bold text-slate-800">Price Changes</h2><p class="text-xs text-slate-400">Latest risers and fallers</p></div>
+          </div>
+          <button onclick="loadPriceChanges('generalPriceContent')" class="px-4 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-lg text-xs hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-1"></i>Refresh</button>
         </div>
-        <button onclick="loadPriceChanges('generalPriceContent')" class="px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-lg text-sm hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-2"></i>Load Changes</button>
-        <div id="generalPriceContent" class="mt-4"><p class="text-sm text-slate-400">Click to load latest price changes.</p></div>
+        <div id="generalPriceContent" class="mt-2"><p class="text-sm text-slate-400">Loading price changes...</p></div>
       </div>
     </div>
   </div>
@@ -254,7 +258,7 @@
         </div>
         <div class="flex items-center gap-2">
           <input type="number" id="leagueId" placeholder="League ID" value="314" class="w-24 px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#963cff]/20">
-          <button onclick="loadLeagueStandings()" class="px-4 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-lg text-xs hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-1"></i>Load</button>
+          <button onclick="loadLeagueStandings()" class="px-4 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-lg text-xs hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-1"></i>Refresh</button>
         </div>
       </div>
       <div class="flex items-center gap-2 mb-3">
@@ -274,7 +278,7 @@
           <th class="px-2 py-3 text-center hide-mobile font-semibold cursor-pointer hover:text-slate-700" onclick="sortLeagueTable('lastSeasonRankNum',true)" data-sort="lastSeasonRankNum">24/25 <span class="sort-icon"></span></th>
         </tr></thead>
         <tbody id="leagueStandingsBody" class="divide-y divide-slate-50">
-          <tr><td colspan="9" class="px-2 py-10 text-center text-slate-400"><i class="fa-solid fa-arrow-pointer mr-2 text-amber-400"></i>Click <strong>"Load"</strong> to fetch top 50 standings.</td></tr>
+          <tr><td colspan="9" class="px-2 py-10 text-center text-slate-400"><div class="flex justify-center mb-2"><div class="animate-spin h-5 w-5 border-2 border-amber-500 border-t-transparent rounded-full"></div></div>Loading league standings...</td></tr>
         </tbody>
       </table></div>
     </div>
@@ -284,12 +288,14 @@
   <div id="section-players" class="section-content hidden">
     <div id="playersContent" class="space-y-6">
       <div class="card p-5 sm:p-6">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-sky-500 to-cyan-500 flex items-center justify-center text-white text-sm shadow-sm"><i class="fa-solid fa-users"></i></div>
-          <div><h2 class="text-base font-bold text-slate-800">Player Stats</h2><p class="text-xs text-slate-400">xG, xA, form &amp; DEFCON analysis</p></div>
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-sky-500 to-cyan-500 flex items-center justify-center text-white text-sm shadow-sm"><i class="fa-solid fa-users"></i></div>
+            <div><h2 class="text-base font-bold text-slate-800">Player Stats</h2><p class="text-xs text-slate-400">xG, xA, form &amp; DEFCON analysis</p></div>
+          </div>
+          <button onclick="loadPlayersTab()" class="px-4 py-1.5 bg-gradient-to-r from-sky-500 to-cyan-500 text-white font-semibold rounded-lg text-xs hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-1"></i>Refresh</button>
         </div>
-        <button onclick="loadPlayersTab()" class="px-5 py-2 bg-gradient-to-r from-sky-500 to-cyan-500 text-white font-semibold rounded-lg text-sm hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-2"></i>Load Players</button>
-        <div id="playersTableContainer" class="mt-4"><p class="text-sm text-slate-400">Click to load player stats.</p></div>
+        <div id="playersTableContainer" class="mt-2"><p class="text-sm text-slate-400">Loading player stats...</p></div>
       </div>
     </div>
   </div>
@@ -298,17 +304,19 @@
   <div id="section-zones" class="section-content hidden">
     <div id="zonesContent" class="space-y-6">
       <div class="card p-5 sm:p-6">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center text-white text-sm shadow-sm"><i class="fa-solid fa-futbol"></i></div>
-          <div><h2 class="text-base font-bold text-slate-800">Zone Analysis</h2><p class="text-xs text-slate-400">Per-match danger zones, vulnerabilities &amp; best picks</p></div>
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center text-white text-sm shadow-sm"><i class="fa-solid fa-futbol"></i></div>
+            <div><h2 class="text-base font-bold text-slate-800">Zone Analysis</h2><p class="text-xs text-slate-400">Per-match danger zones, vulnerabilities &amp; best picks</p></div>
+          </div>
+          <button onclick="loadZonesTab()" class="px-4 py-1.5 bg-gradient-to-r from-rose-500 to-pink-500 text-white font-semibold rounded-lg text-xs hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-1"></i>Refresh</button>
         </div>
         <div class="flex flex-wrap items-center gap-3 mb-4">
           <label class="text-xs font-semibold text-slate-500">Select GW:</label>
           <select id="zoneGWSelect" class="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white" onchange="loadZonesTab()">
           </select>
         </div>
-        <button onclick="loadZonesTab()" class="px-5 py-2 bg-gradient-to-r from-rose-500 to-pink-500 text-white font-semibold rounded-lg text-sm hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-2"></i>Load Zone Analysis</button>
-        <div id="zonesTableContainer" class="mt-4"><p class="text-sm text-slate-400">Click to load zone analysis.</p></div>
+        <div id="zonesTableContainer" class="mt-2"><p class="text-sm text-slate-400">Loading zone analysis...</p></div>
       </div>
     </div>
   </div>
@@ -317,17 +325,19 @@
   <div id="section-fixtures" class="section-content hidden">
     <div id="fixturesContent" class="space-y-6">
       <div class="card p-5 sm:p-6">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center text-white text-sm shadow-sm"><i class="fa-solid fa-calendar"></i></div>
-          <div><h2 class="text-base font-bold text-slate-800">Fixtures</h2><p class="text-xs text-slate-400">Next 5 gameweeks · FDR ratings · Top players by form</p></div>
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center text-white text-sm shadow-sm"><i class="fa-solid fa-calendar"></i></div>
+            <div><h2 class="text-base font-bold text-slate-800">Fixtures</h2><p class="text-xs text-slate-400">Next 5 gameweeks · FDR ratings · Top players by form</p></div>
+          </div>
+          <button onclick="loadFixturesTab()" class="px-4 py-1.5 bg-gradient-to-r from-violet-500 to-purple-500 text-white font-semibold rounded-lg text-xs hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-1"></i>Refresh</button>
         </div>
         <div class="flex flex-wrap items-center gap-3 mb-4">
           <label class="text-xs font-semibold text-slate-500">Starting GW:</label>
           <select id="fixturesGWSelect" class="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white" onchange="loadFixturesTab()">
           </select>
         </div>
-        <button onclick="loadFixturesTab()" class="px-5 py-2 bg-gradient-to-r from-violet-500 to-purple-500 text-white font-semibold rounded-lg text-sm hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-2"></i>Load Fixtures</button>
-        <div id="fixturesTableContainer" class="mt-4"><p class="text-sm text-slate-400">Click to load fixture data.</p></div>
+        <div id="fixturesTableContainer" class="mt-2"><p class="text-sm text-slate-400">Loading fixture data...</p></div>
       </div>
     </div>
   </div>
@@ -335,17 +345,19 @@
   <!-- ===== CAPTAIN ===== -->
   <div id="section-captain" class="section-content hidden">
     <div class="card p-5 sm:p-6">
-      <div class="flex items-center gap-3 mb-4">
-        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-yellow-500 to-amber-500 flex items-center justify-center text-white text-sm shadow-sm"><i class="fa-solid fa-crown"></i></div>
-        <div><h2 class="text-base font-bold text-slate-800">Captain Picks</h2><p class="text-xs text-slate-400">Top 10 captain options ranked by xPts model</p></div>
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-yellow-500 to-amber-500 flex items-center justify-center text-white text-sm shadow-sm"><i class="fa-solid fa-crown"></i></div>
+          <div><h2 class="text-base font-bold text-slate-800">Captain Picks</h2><p class="text-xs text-slate-400">Top 10 captain options ranked by xPts model</p></div>
+        </div>
+        <button onclick="loadCaptainTab()" class="px-4 py-1.5 bg-gradient-to-r from-yellow-500 to-amber-500 text-white font-semibold rounded-lg text-xs hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-1"></i>Refresh</button>
       </div>
       <div class="flex flex-wrap items-center gap-3 mb-4">
         <label class="text-xs font-semibold text-slate-500">Gameweek:</label>
         <select id="captainGWSelect" class="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white" onchange="loadCaptainTab()">
         </select>
       </div>
-      <button onclick="loadCaptainTab()" class="px-5 py-2 bg-gradient-to-r from-yellow-500 to-amber-500 text-white font-semibold rounded-lg text-sm hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-2"></i>Load Captain Picks</button>
-      <div id="captainPicksContent" class="mt-4"><p class="text-sm text-slate-400">Click to load top captain recommendations.</p></div>
+      <div id="captainPicksContent" class="mt-2"><p class="text-sm text-slate-400">Loading captain recommendations...</p></div>
     </div>
   </div>
 
@@ -353,13 +365,15 @@
   <div id="section-ownership" class="section-content hidden">
     <div id="ownershipContent" class="space-y-6">
       <div class="card p-5 sm:p-6">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-sm shadow-sm"><i class="fa-solid fa-chart-line"></i></div>
-          <div><h2 class="text-base font-bold text-slate-800">Ownership Tracker</h2><p class="text-xs text-slate-400">Top 10 most owned players · Ownership shifts over time</p></div>
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-sm shadow-sm"><i class="fa-solid fa-chart-line"></i></div>
+            <div><h2 class="text-base font-bold text-slate-800">Ownership Tracker</h2><p class="text-xs text-slate-400">Top 10 most owned players · Ownership shifts over time</p></div>
+          </div>
+          <button onclick="loadOwnershipTab()" class="px-4 py-1.5 bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-semibold rounded-lg text-xs hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-1"></i>Refresh</button>
         </div>
         <p id="ownershipDate" class="text-xs text-slate-400 mb-3"></p>
-        <button onclick="loadOwnershipTab()" class="px-5 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-semibold rounded-lg text-sm hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-2"></i>Load Ownership</button>
-        <div id="ownershipTableContainer" class="mt-4"><p class="text-sm text-slate-400">Click to load ownership data. A snapshot will be saved for historical tracking.</p></div>
+        <div id="ownershipTableContainer" class="mt-2"><p class="text-sm text-slate-400">Loading ownership data...</p></div>
       </div>
     </div>
   </div>
@@ -425,6 +439,8 @@ function buildSectionNav() {
   $('sectionNav').classList.remove('hidden');
 }
 
+const tabLoadState = {};
+
 function showSection(name) {
   document.querySelectorAll('.section-content').forEach(e => e.classList.add('hidden'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -432,11 +448,26 @@ function showSection(name) {
   const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.dataset.tab===name);
   if(btn) btn.classList.add('active');
   if (name==='manager' && cachedAnalysis) renderPrevSeason();
+  
+  // Auto-load data on first visit
+  if (!tabLoadState[name]) {
+    tabLoadState[name] = true;
+    switch(name) {
+      case 'league': loadLeagueStandings(); break;
+      case 'players': loadPlayersTab(); break;
+      case 'zones': loadZonesTab(); break;
+      case 'fixtures': loadFixturesTab(); break;
+      case 'captain': loadCaptainTab(); break;
+      case 'ownership': loadOwnershipTab(); break;
+    }
+  }
 }
 
 // ---- Init ----
 window.addEventListener('DOMContentLoaded', async () => {
   try { await loadGlobalData(); } catch(e) {}
+  try { loadTeamFixtures(); } catch(e) {}
+  try { loadPriceChanges('generalPriceContent'); } catch(e) {}
 });
 
 async function loadGlobalData() {
@@ -1362,62 +1393,14 @@ function renderCaptainTab(d) {
 }
 
 // ---- Ownership Tab ----
-const OWNERSHIP_STORAGE_KEY = 'fpl_ownership_snapshots';
-const OWNERSHIP_THROTTLE_MS = 60 * 60 * 1000; // 1 hour
-
-function getOwnershipSnapshots() {
-  try { return JSON.parse(localStorage.getItem(OWNERSHIP_STORAGE_KEY) || '[]'); }
-  catch { return []; }
-}
-
-function saveOwnershipSnapshots(snapshots) {
-  localStorage.setItem(OWNERSHIP_STORAGE_KEY, JSON.stringify(snapshots));
-}
-
 async function loadOwnershipTab() {
   $('ownershipTableContainer').innerHTML = '<div class="flex justify-center py-8"><div class="animate-spin h-6 w-6 border-2 border-indigo-500 border-t-transparent rounded-full"></div></div>';
   try {
-    // Check throttle
-    const snapshots = getOwnershipSnapshots();
-    const now = Date.now();
-    const lastSnap = snapshots.length > 0 ? snapshots[snapshots.length - 1].timestamp : 0;
-    const isThrottled = (now - lastSnap) < OWNERSHIP_THROTTLE_MS;
-
-    // Fetch current data from FPL API
-    const bs = await (await fetch('/api/bootstrap-static')).json();
-    const posMap = ['GKP','DEF','MID','FWD'];
-    const players = {};
-    bs.elements
-      .sort((a, b) => parseFloat(b.selected_by_percent) - parseFloat(a.selected_by_percent))
-      .slice(0, 100)
-      .forEach(p => {
-        const team = bs.teams.find(t => t.id === p.team);
-        const posShort = posMap[p.element_type - 1] || 'MID';
-        players[p.id] = {
-          name: p.web_name,
-          team: team?.short_name || '',
-          teamFull: team?.name || '',
-          code: p.code,
-          position: posShort,
-          cost: p.now_cost,
-          ownership: parseFloat(p.selected_by_percent) || 0,
-          transfersIn: p.transfers_in_event || 0,
-          transfersOut: p.transfers_out_event || 0
-        };
-      });
-
-    // Save new snapshot if not throttled
-    if (!isThrottled) {
-      snapshots.push({ timestamp: now, players });
-      // Keep 30 days
-      const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
-      const trimmed = snapshots.filter(s => (now - s.timestamp) < THIRTY_DAYS);
-      saveOwnershipSnapshots(trimmed);
-    }
-
-    // Use all snapshots for rendering
-    const allSnapshots = getOwnershipSnapshots();
-    renderOwnershipTab(allSnapshots, players, isThrottled);
+    // First, save a snapshot
+    const snapshotResult = await (await fetch('/api/ownership/snapshot', { method: 'POST' })).json();
+    // Then fetch the history
+    const data = await (await fetch('/api/ownership/history')).json();
+    renderOwnershipTab(data, snapshotResult.sparklineData || null, snapshotResult.snapshotCount || 0);
   } catch(e) {
     $('ownershipTableContainer').innerHTML = `<p class="text-sm text-red-500 text-center">${e.message}</p>`;
   }
@@ -1476,11 +1459,11 @@ function drawSparkline(canvasId, values, color) {
   ctx.stroke();
 }
 
-function renderOwnershipTab(allSnapshots, currentPlayers, isThrottled) {
-  const snapshotsCount = allSnapshots.length;
-  const latestTimestamp = snapshotsCount > 0 ? allSnapshots[snapshotsCount - 1].timestamp : null;
+function renderOwnershipTab(data, sparklineData, snapshotsCount) {
+  const { current, sevenDaysAgo, threeDaysAgo, oneDayAgo, latestTimestamp } = data;
+  const snapCount = snapshotsCount || data.snapshotsCount || 0;
 
-  if (!currentPlayers || Object.keys(currentPlayers).length === 0) {
+  if (!current || !current.players) {
     $('ownershipTableContainer').innerHTML = '<p class="text-sm text-slate-400 text-center">No ownership data available yet.</p>';
     return;
   }
@@ -1492,29 +1475,10 @@ function renderOwnershipTab(allSnapshots, currentPlayers, isThrottled) {
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
-  $('ownershipDate').textContent = `Data as of ${fmtDate(latestTimestamp)} · ${snapshotsCount} snapshot${snapshotsCount !== 1 ? 's' : ''} collected`;
-
-  // Find snapshots closest to 7d, 3d, 1d ago
-  const now = Date.now();
-  const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
-  const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
-  const ONE_DAY = 24 * 60 * 60 * 1000;
-
-  const findClosest = (targetMs) => {
-    let best = null, bestDiff = Infinity;
-    for (const s of allSnapshots) {
-      const diff = Math.abs(s.timestamp - targetMs);
-      if (diff < bestDiff) { bestDiff = diff; best = s; }
-    }
-    return best;
-  };
-
-  const sevenDaysAgo = findClosest(now - SEVEN_DAYS);
-  const threeDaysAgo = findClosest(now - THREE_DAYS);
-  const oneDayAgo = findClosest(now - ONE_DAY);
+  $('ownershipDate').textContent = `Data as of ${fmtDate(latestTimestamp)} · ${snapCount} snapshot${snapCount !== 1 ? 's' : ''} collected`;
 
   // Get top 10 by current ownership
-  const top10 = Object.entries(currentPlayers)
+  const top10 = Object.entries(current.players)
     .map(([id, p]) => ({ id: parseInt(id), ...p }))
     .sort((a, b) => b.ownership - a.ownership)
     .slice(0, 10);
@@ -1529,12 +1493,25 @@ function renderOwnershipTab(allSnapshots, currentPlayers, isThrottled) {
     const change3d = prev3 ? (p.ownership - prev3.ownership) : null;
     const change24h = prev1 ? (p.ownership - prev1.ownership) : null;
 
-    // Build trend from all available snapshots
-    const trend = allSnapshots.map(snap => snap.players?.[String(p.id)]?.ownership).filter(v => v !== null && v !== undefined);
-    // Always include current value
-    if (trend.length === 0 || trend[trend.length - 1] !== p.ownership) trend.push(p.ownership);
+    // Build trend from sparkline data or available snapshots
+    const trend = [];
+    if (sparklineData && sparklineData.length >= 2) {
+      sparklineData.forEach(snap => {
+        const playerData = snap.players?.[String(p.id)];
+        if (playerData !== undefined) trend.push(playerData.ownership);
+      });
+    }
+    // Fallback to available data points
+    if (trend.length < 2) {
+      if (prev) trend.push(prev.ownership);
+      if (prev3) trend.push(prev3.ownership);
+      if (prev1) trend.push(prev1.ownership);
+      trend.push(p.ownership);
+    }
+    // Remove duplicates and nulls
+    const uniqueTrend = [...new Set(trend)].filter(v => v !== null && v !== undefined);
 
-    return { ...p, rank: i + 1, change7d, change3d, change24h, trend };
+    return { ...p, rank: i + 1, change7d, change3d, change24h, trend: uniqueTrend };
   });
 
   const changeBadge = (val) => {
@@ -1613,7 +1590,7 @@ function renderOwnershipTab(allSnapshots, currentPlayers, isThrottled) {
   }
 
   html += `<div class="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
-    <p class="text-[10px] text-slate-400"><i class="fa-solid fa-database mr-1"></i>Data stored in your browser's localStorage. Changes are calculated from the closest available snapshot.</p>
+    <p class="text-[10px] text-slate-400"><i class="fa-solid fa-database mr-1"></i>Data is stored securely in the database. Changes are calculated from the closest available snapshot.</p>
   </div>`;
 
   $('ownershipTableContainer').innerHTML = html;

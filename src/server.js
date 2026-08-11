@@ -1,30 +1,33 @@
 const express = require('express');
 const path = require('path');
 const axios = require('axios');
-const fs = require('fs');
+const { neon } = require('@neondatabase/serverless');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Ownership snapshot storage
-const DATA_DIR = path.join(__dirname, '../data');
-const OWNERSHIP_FILE = path.join(DATA_DIR, 'ownership-snapshots.json');
+// Neon database connection
+const NEON_URL = process.env.NEON_DATABASE_URL || 'REMOVED_NEON_DATABASE_URL';
+const sql = neon(NEON_URL);
 
-function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(OWNERSHIP_FILE)) fs.writeFileSync(OWNERSHIP_FILE, '[]', 'utf8');
+// Initialize database table
+async function initDatabase() {
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS ownership_snapshots (
+        id SERIAL PRIMARY KEY,
+        timestamp BIGINT NOT NULL,
+        players JSONB NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_ownership_timestamp ON ownership_snapshots(timestamp)`;
+    console.log('Database initialized successfully');
+  } catch (e) {
+    console.error('Database init error:', e.message);
+  }
 }
-
-function readOwnershipSnapshots() {
-  ensureDataDir();
-  try { return JSON.parse(fs.readFileSync(OWNERSHIP_FILE, 'utf8')); }
-  catch { return []; }
-}
-
-function writeOwnershipSnapshots(snapshots) {
-  ensureDataDir();
-  fs.writeFileSync(OWNERSHIP_FILE, JSON.stringify(snapshots, null, 2), 'utf8');
-}
+initDatabase();
 
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -942,7 +945,8 @@ app.get('/api/captain-picks', async (req, res) => {
 // ---- Ownership Tracking ----
 app.get('/api/ownership/history', async (req, res) => {
   try {
-    const snapshots = readOwnershipSnapshots();
+    const result = await sql`SELECT timestamp, players FROM ownership_snapshots ORDER BY timestamp ASC`;
+    const snapshots = result;
     const now = Date.now();
     const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
     const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
@@ -980,17 +984,21 @@ app.get('/api/ownership/history', async (req, res) => {
 
 app.post('/api/ownership/snapshot', async (req, res) => {
   try {
-    const snapshots = readOwnershipSnapshots();
+    // Check throttle - get last snapshot
+    const lastResult = await sql`SELECT timestamp FROM ownership_snapshots ORDER BY timestamp DESC LIMIT 1`;
     const now = Date.now();
     const THROTTLE = 60 * 60 * 1000; // 1 hour throttle
     
-    // If throttled, still return existing sparkline data
-    if (snapshots.length > 0 && (now - snapshots[snapshots.length - 1].timestamp) < THROTTLE) {
-      const recentForSparkline = snapshots.slice(-14).map(s => ({
-        timestamp: s.timestamp,
-        players: s.players
-      }));
-      return res.json({ ok: true, message: 'Snapshot already recent, skipping', skipped: true, sparklineData: recentForSparkline, snapshotCount: snapshots.length });
+    if (lastResult.length > 0 && (now - lastResult[0].timestamp) < THROTTLE) {
+      // Return existing sparkline data
+      const recentForSparkline = await sql`SELECT timestamp, players FROM ownership_snapshots ORDER BY timestamp DESC LIMIT 14`;
+      return res.json({ 
+        ok: true, 
+        message: 'Snapshot already recent, skipping', 
+        skipped: true, 
+        sparklineData: recentForSparkline.reverse(),
+        snapshotCount: (await sql`SELECT COUNT(*) as count FROM ownership_snapshots`)[0].count
+      });
     }
 
     const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
@@ -1013,21 +1021,19 @@ app.post('/api/ownership/snapshot', async (req, res) => {
         };
       });
 
-    const snapshot = { timestamp: now, players };
-    snapshots.push(snapshot);
+    // Insert snapshot
+    await sql`INSERT INTO ownership_snapshots (timestamp, players) VALUES (${now}, ${JSON.stringify(players)})`;
 
-    // Keep only last 30 days of snapshots (max ~720 hourly snapshots)
+    // Clean up old snapshots (keep 30 days)
     const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
-    const trimmed = snapshots.filter(s => (now - s.timestamp) < THIRTY_DAYS);
-    writeOwnershipSnapshots(trimmed);
+    const cutoff = now - THIRTY_DAYS;
+    await sql`DELETE FROM ownership_snapshots WHERE timestamp < ${cutoff}`;
 
     // Return full data for sparklines (last 14 snapshots)
-    const recentForSparkline = trimmed.slice(-14).map(s => ({
-      timestamp: s.timestamp,
-      players: s.players
-    }));
+    const recentForSparkline = await sql`SELECT timestamp, players FROM ownership_snapshots ORDER BY timestamp DESC LIMIT 14`;
+    const snapshotCount = (await sql`SELECT COUNT(*) as count FROM ownership_snapshots`)[0].count;
 
-    res.json({ ok: true, snapshotCount: trimmed.length, playerCount: Object.keys(players).length, sparklineData: recentForSparkline });
+    res.json({ ok: true, snapshotCount: parseInt(snapshotCount), playerCount: Object.keys(players).length, sparklineData: recentForSparkline.reverse() });
   } catch (e) {
     console.error('Ownership snapshot error:', e.message);
     res.status(500).json({ error: 'Failed to create snapshot' });
