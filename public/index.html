@@ -480,18 +480,18 @@ async function loadGlobalData() {
   <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">${[{v:(d.average_entry_score||0).toLocaleString(),l:'Avg Score'},{v:(gw?.highest_score||0).toLocaleString(),l:'GW High'},{v:(gw?.average_entry_score||0).toLocaleString(),l:'GW Avg'},{v:(gw?.transfers_made||0).toLocaleString(),l:'GW Transfers'}].map(s=>`<div class="mini-stat"><span class="value">${s.v}</span><span class="label">${s.l}</span></div>`).join('')}</div></div>`;
   $('globalPlayers').innerHTML = `<div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-users"></i></div><div><h2 class="text-base font-bold">Most Selected Players</h2><p class="text-xs text-slate-400">Ownership</p></div></div>
   <div class="scroll-x flex gap-3 pb-2">${top10.map(p=>{const t=d.teams.find(x=>x.id===p.team);return `<div class="player-card min-w-[155px] bg-white rounded-xl border border-slate-100 p-3 flex-shrink-0"><div class="flex items-center gap-2.5 mb-2">${img(p.code,p.web_name)}<div class="min-w-0"><p class="text-sm font-semibold text-slate-800 truncate">${p.web_name}</p><p class="text-xs text-slate-400">${t?.name||''}</p></div></div><div class="space-y-1"><div class="flex justify-between text-xs"><span class="text-slate-500">Owned</span><span class="font-semibold text-center">${p.selected_by_percent}%</span></div>${bar(parseFloat(p.selected_by_percent))}<div class="flex justify-between text-xs"><span class="text-slate-500">Pts</span><span class="font-semibold text-center">${p.total_points}</span></div><div class="flex justify-between text-xs"><span class="text-slate-500">${costStr(p.now_cost)}</span><span class="font-semibold text-center">${p.points_per_game||'—'} ppg</span></div></div></div>`;}).join('')}</div></div>`;
-  const sus=[], yell=[], tIn=[], tOut=[];
+  const sus=[], tIn=[], tOut=[];
   const gwId = gw?.id || 1;
-  const ycThreshold = gwId <= 19 ? 4 : 9;
-  d.elements.forEach(p=>{const t=d.teams.find(x=>x.id===p.team);if(p.status==='r'||p.status==='s')sus.push({name:p.web_name,team:t?.name,photoId:p.code,sm:p.suspended_matches||1});if(p.yellow_cards===ycThreshold)yell.push({name:p.web_name,team:t?.name,photoId:p.code,yc:p.yellow_cards});tIn.push({name:p.web_name,team:t?.name,photoId:p.code,tr:p.transfers_in_event});tOut.push({name:p.web_name,team:t?.name,photoId:p.code,tr:p.transfers_out_event});});
+  // Only show injured/suspended/unavailable players (no yellow card tracking early in season)
+  d.elements.forEach(p=>{const t=d.teams.find(x=>x.id===p.team);if(p.status==='i'||p.status==='s'||p.status==='u'||p.status==='p')sus.push({name:p.web_name,team:t?.name,photoId:p.code,status:p.status==='i'?'Injured':p.status==='s'?'Suspended':p.status==='u'?'Unavailable':'Phasing In'});tIn.push({name:p.web_name,team:t?.name,photoId:p.code,tr:p.transfers_in_event});tOut.push({name:p.web_name,team:t?.name,photoId:p.code,tr:p.transfers_out_event});});
   tIn.sort((a,b)=>b.tr-a.tr);tOut.sort((a,b)=>b.tr-a.tr);
-  if(sus.length||yell.length){const ycLabel=gwId<=19?'On 4 Yellows (1 away from ban)':'On 9 Yellows (1 away from ban)';$('suspensionRisk').innerHTML=renderSuspension({s:sus,y:yell,label:ycLabel});$('suspensionRisk').classList.remove('hidden');}
+  if(sus.length){$('suspensionRisk').innerHTML=renderSuspension({s:sus});$('suspensionRisk').classList.remove('hidden');}
   $('transferTrends').innerHTML=renderTransfers({in:tIn.slice(0,10),out:tOut.slice(0,10)});$('transferTrends').classList.remove('hidden');
 }
 
 function renderSuspension(d) {
-  const c=(p,y)=>`<div class="player-card min-w-[175px] bg-white rounded-xl border border-slate-100 p-3 flex-shrink-0 flex items-center gap-3">${img(p.photoId,p.name)}<div><p class="text-sm font-semibold text-slate-800">${p.name}</p><p class="text-xs text-slate-400">${p.team||''}</p><span class="inline-block mt-1 text-xs font-medium ${y?'text-yellow-600 bg-yellow-50':'text-red-600 bg-red-50'} px-2 py-0.5 rounded-full">${y?'🟨 '+p.yc+' Yellows':'🚫 '+p.sm+' match'+(p.sm>1?'es':'')}</span></div></div>`;
-  return `<div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-red-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-triangle-exclamation"></i></div><div><h2 class="text-base font-bold">Suspension Risk</h2></div></div>${d.s.length?`<div class="mb-3"><p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Suspended (${d.s.length})</p><div class="scroll-x flex gap-2.5">${d.s.map(p=>c(p,0)).join('')}</div></div>`:''}${d.y.length?`<div><p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">${d.label||'On 4 Yellows'} (${d.y.length})</p><div class="scroll-x flex gap-2.5">${d.y.map(p=>c(p,1)).join('')}</div></div>`:''}</div>`;
+  const c=(p)=>`<div class="player-card min-w-[175px] bg-white rounded-xl border border-slate-100 p-3 flex-shrink-0 flex items-center gap-3">${img(p.photoId,p.name)}<div><p class="text-sm font-semibold text-slate-800">${p.name}</p><p class="text-xs text-slate-400">${p.team||''}</p><span class="inline-block mt-1 text-xs font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full">${p.status}</span></div></div>`;
+  return `<div class="card rounded-2xl p-5 sm:p-6"><div class="flex items-center gap-3 mb-4"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-red-500 flex items-center justify-center text-white text-xs"><i class="fa-solid fa-triangle-exclamation"></i></div><div><h2 class="text-base font-bold">Availability Issues</h2><p class="text-xs text-slate-400">Injured, suspended or unavailable players</p></div></div>${d.s.length?`<div class="scroll-x flex gap-2.5">${d.s.map(p=>c(p)).join('')}</div>`:'<p class="text-sm text-slate-400">No availability issues reported.</p>'}</div>`;
 }
 function renderTransfers(d) {
   const cr=(p,type)=>{const col=type==='in'?'emerald':'red';return `<div class="flex items-center gap-3 bg-white rounded-xl border border-slate-100 p-3">${img(p.photoId,p.name)}<div class="min-w-0 flex-1"><p class="text-sm font-semibold text-slate-800 truncate">${p.name}</p><p class="text-xs text-slate-400">${p.team||''}</p></div><div class="text-center flex-shrink-0"><p class="text-sm font-bold text-${col}-600">${p.tr.toLocaleString()}</p><p class="text-xs text-slate-400">transfers</p></div></div>`;};
@@ -507,10 +507,10 @@ async function loadTeamFixtures() {
     const gws = [gw, gw+1, gw+2, gw+3, gw+4]; const teams = bs.teams||[];
     const tf = teams.map(t => {
       const g = gws.map(x => { const f=fxs.find(fx=>fx.event===x&&(fx.team_h===t.id||fx.team_a===t.id)); if(!f) return null; const ih=f.team_h===t.id; return {opponent:(teams.find(z=>z.id===(ih?f.team_a:f.team_h))||{}).short_name||'?', isHome:ih, difficulty:f.difficulty, gw:x }; }).filter(Boolean);
-      const tp = bs.elements.filter(e=>e.team===t.id).sort((a,b)=>b.points_per_game-a.points_per_game).slice(0,3).map(p=>({name:p.web_name,photoId:p.code}));
+      const tp = bs.elements.filter(e=>e.team===t.id&&e.total_points>0).sort((a,b)=>b.total_points-a.total_points).slice(0,3).map(p=>({name:p.web_name,photoId:p.code,pts:p.total_points}));
       return {n:t.short_name||t.name, g, fdr:g.reduce((s,f)=>s+f.difficulty,0), tp, cnt:g.length};
     }).filter(t=>t.cnt>=3).sort((a,b)=>b.fdr-a.fdr);
-    $('fixturesGrid').innerHTML = `<div class="responsive-table rounded-lg border border-slate-100"><table class="min-w-full divide-y divide-slate-100"><thead><tr class="bg-slate-50 text-[10px] font-semibold text-slate-500 uppercase tracking-wider"><th class="sticky-col px-2 py-2.5 text-left bg-slate-50">Team</th>${gws.map(x=>`<th class="px-2 py-2.5 text-center">GW${x}</th>`).join('')}<th class="px-2 py-2.5 text-center">FDR</th><th class="px-2 py-2.5 text-left hide-mobile">Top Players</th></tr></thead><tbody class="divide-y divide-slate-100">${tf.map(t=>`<tr class="hover:bg-slate-50 text-xs"><td class="sticky-col px-2 py-2.5 bg-white font-semibold text-slate-800">${t.n}</td>${gws.map(x=>{const f=t.g.find(y=>y.gw===x);return `<td class="px-1.5 py-2.5 text-center">${f?`<div style="background:${fdrBg(f.difficulty)};color:${fdrColor(f.difficulty)}" class="inline-block px-2 py-1 rounded-md text-[10px] font-bold min-w-[46px]">${f.opponent}${f.isHome?'':' <span class="opacity-60">A</span>'}</div>`:'<span class="text-slate-300">—</span>'}</td>`;}).join('')}<td class="px-2 py-2.5 text-center font-extrabold text-slate-700">${t.fdr}</td><td class="px-2 py-2.5 hide-mobile"><div class="flex items-center gap-1">${t.tp.map(p=>img(p.photoId,p.name)).join('')}</div></td></tr>`).join('')}</tbody></table></div>`;
+    $('fixturesGrid').innerHTML = `<div class="responsive-table rounded-lg border border-slate-100"><table class="min-w-full divide-y divide-slate-100"><thead><tr class="bg-slate-50 text-[10px] font-semibold text-slate-500 uppercase tracking-wider"><th class="sticky-col px-2 py-2.5 text-left bg-slate-50">Team</th>${gws.map(x=>`<th class="px-2 py-2.5 text-center">GW${x}</th>`).join('')}<th class="px-2 py-2.5 text-center">FDR</th><th class="px-2 py-2.5 text-left hide-mobile">Top Players (Pts)</th></tr></thead><tbody class="divide-y divide-slate-100">${tf.map(t=>`<tr class="hover:bg-slate-50 text-xs"><td class="sticky-col px-2 py-2.5 bg-white font-semibold text-slate-800">${t.n}</td>${gws.map(x=>{const f=t.g.find(y=>y.gw===x);return `<td class="px-1.5 py-2.5 text-center">${f?`<div style="background:${fdrBg(f.difficulty)};color:${fdrColor(f.difficulty)}" class="inline-block px-2 py-1 rounded-md text-[10px] font-bold min-w-[46px]">${f.opponent}${f.isHome?'':' <span class="opacity-60">A</span>'}</div>`:'<span class="text-slate-300">—</span>'}</td>`;}).join('')}<td class="px-2 py-2.5 text-center font-extrabold text-slate-700">${t.fdr}</td><td class="px-2 py-2.5 hide-mobile"><div class="flex flex-col gap-1">${t.tp.map(p=>`<span class="text-[11px]"><strong>${p.name}</strong> (${p.pts})</span>`).join('')}</div></td></tr>`).join('')}</tbody></table></div>`;
   } catch(e) { $('fixturesGrid').innerHTML = `<p class="text-sm text-red-500">${e.message}</p>`; }
 }
 
@@ -730,7 +730,7 @@ async function loadPlayersTab() {
       return {
         name: p.web_name, team: t?.short_name || '', pos: p.element_type,
         photoId: p.code, form: parseFloat(p.form) || 0, total: p.total_points,
-        threat: p.threat || 0, creativity: p.creativity || 0, ict: p.ict_index || 0,
+        threat: parseFloat(p.threat) || 0, creativity: parseFloat(p.creativity) || 0, ict: parseFloat(p.ict_index) || 0,
         ppg: p.points_per_game, selected: p.selected_by_percent,
         cost: p.now_cost, posName: posName(p.element_type),
         defcon: td ? Math.round(td.defconNorm) : 50,
@@ -1471,7 +1471,10 @@ function renderOwnershipTab(data, sparklineData, snapshotsCount) {
   // Format timestamp
   const fmtDate = ts => {
     if (!ts) return 'N/A';
-    const d = new Date(ts);
+    const numTs = typeof ts === 'string' ? parseInt(ts) : ts;
+    if (isNaN(numTs)) return 'N/A';
+    const d = new Date(numTs);
+    if (isNaN(d.getTime())) return 'N/A';
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
@@ -1577,15 +1580,9 @@ function renderOwnershipTab(data, sparklineData, snapshotsCount) {
   html += `</tbody></table></div>`;
 
   // Info note
-  if (snapshotsCount < 2) {
+  if (snapCount < 2) {
     html += `<div class="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200">
-      <p class="text-xs text-amber-700"><i class="fa-solid fa-circle-info mr-1"></i><strong>Historical tracking:</strong> Snapshots are saved hourly in your browser. After 7+ days, full ownership change data will be available.</p>
-    </div>`;
-  }
-
-  if (isThrottled) {
-    html += `<div class="mt-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
-      <p class="text-[10px] text-blue-600"><i class="fa-solid fa-clock mr-1"></i>Using cached snapshot (max 1 per hour). Next update available in ${Math.ceil((OWNERSHIP_THROTTLE_MS - (Date.now() - (latestTimestamp || 0))) / 60000)} min.</p>
+      <p class="text-xs text-amber-700"><i class="fa-solid fa-circle-info mr-1"></i><strong>Historical tracking:</strong> Snapshots are saved hourly. After 7+ days, full ownership change data will be available.</p>
     </div>`;
   }
 
