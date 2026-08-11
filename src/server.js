@@ -1,9 +1,30 @@
 const express = require('express');
 const path = require('path');
 const axios = require('axios');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Ownership snapshot storage
+const DATA_DIR = path.join(__dirname, '../data');
+const OWNERSHIP_FILE = path.join(DATA_DIR, 'ownership-snapshots.json');
+
+function ensureDataDir() {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (!fs.existsSync(OWNERSHIP_FILE)) fs.writeFileSync(OWNERSHIP_FILE, '[]', 'utf8');
+}
+
+function readOwnershipSnapshots() {
+  ensureDataDir();
+  try { return JSON.parse(fs.readFileSync(OWNERSHIP_FILE, 'utf8')); }
+  catch { return []; }
+}
+
+function writeOwnershipSnapshots(snapshots) {
+  ensureDataDir();
+  fs.writeFileSync(OWNERSHIP_FILE, JSON.stringify(snapshots, null, 2), 'utf8');
+}
 
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -915,6 +936,95 @@ app.get('/api/captain-picks', async (req, res) => {
   } catch (e) {
     console.error('Captain picks error:', e.message);
     res.status(500).json({ error: 'Failed to calculate captain picks' });
+  }
+});
+
+// ---- Ownership Tracking ----
+app.get('/api/ownership/history', async (req, res) => {
+  try {
+    const snapshots = readOwnershipSnapshots();
+    const now = Date.now();
+    const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+    const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
+    const ONE_DAY = 24 * 60 * 60 * 1000;
+
+    // Find snapshots closest to 7d, 3d, 1d ago
+    const findClosest = (targetMs) => {
+      let best = null, bestDiff = Infinity;
+      for (const s of snapshots) {
+        const diff = Math.abs(s.timestamp - targetMs);
+        if (diff < bestDiff) { bestDiff = diff; best = s; }
+      }
+      return best;
+    };
+
+    const sevenDaysAgo = findClosest(now - SEVEN_DAYS);
+    const threeDaysAgo = findClosest(now - THREE_DAYS);
+    const oneDayAgo = findClosest(now - ONE_DAY);
+    const latest = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
+
+    res.json({
+      snapshotsCount: snapshots.length,
+      latestTimestamp: latest?.timestamp || null,
+      snapshots: snapshots.map(s => ({ timestamp: s.timestamp, playerCount: Object.keys(s.players || {}).length })),
+      sevenDaysAgo: sevenDaysAgo || null,
+      threeDaysAgo: threeDaysAgo || null,
+      oneDayAgo: oneDayAgo || null,
+      current: latest || null
+    });
+  } catch (e) {
+    console.error('Ownership history error:', e.message);
+    res.status(500).json({ error: 'Failed to fetch ownership history' });
+  }
+});
+
+app.post('/api/ownership/snapshot', async (req, res) => {
+  try {
+    const snapshots = readOwnershipSnapshots();
+    const now = Date.now();
+    const THROTTLE = 60 * 60 * 1000; // 1 hour throttle
+    if (snapshots.length > 0 && (now - snapshots[snapshots.length - 1].timestamp) < THROTTLE) {
+      return res.json({ ok: true, message: 'Snapshot already recent, skipping', skipped: true });
+    }
+
+    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
+    const players = {};
+    bs.elements
+      .sort((a, b) => parseFloat(b.selected_by_percent) - parseFloat(a.selected_by_percent))
+      .slice(0, 100)
+      .forEach(p => {
+        const team = bs.teams.find(t => t.id === p.team);
+        players[p.id] = {
+          name: p.web_name,
+          team: team?.short_name || '',
+          teamFull: team?.name || '',
+          code: p.code,
+          position: POSITION_MAP[p.element_type - 1],
+          cost: p.now_cost,
+          ownership: parseFloat(p.selected_by_percent) || 0,
+          transfersIn: p.transfers_in_event || 0,
+          transfersOut: p.transfers_out_event || 0
+        };
+      });
+
+    const snapshot = { timestamp: now, players };
+    snapshots.push(snapshot);
+
+    // Keep only last 30 days of snapshots (max ~720 hourly snapshots)
+    const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+    const trimmed = snapshots.filter(s => (now - s.timestamp) < THIRTY_DAYS);
+    writeOwnershipSnapshots(trimmed);
+
+    // Return full data for sparklines (last 14 snapshots)
+    const recentForSparkline = trimmed.slice(-14).map(s => ({
+      timestamp: s.timestamp,
+      players: s.players
+    }));
+
+    res.json({ ok: true, snapshotCount: trimmed.length, playerCount: Object.keys(players).length, sparklineData: recentForSparkline });
+  } catch (e) {
+    console.error('Ownership snapshot error:', e.message);
+    res.status(500).json({ error: 'Failed to create snapshot' });
   }
 });
 

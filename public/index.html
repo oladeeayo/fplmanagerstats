@@ -64,6 +64,9 @@
     <button class="tab-btn" data-tab="captain" onclick="showSection('captain');loadCaptainTab()">
       <i class="fa-solid fa-crown mr-1.5 text-yellow-500"></i>Captain
     </button>
+    <button class="tab-btn" data-tab="ownership" onclick="showSection('ownership');loadOwnershipTab()">
+      <i class="fa-solid fa-chart-line mr-1.5 text-indigo-500"></i>Ownership
+    </button>
   </div>
 
   <input type="number" id="managerId" class="hidden">
@@ -343,6 +346,21 @@
       </div>
       <button onclick="loadCaptainTab()" class="px-5 py-2 bg-gradient-to-r from-yellow-500 to-amber-500 text-white font-semibold rounded-lg text-sm hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-2"></i>Load Captain Picks</button>
       <div id="captainPicksContent" class="mt-4"><p class="text-sm text-slate-400">Click to load top captain recommendations.</p></div>
+    </div>
+  </div>
+
+  <!-- ===== OWNERSHIP ===== -->
+  <div id="section-ownership" class="section-content hidden">
+    <div id="ownershipContent" class="space-y-6">
+      <div class="card p-5 sm:p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-sm shadow-sm"><i class="fa-solid fa-chart-line"></i></div>
+          <div><h2 class="text-base font-bold text-slate-800">Ownership Tracker</h2><p class="text-xs text-slate-400">Top 10 most owned players · Ownership shifts over time</p></div>
+        </div>
+        <p id="ownershipDate" class="text-xs text-slate-400 mb-3"></p>
+        <button onclick="loadOwnershipTab()" class="px-5 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-semibold rounded-lg text-sm hover:shadow-md transition-all shadow-sm"><i class="fa-solid fa-rotate mr-2"></i>Load Ownership</button>
+        <div id="ownershipTableContainer" class="mt-4"><p class="text-sm text-slate-400">Click to load ownership data. A snapshot will be saved for historical tracking.</p></div>
+      </div>
     </div>
   </div>
 
@@ -1341,6 +1359,215 @@ function renderCaptainTab(d) {
   </div>`;
 
   $('captainPicksContent').innerHTML = html;
+}
+
+// ---- Ownership Tab ----
+async function loadOwnershipTab() {
+  $('ownershipTableContainer').innerHTML = '<div class="flex justify-center py-8"><div class="animate-spin h-6 w-6 border-2 border-indigo-500 border-t-transparent rounded-full"></div></div>';
+  try {
+    // First, save a snapshot
+    const snapshotResult = await (await fetch('/api/ownership/snapshot', { method: 'POST' })).json();
+    // Then fetch the history
+    const data = await (await fetch('/api/ownership/history')).json();
+    renderOwnershipTab(data, snapshotResult.sparklineData || null);
+  } catch(e) {
+    $('ownershipTableContainer').innerHTML = `<p class="text-sm text-red-500 text-center">${e.message}</p>`;
+  }
+}
+
+function drawSparkline(canvasId, values, color) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || !values || values.length < 2) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width = canvas.offsetWidth * 2;
+  const h = canvas.height = canvas.offsetHeight * 2;
+  ctx.scale(2, 2);
+  const cw = canvas.offsetWidth;
+  const ch = canvas.offsetHeight;
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const padding = 4;
+  const plotH = ch - padding * 2;
+  const plotW = cw - padding * 2;
+
+  // Gradient fill
+  const gradient = ctx.createLinearGradient(0, 0, 0, ch);
+  gradient.addColorStop(0, color + '30');
+  gradient.addColorStop(1, color + '05');
+
+  ctx.beginPath();
+  ctx.moveTo(padding, padding + plotH - ((values[0] - min) / range) * plotH);
+  for (let i = 1; i < values.length; i++) {
+    const x = padding + (i / (values.length - 1)) * plotW;
+    const y = padding + plotH - ((values[i] - min) / range) * plotH;
+    ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  // Fill under line
+  ctx.lineTo(padding + plotW, padding + plotH);
+  ctx.lineTo(padding, padding + plotH);
+  ctx.closePath();
+  ctx.fillStyle = gradient;
+  ctx.fill();
+
+  // End dot
+  const lastX = padding + plotW;
+  const lastY = padding + plotH - ((values[values.length - 1] - min) / range) * plotH;
+  ctx.beginPath();
+  ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+function renderOwnershipTab(data, sparklineData) {
+  const { current, sevenDaysAgo, threeDaysAgo, oneDayAgo, snapshotsCount, latestTimestamp } = data;
+
+  if (!current || !current.players) {
+    $('ownershipTableContainer').innerHTML = '<p class="text-sm text-slate-400 text-center">No ownership data available yet. Snapshots will be collected automatically.</p>';
+    return;
+  }
+
+  // Format timestamp
+  const fmtDate = ts => {
+    if (!ts) return 'N/A';
+    const d = new Date(ts);
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
+  $('ownershipDate').textContent = `Data as of ${fmtDate(latestTimestamp)} · ${snapshotsCount} snapshot${snapshotsCount !== 1 ? 's' : ''} collected`;
+
+  // Get top 10 by current ownership
+  const top10 = Object.entries(current.players)
+    .map(([id, p]) => ({ id: parseInt(id), ...p }))
+    .sort((a, b) => b.ownership - a.ownership)
+    .slice(0, 10);
+
+  // Build rows with change calculations
+  const rows = top10.map((p, i) => {
+    const prev = sevenDaysAgo?.players?.[p.id];
+    const prev3 = threeDaysAgo?.players?.[p.id];
+    const prev1 = oneDayAgo?.players?.[p.id];
+
+    const change7d = prev ? (p.ownership - prev.ownership) : null;
+    const change3d = prev3 ? (p.ownership - prev3.ownership) : null;
+    const change24h = prev1 ? (p.ownership - prev1.ownership) : null;
+
+    // Build trend values from sparkline data or available snapshots
+    const trend = [];
+    if (sparklineData && sparklineData.length >= 2) {
+      sparklineData.forEach(snap => {
+        const playerData = snap.players?.[String(p.id)];
+        if (playerData !== undefined) trend.push(playerData.ownership);
+      });
+    }
+    // Fallback to available data points
+    if (trend.length < 2) {
+      if (prev) trend.push(prev.ownership);
+      if (prev3) trend.push(prev3.ownership);
+      if (prev1) trend.push(prev1.ownership);
+      trend.push(p.ownership);
+    }
+    // Remove duplicates and nulls
+    const uniqueTrend = [...new Set(trend)].filter(v => v !== null && v !== undefined);
+
+    return { ...p, rank: i + 1, change7d, change3d, change24h, trend: uniqueTrend };
+  });
+
+  const changeBadge = (val) => {
+    if (val === null || val === undefined) return '<span class="text-slate-300">—</span>';
+    const formatted = val >= 0 ? `+${val.toFixed(1)}` : val.toFixed(1);
+    const cls = val > 0 ? 'text-emerald-600 bg-emerald-50' : val < 0 ? 'text-red-500 bg-red-50' : 'text-slate-400 bg-slate-50';
+    const icon = val > 0 ? 'fa-arrow-up' : val < 0 ? 'fa-arrow-down' : 'fa-minus';
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold ${cls}"><i class="fa-solid ${icon} text-[9px]"></i>${formatted}</span>`;
+  };
+
+  const posBadge = (pos) => {
+    const cls = pos === 'GKP' ? 'badge-gkp' : pos === 'DEF' ? 'badge-def' : pos === 'MID' ? 'badge-mid' : 'badge-fwd';
+    return `<span class="badge-pos ${cls} text-[9px]">${pos}</span>`;
+  };
+
+  let html = `<div class="overflow-x-auto">
+    <table class="min-w-full text-xs">
+      <thead><tr class="bg-slate-50 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+        <th class="px-2 py-2.5 text-center w-8">#</th>
+        <th class="px-2 py-2.5 text-left sticky-col bg-slate-50">Player</th>
+        <th class="px-2 py-2.5 text-center">Team</th>
+        <th class="px-2 py-2.5 text-center hide-mobile-table">Pos</th>
+        <th class="px-2 py-2.5 text-center">Value</th>
+        <th class="px-2 py-2.5 text-center">Own% Last 7d</th>
+        <th class="px-2 py-2.5 text-center bg-indigo-50">Own% Live</th>
+        <th class="px-2 py-2.5 text-center">7d change</th>
+        <th class="px-2 py-2.5 text-center hide-mobile-table">3d change</th>
+        <th class="px-2 py-2.5 text-center hide-mobile-table">24h change</th>
+        <th class="px-2 py-2.5 text-center min-w-[120px]">14-Day Trend</th>
+      </tr></thead>
+      <tbody class="divide-y divide-slate-100">`;
+
+  rows.forEach((p, i) => {
+    const sparkId = `spark-${p.id}`;
+    const prevOwn = sevenDaysAgo?.players?.[p.id]?.ownership;
+    html += `<tr class="hover:bg-slate-50 transition-colors">
+      <td class="px-2 py-2.5 text-center font-extrabold text-slate-400">${p.rank}</td>
+      <td class="px-2 py-2.5 sticky-col bg-white">
+        <div class="flex items-center gap-2.5">
+          <img src="https://resources.premierleague.com/premierleague25/photos/players/110x140/p${p.code}.png" alt="" class="w-8 h-10 object-cover rounded bg-slate-100 flex-shrink-0" onerror="this.src='https://resources.premierleague.com/premierleague/photos/players/110x140/Photo-Missing.png'">
+          <div class="min-w-0">
+            <p class="text-sm font-bold text-slate-800 truncate">${p.name}</p>
+            <p class="text-[10px] text-slate-400">${p.teamFull || p.team}</p>
+          </div>
+        </div>
+      </td>
+      <td class="px-2 py-2.5 text-center text-slate-600 font-medium">${p.team}</td>
+      <td class="px-2 py-2.5 text-center hide-mobile-table">${posBadge(p.position)}</td>
+      <td class="px-2 py-2.5 text-center font-semibold text-slate-700">${costStr(p.cost)}</td>
+      <td class="px-2 py-2.5 text-center font-semibold text-slate-600">${prevOwn !== undefined ? prevOwn.toFixed(1) + '%' : '—'}</td>
+      <td class="px-2 py-2.5 text-center font-extrabold text-slate-800 bg-indigo-50/50">${p.ownership.toFixed(1)}%</td>
+      <td class="px-2 py-2.5 text-center">${changeBadge(p.change7d)}</td>
+      <td class="px-2 py-2.5 text-center hide-mobile-table">${changeBadge(p.change3d)}</td>
+      <td class="px-2 py-2.5 text-center hide-mobile-table">${changeBadge(p.change24h)}</td>
+      <td class="px-2 py-2.5 text-center">
+        <div class="sparkline-container">
+          <canvas id="${sparkId}" class="sparkline-canvas"></canvas>
+        </div>
+      </td>
+    </tr>`;
+  });
+
+  html += `</tbody></table></div>`;
+
+  // Info note
+  if (snapshotsCount < 2) {
+    html += `<div class="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200">
+      <p class="text-xs text-amber-700"><i class="fa-solid fa-circle-info mr-1"></i><strong>Historical tracking:</strong> Snapshots are saved hourly. After 7+ days, full ownership change data will be available.</p>
+    </div>`;
+  }
+
+  html += `<div class="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
+    <p class="text-[10px] text-slate-400"><i class="fa-solid fa-clock mr-1"></i>Ownership data is updated each time this page is loaded (max once per hour). Changes are calculated from the closest available snapshot.</p>
+  </div>`;
+
+  $('ownershipTableContainer').innerHTML = html;
+
+  // Draw sparklines after DOM update
+  setTimeout(() => {
+    rows.forEach(p => {
+      const sparkId = `spark-${p.id}`;
+      const canvas = document.getElementById(sparkId);
+      if (canvas && p.trend.length >= 2) {
+        const isUp = p.trend[p.trend.length - 1] >= p.trend[0];
+        drawSparkline(sparkId, p.trend, isUp ? '#22c55e' : '#ef4444');
+      }
+    });
+  }, 50);
 }
 </script>
 </body>
