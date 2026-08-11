@@ -1362,14 +1362,62 @@ function renderCaptainTab(d) {
 }
 
 // ---- Ownership Tab ----
+const OWNERSHIP_STORAGE_KEY = 'fpl_ownership_snapshots';
+const OWNERSHIP_THROTTLE_MS = 60 * 60 * 1000; // 1 hour
+
+function getOwnershipSnapshots() {
+  try { return JSON.parse(localStorage.getItem(OWNERSHIP_STORAGE_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function saveOwnershipSnapshots(snapshots) {
+  localStorage.setItem(OWNERSHIP_STORAGE_KEY, JSON.stringify(snapshots));
+}
+
 async function loadOwnershipTab() {
   $('ownershipTableContainer').innerHTML = '<div class="flex justify-center py-8"><div class="animate-spin h-6 w-6 border-2 border-indigo-500 border-t-transparent rounded-full"></div></div>';
   try {
-    // First, save a snapshot
-    const snapshotResult = await (await fetch('/api/ownership/snapshot', { method: 'POST' })).json();
-    // Then fetch the history
-    const data = await (await fetch('/api/ownership/history')).json();
-    renderOwnershipTab(data, snapshotResult.sparklineData || null);
+    // Check throttle
+    const snapshots = getOwnershipSnapshots();
+    const now = Date.now();
+    const lastSnap = snapshots.length > 0 ? snapshots[snapshots.length - 1].timestamp : 0;
+    const isThrottled = (now - lastSnap) < OWNERSHIP_THROTTLE_MS;
+
+    // Fetch current data from FPL API
+    const bs = await (await fetch('/api/bootstrap-static')).json();
+    const posMap = ['GKP','DEF','MID','FWD'];
+    const players = {};
+    bs.elements
+      .sort((a, b) => parseFloat(b.selected_by_percent) - parseFloat(a.selected_by_percent))
+      .slice(0, 100)
+      .forEach(p => {
+        const team = bs.teams.find(t => t.id === p.team);
+        const posShort = posMap[p.element_type - 1] || 'MID';
+        players[p.id] = {
+          name: p.web_name,
+          team: team?.short_name || '',
+          teamFull: team?.name || '',
+          code: p.code,
+          position: posShort,
+          cost: p.now_cost,
+          ownership: parseFloat(p.selected_by_percent) || 0,
+          transfersIn: p.transfers_in_event || 0,
+          transfersOut: p.transfers_out_event || 0
+        };
+      });
+
+    // Save new snapshot if not throttled
+    if (!isThrottled) {
+      snapshots.push({ timestamp: now, players });
+      // Keep 30 days
+      const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+      const trimmed = snapshots.filter(s => (now - s.timestamp) < THIRTY_DAYS);
+      saveOwnershipSnapshots(trimmed);
+    }
+
+    // Use all snapshots for rendering
+    const allSnapshots = getOwnershipSnapshots();
+    renderOwnershipTab(allSnapshots, players, isThrottled);
   } catch(e) {
     $('ownershipTableContainer').innerHTML = `<p class="text-sm text-red-500 text-center">${e.message}</p>`;
   }
@@ -1428,11 +1476,12 @@ function drawSparkline(canvasId, values, color) {
   ctx.stroke();
 }
 
-function renderOwnershipTab(data, sparklineData) {
-  const { current, sevenDaysAgo, threeDaysAgo, oneDayAgo, snapshotsCount, latestTimestamp } = data;
+function renderOwnershipTab(allSnapshots, currentPlayers, isThrottled) {
+  const snapshotsCount = allSnapshots.length;
+  const latestTimestamp = snapshotsCount > 0 ? allSnapshots[snapshotsCount - 1].timestamp : null;
 
-  if (!current || !current.players) {
-    $('ownershipTableContainer').innerHTML = '<p class="text-sm text-slate-400 text-center">No ownership data available yet. Snapshots will be collected automatically.</p>';
+  if (!currentPlayers || Object.keys(currentPlayers).length === 0) {
+    $('ownershipTableContainer').innerHTML = '<p class="text-sm text-slate-400 text-center">No ownership data available yet.</p>';
     return;
   }
 
@@ -1445,41 +1494,47 @@ function renderOwnershipTab(data, sparklineData) {
 
   $('ownershipDate').textContent = `Data as of ${fmtDate(latestTimestamp)} · ${snapshotsCount} snapshot${snapshotsCount !== 1 ? 's' : ''} collected`;
 
+  // Find snapshots closest to 7d, 3d, 1d ago
+  const now = Date.now();
+  const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+  const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
+  const ONE_DAY = 24 * 60 * 60 * 1000;
+
+  const findClosest = (targetMs) => {
+    let best = null, bestDiff = Infinity;
+    for (const s of allSnapshots) {
+      const diff = Math.abs(s.timestamp - targetMs);
+      if (diff < bestDiff) { bestDiff = diff; best = s; }
+    }
+    return best;
+  };
+
+  const sevenDaysAgo = findClosest(now - SEVEN_DAYS);
+  const threeDaysAgo = findClosest(now - THREE_DAYS);
+  const oneDayAgo = findClosest(now - ONE_DAY);
+
   // Get top 10 by current ownership
-  const top10 = Object.entries(current.players)
+  const top10 = Object.entries(currentPlayers)
     .map(([id, p]) => ({ id: parseInt(id), ...p }))
     .sort((a, b) => b.ownership - a.ownership)
     .slice(0, 10);
 
   // Build rows with change calculations
   const rows = top10.map((p, i) => {
-    const prev = sevenDaysAgo?.players?.[p.id];
-    const prev3 = threeDaysAgo?.players?.[p.id];
-    const prev1 = oneDayAgo?.players?.[p.id];
+    const prev = sevenDaysAgo?.players?.[String(p.id)];
+    const prev3 = threeDaysAgo?.players?.[String(p.id)];
+    const prev1 = oneDayAgo?.players?.[String(p.id)];
 
     const change7d = prev ? (p.ownership - prev.ownership) : null;
     const change3d = prev3 ? (p.ownership - prev3.ownership) : null;
     const change24h = prev1 ? (p.ownership - prev1.ownership) : null;
 
-    // Build trend values from sparkline data or available snapshots
-    const trend = [];
-    if (sparklineData && sparklineData.length >= 2) {
-      sparklineData.forEach(snap => {
-        const playerData = snap.players?.[String(p.id)];
-        if (playerData !== undefined) trend.push(playerData.ownership);
-      });
-    }
-    // Fallback to available data points
-    if (trend.length < 2) {
-      if (prev) trend.push(prev.ownership);
-      if (prev3) trend.push(prev3.ownership);
-      if (prev1) trend.push(prev1.ownership);
-      trend.push(p.ownership);
-    }
-    // Remove duplicates and nulls
-    const uniqueTrend = [...new Set(trend)].filter(v => v !== null && v !== undefined);
+    // Build trend from all available snapshots
+    const trend = allSnapshots.map(snap => snap.players?.[String(p.id)]?.ownership).filter(v => v !== null && v !== undefined);
+    // Always include current value
+    if (trend.length === 0 || trend[trend.length - 1] !== p.ownership) trend.push(p.ownership);
 
-    return { ...p, rank: i + 1, change7d, change3d, change24h, trend: uniqueTrend };
+    return { ...p, rank: i + 1, change7d, change3d, change24h, trend };
   });
 
   const changeBadge = (val) => {
@@ -1547,12 +1602,18 @@ function renderOwnershipTab(data, sparklineData) {
   // Info note
   if (snapshotsCount < 2) {
     html += `<div class="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200">
-      <p class="text-xs text-amber-700"><i class="fa-solid fa-circle-info mr-1"></i><strong>Historical tracking:</strong> Snapshots are saved hourly. After 7+ days, full ownership change data will be available.</p>
+      <p class="text-xs text-amber-700"><i class="fa-solid fa-circle-info mr-1"></i><strong>Historical tracking:</strong> Snapshots are saved hourly in your browser. After 7+ days, full ownership change data will be available.</p>
+    </div>`;
+  }
+
+  if (isThrottled) {
+    html += `<div class="mt-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
+      <p class="text-[10px] text-blue-600"><i class="fa-solid fa-clock mr-1"></i>Using cached snapshot (max 1 per hour). Next update available in ${Math.ceil((OWNERSHIP_THROTTLE_MS - (Date.now() - (latestTimestamp || 0))) / 60000)} min.</p>
     </div>`;
   }
 
   html += `<div class="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
-    <p class="text-[10px] text-slate-400"><i class="fa-solid fa-clock mr-1"></i>Ownership data is updated each time this page is loaded (max once per hour). Changes are calculated from the closest available snapshot.</p>
+    <p class="text-[10px] text-slate-400"><i class="fa-solid fa-database mr-1"></i>Data stored in your browser's localStorage. Changes are calculated from the closest available snapshot.</p>
   </div>`;
 
   $('ownershipTableContainer').innerHTML = html;

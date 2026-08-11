@@ -983,8 +983,14 @@ app.post('/api/ownership/snapshot', async (req, res) => {
     const snapshots = readOwnershipSnapshots();
     const now = Date.now();
     const THROTTLE = 60 * 60 * 1000; // 1 hour throttle
+    
+    // If throttled, still return existing sparkline data
     if (snapshots.length > 0 && (now - snapshots[snapshots.length - 1].timestamp) < THROTTLE) {
-      return res.json({ ok: true, message: 'Snapshot already recent, skipping', skipped: true });
+      const recentForSparkline = snapshots.slice(-14).map(s => ({
+        timestamp: s.timestamp,
+        players: s.players
+      }));
+      return res.json({ ok: true, message: 'Snapshot already recent, skipping', skipped: true, sparklineData: recentForSparkline, snapshotCount: snapshots.length });
     }
 
     const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
