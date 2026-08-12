@@ -1,0 +1,13 @@
+# Robots.txt for FPL Manager Stats
+# https://www.myfplstats.xyz
+
+User-agent: *
+Allow: /
+
+# API endpoints - no need to crawl
+Disallow: /api/
+
+# Static assets - not needed for indexing
+Disallow: /sw.js
+
+Sitemap: https://www.myfplstats.xyz/sitemap.xml
