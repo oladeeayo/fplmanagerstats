@@ -80,18 +80,28 @@ const FPL = {
                 p.positionName = this.state.positionMap[p.element_type] || '';
             });
 
-            // Update deadline display
-            if (deadline) {
+            // Update deadline display and start countdown
+            const setupDeadlineCountdown = (dl) => {
+                if (!dl || !dl.deadlineTime) return false;
                 const dlEl = document.getElementById('deadline-time');
-                if (dlEl && deadline.deadlineTime) {
-                    const d = new Date(deadline.deadlineTime);
+                if (dlEl) {
+                    const d = new Date(dl.deadlineTime);
                     dlEl.textContent = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
                 }
-                // Start countdown timer
-                if (deadline.deadlineTime) {
-                    this.startCountdown(new Date(deadline.deadlineTime));
-                }
+                this.startCountdown(new Date(dl.deadlineTime));
+                return true;
+            };
+
+            if (!setupDeadlineCountdown(deadline)) {
+                // Fallback: fetch deadline independently if initial load failed
+                this.apiFetch(this.API.deadline).then(dl => setupDeadlineCountdown(dl)).catch(() => {});
             }
+
+            // Refresh deadline every 5 minutes to stay accurate
+            if (this._deadlineRefreshInterval) clearInterval(this._deadlineRefreshInterval);
+            this._deadlineRefreshInterval = setInterval(() => {
+                this.apiFetch(this.API.deadline).then(dl => setupDeadlineCountdown(dl)).catch(() => {});
+            }, 5 * 60 * 1000);
 
             // Populate GW jump selector
             this.updateFixtureGWJump();
@@ -207,6 +217,7 @@ const FPL = {
             if (diff <= 0) {
                 countdownEl.textContent = 'LIVE';
                 countdownEl.style.color = '#FF005A';
+                countdownEl.style.textShadow = '0 0 10px rgba(255, 0, 90, 0.5)';
                 if (this._countdownInterval) clearInterval(this._countdownInterval);
                 return;
             }
@@ -216,7 +227,7 @@ const FPL = {
             const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
             if (days > 0) {
-                countdownEl.textContent = days + 'd ' + hours + 'h ' + minutes + 'm';
+                countdownEl.textContent = days + 'd ' + String(hours).padStart(2, '0') + 'h ' + String(minutes).padStart(2, '0') + 'm ' + String(seconds).padStart(2, '0') + 's';
             } else {
                 countdownEl.textContent = String(hours).padStart(2, '0') + ':' + String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
             }
@@ -973,20 +984,21 @@ const FPL = {
 
             return `
                 <tr style="border-bottom:1px solid #1A2E28;transition:background 0.2s;${isEven ? 'background:rgba(49,54,51,0.15);' : ''}" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='${isEven ? 'rgba(49,54,51,0.15)' : 'transparent'}'">
-                    <td style="padding:10px 16px;position:sticky;left:0;z-index:10;background:${isEven ? '#1E1E1E' : '#1A1A1A'};">
-                        <div style="display:flex;align-items:center;gap:10px;">
-                            <div style="width:36px;height:36px;border-radius:50%;overflow:hidden;background:#2A2A2A;border:1px solid #333;flex-shrink:0;">
+                    <td style="padding:4px 6px;position:sticky;left:0;z-index:10;background:${isEven ? '#1E1E1E' : '#1A1A1A'};max-width:110px;overflow:hidden;">
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <div style="width:28px;height:28px;border-radius:50%;overflow:hidden;background:#2A2A2A;border:1px solid #333;flex-shrink:0;">
                                 <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || p.web_name || 'FPL Player'} photo" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
                             </div>
-                            <div>
-                                <div style="font-weight:700;font-size:13px;color:#E0E0E0;">${p.web_name}</div>
-                                <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:#8ba396;">
-                                    <span style="padding:1px 4px;border-radius:3px;font-weight:700;background:${posColor}20;color:${posColor};">${posStr}</span>
+                            <div style="min-width:0;overflow:hidden;">
+                                <div style="font-weight:700;font-size:11px;color:#E0E0E0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.web_name}</div>
+                                <div style="display:flex;align-items:center;gap:3px;font-size:9px;color:#8ba396;white-space:nowrap;">
+                                    <span style="padding:1px 3px;border-radius:2px;font-weight:700;background:${posColor}20;color:${posColor};font-size:8px;">${posStr}</span>
                                     <span>${teamShort}</span>
-                                    <span style="color:#444;">•</span>
+                                    <span style="color:#444;">·</span>
                                     <span style="font-family:var(--font-mono);color:#B0B0B0;">£${price}m</span>
                                 </div>
                             </div>
+                        </div>
                         </div>
                     </td>
                     <td style="padding:10px 12px;text-align:center;font-family:var(--font-mono);font-size:13px;font-weight:700;color:#00FF85;">${p.total_points}</td>
@@ -1190,8 +1202,8 @@ const FPL = {
         const headerRow = document.getElementById('fixture-grid-header-row');
         if (headerRow) {
             headerRow.style.background = '#a7cfbc';
-            headerRow.innerHTML = `<th class="p-3 font-label-caps text-label-caps uppercase sticky left-0 z-10 bg-secondary" style="padding:12px 16px;position:sticky;left:0;z-index:10;background:#a7cfbc;width:100px;font-family:var(--font-mono);font-size:12px;color:#0a0f0d;font-weight:700;">TEAM</th>` +
-                targetGWs.map(gw => `<th class="p-3 font-label-caps text-label-caps text-center" style="padding:12px 16px;text-align:center;font-family:var(--font-mono);font-size:12px;color:#0a0f0d;font-weight:700;background:#a7cfbc;"><span style="color:#0a0f0d;font-weight:700;">GW${gw}</span></th>`).join('');
+            headerRow.innerHTML = `<th style="padding:5px 6px;position:sticky;left:0;z-index:10;background:#a7cfbc;width:60px;max-width:60px;font-family:var(--font-mono);font-size:11px;color:#0a0f0d;font-weight:700;">TEAM</th>` +
+                targetGWs.map(gw => `<th style="padding:5px 6px;text-align:center;font-family:var(--font-mono);font-size:11px;color:#0a0f0d;font-weight:700;background:#a7cfbc;"><span style="color:#0a0f0d;font-weight:700;">GW${gw}</span></th>`).join('');
         }
 
         // Render Table Rows for all 20 teams
@@ -1236,10 +1248,12 @@ const FPL = {
 
                 const teamAccentColor = fdrColors[avgFDR]?.bg || '#37DB59';
 
-                return `<tr class="border-b border-pitch-line data-table-row transition-colors" style="border-bottom:1px solid #1A2E28;background:${isEven ? '#181d1a' : '#0f1412'};">
-                    <td class="p-3 font-bold sticky left-0 z-10 flex items-center gap-3 text-fdr-1 text-primary-fixed" style="padding:10px 16px;position:sticky;left:0;z-index:10;background:${isEven ? '#181d1a' : '#0f1412'};display:flex;align-items:center;gap:12px;font-family:var(--font-mono);font-size:14px;font-weight:700;color:#00ff85;">
-                        <div style="width:4px;height:24px;background:${teamAccentColor};border-radius:999px;"></div>
-                        ${team.short_name}
+                return `<tr style="border-bottom:1px solid #1A2E28;background:${isEven ? '#181d1a' : '#0f1412'};">
+                    <td style="padding:4px 6px;position:sticky;left:0;z-index:10;background:${isEven ? '#181d1a' : '#0f1412'};max-width:60px;overflow:hidden;text-overflow:ellipsis;font-family:var(--font-mono);font-size:10px;font-weight:700;color:#00ff85;">
+                        <div style="display:flex;align-items:center;gap:4px;">
+                            <div style="width:3px;height:16px;background:${teamAccentColor};border-radius:999px;flex-shrink:0;"></div>
+                            ${team.short_name}
+                        </div>
                     </td>
                     ${cellHTMLs}
                 </tr>`;
