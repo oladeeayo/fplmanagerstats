@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>FPL Manager Stats</title>
-    <meta name="description" content="Fantasy Premier League Manager Statistics Dashboard">
+    <title>FPL Manager Stats - Fantasy Premier League Analytics Dashboard | xG, Captain Picks, Transfers</title>
+    <meta name="description" content="Free Fantasy Premier League analytics dashboard with advanced stats: xG/xA predictions, captain picks, transfer trends, ownership tracking, fixture difficulty ratings, and tactical zone analysis. Real-time FPL data updated daily.">
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
     <meta name="theme-color" content="#0D0D0D">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -12,6 +13,75 @@
     <link rel="icon" href="football.ico">
     <link rel="apple-touch-icon" href="icon-192.svg">
     <link rel="manifest" href="manifest.json">
+    <link rel="canonical" href="https://www.myfplstats.xyz/">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://www.myfplstats.xyz/">
+    <meta property="og:title" content="FPL Manager Stats - Fantasy Premier League Analytics Dashboard">
+    <meta property="og:description" content="Free Fantasy Premier League analytics dashboard with advanced stats: xG/xA predictions, captain picks, transfer trends, ownership tracking, fixture difficulty ratings, and tactical zone analysis.">
+    <meta property="og:image" content="https://www.myfplstats.xyz/icon-512.svg">
+    <meta property="og:image:alt" content="FPL Manager Stats - Fantasy Premier League Analytics Dashboard">
+    <meta property="og:site_name" content="FPL Manager Stats">
+    <meta property="og:locale" content="en_GB">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="FPL Manager Stats - Fantasy Premier League Analytics Dashboard">
+    <meta name="twitter:description" content="Free Fantasy Premier League analytics dashboard with advanced stats: xG/xA predictions, captain picks, transfer trends, ownership tracking, and tactical zone analysis.">
+    <meta name="twitter:image" content="https://www.myfplstats.xyz/icon-512.svg">
+    <meta name="twitter:image:alt" content="FPL Manager Stats - Fantasy Premier League Analytics Dashboard">
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "FPL Manager Stats",
+      "url": "https://www.myfplstats.xyz/",
+      "description": "Free Fantasy Premier League analytics dashboard with advanced stats: xG/xA predictions, captain picks, transfer trends, ownership tracking, fixture difficulty ratings, and tactical zone analysis.",
+      "applicationCategory": "SportsApplication",
+      "operatingSystem": "Web Browser",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "GBP"
+      },
+      "creator": {
+        "@type": "Organization",
+        "name": "FPL Manager Stats",
+        "url": "https://www.myfplstats.xyz/"
+      },
+      "featureList": [
+        "xG/xA player statistics",
+        "Captain pick recommendations",
+        "Transfer trend analysis",
+        "Ownership tracking with sparklines",
+        "Fixture difficulty ratings",
+        "Tactical zone analysis",
+        "League standings",
+        "Manager team analysis",
+        "Price change predictions",
+        "Injury and suspension alerts"
+      ],
+      "screenshot": "https://www.myfplstats.xyz/icon-512.svg"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "FPL Manager Stats",
+      "url": "https://www.myfplstats.xyz/",
+      "description": "Free Fantasy Premier League analytics dashboard with advanced stats: xG/xA predictions, captain picks, transfer trends, ownership tracking, fixture difficulty ratings, and tactical zone analysis.",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://www.myfplstats.xyz/?manager={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -119,7 +189,7 @@
                 <!-- DASHBOARD -->
                 <div id="content-general" class="tab-content active">
                     <!-- Gameweek Overview Banner -->
-                    <section style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:24px;position:relative;margin-bottom:24px;">
+                    <section class="dash-stat-banner" style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:24px;position:relative;margin-bottom:24px;">
                         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:20px;">
                             <div>
                                 <h1 style="font-size:26px;font-weight:700;color:#ffffff;margin:0;">Gameweek <span id="dash-gw-num">1</span> Overview</h1>
@@ -159,7 +229,7 @@
                                     <h3 style="font-size:16px;font-weight:600;color:#ffffff;margin:0;">Most Selected Players</h3>
                                     <button class="text-primary font-label-caps text-xs font-bold hover:underline" style="color:#00ff85;font-size:12px;font-weight:700;background:none;border:none;cursor:pointer;" onclick="FPL.navigateTo('players')">View All</button>
                                 </div>
-                                <div style="overflow-y:auto;flex:1;padding:8px;">
+                                <div class="table-scroll-mobile" style="overflow-y:auto;flex:1;padding:8px;">
                                     <table style="width:100%;border-collapse:collapse;">
                                         <thead>
                                             <tr style="border-bottom:1px solid #1A2E28;font-size:11px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);">
@@ -184,7 +254,7 @@
                                     </h3>
                                     <button style="background:#1c211e;border:1px solid #1A2E28;color:#8ba396;font-family:var(--font-mono);font-size:11px;padding:6px 12px;border-radius:4px;cursor:pointer;" onclick="FPL.navigateTo('fixtures')">Sort by FDR</button>
                                 </div>
-                                <div style="overflow-x:auto;">
+                                <div class="table-scroll-mobile">
                                     <table style="width:100%;border-collapse:collapse;text-align:center;min-width:500px;">
                                         <thead>
                                             <tr id="dash-fdr-header-row" style="border-bottom:1px solid #1A2E28;font-size:11px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);">
@@ -405,7 +475,7 @@
                     <div style="margin-bottom:24px;">
                         <h2 style="font-size:18px;font-weight:700;color:#ffffff;margin:0 0 16px 0;font-family:var(--font-display);">Squad Performance</h2>
                         <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;">
-                            <div style="overflow-x:auto;">
+                            <div class="table-scroll-mobile">
                                 <table style="width:100%;border-collapse:collapse;text-align:left;">
                                     <thead>
                                         <tr style="background:#1c211e;border-bottom:1px solid #1A2E28;font-family:var(--font-mono);font-size:11px;color:#8ba396;text-transform:uppercase;">
@@ -509,7 +579,7 @@
 
                     <!-- Data Table (Standings) -->
                     <div style="background:#022B1E;border:1px solid #333333;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;">
-                        <div style="overflow-x:auto;">
+                        <div class="league-table-wrap">
                             <table style="width:100%;border-collapse:collapse;font-size:14px;white-space:nowrap;min-width:700px;">
                                 <thead>
                                     <tr style="border-bottom:1px solid #333333;background:rgba(255,255,255,0.03);color:#E0E0E0;font-size:12px;font-family:var(--font-mono);">
@@ -567,7 +637,7 @@
 
                     <!-- Data Table Container -->
                     <div style="background:#1E1E1E;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;">
-                        <div style="overflow-x:auto;">
+                        <div class="players-table-wrap">
                             <table style="width:100%;border-collapse:collapse;white-space:nowrap;">
                                 <thead style="background:#333333;border-bottom:1px solid #1A2E28;font-family:var(--font-mono);font-size:11px;text-transform:uppercase;">
                                     <tr>
@@ -691,7 +761,7 @@
 
                             <!-- Fixture Grid Container -->
                             <div style="background:#1c211e;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;">
-                        <div style="overflow-x:auto;">
+                        <div class="table-scroll-mobile">
                                     <table style="width:100%;border-collapse:collapse;white-space:nowrap;">
                                         <thead>
                                             <tr id="fixture-grid-header-row" style="background:#a7cfbc;border-bottom:1px solid #1A2E28;">
@@ -754,7 +824,7 @@
                                 <!-- Player Avatar with MODEL PICK Badge -->
                                 <div style="position:relative;display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
                                     <div style="width:110px;height:110px;border-radius:50%;overflow:hidden;border:4px solid var(--fdr-1);background:var(--md-sys-color-surface);box-shadow:0 0 20px rgba(0,255,133,0.25);">
-                                        <img id="cap-hero-img" src="https://resources.premierleague.com/premierleague/photos/players/110x140/p110711.png" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
+                                        <img id="cap-hero-img" src="https://resources.premierleague.com/premierleague/photos/players/110x140/p110711.png" alt="FPL Captain pick - recommended player photo" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
                                     </div>
                                     <div style="margin-top:-12px;background:var(--fdr-1);color:#00210c;font-size:0.625rem;font-weight:800;letter-spacing:0.08em;padding:2px 10px;border-radius:4px;box-shadow:0 4px 10px rgba(0,255,133,0.3);white-space:nowrap;font-family:var(--font-mono);">
                                         MODEL PICK
@@ -836,7 +906,7 @@
                         </div>
 
                         <!-- Table -->
-                        <div style="overflow-x:auto;">
+                        <div class="table-scroll-mobile">
                             <table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
                                 <thead>
                                     <tr style="border-bottom:1px solid #333333;background:rgba(255,255,255,0.03);color:#B0B0B0;font-size:12px;font-family:var(--font-mono);">
@@ -961,7 +1031,7 @@
                         </div>
 
                         <!-- Table -->
-                        <div style="overflow-x:auto;">
+                        <div class="table-scroll-mobile">
                             <table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
                                 <thead>
                                     <tr style="border-bottom:2px solid #333333;background:#2A2A2A;color:#B0B0B0;font-size:12px;">

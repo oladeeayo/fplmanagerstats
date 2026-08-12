@@ -407,7 +407,7 @@ const FPL = {
                         <td style="padding:10px 16px;display:flex;align-items:center;gap:12px;">
                             <div style="width:4px;height:28px;border-radius:999px;background:${barColor};"></div>
                             <div style="width:36px;height:36px;border-radius:50%;background:#1c211e;border:1px solid #1A2E28;overflow:hidden;flex-shrink:0;">
-                                <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
+                                <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || p.web_name || 'FPL Player'} photo" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
                             </div>
                             <div>
                                 <div style="font-weight:700;color:#ffffff;font-size:14px;">${p.name}</div>
@@ -450,7 +450,7 @@ const FPL = {
                     <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;">
                         <div style="display:flex;align-items:center;gap:10px;">
                             <div style="width:32px;height:32px;border-radius:50%;background:#1c211e;border:1px solid #1A2E28;overflow:hidden;flex-shrink:0;">
-                                <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
+                                <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || p.web_name || 'FPL Player'} photo" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
                             </div>
                             <div>
                                 <div style="font-size:13px;font-weight:700;color:#ffffff;">${p.name}</div>
@@ -739,28 +739,28 @@ const FPL = {
             if (document.getElementById('pos-gkp-top')) document.getElementById('pos-gkp-top').textContent = posStats.GKP.topName ? `Top: ${posStats.GKP.topName} (${posStats.GKP.topPts})` : 'No data';
             if (posStats.GKP.topCode) {
                 const imgEl = document.getElementById('pos-gkp-img');
-                if (imgEl) imgEl.innerHTML = `<img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${posStats.GKP.topCode}.png" onerror="this.parentElement.innerHTML='<span class=\\'material-symbols-outlined\\' style=\\'color:#444;font-size:28px;\\'>person</span>'" style="width:100%;height:100%;object-fit:cover;">`;
+                if (imgEl) imgEl.innerHTML = `<img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${posStats.GKP.topCode}.png" alt="${posStats.GKP.topName || 'Goalkeeper'} - top scoring goalkeeper" onerror="this.parentElement.innerHTML='<span class=\\'material-symbols-outlined\\' style=\\'color:#444;font-size:28px;\\'>person</span>'" style="width:100%;height:100%;object-fit:cover;">`;
             }
 
             if (document.getElementById('pos-def-pts')) document.getElementById('pos-def-pts').textContent = posStats.DEF.pts || '0';
             if (document.getElementById('pos-def-top')) document.getElementById('pos-def-top').textContent = posStats.DEF.topName ? `Top: ${posStats.DEF.topName} (${posStats.DEF.topPts})` : 'No data';
             if (posStats.DEF.topCode) {
                 const imgEl = document.getElementById('pos-def-img');
-                if (imgEl) imgEl.innerHTML = `<img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${posStats.DEF.topCode}.png" onerror="this.parentElement.innerHTML='<span class=\\'material-symbols-outlined\\' style=\\'color:#444;font-size:28px;\\'>person</span>'" style="width:100%;height:100%;object-fit:cover;">`;
+                if (imgEl) imgEl.innerHTML = `<img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${posStats.DEF.topCode}.png" alt="${posStats.DEF.topName || 'Defender'} - top scoring defender" onerror="this.parentElement.innerHTML='<span class=\\'material-symbols-outlined\\' style=\\'color:#444;font-size:28px;\\'>person</span>'" style="width:100%;height:100%;object-fit:cover;">`;
             }
 
             if (document.getElementById('pos-mid-pts')) document.getElementById('pos-mid-pts').textContent = posStats.MID.pts || '0';
             if (document.getElementById('pos-mid-top')) document.getElementById('pos-mid-top').textContent = posStats.MID.topName ? `Top: ${posStats.MID.topName} (${posStats.MID.topPts})` : 'No data';
             if (posStats.MID.topCode) {
                 const imgEl = document.getElementById('pos-mid-img');
-                if (imgEl) imgEl.innerHTML = `<img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${posStats.MID.topCode}.png" onerror="this.parentElement.innerHTML='<span class=\\'material-symbols-outlined\\' style=\\'color:#444;font-size:28px;\\'>person</span>'" style="width:100%;height:100%;object-fit:cover;">`;
+                if (imgEl) imgEl.innerHTML = `<img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${posStats.MID.topCode}.png" alt="${posStats.MID.topName || 'Midfielder'} - top scoring midfielder" onerror="this.parentElement.innerHTML='<span class=\\'material-symbols-outlined\\' style=\\'color:#444;font-size:28px;\\'>person</span>'" style="width:100%;height:100%;object-fit:cover;">`;
             }
 
             if (document.getElementById('pos-fwd-pts')) document.getElementById('pos-fwd-pts').textContent = posStats.FWD.pts || '0';
             if (document.getElementById('pos-fwd-top')) document.getElementById('pos-fwd-top').textContent = posStats.FWD.topName ? `Top: ${posStats.FWD.topName} (${posStats.FWD.topPts})` : 'No data';
             if (posStats.FWD.topCode) {
                 const imgEl = document.getElementById('pos-fwd-img');
-                if (imgEl) imgEl.innerHTML = `<img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${posStats.FWD.topCode}.png" onerror="this.parentElement.innerHTML='<span class=\\'material-symbols-outlined\\' style=\\'color:#444;font-size:28px;\\'>person</span>'" style="width:100%;height:100%;object-fit:cover;">`;
+                if (imgEl) imgEl.innerHTML = `<img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${posStats.FWD.topCode}.png" alt="${posStats.FWD.topName || 'Forward'} - top scoring forward" onerror="this.parentElement.innerHTML='<span class=\\'material-symbols-outlined\\' style=\\'color:#444;font-size:28px;\\'>person</span>'" style="width:100%;height:100%;object-fit:cover;">`;
             }
         }
 
@@ -976,7 +976,7 @@ const FPL = {
                     <td style="padding:10px 16px;position:sticky;left:0;z-index:10;background:${isEven ? '#1E1E1E' : '#1A1A1A'};">
                         <div style="display:flex;align-items:center;gap:10px;">
                             <div style="width:36px;height:36px;border-radius:50%;overflow:hidden;background:#2A2A2A;border:1px solid #333;flex-shrink:0;">
-                                <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
+                                <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || p.web_name || 'FPL Player'} photo" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
                             </div>
                             <div>
                                 <div style="font-weight:700;font-size:13px;color:#E0E0E0;">${p.web_name}</div>
@@ -1257,7 +1257,7 @@ const FPL = {
 
                 return `<div class="flex items-center gap-3 p-3 rounded-lg bg-surface border border-pitch-line hover:border-fdr-1 transition-colors cursor-pointer group" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;background:var(--md-sys-color-surface);border:1px solid var(--pitch-line);" onclick="FPL.navigateTo('players')">
                     <div style="width:40px;height:40px;border-radius:50%;overflow:hidden;background:var(--md-sys-color-surface-variant);border:1px solid var(--pitch-line);position:relative;flex-shrink:0;">
-                        <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
+                        <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || p.web_name || 'FPL Player'} photo" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
                         <div style="position:absolute;bottom:0;right:0;width:10px;height:10px;background:var(--fdr-1);border-radius:50%;border:1px solid var(--md-sys-color-surface);"></div>
                     </div>
                     <div style="flex:1;">
@@ -1413,7 +1413,7 @@ const FPL = {
                     <td style="padding:var(--space-sm) var(--space-md);">
                         <div style="display:flex;align-items:center;gap:12px;">
                             <div style="width:36px;height:36px;border-radius:50%;overflow:hidden;background:var(--md-sys-color-surface);flex-shrink:0;border:1px solid var(--md-sys-color-outline-variant);">
-                                <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
+                                <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || p.web_name || 'FPL Player'} photo" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
                             </div>
                             <div>
                                 <div style="font-weight:600;color:var(--md-sys-color-on-surface);display:flex;align-items:center;">
@@ -1482,7 +1482,7 @@ const FPL = {
 
             inContainer.innerHTML = `
                 <div style="display:flex;align-items:center;gap:var(--space-md);">
-                    <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.src='football.ico'" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--fdr-1);background:var(--md-sys-color-surface-container-high);">
+                    <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || 'FPL Player'} - top transferred in" onerror="this.src='football.ico'" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--fdr-1);background:var(--md-sys-color-surface-container-high);">
                     <div>
                         <div style="font-weight:700;font-size:0.9375rem;display:flex;align-items:center;gap:6px;">
                             ${p.name}
@@ -1508,7 +1508,7 @@ const FPL = {
 
             outContainer.innerHTML = `
                 <div style="display:flex;align-items:center;gap:var(--space-md);">
-                    <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.src='football.ico'" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--fdr-5);background:var(--md-sys-color-surface-container-high);">
+                    <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || 'FPL Player'} - top transferred out" onerror="this.src='football.ico'" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--fdr-5);background:var(--md-sys-color-surface-container-high);">
                     <div>
                         <div style="font-weight:700;font-size:0.9375rem;display:flex;align-items:center;gap:6px;">
                             ${p.name}
@@ -1533,7 +1533,7 @@ const FPL = {
 
             velContainer.innerHTML = `
                 <div style="display:flex;align-items:center;gap:var(--space-md);">
-                    <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.src='football.ico'" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--fdr-4);background:var(--md-sys-color-surface-container-high);">
+                    <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || 'FPL Player'} - price change" onerror="this.src='football.ico'" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--fdr-4);background:var(--md-sys-color-surface-container-high);">
                     <div>
                         <div style="font-weight:700;font-size:0.9375rem;display:flex;align-items:center;gap:6px;">
                             ${p.name}
@@ -1599,7 +1599,7 @@ const FPL = {
                 <td style="padding:10px 16px;text-align:center;color:#B0B0B0;font-family:var(--font-mono);font-size:13px;">${i + 1}</td>
                 <td style="padding:10px 16px;text-align:left;">
                     <div style="display:flex;align-items:center;gap:12px;">
-                        <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.src='football.ico'" style="width:36px;height:36px;border-radius:50%;object-fit:cover;background:#2A2A2A;border:1px solid #444444;">
+                        <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || 'FPL Player'}" onerror="this.src='football.ico'" style="width:36px;height:36px;border-radius:50%;object-fit:cover;background:#2A2A2A;border:1px solid #444444;">
                         <div>
                             <div style="font-weight:700;font-size:14px;color:#E0E0E0;">${p.name}</div>
                             <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#B0B0B0;margin-top:2px;">
@@ -1873,7 +1873,7 @@ const FPL = {
                 ${teamData.bestPicks.slice(0, 3).map((p, i) => `
                     <div style="display:flex;align-items:center;gap:12px;padding:10px 0;${i < 2 ? 'border-bottom:1px solid #1A2E28;' : ''}">
                         <div style="width:40px;height:40px;border-radius:50%;overflow:hidden;background:#2A2A2A;border:1px solid #333;flex-shrink:0;">
-                            <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
+                            <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || p.web_name || 'FPL Player'} photo" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
                         </div>
                         <div style="flex:1;min-width:0;">
                             <div style="font-weight:700;font-size:14px;color:#fff;">${p.name}</div>
