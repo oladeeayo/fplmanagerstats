@@ -786,16 +786,16 @@ const FPL = {
 
             squadTbody.innerHTML = playersToRender.map(p => `
                 <tr style="border-bottom:1px solid #16251e;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
-                    <td style="padding:14px 20px;display:flex;align-items:center;gap:12px;">
-                        <div style="width:28px;height:28px;border-radius:50%;background:#1c2720;border:1px solid #28392e;flex-shrink:0;"></div>
-                        <span style="font-weight:700;color:#ffffff;font-size:14px;">${p.webName || p.name}</span>
+                    <td style="padding:4px 6px;position:sticky;left:0;z-index:10;background:#141916;max-width:120px;overflow:hidden;display:flex;align-items:center;gap:6px;">
+                        <div style="width:24px;height:24px;border-radius:50%;background:#1c2720;border:1px solid #28392e;flex-shrink:0;"></div>
+                        <span style="font-weight:700;color:#ffffff;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.webName || p.name}</span>
                     </td>
-                    <td style="padding:14px 16px;text-align:center;color:#ffffff;font-family:var(--font-mono);">${p.totalPoints || p.points || 0}</td>
-                    <td style="padding:14px 16px;text-align:center;color:#8ba396;font-family:var(--font-mono);">${p.gwApps || 28}</td>
-                    <td style="padding:14px 16px;text-align:center;color:#8ba396;font-family:var(--font-mono);">${p.starts || 27}</td>
-                    <td style="padding:14px 16px;text-align:center;color:#8ba396;font-family:var(--font-mono);">${p.captPts || 0}</td>
-                    <td style="padding:14px 16px;text-align:center;color:#ffffff;font-family:var(--font-mono);">${p.costStr || ('£' + ((p.nowCost || 100) / 10).toFixed(1) + 'm')}</td>
-                    <td style="padding:14px 20px;text-align:center;font-weight:700;color:#00FF85;font-family:var(--font-mono);font-size:14px;">${p.ppg || ( (p.totalPoints || p.points || 0) / 28 ).toFixed(1)}</td>
+                    <td style="text-align:center;color:#ffffff;font-family:var(--font-mono);font-size:11px;">${p.totalPoints || p.points || 0}</td>
+                    <td style="text-align:center;color:#8ba396;font-family:var(--font-mono);font-size:11px;">${p.gwApps || 28}</td>
+                    <td style="text-align:center;color:#8ba396;font-family:var(--font-mono);font-size:11px;">${p.starts || 27}</td>
+                    <td style="text-align:center;color:#8ba396;font-family:var(--font-mono);font-size:11px;">${p.captPts || 0}</td>
+                    <td style="text-align:center;color:#ffffff;font-family:var(--font-mono);font-size:11px;">${p.costStr || ('£' + ((p.nowCost || 100) / 10).toFixed(1) + 'm')}</td>
+                    <td style="text-align:center;font-weight:700;color:#00FF85;font-family:var(--font-mono);font-size:11px;">${p.ppg || ( (p.totalPoints || p.points || 0) / 28 ).toFixed(1)}</td>
                 </tr>
             `).join('');
         }
@@ -965,6 +965,16 @@ const FPL = {
         const posNames = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
         const posColors = { 1: '#FFD700', 2: '#4FC3F7', 3: '#81C784', 4: '#E57373' };
 
+        // Update column headers based on per90 toggle
+        const thGoals = document.getElementById('th-goals');
+        const thXG = document.getElementById('th-xg');
+        const thXA = document.getElementById('th-xa');
+        const thXGI = document.getElementById('th-xgi');
+        if (thGoals) thGoals.textContent = per90 ? 'Goals/90' : 'Goals';
+        if (thXG) thXG.textContent = per90 ? 'xG/90' : 'xG';
+        if (thXA) thXA.textContent = per90 ? 'xA/90' : 'xA';
+        if (thXGI) thXGI.textContent = per90 ? 'xGI/90' : 'xGI';
+
         tbody.innerHTML = filtered.slice(0, 50).map((p, idx) => {
             const team = teams.find(t => t.id === p.team);
             const teamShort = team ? team.short_name : 'FPL';
@@ -973,14 +983,22 @@ const FPL = {
             const formVal = parseFloat(p.form || 0);
             const price = (p.now_cost / 10).toFixed(1);
             const mins = p.minutes || 0;
-            const goals = p.goals_scored || 0;
-            const xG = parseFloat(p.expected_goals || 0);
+            const nineties = mins > 0 ? mins / 90 : 0;
+
+            const goalsRaw = p.goals_scored || 0;
+            const xGRaw = parseFloat(p.expected_goals || 0);
+            const xARaw = parseFloat(p.expected_assists || 0);
+            const xGIRaw = parseFloat(p.expected_goal_involvements || 0);
+
+            const goals = per90 && nineties > 0 ? goalsRaw / nineties : goalsRaw;
+            const xG = per90 && nineties > 0 ? xGRaw / nineties : xGRaw;
+            const xA = per90 && nineties > 0 ? xARaw / nineties : xARaw;
+            const xGI = per90 && nineties > 0 ? xGIRaw / nineties : xGIRaw;
             const goalsVsXG = goals - xG;
-            const xA = parseFloat(p.expected_assists || 0);
-            const xGI = parseFloat(p.expected_goal_involvements || 0);
             const xgiPer90 = parseFloat(p.expected_goal_involvements_per_90 || 0);
 
             const isEven = idx % 2 === 1;
+            const decimals = per90 ? 2 : 1;
 
             return `
                 <tr style="border-bottom:1px solid #1A2E28;transition:background 0.2s;${isEven ? 'background:rgba(49,54,51,0.15);' : ''}" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='${isEven ? 'rgba(49,54,51,0.15)' : 'transparent'}'">
@@ -999,22 +1017,21 @@ const FPL = {
                                 </div>
                             </div>
                         </div>
+                    </td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#00FF85;">${per90 && nineties > 0 ? (p.total_points / nineties).toFixed(1) : p.total_points}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:11px;color:#B0B0B0;">${mins.toLocaleString()}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;color:${goalsRaw > 0 ? '#E0E0E0' : '#666'};">${goals.toFixed(decimals)}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;color:${xG >= (per90 ? 0.3 : 5) ? '#00FF85' : xG >= (per90 ? 0.15 : 2) ? '#FFA600' : '#B0B0B0'};">${xG.toFixed(decimals)}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;color:${goalsVsXG > 0 ? '#00FF85' : goalsVsXG < 0 ? '#FF005A' : '#666'};">${goalsVsXG > 0 ? '+' : ''}${goalsVsXG.toFixed(decimals)}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:11px;color:#B0B0B0;">${xA.toFixed(decimals)}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;color:${xGI >= (per90 ? 0.4 : 5) ? '#00FF85' : xGI >= (per90 ? 0.2 : 2) ? '#FFA600' : '#B0B0B0'};">${xGI.toFixed(decimals)}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:11px;color:#B0B0B0;">${xgiPer90.toFixed(2)}</td>
+                    <td style="text-align:center;">
+                        <div style="display:flex;align-items:center;justify-content:center;gap:2px;">
+                            ${[formVal >= 5 ? 1 : 2, formVal >= 4 ? 2 : 3, formVal >= 3 ? 1 : 2, formVal >= 2 ? 3 : 4, formVal >= 1 ? 1 : 5].map(h => `<div style="width:4px;height:${h * 3}px;border-radius:2px;background:var(--fdr-${h});"></div>`).join('')}
                         </div>
                     </td>
-                    <td style="padding:10px 12px;text-align:center;font-family:var(--font-mono);font-size:13px;font-weight:700;color:#00FF85;">${p.total_points}</td>
-                    <td style="padding:10px 12px;text-align:center;font-family:var(--font-mono);font-size:12px;color:#B0B0B0;">${mins.toLocaleString()}</td>
-                    <td style="padding:10px 12px;text-align:center;font-family:var(--font-mono);font-size:13px;color:${goals > 0 ? '#E0E0E0' : '#666'};">${goals}</td>
-                    <td style="padding:10px 12px;text-align:center;font-family:var(--font-mono);font-size:13px;color:${xG >= 5 ? '#00FF85' : xG >= 2 ? '#FFA600' : '#B0B0B0'};">${xG.toFixed(1)}</td>
-                    <td style="padding:10px 12px;text-align:center;font-family:var(--font-mono);font-size:13px;color:${goalsVsXG > 0 ? '#00FF85' : goalsVsXG < 0 ? '#FF005A' : '#666'};">${goalsVsXG > 0 ? '+' : ''}${goalsVsXG.toFixed(1)}</td>
-                    <td style="padding:10px 12px;text-align:center;font-family:var(--font-mono);font-size:12px;color:#B0B0B0;">${xA.toFixed(1)}</td>
-                    <td style="padding:10px 12px;text-align:center;font-family:var(--font-mono);font-size:13px;color:${xGI >= 5 ? '#00FF85' : xGI >= 2 ? '#FFA600' : '#B0B0B0'};">${xGI.toFixed(1)}</td>
-                    <td style="padding:10px 12px;text-align:center;font-family:var(--font-mono);font-size:12px;color:#B0B0B0;">${xgiPer90.toFixed(2)}</td>
-                    <td style="padding:10px 12px;text-align:center;">
-                        <div style="display:flex;align-items:center;justify-content:center;gap:3px;">
-                            ${[formVal >= 5 ? 1 : 2, formVal >= 4 ? 2 : 3, formVal >= 3 ? 1 : 2, formVal >= 2 ? 3 : 4, formVal >= 1 ? 1 : 5].map(h => `<div style="width:5px;height:${h * 4}px;border-radius:2px;background:var(--fdr-${h});"></div>`).join('')}
-                        </div>
-                    </td>
-                    <td style="padding:10px 12px;text-align:center;font-family:var(--font-mono);font-size:12px;color:#B0B0B0;">${parseFloat(p.ict_index || 0).toFixed(1)}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:11px;color:#B0B0B0;">${parseFloat(p.ict_index || 0).toFixed(1)}</td>
                 </tr>
             `;
         }).join('');
@@ -1085,19 +1102,19 @@ const FPL = {
                 const borderTier = m.rank === 1 ? 'fdr-1' : m.rank === 2 ? 'fdr-2' : m.rank === 3 ? 'fdr-3' : m.rank === 4 ? 'fdr-4' : 'fdr-5';
 
                 return `<tr class="data-row" style="border-bottom:1px solid rgba(255,255,255,0.05);transition:background 0.2s;${rowBg}" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='${isEven ? 'rgba(255,255,255,0.03)' : 'transparent'}'">
-                    <td class="mono" style="padding:var(--space-md);position:relative;font-weight:700;color:var(--md-sys-color-on-surface);width:60px;">
-                        <div style="position:absolute;left:0;top:50%;transform:translateY(-50%);width:4px;height:75%;background:var(--${borderTier});border-radius:0 2px 2px 0;"></div>
+                    <td style="padding:4px 6px;position:relative;font-weight:700;color:var(--md-sys-color-on-surface);width:40px;position:sticky;left:0;z-index:10;background:${isEven ? 'rgba(2,43,30,0.5)' : '#022B1E'};">
+                        <div style="position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:70%;background:var(--${borderTier});border-radius:0 2px 2px 0;"></div>
                         ${m.rank}
                     </td>
-                    <td style="padding:var(--space-md);">
-                        <div style="font-weight:700;color:var(--md-sys-color-on-surface);">${m.managerName}</div>
-                        <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);margin-top:2px;">${m.entryName}</div>
+                    <td style="padding:4px 6px;position:sticky;left:40px;z-index:10;background:${isEven ? 'rgba(2,43,30,0.5)' : '#022B1E'};max-width:140px;overflow:hidden;">
+                        <div style="font-weight:700;color:var(--md-sys-color-on-surface);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.managerName}</div>
+                        <div style="font-size:9px;color:var(--md-sys-color-on-surface-variant);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.entryName}</div>
                     </td>
-                    <td class="mono" style="padding:var(--space-md);text-align:center;color:var(--md-sys-color-on-surface);font-weight:600;">${m.eventTotal}</td>
-                    <td class="mono" style="padding:var(--space-md);text-align:center;color:var(--fdr-1);font-weight:800;">${this.formatNumber(m.total)}</td>
-                    <td style="padding:var(--space-md);text-align:center;">${diffArrow}</td>
-                    <td style="padding:var(--space-md);text-align:center;">
-                        <span class="mono" style="background:var(--md-sys-color-surface-variant);color:var(--md-sys-color-on-surface);font-size:0.75rem;padding:3px 10px;border-radius:4px;font-weight:700;display:inline-block;">${this.formatNumber(m.diffCount)}</span>
+                    <td style="padding:4px 6px;text-align:center;color:var(--md-sys-color-on-surface);font-weight:600;">${m.eventTotal}</td>
+                    <td class="mono" style="padding:4px 6px;text-align:center;color:var(--fdr-1);font-weight:800;">${this.formatNumber(m.total)}</td>
+                    <td style="padding:4px 6px;text-align:center;">${diffArrow}</td>
+                    <td style="padding:4px 6px;text-align:center;">
+                        <span class="mono" style="background:var(--md-sys-color-surface-variant);color:var(--md-sys-color-on-surface);font-size:10px;padding:2px 6px;border-radius:3px;font-weight:700;display:inline-block;">${this.formatNumber(m.diffCount)}</span>
                     </td>
                 </tr>`;
             }).join('');
@@ -1183,19 +1200,37 @@ const FPL = {
         this.renderFixtures();
     },
 
+    setFixtureStartGW(gw) {
+        this.state.fixtureStartGW = parseInt(gw);
+        this.renderFixtures();
+    },
+
     renderFixtures() {
         const fixtures = this.state.fixtures;
         const bootstrap = this.state.bootstrapData;
         if (!fixtures || !bootstrap) return;
 
         const lookaheadCount = this.state.fixtureLookahead || 5;
-        const currentGW = this.state.selectedGW || bootstrap.events?.find(e => e.is_current)?.id || 1;
+        const currentGW = bootstrap.events?.find(e => e.is_current)?.id || 1;
+        const startGW = this.state.fixtureStartGW || currentGW;
         const teams = bootstrap.teams || [];
         const elements = bootstrap.elements || [];
 
+        // Populate GW selector if empty
+        const gwSelect = document.getElementById('fixture-gw-select');
+        if (gwSelect && gwSelect.options.length === 0) {
+            for (let i = 1; i <= 38; i++) {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = `GW ${i}`;
+                if (i === currentGW) opt.selected = true;
+                gwSelect.appendChild(opt);
+            }
+        }
+
         // Dynamic Gameweeks header
         const targetGWs = [];
-        for (let g = currentGW; g < Math.min(39, currentGW + lookaheadCount); g++) {
+        for (let g = startGW; g < Math.min(39, startGW + lookaheadCount); g++) {
             targetGWs.push(g);
         }
 
@@ -1223,7 +1258,7 @@ const FPL = {
                     // Find fixture for this team in this GW
                     const fx = fixtures.find(f => f.event === gw && (f.team_h === team.id || f.team_a === team.id));
                     if (!fx) {
-                        return `<td class="p-1" style="padding:4px;"><div class="bg-surface-variant rounded-lg p-2 flex flex-col items-center justify-center border border-pitch-line h-14 opacity-50" style="background:#313633;border-radius:8px;padding:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;height:56px;opacity:0.5;"><span class="font-bold text-sm uppercase text-on-surface-variant" style="font-size:12px;font-family:var(--font-mono);color:#b9cbb9;">BLANK</span></div></td>`;
+                        return `<td style="padding:3px;"><div style="background:#313633;border-radius:6px;padding:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;height:40px;opacity:0.5;"><span style="font-size:10px;font-family:var(--font-mono);color:#b9cbb9;font-weight:700;">BLANK</span></div></td>`;
                     }
                     const isHome = fx.team_h === team.id;
                     const oppId = isHome ? fx.team_a : fx.team_h;
@@ -1233,9 +1268,9 @@ const FPL = {
                     const venueStr = isHome ? 'H' : 'A';
                     const colStyle = fdrColors[diff] || fdrColors[3];
 
-                    return `<td class="p-1" style="padding:4px;">
-                        <div class="rounded-lg p-2 flex flex-col items-center justify-center border border-black/10 h-14" style="background:${colStyle.bg};border-radius:8px;padding:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;height:56px;">
-                            <span class="font-bold text-sm uppercase" style="font-size:13px;font-weight:700;font-family:var(--font-mono);color:${colStyle.text}">${oppShort} (${venueStr})</span>
+                    return `<td style="padding:3px;">
+                        <div style="background:${colStyle.bg};border-radius:6px;padding:4px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;height:40px;">
+                            <span style="font-size:10px;font-weight:700;font-family:var(--font-mono);color:${colStyle.text}">${oppShort} (${venueStr})</span>
                         </div>
                     </td>`;
                 }).join('');
@@ -1423,27 +1458,27 @@ const FPL = {
                 const rankColor = p.rk === 1 ? 'color:var(--fdr-1);font-size:1.125rem;' : p.rk <= 3 ? 'color:var(--md-sys-color-primary);font-size:1rem;' : 'color:var(--md-sys-color-on-surface);';
 
                 return `<tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);transition:background 0.2s;${rowBg}" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='${rowBg ? 'rgba(255,255,255,0.03)' : 'transparent'}'">
-                    <td class="mono" style="padding:var(--space-sm) var(--space-md);text-align:center;border-left:4px solid var(--${p.borderTier});font-weight:700;">${p.rk}</td>
-                    <td style="padding:var(--space-sm) var(--space-md);">
-                        <div style="display:flex;align-items:center;gap:12px;">
-                            <div style="width:36px;height:36px;border-radius:50%;overflow:hidden;background:var(--md-sys-color-surface);flex-shrink:0;border:1px solid var(--md-sys-color-outline-variant);">
+                    <td style="padding:4px 6px;text-align:center;position:sticky;left:0;z-index:10;background:#1E1E1E;border-left:3px solid var(--${p.borderTier});font-weight:700;font-size:11px;">${p.rk}</td>
+                    <td style="padding:4px 6px;">
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <div style="width:28px;height:28px;border-radius:50%;overflow:hidden;background:var(--md-sys-color-surface);flex-shrink:0;border:1px solid var(--md-sys-color-outline-variant);">
                                 <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || p.web_name || 'FPL Player'} photo" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
                             </div>
-                            <div>
-                                <div style="font-weight:600;color:var(--md-sys-color-on-surface);display:flex;align-items:center;">
+                            <div style="min-width:0;">
+                                <div style="font-weight:600;color:var(--md-sys-color-on-surface);display:flex;align-items:center;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                                     ${p.name} ${badgeIcon}
                                 </div>
-                                <div class="mono" style="font-size:0.6875rem;color:var(--md-sys-color-on-surface-variant);">${p.team} (${p.position})</div>
+                                <div style="font-size:9px;color:var(--md-sys-color-on-surface-variant);white-space:nowrap;">${p.team} (${p.position})</div>
                             </div>
                         </div>
                     </td>
-                    <td class="mono" style="padding:var(--space-sm) var(--space-md);text-align:center;font-weight:500;">${p.opp}</td>
-                    <td style="padding:var(--space-sm) var(--space-md);text-align:center;">
-                        <span class="mono" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:4px;background:var(--fdr-${p.fdr});color:#0a0f0d;font-size:0.75rem;font-weight:800;">${p.fdr}</span>
+                    <td style="padding:4px 6px;text-align:center;font-weight:500;font-size:11px;">${p.opp}</td>
+                    <td style="padding:4px 6px;text-align:center;">
+                        <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:3px;background:var(--fdr-${p.fdr});color:#0a0f0d;font-size:10px;font-weight:800;">${p.fdr}</span>
                     </td>
-                    <td class="mono" style="padding:var(--space-sm) var(--space-md);text-align:center;font-weight:600;color:var(--fdr-1);">${p.form}</td>
-                    <td class="mono" style="padding:var(--space-sm) var(--space-md);text-align:center;font-weight:600;color:#00D1FF;">${p.xGI}</td>
-                    <td class="mono" style="padding:var(--space-sm) var(--space-md);text-align:center;font-weight:800;${rankColor}">${p.xPTS}</td>
+                    <td style="padding:4px 6px;text-align:center;font-weight:600;color:var(--fdr-1);font-size:11px;">${p.form}</td>
+                    <td style="padding:4px 6px;text-align:center;font-weight:600;color:#00D1FF;font-size:11px;">${p.xGI}</td>
+                    <td style="padding:4px 6px;text-align:center;font-weight:800;font-size:11px;${rankColor}">${p.xPTS}</td>
                 </tr>`;
             }).join('');
         } catch (err) {
@@ -1610,34 +1645,34 @@ const FPL = {
 
             return `
             <tr style="border-bottom:1px solid #333333;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
-                <td style="padding:10px 16px;text-align:center;color:#B0B0B0;font-family:var(--font-mono);font-size:13px;">${i + 1}</td>
-                <td style="padding:10px 16px;text-align:left;">
-                    <div style="display:flex;align-items:center;gap:12px;">
-                        <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || 'FPL Player'}" onerror="this.src='football.ico'" style="width:36px;height:36px;border-radius:50%;object-fit:cover;background:#2A2A2A;border:1px solid #444444;">
-                        <div>
-                            <div style="font-weight:700;font-size:14px;color:#E0E0E0;">${p.name}</div>
-                            <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#B0B0B0;margin-top:2px;">
+                <td style="padding:4px 6px;text-align:center;color:#B0B0B0;font-family:var(--font-mono);font-size:10px;position:sticky;left:0;z-index:10;background:#1E1E1E;">${i + 1}</td>
+                <td style="padding:4px 6px;text-align:left;">
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || 'FPL Player'}" onerror="this.src='football.ico'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;background:#2A2A2A;border:1px solid #444444;flex-shrink:0;">
+                        <div style="min-width:0;">
+                            <div style="font-weight:700;font-size:11px;color:#E0E0E0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
+                            <div style="display:flex;align-items:center;gap:3px;font-size:9px;color:#B0B0B0;">
                                 <span style="font-weight:600;">${p.team}</span>
-                                <span style="color:#444;">•</span>
-                                <span style="padding:0 5px;border-radius:3px;font-weight:700;font-size:10px;background:${posColors[p.position]}20;color:${posColors[p.position]};">${p.position}</span>
+                                <span style="color:#444;">·</span>
+                                <span style="padding:0 3px;border-radius:2px;font-weight:700;font-size:8px;background:${posColors[p.position]}20;color:${posColors[p.position]};">${p.position}</span>
                             </div>
                         </div>
                     </div>
                 </td>
-                <td style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-weight:600;color:#E0E0E0;">${p.costStr}</td>
-                <td style="padding:10px 16px;text-align:center;">
-                    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-                        <span style="font-weight:700;color:#E0E0E0;font-family:var(--font-mono);">${p.ownership}%</span>
-                        <div style="height:3px;width:60px;background:#2A2A2A;border-radius:2px;overflow:hidden;">
+                <td style="padding:4px 6px;text-align:center;font-family:var(--font-mono);font-weight:600;color:#E0E0E0;">${p.costStr}</td>
+                <td style="padding:4px 6px;text-align:center;">
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+                        <span style="font-weight:700;color:#E0E0E0;font-family:var(--font-mono);font-size:11px;">${p.ownership}%</span>
+                        <div style="height:3px;width:40px;background:#2A2A2A;border-radius:2px;overflow:hidden;">
                             <div style="height:100%;width:${Math.min(p.ownership, 100)}%;background:#00ff85;border-radius:2px;"></div>
                         </div>
                     </div>
                 </td>
-                <td style="padding:10px 16px;text-align:center;">${formatDelta(p.delta24h)}</td>
-                <td style="padding:10px 16px;text-align:center;">${formatDelta(p.delta3d)}</td>
-                <td style="padding:10px 16px;text-align:center;">${formatDelta(p.delta7d)}</td>
-                <td style="padding:10px 16px;text-align:center;">${sparklineSVG}</td>
-                <td style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-weight:700;color:#00ff85;">${p.points}</td>
+                <td style="padding:4px 6px;text-align:center;">${formatDelta(p.delta24h)}</td>
+                <td style="padding:4px 6px;text-align:center;">${formatDelta(p.delta3d)}</td>
+                <td style="padding:4px 6px;text-align:center;">${formatDelta(p.delta7d)}</td>
+                <td style="padding:4px 6px;text-align:center;">${sparklineSVG}</td>
+                <td style="padding:4px 6px;text-align:center;font-family:var(--font-mono);font-weight:700;color:#00ff85;font-size:11px;">${p.points}</td>
             </tr>`;
         }).join('');
     },
@@ -1737,7 +1772,51 @@ const FPL = {
     },
 
     loadMatchFixtures() {
-        // When GW changes, could load fixtures - for now just reset
+        const gwSelect = document.getElementById('zones-gw-select');
+        const selectedGW = parseInt(gwSelect?.value) || this.state.currentGW;
+        const fixtures = this.state.fixtures;
+        const bootstrap = this.state.bootstrapData;
+        if (!fixtures || !bootstrap) return;
+
+        const teams = bootstrap.teams || [];
+        const gwFixtures = fixtures.filter(f => f.event === selectedGW);
+
+        // Build list of fixture pairs for this GW
+        const fixturePairs = gwFixtures.map(f => {
+            const homeTeam = teams.find(t => t.id === f.team_h);
+            const awayTeam = teams.find(t => t.id === f.team_a);
+            return {
+                homeId: f.team_h,
+                awayId: f.team_a,
+                homeName: homeTeam?.short_name || '?',
+                awayName: awayTeam?.short_name || '?',
+                homeFullName: homeTeam?.name || '?',
+                awayFullName: awayTeam?.name || '?'
+            };
+        });
+
+        // Show fixture cards below selectors
+        const homeSelect = document.getElementById('zones-home-team');
+        const awaySelect = document.getElementById('zones-away-team');
+
+        // Auto-select first fixture if none selected
+        if (fixturePairs.length > 0 && homeSelect && awaySelect) {
+            // Clear and repopulate with GW fixtures
+            homeSelect.innerHTML = '<option value="">Select Home</option>';
+            awaySelect.innerHTML = '<option value="">Select Away</option>';
+
+            fixturePairs.forEach(fp => {
+                homeSelect.add(new Option(`${fp.homeName} (${fp.homeFullName})`, fp.homeId));
+                awaySelect.add(new Option(`${fp.awayName} (${fp.awayFullName})`, fp.awayId));
+            });
+
+            // Auto-select first fixture
+            const firstFx = fixturePairs[0];
+            homeSelect.value = firstFx.homeId;
+            awaySelect.value = firstFx.awayId;
+        }
+
+        // Reset analysis view
         document.getElementById('match-analysis-content').style.display = 'none';
         document.getElementById('match-empty-state').style.display = 'block';
     },

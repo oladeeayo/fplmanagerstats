@@ -470,7 +470,7 @@
                         <h2 style="font-size:18px;font-weight:700;color:#ffffff;margin:0 0 16px 0;font-family:var(--font-display);">Squad Performance</h2>
                         <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;overflow:clip;">
                             <div class="table-scroll-mobile">
-                                <table style="width:100%;border-collapse:collapse;text-align:left;">
+                                <table style="border-collapse:collapse;text-align:left;">
                                     <thead>
                                         <tr style="background:#1c211e;border-bottom:1px solid #1A2E28;font-family:var(--font-mono);font-size:11px;color:#8ba396;text-transform:uppercase;">
                                             <th style="padding:12px 20px;">PLAYER</th>
@@ -574,15 +574,15 @@
                     <!-- Data Table (Standings) -->
                     <div style="background:#022B1E;border:1px solid #333333;border-radius:12px;overflow:clip;display:flex;flex-direction:column;">
                         <div class="league-table-wrap">
-                            <table style="width:100%;border-collapse:collapse;font-size:14px;white-space:nowrap;min-width:700px;">
+                            <table style="border-collapse:collapse;font-size:14px;white-space:nowrap;min-width:700px;">
                                 <thead>
                                     <tr style="border-bottom:1px solid #333333;background:rgba(255,255,255,0.03);color:#E0E0E0;font-size:12px;font-family:var(--font-mono);">
-                                        <th style="padding:16px;text-align:left;width:60px;position:sticky;left:0;z-index:10;background:#022B1E;">RANK</th>
-                                        <th style="padding:16px;text-align:left;">MANAGER / TEAM</th>
-                                        <th style="padding:16px;text-align:center;">GW PTS</th>
-                                        <th style="padding:16px;text-align:center;">TOTAL PTS</th>
-                                        <th style="padding:16px;text-align:center;">RANK DIFF</th>
-                                        <th style="padding:16px;text-align:center;">DIFF COUNT</th>
+                                        <th style="text-align:left;width:40px;position:sticky;left:0;z-index:10;background:#022B1E;">RANK</th>
+                                        <th style="text-align:left;position:sticky;left:40px;z-index:10;background:#022B1E;">MANAGER / TEAM</th>
+                                        <th style="text-align:center;">GW PTS</th>
+                                        <th style="text-align:center;">TOTAL PTS</th>
+                                        <th style="text-align:center;">RANK DIFF</th>
+                                        <th style="text-align:center;">DIFF COUNT</th>
                                     </tr>
                                 </thead>
                                 <tbody id="league-standings-body">
@@ -606,7 +606,11 @@
                     <!-- Page Header & Filters -->
                     <div class="player-filter-bar" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;margin-bottom:24px;">
                         <h1 style="font-size:32px;font-weight:700;margin:0;">Global Player Stats</h1>
-                        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#8ba396;cursor:pointer;font-family:var(--font-mono);background:#1E1E1E;border:1px solid #1A2E28;border-radius:8px;padding:6px 12px;user-select:none;">
+                                <input type="checkbox" id="per90-toggle" onchange="FPL.renderPlayers()" style="accent-color:#00FF85;width:14px;height:14px;">
+                                <span style="color:#B0B0B0;">Per 90</span>
+                            </label>
                             <div style="display:flex;align-items:center;gap:8px;background:#1E1E1E;border:1px solid #1A2E28;border-radius:8px;padding:6px 12px;">
                                 <span class="material-symbols-outlined" style="font-size:20px;color:#B0B0B0;">sort</span>
                                 <select id="player-sort" onchange="FPL.renderPlayers()" style="background:transparent;color:#E0E0E0;border:none;outline:none;font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer;">
@@ -632,28 +636,20 @@
                     <!-- Data Table Container -->
                     <div style="background:#1E1E1E;border:1px solid #1A2E28;border-radius:12px;overflow:clip;">
                         <div class="players-table-wrap">
-                            <table style="width:100%;border-collapse:collapse;white-space:nowrap;">
+                            <table style="border-collapse:collapse;white-space:nowrap;">
                                 <thead style="background:#333333;border-bottom:1px solid #1A2E28;font-family:var(--font-mono);font-size:11px;text-transform:uppercase;">
                                     <tr>
-                                        <th style="padding:10px 16px;position:sticky;left:0;z-index:10;background:#333333;min-width:220px;">Player</th>
+                                        <th style="position:sticky;left:0;z-index:10;background:#333333;min-width:110px;">Player</th>
                                         <th style="padding:10px 12px;text-align:center;cursor:pointer;" onclick="FPL.sortByPlayerMetric('pts')">Pts <span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;">arrow_downward</span></th>
                                         <th style="padding:10px 12px;text-align:center;cursor:pointer;" onclick="FPL.sortByPlayerMetric('mins')">Mins</th>
-                                        <th style="padding:10px 12px;text-align:center;cursor:pointer;" onclick="FPL.sortByPlayerMetric('goals')">Goals</th>
-                                        <th style="padding:10px 12px;text-align:center;cursor:pointer;" onclick="FPL.sortByPlayerMetric('xg')">xG</th>
+                                        <th id="th-goals" style="padding:10px 12px;text-align:center;cursor:pointer;" onclick="FPL.sortByPlayerMetric('goals')">Goals</th>
+                                        <th id="th-xg" style="padding:10px 12px;text-align:center;cursor:pointer;" onclick="FPL.sortByPlayerMetric('xg')">xG</th>
                                         <th style="padding:10px 12px;text-align:center;">G-xG</th>
-                                        <th style="padding:10px 12px;text-align:center;">xA</th>
-                                        <th style="padding:10px 12px;text-align:center;">xGI</th>
+                                        <th id="th-xa" style="padding:10px 12px;text-align:center;">xA</th>
+                                        <th id="th-xgi" style="padding:10px 12px;text-align:center;">xGI</th>
                                         <th style="padding:10px 12px;text-align:center;">xGI/90</th>
                                         <th style="padding:10px 12px;text-align:center;cursor:pointer;" onclick="FPL.sortByPlayerMetric('form')">Form</th>
                                         <th style="padding:10px 12px;text-align:center;cursor:pointer;" onclick="FPL.sortByPlayerMetric('ict')">ICT</th>
-                                    </tr>
-                                    <tr>
-                                        <th colspan="11" style="padding:6px 16px;text-align:right;border-bottom:none;">
-                                            <label style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#8ba396;cursor:pointer;font-weight:400;text-transform:none;">
-                                                <input type="checkbox" id="per90-toggle" onchange="FPL.renderPlayers()" style="accent-color:#00FF85;width:14px;height:14px;">
-                                                Per 90
-                                            </label>
-                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody id="players-table-body" class="divide-y divide-pitch-line">
@@ -735,12 +731,19 @@
                         <div style="flex:1;display:flex;flex-direction:column;gap:24px;">
                             <!-- Filters & Controls Bar -->
                             <div style="background:#a7cfbc;border:1px solid #1A2E28;border-radius:12px;padding:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;color:#103729;">
-                                <div style="display:flex;align-items:center;gap:12px;">
-                                    <span style="font-family:var(--font-mono);font-size:12px;color:#103729;font-weight:700;">LOOKAHEAD:</span>
-                                    <div style="display:flex;background:#1c211e;border:1px solid #1A2E28;border-radius:8px;overflow:hidden;">
-                                        <button id="lookahead-3" onclick="FPL.setFixtureLookahead(3)" style="padding:8px 24px;font-family:var(--font-mono);font-size:14px;border:none;background:transparent;color:#b9cbb9;cursor:pointer;">3 GW</button>
-                                        <button id="lookahead-5" onclick="FPL.setFixtureLookahead(5)" style="padding:8px 24px;font-family:var(--font-mono);font-size:14px;border:none;background:#f0fef8;color:#273330;cursor:pointer;border-left:1px solid #1A2E28;border-right:1px solid #1A2E28;font-weight:700;">5 GW</button>
-                                        <button id="lookahead-10" onclick="FPL.setFixtureLookahead(10)" style="padding:8px 24px;font-family:var(--font-mono);font-size:14px;border:none;background:transparent;color:#b9cbb9;cursor:pointer;">10 GW</button>
+                                <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <span style="font-family:var(--font-mono);font-size:12px;color:#103729;font-weight:700;">START GW:</span>
+                                        <select id="fixture-gw-select" onchange="FPL.setFixtureStartGW(this.value)" style="background:#1c211e;border:1px solid #1A2E28;border-radius:8px;padding:8px 12px;font-family:var(--font-mono);font-size:13px;font-weight:700;color:#ffffff;cursor:pointer;outline:none;">
+                                        </select>
+                                    </div>
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <span style="font-family:var(--font-mono);font-size:12px;color:#103729;font-weight:700;">LOOKAHEAD:</span>
+                                        <div style="display:flex;background:#1c211e;border:1px solid #1A2E28;border-radius:8px;overflow:hidden;">
+                                            <button id="lookahead-3" onclick="FPL.setFixtureLookahead(3)" style="padding:8px 24px;font-family:var(--font-mono);font-size:14px;border:none;background:transparent;color:#b9cbb9;cursor:pointer;">3 GW</button>
+                                            <button id="lookahead-5" onclick="FPL.setFixtureLookahead(5)" style="padding:8px 24px;font-family:var(--font-mono);font-size:14px;border:none;background:#f0fef8;color:#273330;cursor:pointer;border-left:1px solid #1A2E28;border-right:1px solid #1A2E28;font-weight:700;">5 GW</button>
+                                            <button id="lookahead-10" onclick="FPL.setFixtureLookahead(10)" style="padding:8px 24px;font-family:var(--font-mono);font-size:14px;border:none;background:transparent;color:#b9cbb9;cursor:pointer;">10 GW</button>
+                                        </div>
                                     </div>
                                 </div>
                                 <!-- FDR Scale Color Blocks -->
@@ -756,10 +759,10 @@
                             <!-- Fixture Grid Container -->
                             <div style="background:#1c211e;border:1px solid #1A2E28;border-radius:12px;overflow:clip;">
                         <div class="table-scroll-mobile">
-                                    <table style="width:100%;border-collapse:collapse;white-space:nowrap;">
+                                    <table style="border-collapse:collapse;white-space:nowrap;">
                                         <thead>
                                             <tr id="fixture-grid-header-row" style="background:#a7cfbc;border-bottom:1px solid #1A2E28;">
-                                                <th style="padding:12px 16px;position:sticky;left:0;z-index:10;background:#a7cfbc;width:100px;font-family:var(--font-mono);font-size:12px;color:#0a0f0d;font-weight:700;">TEAM</th>
+                                                <th style="position:sticky;left:0;z-index:10;background:#a7cfbc;width:60px;max-width:60px;font-family:var(--font-mono);font-size:12px;color:#0a0f0d;font-weight:700;">TEAM</th>
                                                 <!-- Dynamic GW Header Columns -->
                                             </tr>
                                         </thead>
@@ -901,11 +904,11 @@
 
                         <!-- Table -->
                         <div class="table-scroll-mobile">
-                            <table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
+                            <table style="border-collapse:collapse;font-size:13px;white-space:nowrap;">
                                 <thead>
                                     <tr style="border-bottom:1px solid #333333;background:rgba(255,255,255,0.03);color:#B0B0B0;font-size:12px;font-family:var(--font-mono);">
-                                        <th style="padding:8px 16px;text-align:center;width:40px;">RK</th>
-                                        <th style="padding:8px 16px;text-align:left;">PLAYER</th>
+                                        <th style="text-align:center;width:40px;position:sticky;left:0;z-index:10;background:#1E1E1E;">RK</th>
+                                        <th style="text-align:left;">PLAYER</th>
                                         <th style="padding:8px 16px;text-align:center;">OPP</th>
                                         <th style="padding:8px 16px;text-align:center;">FDR</th>
                                         <th style="padding:8px 16px;text-align:center;">FORM</th>
@@ -1026,11 +1029,11 @@
 
                         <!-- Table -->
                         <div class="table-scroll-mobile">
-                            <table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
+                            <table style="border-collapse:collapse;font-size:13px;white-space:nowrap;">
                                 <thead>
                                     <tr style="border-bottom:2px solid #333333;background:#2A2A2A;color:#B0B0B0;font-size:12px;">
-                                        <th style="padding:8px 16px;text-align:center;width:40px;">#</th>
-                                        <th style="padding:8px 16px;text-align:left;">Player / Team</th>
+                                        <th style="text-align:center;width:40px;position:sticky;left:0;z-index:10;background:#2A2A2A;">#</th>
+                                        <th style="text-align:left;">Player / Team</th>
                                         <th style="padding:8px 16px;text-align:center;">Price</th>
                                         <th style="padding:8px 16px;text-align:center;">Current Own %</th>
                                         <th style="padding:8px 16px;text-align:center;">24h Δ</th>
