@@ -909,9 +909,22 @@ const FPL = {
     },
 
     // ==================== RENDER: PLAYERS ====================
+    playerSortKey: 'pts',
+    playerSortDir: 'desc',
+
+    togglePlayerSort(metric) {
+        if (this.playerSortKey === metric) {
+            this.playerSortDir = this.playerSortDir === 'desc' ? 'asc' : 'desc';
+        } else {
+            this.playerSortKey = metric;
+            this.playerSortDir = 'desc';
+        }
+        this.renderPlayers();
+    },
+
     sortByPlayerMetric(metric) {
-        const select = document.getElementById('player-sort');
-        if (select) select.value = metric;
+        this.playerSortKey = metric;
+        this.playerSortDir = 'desc';
         this.renderPlayers();
     },
 
@@ -942,29 +955,68 @@ const FPL = {
         const per90 = document.getElementById('per90-toggle')?.checked || false;
 
         // Sorting
-        const sortVal = document.getElementById('player-sort')?.value || 'pts';
+        const sortKey = this.playerSortKey || 'pts';
+        const sortDir = this.playerSortDir === 'asc' ? 1 : -1;
+
+        const sortIconIds = ['pts','mins','goals','xg','gxg','xa','xgi','xgi90','form','defcon'];
+        sortIconIds.forEach(id => {
+            const icon = document.getElementById('sort-icon-' + id);
+            if (icon) {
+                if (id === sortKey) {
+                    icon.style.display = 'inline';
+                    icon.textContent = sortDir === -1 ? 'arrow_downward' : 'arrow_upward';
+                } else {
+                    icon.style.display = 'none';
+                }
+            }
+        });
+
         filtered.sort((a, b) => {
-            switch (sortVal) {
+            let aVal, bVal;
+            switch (sortKey) {
                 case 'xg':
-                    return parseFloat(b.threat || 0) - parseFloat(a.threat || 0);
+                    aVal = parseFloat(a.expected_goals || 0);
+                    bVal = parseFloat(b.expected_goals || 0);
+                    break;
                 case 'xa':
-                    return parseFloat(b.creativity || 0) - parseFloat(a.creativity || 0);
+                    aVal = parseFloat(a.expected_assists || 0);
+                    bVal = parseFloat(b.expected_assists || 0);
+                    break;
+                case 'xgi':
+                    aVal = parseFloat(a.expected_goal_involvements || 0);
+                    bVal = parseFloat(b.expected_goal_involvements || 0);
+                    break;
+                case 'xgi90':
+                    aVal = parseFloat(a.expected_goal_involvements_per_90 || 0);
+                    bVal = parseFloat(b.expected_goal_involvements_per_90 || 0);
+                    break;
+                case 'gxg':
+                    aVal = (a.goals_scored || 0) - parseFloat(a.expected_goals || 0);
+                    bVal = (b.goals_scored || 0) - parseFloat(b.expected_goals || 0);
+                    break;
                 case 'form':
-                    return parseFloat(b.form || 0) - parseFloat(a.form || 0);
+                    aVal = parseFloat(a.form || 0);
+                    bVal = parseFloat(b.form || 0);
+                    break;
                 case 'defcon':
-                    return (5 - parseFloat(b.form || 0)*0.4) - (5 - parseFloat(a.form || 0)*0.4);
-                case 'own':
-                    return parseFloat(b.selected_by_percent || 0) - parseFloat(a.selected_by_percent || 0);
-                case 'ict':
-                    return parseFloat(b.ict_index || 0) - parseFloat(a.ict_index || 0);
+                    aVal = parseFloat(a.defensive_contribution || 0);
+                    bVal = parseFloat(b.defensive_contribution || 0);
+                    break;
                 case 'mins':
-                    return (b.minutes || 0) - (a.minutes || 0);
+                    aVal = a.minutes || 0;
+                    bVal = b.minutes || 0;
+                    break;
                 case 'goals':
-                    return (b.goals_scored || 0) - (a.goals_scored || 0);
+                    aVal = a.goals_scored || 0;
+                    bVal = b.goals_scored || 0;
+                    break;
                 case 'pts':
                 default:
-                    return (b.total_points || 0) - (a.total_points || 0);
+                    aVal = a.total_points || 0;
+                    bVal = b.total_points || 0;
+                    break;
             }
+            return (bVal - aVal) * sortDir;
         });
 
         const posNames = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
@@ -1036,7 +1088,7 @@ const FPL = {
                             ${[formVal >= 5 ? 1 : 2, formVal >= 4 ? 2 : 3, formVal >= 3 ? 1 : 2, formVal >= 2 ? 3 : 4, formVal >= 1 ? 1 : 5].map(h => `<div style="width:4px;height:${h * 3}px;border-radius:2px;background:var(--fdr-${h});"></div>`).join('')}
                         </div>
                     </td>
-                    <td style="text-align:center;font-family:var(--font-mono);font-size:11px;color:#B0B0B0;">${parseFloat(p.ict_index || 0).toFixed(1)}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:11px;color:#B0B0B0;">${parseFloat(p.defensive_contribution || 0).toFixed(1)}</td>
                 </tr>
             `;
         }).join('');
