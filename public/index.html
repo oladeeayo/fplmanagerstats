@@ -1025,14 +1025,14 @@
                                 <thead>
                                     <tr style="border-bottom:2px solid #333333;background:#2A2A2A;color:#B0B0B0;font-size:12px;">
                                         <th style="text-align:center;width:40px;background:#2A2A2A;">#</th>
-                                        <th style="text-align:left;">Player / Team</th>
-                                        <th style="padding:8px 16px;text-align:center;">Price</th>
-                                        <th style="padding:8px 16px;text-align:center;">Current Own %</th>
-                                        <th style="padding:8px 16px;text-align:center;">24h Δ</th>
-                                        <th style="padding:8px 16px;text-align:center;">3d Δ</th>
-                                        <th style="padding:8px 16px;text-align:center;">7d Δ</th>
+                                        <th style="text-align:left;cursor:pointer;" onclick="FPL.toggleOwnershipSort('name')">Player / Team <span id="own-sort-icon-name" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th style="padding:8px 16px;text-align:center;cursor:pointer;" onclick="FPL.toggleOwnershipSort('cost')">Price <span id="own-sort-icon-cost" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th style="padding:8px 16px;text-align:center;cursor:pointer;" onclick="FPL.toggleOwnershipSort('ownership')">Current Own % <span id="own-sort-icon-ownership" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th style="padding:8px 16px;text-align:center;cursor:pointer;" onclick="FPL.toggleOwnershipSort('delta24h')">24h Δ <span id="own-sort-icon-delta24h" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th style="padding:8px 16px;text-align:center;cursor:pointer;" onclick="FPL.toggleOwnershipSort('delta3d')">3d Δ <span id="own-sort-icon-delta3d" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th style="padding:8px 16px;text-align:center;cursor:pointer;" onclick="FPL.toggleOwnershipSort('delta7d')">7d Δ <span id="own-sort-icon-delta7d" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
                                         <th style="padding:8px 16px;text-align:center;width:130px;">14-Day Trend</th>
-                                        <th style="padding:8px 16px;text-align:center;width:60px;">Points</th>
+                                        <th style="padding:8px 16px;text-align:center;width:60px;cursor:pointer;" onclick="FPL.toggleOwnershipSort('points')">Points <span id="own-sort-icon-points" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
                                     </tr>
                                 </thead>
                                 <tbody id="ownership-trends-table-body">
@@ -1041,7 +1041,6 @@
                             </table>
                         </div>
                 </div>
-            </main>
             </main>
         </div>
     </div>

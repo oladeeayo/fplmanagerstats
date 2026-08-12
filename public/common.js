@@ -1686,6 +1686,23 @@ const FPL = {
         }
     },
 
+    ownSortKey: 'ownership',
+    ownSortDir: 'desc',
+
+    toggleOwnershipSort(key) {
+        if (this.ownSortKey === key) {
+            this.ownSortDir = this.ownSortDir === 'desc' ? 'asc' : 'desc';
+        } else {
+            this.ownSortKey = key;
+            this.ownSortDir = 'desc';
+        }
+        const select = document.getElementById('own-sort');
+        if (select && select.querySelector(`option[value="${key}"]`)) {
+            select.value = key;
+        }
+        this.renderOwnershipTable();
+    },
+
     renderOwnershipTable() {
         const data = this.state.ownershipTrends;
         if (!data || !data.players) return;
@@ -1708,8 +1725,29 @@ const FPL = {
         }
 
         // Apply sort selection
-        const sortKey = document.getElementById('own-sort')?.value || 'ownership';
-        players.sort((a, b) => (b[sortKey] ?? 0) - (a[sortKey] ?? 0));
+        const sortKey = this.ownSortKey || document.getElementById('own-sort')?.value || 'ownership';
+        const sortDir = this.ownSortDir === 'asc' ? 1 : -1;
+
+        const ownSortIds = ['name','cost','ownership','delta24h','delta3d','delta7d','points'];
+        ownSortIds.forEach(id => {
+            const icon = document.getElementById('own-sort-icon-' + id);
+            if (icon) {
+                if (id === sortKey) {
+                    icon.style.display = 'inline';
+                    icon.textContent = sortDir === -1 ? 'arrow_downward' : 'arrow_upward';
+                } else {
+                    icon.style.display = 'none';
+                }
+            }
+        });
+
+        if (sortKey === 'name') {
+            players.sort((a, b) => a.name.localeCompare(b.name) * sortDir);
+        } else if (sortKey === 'cost') {
+            players.sort((a, b) => ((b.cost || 0) - (a.cost || 0)) * sortDir);
+        } else {
+            players.sort((a, b) => ((b[sortKey] ?? 0) - (a[sortKey] ?? 0)) * sortDir);
+        }
 
         const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
 
