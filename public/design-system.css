@@ -782,17 +782,9 @@ select.input {
     .bottom-nav { display: flex !important; }
     .layout-content { padding-bottom: 80px; }
     .topbar-title { display: none; }
-    /* Force responsive grids on two-column layouts */
-    .team-analysis-grid { grid-template-columns: 1fr !important; }
-    .zones-layout-grid { grid-template-columns: 1fr !important; }
-    .fixtures-layout-grid { grid-template-columns: 1fr !important; }
 }
 
 @media (max-width: 768px) {
-    .grid-2 { grid-template-columns: 1fr; }
-    .grid-3 { grid-template-columns: 1fr; }
-    .grid-4 { grid-template-columns: repeat(2, 1fr); }
-    .grid-5 { grid-template-columns: repeat(2, 1fr); }
     .topbar { padding: 0 var(--space-sm); height: 56px; }
     .topbar-left { gap: var(--space-xs); }
     .page-header { flex-direction: column; align-items: flex-start; gap: var(--space-sm); }
@@ -810,16 +802,10 @@ select.input {
     .bottom-nav-item { min-width: 0; flex: 1; }
     .bottom-nav-item span:last-child { font-size: 0.5625rem; }
     .layout-content { padding: var(--space-sm); padding-bottom: 80px; }
-    /* Compact two-column layouts */
-    .team-analysis-grid { grid-template-columns: 1fr !important; gap: var(--space-md) !important; }
-    .zones-layout-grid { grid-template-columns: 1fr !important; gap: var(--space-md) !important; }
-    .fixtures-layout-grid { grid-template-columns: 1fr !important; gap: var(--space-md) !important; }
     .pitch { min-height: 300px; }
 }
 
 @media (max-width: 480px) {
-    .grid-4 { grid-template-columns: 1fr; }
-    .grid-5 { grid-template-columns: 1fr; }
     .stat-value { font-size: 1.125rem; }
     .page-title { font-size: 1.25rem; }
     .bottom-nav { height: 56px; }
@@ -901,4 +887,138 @@ a:hover { text-decoration: underline; }
 .rank-2 { color: #C0C0C0; }
 .rank-3 { color: #CD7F32; }
 
+/* Sticky column for tables on mobile */
+.table-freeze-col {
+    position: sticky;
+    left: 0;
+    z-index: 10;
+    background: inherit;
+}
 
+/* Number column center alignment */
+td.num-col, th.num-col {
+    text-align: center;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Select/dropdown visibility on dark background */
+select.input,
+select {
+    appearance: none;
+    background-color: var(--md-sys-color-surface-container-high);
+    color: var(--md-sys-color-on-surface);
+    border: 1px solid var(--md-sys-color-outline);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%23B0B0B0'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 32px;
+}
+select.input:focus,
+select:focus {
+    border-color: var(--md-sys-color-primary);
+    outline: none;
+}
+select.input option,
+select option {
+    background-color: var(--md-sys-color-surface-container-high);
+    color: var(--md-sys-color-on-surface);
+}
+
+/* Mobile responsive grids for inline-styled sections */
+@media (max-width: 1024px) {
+    .dash-main-grid { grid-template-columns: 1fr !important; }
+    .dash-main-grid > div { grid-column: span 1 !important; }
+    .fixtures-flex-layout { flex-direction: column !important; }
+    .fixtures-flex-layout > aside { width: 100% !important; }
+    .captain-bento-grid { grid-template-columns: 1fr !important; }
+    .captain-bento-grid > div { grid-column: span 1 !important; }
+    .ownership-bento-grid { grid-template-columns: 1fr !important; }
+}
+
+@media (max-width: 768px) {
+    .team-bento-4 { grid-template-columns: repeat(2, 1fr) !important; }
+    .team-bento-2 { grid-template-columns: 1fr !important; }
+    .dash-stat-banner { flex-direction: column !important; align-items: flex-start !important; gap: 16px !important; }
+    .dash-stat-banner > div:last-child { flex-wrap: wrap !important; }
+    .league-bento-3 { grid-template-columns: 1fr !important; }
+    .player-filter-bar { flex-direction: column !important; align-items: stretch !important; }
+    .player-filter-bar > div { justify-content: center !important; }
+    .table-freeze-col { position: sticky; left: 0; z-index: 10; }
+}
+
+@media (max-width: 480px) {
+    .team-bento-4 { grid-template-columns: 1fr !important; }
+}
+
+
+
+
+/* ==================== PIXEL GRID LOADER ==================== */
+@keyframes pixel-on {
+    0%, 100% { opacity: 0.15; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.15); background-color: #00FF85; box-shadow: 0 0 10px rgba(0, 255, 133, 0.8); }
+}
+
+@keyframes shimmer-text {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.pixel-loader-container {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 18px;
+    background: rgba(20, 29, 24, 0.85);
+    border: 1px solid rgba(0, 255, 133, 0.25);
+    border-radius: 999px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.pixel-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 5px);
+    gap: 3px;
+}
+
+.pixel-dot {
+    width: 5px;
+    height: 5px;
+    background-color: #00FF85;
+    border-radius: 1px;
+    opacity: 0.15;
+    animation: pixel-on 650ms ease-in-out infinite;
+}
+
+/* Chevron wavefront delay timing for 3x3 grid */
+.pixel-dot:nth-child(1) { animation-delay: 90ms; }
+.pixel-dot:nth-child(2) { animation-delay: 180ms; }
+.pixel-dot:nth-child(3) { animation-delay: 270ms; }
+.pixel-dot:nth-child(4) { animation-delay: 0ms; }
+.pixel-dot:nth-child(5) { animation-delay: 90ms; }
+.pixel-dot:nth-child(6) { animation-delay: 180ms; }
+.pixel-dot:nth-child(7) { animation-delay: 90ms; }
+.pixel-dot:nth-child(8) { animation-delay: 180ms; }
+.pixel-dot:nth-child(9) { animation-delay: 270ms; }
+
+.pixel-loader-label {
+    background: linear-gradient(90deg, #6c8577 35%, #00FF85 50%, #6c8577 65%);
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shimmer-text 1.4s linear infinite;
+    font-weight: 600;
+    font-size: 13.5px;
+    font-family: var(--font-body);
+    white-space: nowrap;
+}
+
+.pixel-loader-timer {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: #8ba396;
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+}

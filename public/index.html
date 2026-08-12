@@ -44,59 +44,69 @@
     </style>
 </head>
 <body>
-    <div id="loading-overlay"><div class="spinner"></div><span style="font-family:var(--font-display);color:var(--md-sys-color-primary);">FPL ANALYTICS</span></div>
+    <div id="loading-overlay">
+        <div class="pixel-loader-container" style="padding:14px 24px;">
+            <span class="pixel-grid" style="grid-template-columns:repeat(3, 7px);gap:4px;" aria-hidden="true">
+                <span class="pixel-dot" style="width:7px;height:7px;"></span>
+                <span class="pixel-dot" style="width:7px;height:7px;"></span>
+                <span class="pixel-dot" style="width:7px;height:7px;"></span>
+                <span class="pixel-dot" style="width:7px;height:7px;"></span>
+                <span class="pixel-dot" style="width:7px;height:7px;"></span>
+                <span class="pixel-dot" style="width:7px;height:7px;"></span>
+                <span class="pixel-dot" style="width:7px;height:7px;"></span>
+                <span class="pixel-dot" style="width:7px;height:7px;"></span>
+                <span class="pixel-dot" style="width:7px;height:7px;"></span>
+            </span>
+            <span class="pixel-loader-label" style="font-size:15px;">Loading FPL data...</span>
+            <span id="main-overlay-timer" class="pixel-loader-timer" style="font-size:13px;">0.0s</span>
+        </div>
+    </div>
     <div id="error-toast" class="hidden"></div>
     <div id="sidebar-overlay" class="sidebar-overlay"></div>
 
     <div class="layout">
         <!-- Sidebar -->
-        <aside id="sidebar" class="layout-sidebar" style="background:#0c120f;border-right:1px solid #14221a;display:flex;flex-direction:column;">
-            <!-- Logo / Branding -->
-            <div style="padding:20px 16px 16px;border-bottom:1px solid #16251e;">
-                <div style="display:flex;align-items:center;gap:12px;">
-                    <div style="width:40px;height:40px;border-radius:8px;background:#1a2e28;border:1px solid #2a4a3a;display:flex;align-items:center;justify-content:center;">
-                        <span class="material-symbols-outlined filled" style="font-size:22px;color:#00ff85;">sports_soccer</span>
-                    </div>
-                    <div>
-                        <div style="font-size:1.125rem;font-weight:800;line-height:1.2;font-family:var(--font-display);"><span style="color:#00ff85;">FPL</span> <span style="color:#ffffff;">ANALYTICS</span></div>
-                        <div style="font-size:9px;color:#6c8577;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;font-family:var(--font-mono);">ELITE PERFORMANCE DATA</div>
-                    </div>
+        <aside id="sidebar" class="layout-sidebar">
+            <div style="padding:var(--space-lg);border-bottom:1px solid var(--md-sys-color-outline-variant);">
+                <div class="topbar-title">
+                    <span class="material-symbols-outlined filled" style="font-size:32px;">sports_soccer</span>
+                    <div><div style="font-size:1.125rem;font-weight:700;">FPL Stats</div><div style="font-size:0.625rem;color:var(--md-sys-color-on-surface-variant);font-weight:400;">Manager Dashboard</div></div>
                 </div>
             </div>
-
-            <!-- Nav Menu -->
-            <nav style="display:flex;flex-direction:column;gap:2px;padding:12px 8px;flex:1;">
-                <a class="sidebar-nav-item" data-tab="general" onclick="FPL.navigateTo('general')" style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#8ba396;font-family:var(--font-mono);"><span class="material-symbols-outlined" style="font-size:20px;">dashboard</span> DASHBOARD</a>
-                <a class="sidebar-nav-item" data-tab="manager" onclick="FPL.navigateTo('manager')" style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#8ba396;font-family:var(--font-mono);"><span class="material-symbols-outlined" style="font-size:20px;">groups</span> TEAM ANALYSIS</a>
-                <a class="sidebar-nav-item" data-tab="league" onclick="FPL.navigateTo('league')" style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#8ba396;font-family:var(--font-mono);"><span class="material-symbols-outlined" style="font-size:20px;">leaderboard</span> STANDINGS</a>
-                <a class="sidebar-nav-item" data-tab="players" onclick="FPL.navigateTo('players')" style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#8ba396;font-family:var(--font-mono);"><span class="material-symbols-outlined" style="font-size:20px;">person_search</span> PLAYER STATS</a>
-                <a class="sidebar-nav-item" data-tab="zones" onclick="FPL.navigateTo('zones')" style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#8ba396;font-family:var(--font-mono);"><span class="material-symbols-outlined" style="font-size:20px;">sports</span> TACTICS</a>
-                <a class="sidebar-nav-item" data-tab="fixtures" onclick="FPL.navigateTo('fixtures')" style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#8ba396;font-family:var(--font-mono);"><span class="material-symbols-outlined" style="font-size:20px;">calendar_month</span> FIXTURES</a>
-                <a class="sidebar-nav-item" data-tab="captain" onclick="FPL.navigateTo('captain')" style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#8ba396;font-family:var(--font-mono);"><span class="material-symbols-outlined" style="font-size:20px;">star</span> CAPTAINCY</a>
-                <a class="sidebar-nav-item" data-tab="ownership" onclick="FPL.navigateTo('ownership')" style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#8ba396;font-family:var(--font-mono);"><span class="material-symbols-outlined" style="font-size:20px;">pie_chart</span> OWNERSHIP</a>
-            </nav>
-
-            <!-- Bottom Section: Connect + History + Settings -->
-            <div style="padding:12px 8px 16px;border-top:1px solid #16251e;">
-                <button onclick="FPL.showDialog('connect-dialog')" style="width:100%;padding:12px 16px;background:#00ff85;color:#000000;border:none;border-radius:8px;font-family:var(--font-body);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,255,133,0.2);transition:all 0.15s ease;" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,255,133,0.35)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0,255,133,0.2)'">
-                    <span class="material-symbols-outlined" style="font-size:18px;">link</span> Connect FPL ID
-                </button>
-                <div style="display:flex;flex-direction:column;gap:2px;">
-                    <a class="sidebar-nav-item" onclick="FPL.initHistory()" style="display:flex;align-items:center;gap:12px;padding:8px 14px;border-radius:8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#6c8577;font-family:var(--font-mono);"><span class="material-symbols-outlined" style="font-size:18px;">history</span> HISTORY</a>
-                    <a class="sidebar-nav-item" onclick="FPL.initSettings()" style="display:flex;align-items:center;gap:12px;padding:8px 14px;border-radius:8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#6c8577;font-family:var(--font-mono);"><span class="material-symbols-outlined" style="font-size:18px;">settings</span> SETTINGS</a>
+            <nav style="padding:var(--space-md);flex:1;">
+                <div style="margin-bottom:var(--space-md);">
+                    <div style="font-size:0.625rem;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.1em;padding:var(--space-sm) var(--space-md);font-weight:600;">Menu</div>
+                    <a class="sidebar-nav-item active" data-tab="general" onclick="FPL.navigateTo('general')"><span class="material-symbols-outlined">dashboard</span> Dashboard</a>
+                    <a class="sidebar-nav-item" data-tab="manager" onclick="FPL.navigateTo('manager')"><span class="material-symbols-outlined">groups</span> Team Analysis</a>
+                    <a class="sidebar-nav-item" data-tab="league" onclick="FPL.navigateTo('league')"><span class="material-symbols-outlined">leaderboard</span> Standings</a>
+                    <a class="sidebar-nav-item" data-tab="players" onclick="FPL.navigateTo('players')"><span class="material-symbols-outlined">person_search</span> Player Stats</a>
+                    <a class="sidebar-nav-item" data-tab="zones" onclick="FPL.navigateTo('zones')"><span class="material-symbols-outlined">sports</span> Tactics</a>
+                    <a class="sidebar-nav-item" data-tab="fixtures" onclick="FPL.navigateTo('fixtures')"><span class="material-symbols-outlined">calendar_month</span> Fixtures</a>
+                    <a class="sidebar-nav-item" data-tab="captain" onclick="FPL.navigateTo('captain')"><span class="material-symbols-outlined">star</span> Captaincy</a>
+                    <a class="sidebar-nav-item" data-tab="ownership" onclick="FPL.navigateTo('ownership')"><span class="material-symbols-outlined">pie_chart</span> Ownership</a>
                 </div>
-                <div id="manager-id-display" style="font-size:10px;color:#6c8577;padding:4px 14px;display:none;font-family:var(--font-mono);"></div>
+                <div class="divider"></div>
+                <div>
+                    <div style="font-size:0.625rem;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.1em;padding:var(--space-sm) var(--space-md);font-weight:600;">More</div>
+                    <a class="sidebar-nav-item" onclick="FPL.showDialog('connect-dialog')"><span class="material-symbols-outlined">link</span> Connect FPL ID</a>
+                    <a class="sidebar-nav-item" onclick="FPL.initHistory()"><span class="material-symbols-outlined">history</span> History</a>
+                    <a class="sidebar-nav-item" onclick="FPL.initSettings()"><span class="material-symbols-outlined">settings</span> Settings</a>
+                </div>
+            </nav>
+            <div style="padding:var(--space-md);border-top:1px solid var(--md-sys-color-outline-variant);">
+                <div id="manager-id-display" style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);text-align:center;">No manager connected</div>
             </div>
         </aside>
 
         <!-- Main -->
         <div class="layout-main">
-            <header class="topbar" style="background:#090d0b;border-bottom:1px solid #14221a;padding:16px 24px;display:flex;align-items:center;justify-content:flex-end;">
-                <div class="topbar-right" style="display:flex;align-items:center;gap:16px;">
-                    <button id="mobile-menu-btn" class="mobile-menu-btn" style="display:none;"><span class="material-symbols-outlined">menu</span></button>
-                    <div style="width:32px;height:32px;border-radius:50%;background:#1c2720;border:1px solid #28392e;overflow:hidden;display:flex;align-items:center;justify-content:center;">
-                        <span class="material-symbols-outlined" style="font-size:20px;color:#c5d8cd;">person</span>
-                    </div>
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button id="mobile-menu-btn" class="mobile-menu-btn"><span class="material-symbols-outlined">menu</span></button>
+                    <span class="topbar-title"><span class="material-symbols-outlined filled" style="font-size:24px;">sports_soccer</span> FPL Stats</span>
+                </div>
+                <div class="topbar-right">
+                    <button class="btn btn-primary btn-sm" onclick="FPL.showDialog('connect-dialog')"><span class="material-symbols-outlined" style="font-size:18px;">link</span> Connect</button>
                 </div>
             </header>
 
@@ -104,54 +114,59 @@
                 <!-- DASHBOARD -->
                 <div id="content-general" class="tab-content active">
                     <!-- Gameweek Overview Banner -->
-                    <section class="bg-surface-container border border-pitch-line rounded-xl p-6 relative overflow-hidden mb-6" style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:24px;position:relative;">
-                        <div class="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:24px;">
+                    <section style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:24px;position:relative;margin-bottom:24px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:20px;">
                             <div>
-                                <h1 class="font-headline-lg text-[26px] font-bold text-on-surface mb-1" style="font-size:26px;font-weight:700;color:#ffffff;margin:0;">Gameweek <span id="dash-gw-num">24</span> Overview</h1>
-                                <p class="font-body-sm text-body-sm text-on-surface-variant" style="font-size:14px;color:#8ba396;margin-top:4px;">Live updates. Last updated: <span id="dash-last-updated">2 mins ago</span></p>
+                                <h1 style="font-size:26px;font-weight:700;color:#ffffff;margin:0;">Gameweek <span id="dash-gw-num">1</span> Overview</h1>
+                                <p style="font-size:13px;color:#8ba396;margin-top:6px;">Live updates. Last updated: <span id="dash-last-updated">just now</span></p>
                             </div>
-                            <div class="flex items-center gap-8" style="display:flex;align-items:center;gap:32px;">
-                                <div class="flex flex-col" style="display:flex;flex-direction:column;">
-                                    <span class="font-label-caps text-xs uppercase font-bold text-on-surface-variant mb-1" style="font-size:11px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);font-weight:700;">GW Average</span>
-                                    <span class="font-data-tabular text-2xl font-bold text-on-surface" style="font-size:24px;font-weight:700;color:#ffffff;" id="dash-gw-avg">42<span style="font-size:14px;color:#8ba396;margin-left:4px;font-weight:400;">pts</span></span>
+                            <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
+                                <div style="display:flex;flex-direction:column;align-items:center;">
+                                    <span style="font-size:10px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);font-weight:700;letter-spacing:0.08em;">GW Average</span>
+                                    <span style="font-size:24px;font-weight:700;color:#ffffff;margin-top:2px;" id="dash-gw-avg">42<span style="font-size:13px;color:#8ba396;margin-left:3px;font-weight:400;">pts</span></span>
                                 </div>
                                 <div style="width:1px;height:40px;background:#1A2E28;"></div>
-                                <div class="flex flex-col" style="display:flex;flex-direction:column;">
-                                    <span class="font-label-caps text-xs uppercase font-bold text-on-surface-variant mb-1" style="font-size:11px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);font-weight:700;">Highest Score</span>
-                                    <span class="font-data-tabular text-2xl font-bold text-fdr-1" style="font-size:24px;font-weight:700;color:#00ff85;" id="dash-highest-score">118<span style="font-size:14px;color:#8ba396;margin-left:4px;font-weight:400;">pts</span></span>
+                                <div style="display:flex;flex-direction:column;align-items:center;">
+                                    <span style="font-size:10px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);font-weight:700;letter-spacing:0.08em;">Highest Score</span>
+                                    <span style="font-size:24px;font-weight:700;color:#00ff85;margin-top:2px;" id="dash-highest-score">118<span style="font-size:13px;color:#8ba396;margin-left:3px;font-weight:400;">pts</span></span>
                                 </div>
                                 <div style="width:1px;height:40px;background:#1A2E28;"></div>
-                                <div class="flex items-center gap-3" style="display:flex;align-items:center;gap:12px;">
-                                    <div class="w-12 h-12 rounded-full border-2 border-primary/30 flex items-center justify-center relative" style="width:48px;height:48px;border-radius:50%;border:2px solid rgba(0,255,133,0.3);display:flex;align-items:center;justify-content:center;">
-                                        <div class="w-10 h-10 rounded-full border-2 border-primary flex items-center justify-center" style="width:40px;height:40px;border-radius:50%;border:2px solid #00ff85;display:flex;align-items:center;justify-content:center;">
-                                            <span class="font-data-tabular font-bold text-xs text-on-surface" style="font-size:11px;font-family:var(--font-mono);color:#ffffff;" id="dash-total-transfers">3.4M</span>
+                                <div style="display:flex;flex-direction:column;align-items:center;">
+                                    <span style="font-size:10px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);font-weight:700;letter-spacing:0.08em;">Total Transfers</span>
+                                    <div style="display:flex;align-items:center;gap:8px;margin-top:2px;">
+                                        <div style="width:36px;height:36px;border-radius:50%;border:2px solid rgba(0,255,133,0.3);display:flex;align-items:center;justify-content:center;">
+                                            <div style="width:28px;height:28px;border-radius:50%;border:2px solid #00ff85;display:flex;align-items:center;justify-content:center;">
+                                                <span style="font-size:10px;font-family:var(--font-mono);color:#ffffff;font-weight:700;" id="dash-total-transfers">3.4M</span>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div class="flex flex-col" style="display:flex;flex-direction:column;">
-                                        <span class="font-label-caps text-[10px] uppercase font-bold text-on-surface-variant leading-tight" style="font-size:10px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);font-weight:700;">Total</span>
-                                        <span class="font-label-caps text-[10px] uppercase font-bold text-on-surface-variant leading-tight" style="font-size:10px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);font-weight:700;">Transfers</span>
-                                    </div>
+                                </div>
+                                <div style="width:1px;height:40px;background:#1A2E28;"></div>
+                                <div style="display:flex;flex-direction:column;align-items:center;">
+                                    <span style="font-size:10px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);font-weight:700;letter-spacing:0.08em;">Next Deadline</span>
+                                    <div id="dash-countdown" style="font-size:20px;font-weight:700;color:#00ff85;font-family:var(--font-mono);margin-top:2px;">--:--:--</div>
+                                    <div id="dash-deadline-date" style="font-size:10px;color:#8ba396;margin-top:2px;"></div>
                                 </div>
                             </div>
                         </div>
                     </section>
 
-                    <!-- Main Grid Layout (Top 2 Columns & Bottom 2 Columns) -->
-                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6" style="display:grid;grid-template-columns:repeat(12, 1fr);gap:24px;">
-                        <!-- Left Column (8 cols): Most Selected Players -->
-                        <div class="lg:col-span-8 flex flex-col gap-6" style="grid-column:span 8;display:flex;flex-direction:column;gap:24px;">
-                            <section class="bg-surface-container border border-pitch-line rounded-xl overflow-hidden flex flex-col min-h-[380px]" style="background:#141916;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;">
-                                <div class="p-4 border-b border-pitch-line flex justify-between items-center bg-surface-container-high/50" style="padding:16px;border-bottom:1px solid #1A2E28;display:flex;justify-content:space-between;align-items:center;background:rgba(28,33,30,0.5);">
-                                    <h3 class="font-headline-md text-base font-semibold text-on-surface" style="font-size:16px;font-weight:600;color:#ffffff;margin:0;">Most Selected Players</h3>
+                    <!-- Main Grid Layout -->
+                    <div class="dash-main-grid" style="display:grid;grid-template-columns:repeat(12, 1fr);gap:24px;">
+                        <!-- Left Column (8 cols) -->
+                        <div style="grid-column:span 8;display:flex;flex-direction:column;gap:24px;">
+                            <section style="background:#141916;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;min-height:380px;">
+                                <div style="padding:16px;border-bottom:1px solid #1A2E28;display:flex;justify-content:space-between;align-items:center;background:rgba(28,33,30,0.5);">
+                                    <h3 style="font-size:16px;font-weight:600;color:#ffffff;margin:0;">Most Selected Players</h3>
                                     <button class="text-primary font-label-caps text-xs font-bold hover:underline" style="color:#00ff85;font-size:12px;font-weight:700;background:none;border:none;cursor:pointer;" onclick="FPL.navigateTo('players')">View All</button>
                                 </div>
-                                <div class="overflow-y-auto flex-1 p-2">
-                                    <table class="w-full text-left border-collapse" style="width:100%;border-collapse:collapse;">
+                                <div style="overflow-y:auto;flex:1;padding:8px;">
+                                    <table style="width:100%;border-collapse:collapse;">
                                         <thead>
-                                            <tr class="font-label-caps text-[11px] text-on-surface-variant border-b border-pitch-line" style="border-bottom:1px solid #1A2E28;font-size:11px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);">
-                                                <th class="py-3 pl-4" style="padding:12px 16px;">Player</th>
-                                                <th class="py-3 text-right" style="padding:12px;text-align:right;">Selected By</th>
-                                                <th class="py-3 text-right pr-4" style="padding:12px 16px;text-align:right;">PPG</th>
+                                            <tr style="border-bottom:1px solid #1A2E28;font-size:11px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);">
+                                                <th style="padding:12px 16px;text-align:left;">Player</th>
+                                                <th style="padding:12px;text-align:center;">Selected By</th>
+                                                <th style="padding:12px 16px;text-align:center;">PPG</th>
                                             </tr>
                                         </thead>
                                         <tbody id="dash-most-selected-tbody">
@@ -161,70 +176,92 @@
                                 </div>
                             </section>
 
-                            <!-- Bottom Left (8 cols): Fixture Difficulty (Next 5 GWs) -->
-                            <section class="bg-surface-container border border-pitch-line rounded-xl p-5 overflow-hidden" style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;">
-                                <div class="flex justify-between items-center mb-4" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                                    <h3 class="font-headline-md text-base font-semibold text-on-surface flex items-center gap-2" style="font-size:16px;font-weight:600;color:#ffffff;margin:0;display:flex;align-items:center;gap:8px;">
-                                        <span class="material-symbols-outlined text-primary text-[20px]" style="color:#00ff85;font-size:20px;">calendar_month</span>
+                            <!-- Bottom Left: Fixture Difficulty (Next 5 GWs) -->
+                            <section style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                                    <h3 style="font-size:16px;font-weight:600;color:#ffffff;margin:0;display:flex;align-items:center;gap:8px;">
+                                        <span class="material-symbols-outlined" style="color:#00ff85;font-size:20px;">calendar_month</span>
                                         Fixture Difficulty (Next 5 GWs)
                                     </h3>
-                                    <button class="bg-surface-container-high border border-pitch-line text-on-surface-variant font-mono text-xs px-3 py-1.5 rounded hover:text-on-surface transition-colors" style="background:#1c211e;border:1px solid #1A2E28;color:#8ba396;font-family:var(--font-mono);font-size:11px;padding:6px 12px;border-radius:4px;cursor:pointer;" onclick="FPL.navigateTo('fixtures')">Sort by FDR</button>
+                                    <button style="background:#1c211e;border:1px solid #1A2E28;color:#8ba396;font-family:var(--font-mono);font-size:11px;padding:6px 12px;border-radius:4px;cursor:pointer;" onclick="FPL.navigateTo('fixtures')">Sort by FDR</button>
                                 </div>
-                                <div class="overflow-x-auto pb-2">
-                                    <table class="w-full min-w-[500px] text-center border-collapse" style="width:100%;border-collapse:collapse;text-align:center;">
+                                <div style="overflow-x:auto;">
+                                    <table style="width:100%;border-collapse:collapse;text-align:center;min-width:500px;">
                                         <thead>
-                                            <tr id="dash-fdr-header-row" class="font-label-caps text-[11px] text-on-surface-variant border-b border-pitch-line" style="border-bottom:1px solid #1A2E28;font-size:11px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);">
-                                                <th class="py-2 text-left w-1/4" style="padding:8px 16px;text-align:left;color:#8ba396;">Team</th>
+                                            <tr id="dash-fdr-header-row" style="border-bottom:1px solid #1A2E28;font-size:11px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);">
+                                                <th style="padding:8px 16px;text-align:left;width:20%;color:#8ba396;">Team</th>
                                                 <!-- Dynamic GW columns -->
                                             </tr>
                                         </thead>
-                                        <tbody id="dash-fdr-tbody" class="font-body-sm font-data-tabular">
+                                            <tbody id="dash-fdr-tbody">
                                             <!-- Dynamic FDR rows -->
                                         </tbody>
                                     </table>
                                 </div>
-                                <div class="mt-4 flex items-center justify-end gap-3 font-label-caps text-[11px] text-on-surface-variant" style="margin-top:16px;display:flex;justify-content:flex-end;align-items:center;gap:12px;font-size:11px;color:#8ba396;font-family:var(--font-mono);">
+                                <div style="margin-top:16px;display:flex;justify-content:flex-end;align-items:center;gap:12px;font-size:11px;color:#8ba396;font-family:var(--font-mono);">
                                     <span>FDR Key:</span>
-                                    <div class="flex gap-1 items-center" style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#00FF85;"></span>1</div>
-                                    <div class="flex gap-1 items-center" style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#37DB59;"></span>2</div>
-                                    <div class="flex gap-1 items-center" style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#E1E1E1;"></span>3</div>
-                                    <div class="flex gap-1 items-center" style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#FFA600;"></span>4</div>
-                                    <div class="flex gap-1 items-center" style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#FF005A;"></span>5</div>
+                                    <div style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#00FF85;"></span>1</div>
+                                    <div style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#37DB59;"></span>2</div>
+                                    <div style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#E1E1E1;"></span>3</div>
+                                    <div style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#FFA600;"></span>4</div>
+                                    <div style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#FF005A;"></span>5</div>
                                 </div>
                             </section>
                         </div>
 
-                        <!-- Right Column (4 cols): Top Transfers In, Price Changes & Run AI Optimization -->
-                        <div class="lg:col-span-4 flex flex-col gap-6" style="grid-column:span 4;display:flex;flex-direction:column;gap:24px;">
+                        <!-- Right Column (4 cols) -->
+                        <div style="grid-column:span 4;display:flex;flex-direction:column;gap:24px;">
                             <!-- Top Transfers In Card -->
-                            <div class="bg-surface-container border border-pitch-line rounded-xl p-5 flex flex-col" style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;">
-                                <h3 class="font-headline-md text-base font-semibold text-on-surface mb-4 flex items-center gap-2" style="font-size:16px;font-weight:600;color:#ffffff;margin:0 0 16px 0;display:flex;align-items:center;gap:8px;">
-                                    <span class="material-symbols-outlined text-primary text-[20px]" style="color:#00ff85;font-size:20px;">trending_up</span>
+                            <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;">
+                                <h3 style="font-size:16px;font-weight:600;color:#ffffff;margin:0 0 16px 0;display:flex;align-items:center;gap:8px;">
+                                    <span class="material-symbols-outlined" style="color:#00ff85;font-size:20px;">trending_up</span>
                                     Top Transfers In
                                 </h3>
-                                <div id="dash-transfers-in-list" class="flex flex-col gap-3">
+                                <div id="dash-transfers-in-list" style="display:flex;flex-direction:column;gap:12px;">
                                     <!-- Dynamic Transfers In Items -->
                                 </div>
                             </div>
 
+                            <!-- Top Transfers Out Card -->
+                            <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;">
+                                <h3 style="font-size:16px;font-weight:600;color:#ffffff;margin:0 0 16px 0;display:flex;align-items:center;gap:8px;">
+                                    <span class="material-symbols-outlined" style="color:#FF005A;font-size:20px;">trending_down</span>
+                                    Top Transfers Out
+                                </h3>
+                                <div id="dash-transfers-out-list" style="display:flex;flex-direction:column;gap:12px;">
+                                    <!-- Dynamic Transfers Out Items -->
+                                </div>
+                            </div>
+
                             <!-- Price Changes Card -->
-                            <div class="bg-surface-container border border-pitch-line rounded-xl p-5 flex flex-col" style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;">
-                                <h3 class="font-headline-md text-base font-semibold text-on-surface mb-4 flex items-center gap-2" style="font-size:16px;font-weight:600;color:#ffffff;margin:0 0 16px 0;display:flex;align-items:center;gap:8px;">
-                                    <span class="material-symbols-outlined text-fdr-4 text-[20px]" style="color:#FFA600;font-size:20px;">payments</span>
+                            <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;">
+                                <h3 style="font-size:16px;font-weight:600;color:#ffffff;margin:0 0 16px 0;display:flex;align-items:center;gap:8px;">
+                                    <span class="material-symbols-outlined" style="color:#FFA600;font-size:20px;">payments</span>
                                     Price Changes (Tonight)
                                 </h3>
-                                <div id="dash-price-changes-list" class="flex flex-col gap-3">
+                                <div id="dash-price-changes-list" style="display:flex;flex-direction:column;gap:12px;">
                                     <!-- Dynamic Price Changes Items -->
                                 </div>
                             </div>
 
-                            <!-- Run AI Optimization Card -->
-                            <div class="bg-surface-container border border-pitch-line rounded-xl p-6 flex flex-col items-center text-center justify-center relative overflow-hidden cursor-pointer group hover:border-primary transition-colors" style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:24px;text-align:center;position:relative;cursor:pointer;" onclick="FPL.navigateTo('zones')">
-                                <div class="w-12 h-12 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform" style="width:48px;height:48px;border-radius:50%;background:rgba(0,255,133,0.1);border:1px solid rgba(0,255,133,0.3);display:flex;align-items:center;justify-content:center;margin-bottom:12px;">
-                                    <span class="material-symbols-outlined text-primary text-[28px]" style="color:#00ff85;font-size:28px;">auto_awesome</span>
+                            <!-- Injury & Suspension Alerts Card -->
+                            <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;">
+                                <h3 style="font-size:16px;font-weight:600;color:#ffffff;margin:0 0 16px 0;display:flex;align-items:center;gap:8px;">
+                                    <span class="material-symbols-outlined" style="color:#FF4D4D;font-size:20px;">healing</span>
+                                    Injuries & Suspensions
+                                </h3>
+                                <div id="dash-injury-list" style="display:flex;flex-direction:column;gap:12px;">
+                                    <!-- Dynamic Injury/Suspension Items -->
                                 </div>
-                                <h4 class="font-headline-md text-base font-bold text-on-surface mb-1" style="font-size:16px;font-weight:700;color:#ffffff;margin:0 0 4px 0;">Run AI Optimization</h4>
-                                <p class="font-body-sm text-xs text-on-surface-variant max-w-[200px]" style="font-size:12px;color:#8ba396;margin:0;">Analyze your squad against xG data</p>
+                            </div>
+
+                            <!-- Run AI Optimization Card -->
+                            <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:24px;text-align:center;position:relative;cursor:pointer;" onclick="FPL.navigateTo('zones')">
+                                <div style="width:48px;height:48px;border-radius:50%;background:rgba(0,255,133,0.1);border:1px solid rgba(0,255,133,0.3);display:flex;align-items:center;justify-content:center;margin-bottom:12px;">
+                                    <span class="material-symbols-outlined" style="color:#00ff85;font-size:28px;">auto_awesome</span>
+                                </div>
+                                <h4 style="font-size:16px;font-weight:700;color:#ffffff;margin:0 0 4px 0;">Run AI Optimization</h4>
+                                <p style="font-size:12px;color:#8ba396;margin:0;">Analyze your squad against xG data</p>
                             </div>
                         </div>
                     </div>
@@ -233,14 +270,12 @@
                 <!-- TEAM ANALYSIS / MANAGER ANALYSIS -->
                 <div id="content-manager" class="tab-content">
                     <!-- Page Header -->
-                    <div class="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
-                        <div>
-                            <h1 class="font-headline-lg text-[28px] font-bold text-on-surface mb-1">Manager Analysis</h1>
-                        </div>
+                    <div style="margin-bottom:24px;">
+                        <h1 style="font-size:28px;font-weight:700;color:#ffffff;margin:0;font-family:var(--font-display);">Manager Analysis</h1>
                     </div>
 
                     <!-- Top Row: 4 Mint/Sage Bento Cards -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    <div class="team-bento-4" style="display:grid;grid-template-columns:repeat(4, 1fr);gap:24px;margin-bottom:24px;">
                         <!-- Card 1: Manager ID Search -->
                         <div style="background:#9ecfb7;border-radius:12px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;min-height:120px;">
                             <span class="mono" style="font-size:10px;font-weight:700;color:#2c4436;text-transform:uppercase;letter-spacing:0.08em;">MANAGER ID</span>
@@ -283,9 +318,9 @@
                     </div>
 
                     <!-- Position Summary Section -->
-                    <div class="mb-8">
-                        <h2 class="font-headline-md text-[18px] font-bold text-on-surface mb-4">Position Summary</h2>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div style="margin-bottom:24px;">
+                        <h2 style="font-size:18px;font-weight:700;color:#ffffff;margin:0 0 16px 0;font-family:var(--font-display);">Position Summary</h2>
+                        <div class="team-bento-4" style="display:grid;grid-template-columns:repeat(4, 1fr);gap:24px;">
                             <!-- Goalkeepers -->
                             <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;">
                                 <span class="mono" style="font-size:10px;font-weight:700;color:#8ba396;text-transform:uppercase;letter-spacing:0.08em;">GOALKEEPERS</span>
@@ -325,7 +360,7 @@
                     </div>
 
                     <!-- Middle Charts Grid (Points Per Gameweek & Rank History) -->
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                    <div class="team-bento-2" style="display:grid;grid-template-columns:repeat(2, 1fr);gap:24px;margin-bottom:24px;">
                         <!-- Points Per Gameweek -->
                         <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:24px;display:flex;flex-direction:column;justify-content:space-between;min-height:300px;">
                             <h3 style="font-size:16px;font-weight:700;color:#ffffff;margin:0 0 20px 0;">Points Per Gameweek</h3>
@@ -348,10 +383,10 @@
                     </div>
 
                     <!-- Squad Performance Table Section -->
-                    <div class="mb-8">
-                        <h2 class="font-headline-md text-[18px] font-bold text-on-surface mb-4">Squad Performance</h2>
+                    <div style="margin-bottom:24px;">
+                        <h2 style="font-size:18px;font-weight:700;color:#ffffff;margin:0 0 16px 0;font-family:var(--font-display);">Squad Performance</h2>
                         <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;">
-                            <div class="overflow-x-auto">
+                            <div style="overflow-x:auto;">
                                 <table style="width:100%;border-collapse:collapse;text-align:left;">
                                     <thead>
                                         <tr style="background:#1c211e;border-bottom:1px solid #1A2E28;font-family:var(--font-mono);font-size:11px;color:#8ba396;text-transform:uppercase;">
@@ -361,7 +396,7 @@
                                             <th style="padding:12px 16px;text-align:center;">STARTS</th>
                                             <th style="padding:12px 16px;text-align:center;">CAPT PTS</th>
                                             <th style="padding:12px 16px;text-align:center;">VALUE</th>
-                                            <th style="padding:12px 20px;text-align:right;">PPG</th>
+                                            <th style="padding:12px 20px;text-align:center;">PPG</th>
                                         </tr>
                                     </thead>
                                     <tbody id="squad-performance-tbody" style="font-size:13px;">
@@ -374,31 +409,9 @@
 
                     <!-- Underperforming Players Section -->
                     <div>
-                        <h2 class="font-headline-md text-[18px] font-bold text-on-surface mb-4">Underperforming Players</h2>
-                        <div id="underperforming-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <!-- Card 1 -->
-                            <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;display:flex;align-items:center;gap:16px;">
-                                <div style="width:40px;height:40px;border-radius:8px;background:rgba(255,77,77,0.15);border:1px solid rgba(255,77,77,0.3);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                                    <span class="material-symbols-outlined" style="color:#ff4d4d;font-size:22px;">warning</span>
-                                </div>
-                                <div style="flex:1;">
-                                    <div style="font-size:15px;font-weight:700;color:#ffffff;">Trippier (NEW)</div>
-                                    <div style="font-size:12px;color:#8ba396;margin:2px 0 6px 0;">Tough fixtures ahead (Avg FDR 3.8)</div>
-                                    <span class="mono" style="font-size:11px;font-weight:700;color:#00FF85;background:rgba(0,255,133,0.12);padding:3px 8px;border-radius:4px;border:1px solid rgba(0,255,133,0.25);display:inline-block;">SUGGESTION: WHITE (ARS)</span>
-                                </div>
-                            </div>
-
-                            <!-- Card 2 -->
-                            <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;display:flex;align-items:center;gap:16px;">
-                                <div style="width:40px;height:40px;border-radius:8px;background:rgba(255,77,77,0.15);border:1px solid rgba(255,77,77,0.3);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                                    <span class="material-symbols-outlined" style="color:#ff4d4d;font-size:22px;">trending_down</span>
-                                </div>
-                                <div style="flex:1;">
-                                    <div style="font-size:15px;font-weight:700;color:#ffffff;">Gordon (NEW)</div>
-                                    <div style="font-size:12px;color:#8ba396;margin:2px 0 6px 0;">Poor form (1.2 pts in last 5)</div>
-                                    <span class="mono" style="font-size:11px;font-weight:700;color:#00FF85;background:rgba(0,255,133,0.12);padding:3px 8px;border-radius:4px;border:1px solid rgba(0,255,133,0.25);display:inline-block;">SUGGESTION: GARNACHO (MUN)</span>
-                                </div>
-                            </div>
+                        <h2 style="font-size:18px;font-weight:700;color:#ffffff;margin:0 0 16px 0;font-family:var(--font-display);">Underperforming Players</h2>
+                        <div id="underperforming-container" class="team-bento-2" style="display:grid;grid-template-columns:repeat(2, 1fr);gap:24px;">
+                            <div style="grid-column:span 2;text-align:center;padding:32px;color:#8ba396;font-size:13px;">Connect your FPL ID to see underperforming player analysis</div>
                         </div>
                     </div>
                 </div>
@@ -413,14 +426,14 @@
                         </div>
                         <div style="display:flex;gap:var(--space-md);align-items:center;flex-wrap:wrap;">
                             <!-- Joined Leagues Dropdown -->
-                            <select id="league-select" class="input" style="width:200px;display:none;font-family:var(--font-mono);font-size:0.8125rem;" onchange="FPL.switchLeague(this.value)">
+                            <select id="league-select" style="width:200px;display:none;font-family:var(--font-mono);font-size:13px;background-color:#2A2A2A;color:#E0E0E0;border:1px solid #444444;border-radius:8px;padding:8px 32px 8px 12px;appearance:none;background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22%23B0B0B0%22%3E%3Cpath d=%22M7 10l5 5 5-5z%22/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 10px center;" onchange="FPL.switchLeague(this.value)">
                                 <option value="314">Overall Top 50k (314)</option>
                             </select>
 
                             <!-- Custom League ID Search Input -->
                             <div style="position:relative;width:200px;">
-                                <span class="material-symbols-outlined" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--md-sys-color-on-surface-variant);font-size:18px;">search</span>
-                                <input type="text" id="league-id-input" class="input" placeholder="Enter League ID..." style="padding-left:36px;width:100%;font-family:var(--font-mono);font-size:0.8125rem;">
+                                <span class="material-symbols-outlined" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#B0B0B0;font-size:18px;">search</span>
+                                <input type="text" id="league-id-input" placeholder="Enter League ID..." style="padding-left:36px;width:100%;font-family:var(--font-mono);font-size:13px;background-color:#2A2A2A;color:#E0E0E0;border:1px solid #444444;border-radius:8px;padding:8px 12px 8px 36px;outline:none;">
                             </div>
                             <button class="btn btn-primary" onclick="FPL.loadCustomLeague()" style="white-space:nowrap;font-weight:700;padding:8px 20px;">
                                 Load League
@@ -429,7 +442,7 @@
                     </div>
 
                     <!-- High-Level Stats Bento (3 Cards) -->
-                    <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:var(--space-lg);margin-bottom:var(--space-lg);" class="standings-bento-grid">
+                    <div class="league-bento-3" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:24px;margin-bottom:24px;">
                         <!-- League Name & ID -->
                         <div style="background:rgba(167,207,188,0.06);border:1px solid var(--md-sys-color-outline-variant);border-radius:var(--radius-lg);padding:var(--space-lg);position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;">
                             <div style="position:absolute;right:-15px;top:-15px;opacity:0.08;pointer-events:none;">
@@ -476,21 +489,21 @@
                     </div>
 
                     <!-- Data Table (Standings) -->
-                    <div class="card" style="background:#022B1E;border:1px solid var(--md-sys-color-outline-variant);border-radius:var(--radius-lg);overflow:hidden;display:flex;flex-direction:column;">
-                        <div class="table-container" style="overflow-x:auto;">
-                            <table style="width:100%;border-collapse:collapse;font-size:0.875rem;white-space:nowrap;min-width:750px;">
+                    <div style="background:#022B1E;border:1px solid #333333;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;">
+                        <div style="overflow-x:auto;">
+                            <table style="width:100%;border-collapse:collapse;font-size:14px;white-space:nowrap;min-width:700px;">
                                 <thead>
-                                    <tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);background:rgba(255,255,255,0.03);color:var(--md-sys-color-on-surface);font-size:0.75rem;font-family:var(--font-mono);">
-                                        <th style="padding:var(--space-md);text-align:left;width:60px;">RANK</th>
-                                        <th style="padding:var(--space-md);text-align:left;">MANAGER / TEAM</th>
-                                        <th style="padding:var(--space-md);text-align:right;">GW PTS</th>
-                                        <th style="padding:var(--space-md);text-align:right;">TOTAL PTS</th>
-                                        <th style="padding:var(--space-md);text-align:center;">RANK DIFF</th>
-                                        <th style="padding:var(--space-md);text-align:right;">DIFF COUNT</th>
+                                    <tr style="border-bottom:1px solid #333333;background:rgba(255,255,255,0.03);color:#E0E0E0;font-size:12px;font-family:var(--font-mono);">
+                                        <th style="padding:16px;text-align:left;width:60px;position:sticky;left:0;z-index:10;background:#022B1E;">RANK</th>
+                                        <th style="padding:16px;text-align:left;">MANAGER / TEAM</th>
+                                        <th style="padding:16px;text-align:center;">GW PTS</th>
+                                        <th style="padding:16px;text-align:center;">TOTAL PTS</th>
+                                        <th style="padding:16px;text-align:center;">RANK DIFF</th>
+                                        <th style="padding:16px;text-align:center;">DIFF COUNT</th>
                                     </tr>
                                 </thead>
                                 <tbody id="league-standings-body">
-                                    <tr><td colspan="6" style="text-align:center;padding:var(--space-xl);"><div class="spinner" style="margin:0 auto var(--space-sm);"></div><p>Loading league standings...</p></td></tr>
+                                    <tr><td colspan="6" style="text-align:center;padding:var(--space-xl);"><div style="display:flex;justify-content:center;padding:16px;"><div class="pixel-loader-container"><span class="pixel-grid" aria-hidden="true"><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span></span><span class="pixel-loader-label">Loading league standings...</span></div></div></td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -508,12 +521,12 @@
                 <!-- PLAYER STATS -->
                 <div id="content-players" class="tab-content">
                     <!-- Page Header & Filters -->
-                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;margin-bottom:24px;">
-                        <h1 class="font-headline-lg text-headline-lg" style="font-size:32px;font-weight:700;margin:0;">Global Player Stats</h1>
-                        <div class="flex items-center gap-4" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-                            <div class="flex items-center gap-2 bg-surface-container border border-pitch-line rounded-lg px-3 py-1.5" style="display:flex;align-items:center;gap:8px;background:var(--md-sys-color-surface-container);border:1px solid var(--pitch-line);border-radius:8px;padding:6px 12px;">
-                                <span class="material-symbols-outlined text-on-surface-variant text-[20px]" style="font-size:20px;color:var(--md-sys-color-on-surface-variant);">sort</span>
-                                <select id="player-sort" onchange="FPL.renderPlayers()" class="bg-transparent text-on-surface font-label-caps text-label-caps outline-none border-none p-0 focus:ring-0 cursor-pointer" style="background:transparent;color:var(--md-sys-color-on-surface);border:none;outline:none;font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer;">
+                    <div class="player-filter-bar" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;margin-bottom:24px;">
+                        <h1 style="font-size:32px;font-weight:700;margin:0;">Global Player Stats</h1>
+                        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                            <div style="display:flex;align-items:center;gap:8px;background:#1E1E1E;border:1px solid #1A2E28;border-radius:8px;padding:6px 12px;">
+                                <span class="material-symbols-outlined" style="font-size:20px;color:#B0B0B0;">sort</span>
+                                <select id="player-sort" onchange="FPL.renderPlayers()" style="background:transparent;color:#E0E0E0;border:none;outline:none;font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer;">
                                     <option value="pts">Total Points</option>
                                     <option value="xg">xG (T)</option>
                                     <option value="xa">xA (C)</option>
@@ -523,32 +536,32 @@
                                     <option value="ict">ICT Index</option>
                                 </select>
                             </div>
-                            <div class="flex gap-2 bg-surface-container p-1 rounded-lg border border-pitch-line" style="display:flex;gap:8px;background:var(--md-sys-color-surface-container);border:1px solid var(--pitch-line);border-radius:8px;padding:4px;">
-                                <button class="px-4 py-1.5 rounded bg-secondary-container text-on-secondary-container font-label-caps text-label-caps transition-colors player-pos-pill active" onclick="FPL.filterPlayers('all',this)" style="padding:6px 16px;border-radius:4px;font-family:var(--font-mono);font-size:12px;font-weight:700;border:none;cursor:pointer;">All</button>
-                                <button class="px-4 py-1.5 rounded hover:bg-tertiary text-on-surface-variant hover:text-on-surface font-label-caps text-label-caps transition-colors player-pos-pill" onclick="FPL.filterPlayers('GKP',this)" style="padding:6px 16px;border-radius:4px;font-family:var(--font-mono);font-size:12px;font-weight:700;border:none;cursor:pointer;background:transparent;color:var(--md-sys-color-on-surface-variant);">GKP</button>
-                                <button class="px-4 py-1.5 rounded hover:bg-tertiary text-on-surface-variant hover:text-on-surface font-label-caps text-label-caps transition-colors player-pos-pill" onclick="FPL.filterPlayers('DEF',this)" style="padding:6px 16px;border-radius:4px;font-family:var(--font-mono);font-size:12px;font-weight:700;border:none;cursor:pointer;background:transparent;color:var(--md-sys-color-on-surface-variant);">DEF</button>
-                                <button class="px-4 py-1.5 rounded hover:bg-tertiary text-on-surface-variant hover:text-on-surface font-label-caps text-label-caps transition-colors player-pos-pill" onclick="FPL.filterPlayers('MID',this)" style="padding:6px 16px;border-radius:4px;font-family:var(--font-mono);font-size:12px;font-weight:700;border:none;cursor:pointer;background:transparent;color:var(--md-sys-color-on-surface-variant);">MID</button>
-                                <button class="px-4 py-1.5 rounded hover:bg-tertiary text-on-surface-variant hover:text-on-surface font-label-caps text-label-caps transition-colors player-pos-pill" onclick="FPL.filterPlayers('FWD',this)" style="padding:6px 16px;border-radius:4px;font-family:var(--font-mono);font-size:12px;font-weight:700;border:none;cursor:pointer;background:transparent;color:var(--md-sys-color-on-surface-variant);">FWD</button>
+                            <div style="display:flex;gap:8px;background:#1E1E1E;border:1px solid #1A2E28;border-radius:8px;padding:4px;">
+                                <button style="padding:6px 16px;border-radius:4px;font-family:var(--font-mono);font-size:12px;font-weight:700;border:none;cursor:pointer;background:rgba(0,255,133,0.16);color:#00FF85;" onclick="FPL.filterPlayers('all',this)">All</button>
+                                <button style="padding:6px 16px;border-radius:4px;font-family:var(--font-mono);font-size:12px;font-weight:700;border:none;cursor:pointer;background:transparent;color:#B0B0B0;" onclick="FPL.filterPlayers('GKP',this)">GKP</button>
+                                <button style="padding:6px 16px;border-radius:4px;font-family:var(--font-mono);font-size:12px;font-weight:700;border:none;cursor:pointer;background:transparent;color:#B0B0B0;" onclick="FPL.filterPlayers('DEF',this)">DEF</button>
+                                <button style="padding:6px 16px;border-radius:4px;font-family:var(--font-mono);font-size:12px;font-weight:700;border:none;cursor:pointer;background:transparent;color:#B0B0B0;" onclick="FPL.filterPlayers('MID',this)">MID</button>
+                                <button style="padding:6px 16px;border-radius:4px;font-family:var(--font-mono);font-size:12px;font-weight:700;border:none;cursor:pointer;background:transparent;color:#B0B0B0;" onclick="FPL.filterPlayers('FWD',this)">FWD</button>
                             </div>
                         </div>
                     </div>
 
                     <!-- Data Table Container -->
-                    <div class="bg-surface-container rounded-xl border border-pitch-line overflow-hidden flex flex-col" style="background:var(--md-sys-color-surface-container);border:1px solid var(--pitch-line);border-radius:12px;overflow:hidden;">
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left whitespace-nowrap" style="width:100%;border-collapse:collapse;white-space:nowrap;">
-                                <thead class="bg-surface-container-highest sticky top-0 z-10 border-b border-pitch-line" style="background:var(--md-sys-color-surface-container-highest);border-bottom:1px solid var(--pitch-line);font-family:var(--font-mono);font-size:12px;text-transform:uppercase;">
+                    <div style="background:#1E1E1E;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;">
+                        <div style="overflow-x:auto;">
+                            <table style="width:100%;border-collapse:collapse;white-space:nowrap;">
+                                <thead style="background:#333333;border-bottom:1px solid #1A2E28;font-family:var(--font-mono);font-size:12px;text-transform:uppercase;">
                                     <tr>
-                                        <th class="py-3 px-4 font-label-caps text-label-caps text-on-surface" style="padding:12px 16px;">Player</th>
-                                        <th class="py-3 px-4 font-label-caps text-label-caps text-on-surface" style="padding:12px 16px;">Team</th>
-                                        <th class="py-3 px-4 font-label-caps text-label-caps text-on-surface" style="padding:12px 16px;">Pos</th>
-                                        <th class="py-3 px-4 font-label-caps text-label-caps text-on-surface" style="padding:12px 16px;">Cost</th>
-                                        <th class="py-3 px-4 font-label-caps text-label-caps text-on-surface text-right cursor-pointer hover:text-primary-container transition-colors group" style="padding:12px 16px;text-align:right;cursor:pointer;" onclick="FPL.sortByPlayerMetric('pts')">Pts <span class="material-symbols-outlined text-[14px] align-middle" style="font-size:14px;vertical-align:middle;">arrow_downward</span></th>
-                                        <th class="py-3 px-4 font-label-caps text-label-caps text-on-surface text-right cursor-pointer hover:text-primary-container transition-colors group" style="padding:12px 16px;text-align:right;cursor:pointer;" onclick="FPL.sortByPlayerMetric('xg')">xG (T) <span class="material-symbols-outlined text-[14px] align-middle" style="font-size:14px;vertical-align:middle;">arrow_downward</span></th>
-                                        <th class="py-3 px-4 font-label-caps text-label-caps text-on-surface text-right cursor-pointer hover:text-primary-container transition-colors group" style="padding:12px 16px;text-align:right;cursor:pointer;" onclick="FPL.sortByPlayerMetric('xa')">xA (C) <span class="material-symbols-outlined text-[14px] align-middle" style="font-size:14px;vertical-align:middle;">arrow_downward</span></th>
-                                        <th class="py-3 px-4 font-label-caps text-label-caps text-on-surface text-right cursor-pointer hover:text-primary-container transition-colors group" style="padding:12px 16px;text-align:right;cursor:pointer;" onclick="FPL.sortByPlayerMetric('ict')">ICT <span class="material-symbols-outlined text-[14px] align-middle" style="font-size:14px;vertical-align:middle;">arrow_downward</span></th>
-                                        <th class="py-3 px-4 font-label-caps text-label-caps text-on-surface text-center" style="padding:12px 16px;text-align:center;">Form (L5)</th>
-                                        <th class="py-3 px-4 font-label-caps text-label-caps text-on-surface text-center" style="padding:12px 16px;text-align:center;">DEFCON</th>
+                                        <th style="padding:12px 16px;position:sticky;left:0;z-index:10;background:#333333;">Player</th>
+                                        <th style="padding:12px 16px;">Team</th>
+                                        <th style="padding:12px 16px;">Pos</th>
+                                        <th style="padding:12px 16px;text-align:center;">Cost</th>
+                                        <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortByPlayerMetric('pts')">Pts <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">arrow_downward</span></th>
+                                        <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortByPlayerMetric('xg')">xG (T) <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">arrow_downward</span></th>
+                                        <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortByPlayerMetric('xa')">xA (C) <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">arrow_downward</span></th>
+                                        <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortByPlayerMetric('ict')">ICT <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">arrow_downward</span></th>
+                                        <th style="padding:12px 16px;text-align:center;">Form (L5)</th>
+                                        <th style="padding:12px 16px;text-align:center;">DEFCON</th>
                                     </tr>
                                 </thead>
                                 <tbody id="players-table-body" class="divide-y divide-pitch-line">
@@ -563,7 +576,7 @@
                 <!-- TACTICAL ZONES -->
                 <div id="content-zones" class="tab-content">
                     <!-- Header Section -->
-                    <div style="margin-bottom:32px;display:flex;flex-direction:column;gap:16px;">
+                    <div style="margin-bottom:24px;display:flex;flex-direction:column;gap:16px;">
                         <div>
                             <h1 style="font-size:28px;font-weight:700;color:#ffffff;margin:0 0 4px 0;font-family:var(--font-display);">Tactical Zones</h1>
                             <p style="font-size:14px;color:#8ba396;">Analyze pitch influence and positional vulnerabilities for GW<span id="zones-gw-display">12</span>.</p>
@@ -653,7 +666,7 @@
                                             <tr style="background:#1c211e;border-bottom:1px solid #1A2E28;">
                                                 <th style="padding:8px 16px;font-family:var(--font-mono);font-size:10px;color:#8ba396;text-transform:uppercase;width:33%;">Fixture</th>
                                                 <th style="padding:8px 16px;font-family:var(--font-mono);font-size:10px;color:#8ba396;text-transform:uppercase;">Threat Area</th>
-                                                <th style="padding:8px 16px;font-family:var(--font-mono);font-size:10px;color:#8ba396;text-transform:uppercase;text-align:right;">xG Conceded</th>
+                                                <th style="padding:8px 16px;font-family:var(--font-mono);font-size:10px;color:#8ba396;text-transform:uppercase;text-align:center;">xG Conceded</th>
                                             </tr>
                                         </thead>
                                         <tbody id="danger-zones-table-body" style="font-family:var(--font-mono);font-size:12px;">
@@ -669,21 +682,21 @@
                 <!-- FIXTURES -->
                 <div id="content-fixtures" class="tab-content">
                     <!-- Canvas -->
-                    <div class="flex flex-col lg:flex-row gap-6 w-full max-w-[1440px] mx-auto" style="display:flex;gap:24px;width:100%;">
+                    <div class="fixtures-flex-layout" style="display:flex;flex-direction:row;gap:24px;width:100%;align-items:flex-start;">
                         <!-- Center Data Grid (Fixtures) -->
-                        <div class="flex-1 flex flex-col gap-6" style="flex:1;display:flex;flex-direction:column;gap:24px;">
+                        <div style="flex:1;display:flex;flex-direction:column;gap:24px;">
                             <!-- Filters & Controls Bar -->
-                            <div class="bg-secondary border border-pitch-line rounded-lg p-4 flex flex-col sm:flex-row justify-between items-center gap-4" style="background:#a7cfbc;border:1px solid #1A2E28;border-radius:12px;padding:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;color:#103729;">
-                                <div class="flex items-center gap-3" style="display:flex;align-items:center;gap:12px;">
-                                    <span class="font-label-caps text-label-caps uppercase font-bold text-[12px]" style="font-family:var(--font-mono);font-size:12px;color:#103729;font-weight:700;">LOOKAHEAD:</span>
-                                    <div class="flex bg-surface-container rounded border border-pitch-line overflow-hidden" style="display:flex;background:#1c211e;border:1px solid #1A2E28;border-radius:8px;overflow:hidden;">
-                                        <button id="lookahead-3" onclick="FPL.setFixtureLookahead(3)" class="px-6 py-2 font-data-tabular text-[14px] text-on-surface-variant hover:bg-surface-variant transition-colors whitespace-nowrap" style="padding:8px 24px;font-family:var(--font-mono);font-size:14px;border:none;background:transparent;color:#b9cbb9;cursor:pointer;">3 GW</button>
-                                        <button id="lookahead-5" onclick="FPL.setFixtureLookahead(5)" class="px-6 py-2 font-data-tabular text-[14px] bg-tertiary text-on-tertiary-fixed-variant font-bold border-x border-pitch-line whitespace-nowrap active" style="padding:8px 24px;font-family:var(--font-mono);font-size:14px;border:none;background:#f0fef8;color:#273330;cursor:pointer;border-left:1px solid #1A2E28;border-right:1px solid #1A2E28;font-weight:700;">5 GW</button>
-                                        <button id="lookahead-10" onclick="FPL.setFixtureLookahead(10)" class="px-6 py-2 font-data-tabular text-[14px] text-on-surface-variant hover:bg-surface-variant transition-colors whitespace-nowrap" style="padding:8px 24px;font-family:var(--font-mono);font-size:14px;border:none;background:transparent;color:#b9cbb9;cursor:pointer;">10 GW</button>
+                            <div style="background:#a7cfbc;border:1px solid #1A2E28;border-radius:12px;padding:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;color:#103729;">
+                                <div style="display:flex;align-items:center;gap:12px;">
+                                    <span style="font-family:var(--font-mono);font-size:12px;color:#103729;font-weight:700;">LOOKAHEAD:</span>
+                                    <div style="display:flex;background:#1c211e;border:1px solid #1A2E28;border-radius:8px;overflow:hidden;">
+                                        <button id="lookahead-3" onclick="FPL.setFixtureLookahead(3)" style="padding:8px 24px;font-family:var(--font-mono);font-size:14px;border:none;background:transparent;color:#b9cbb9;cursor:pointer;">3 GW</button>
+                                        <button id="lookahead-5" onclick="FPL.setFixtureLookahead(5)" style="padding:8px 24px;font-family:var(--font-mono);font-size:14px;border:none;background:#f0fef8;color:#273330;cursor:pointer;border-left:1px solid #1A2E28;border-right:1px solid #1A2E28;font-weight:700;">5 GW</button>
+                                        <button id="lookahead-10" onclick="FPL.setFixtureLookahead(10)" style="padding:8px 24px;font-family:var(--font-mono);font-size:14px;border:none;background:transparent;color:#b9cbb9;cursor:pointer;">10 GW</button>
                                     </div>
                                 </div>
                                 <!-- FDR Scale Color Blocks -->
-                                <div class="flex items-center gap-3 text-sm font-body-sm" style="display:flex;align-items:center;gap:12px;">
+                                <div style="display:flex;align-items:center;gap:12px;">
                                     <div class="flex items-center gap-1" style="display:flex;align-items:center;gap:4px;"><div style="width:16px;height:16px;border-radius:3px;background:#00FF85;"></div></div>
                                     <div class="flex items-center gap-1" style="display:flex;align-items:center;gap:4px;"><div style="width:16px;height:16px;border-radius:3px;background:#37DB59;"></div></div>
                                     <div class="flex items-center gap-1" style="display:flex;align-items:center;gap:4px;"><div style="width:16px;height:16px;border-radius:3px;background:#E1E1E1;"></div></div>
@@ -693,16 +706,16 @@
                             </div>
 
                             <!-- Fixture Grid Container -->
-                            <div class="bg-surface-container border border-pitch-line rounded-xl overflow-hidden shadow-sm" style="background:#1c211e;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;">
-                                <div class="overflow-x-auto">
-                                    <table class="w-full text-left border-collapse" style="width:100%;border-collapse:collapse;white-space:nowrap;">
+                            <div style="background:#1c211e;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;">
+                        <div style="overflow-x:auto;">
+                                    <table style="width:100%;border-collapse:collapse;white-space:nowrap;">
                                         <thead>
-                                            <tr id="fixture-grid-header-row" class="bg-secondary border-b border-pitch-line" style="background:#a7cfbc;border-bottom:1px solid #1A2E28;">
-                                                <th class="p-3 font-label-caps text-label-caps uppercase sticky left-0 z-10 bg-secondary text-surface-container-lowest" style="padding:12px 16px;position:sticky;left:0;z-index:10;background:#a7cfbc;width:100px;font-family:var(--font-mono);font-size:12px;color:#0a0f0d;font-weight:700;">TEAM</th>
+                                            <tr id="fixture-grid-header-row" style="background:#a7cfbc;border-bottom:1px solid #1A2E28;">
+                                                <th style="padding:12px 16px;position:sticky;left:0;z-index:10;background:#a7cfbc;width:100px;font-family:var(--font-mono);font-size:12px;color:#0a0f0d;font-weight:700;">TEAM</th>
                                                 <!-- Dynamic GW Header Columns -->
                                             </tr>
                                         </thead>
-                                        <tbody id="fixture-grid-table-body" class="font-body-md text-body-md">
+                                        <tbody id="fixture-grid-table-body">
                                             <!-- Dynamic Fixture Grid Rows -->
                                         </tbody>
                                     </table>
@@ -711,17 +724,17 @@
                         </div>
 
                         <!-- Right Sidebar: Form Leaders (Upcoming) -->
-                        <aside class="w-full lg:w-80 flex flex-col gap-6" style="width:320px;flex-shrink:0;">
-                            <div class="bg-surface-container rounded-xl border border-pitch-line overflow-hidden flex flex-col" style="background:#1c211e;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;">
-                                <div class="bg-secondary p-4 border-b border-pitch-line flex items-center gap-2" style="background:#a7cfbc;padding:14px 16px;border-bottom:1px solid #1A2E28;">
-                                    <span class="material-symbols-outlined text-[18px]" style="font-size:18px;color:#0a0f0d;">trending_up</span>
-                                    <h3 class="font-label-caps text-label-caps uppercase font-bold" style="font-family:var(--font-mono);font-size:13px;margin:0;color:#0a0f0d;">FORM LEADERS (UPCOMING)</h3>
+                        <aside style="width:320px;flex-shrink:0;display:flex;flex-direction:column;gap:24px;">
+                            <div style="background:#1c211e;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;">
+                                <div style="background:#a7cfbc;padding:14px 16px;border-bottom:1px solid #1A2E28;display:flex;align-items:center;gap:8px;">
+                                    <span class="material-symbols-outlined" style="font-size:18px;color:#0a0f0d;">trending_up</span>
+                                    <h3 style="font-family:var(--font-mono);font-size:13px;margin:0;color:#0a0f0d;">FORM LEADERS (UPCOMING)</h3>
                                 </div>
-                                <div id="form-leaders-list" class="p-4 flex-1 overflow-y-auto space-y-3" style="padding:16px;display:flex;flex-direction:column;gap:12px;">
+                                <div id="form-leaders-list" style="padding:16px;display:flex;flex-direction:column;gap:12px;max-height:400px;overflow-y:auto;">
                                     <!-- Dynamic Player Form Leader Cards -->
                                 </div>
-                                <div class="p-4 border-t border-pitch-line bg-surface/50" style="padding:16px;border-top:1px solid #1A2E28;background:rgba(15,20,18,0.5);">
-                                    <button class="w-full border border-pitch-line text-on-surface-variant font-label-caps text-label-caps py-2 rounded hover:bg-surface-bright hover:text-on-surface transition-colors" style="width:100%;padding:10px;border-radius:6px;border:1px solid #1A2E28;background:transparent;color:#b9cbb9;font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer;" onclick="FPL.navigateTo('players')">
+                                <div style="padding:16px;border-top:1px solid #1A2E28;background:rgba(15,20,18,0.5);">
+                                    <button style="width:100%;padding:10px;border-radius:6px;border:1px solid #1A2E28;background:transparent;color:#b9cbb9;font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer;" onclick="FPL.navigateTo('players')">
                                         View Full Transfer Market
                                     </button>
                                 </div>
@@ -745,7 +758,7 @@
                     </div>
 
                     <!-- Bento Grid Highlights -->
-                    <div style="display:grid;grid-template-columns:repeat(12, 1fr);gap:var(--space-md);margin-bottom:var(--space-lg);">
+                    <div class="captain-bento-grid" style="display:grid;grid-template-columns:repeat(12, 1fr);gap:16px;margin-bottom:24px;">
                         <!-- Model Favorite Hero Card (8 cols) -->
                         <div style="grid-column: span 8; background:var(--md-sys-color-surface-container); border:1px solid var(--md-sys-color-outline-variant); border-radius:var(--radius-lg); padding:var(--space-lg); position:relative; overflow:hidden;">
                             <!-- Subtle background watermark icon -->
@@ -829,38 +842,38 @@
                     </div>
 
                     <!-- Main Data Table Container -->
-                    <div class="card" style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:var(--radius-lg);overflow:hidden;">
+                    <div style="background:#1E1E1E;border:1px solid #333333;border-radius:12px;overflow:hidden;">
                         <!-- Header -->
-                        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;padding:var(--space-md) var(--space-lg);border-bottom:1px solid var(--md-sys-color-outline-variant);background:rgba(255,255,255,0.02);">
-                            <h2 id="cap-table-title" style="font-family:var(--font-display);font-size:1.125rem;font-weight:700;margin:0;">Top 15 Captain Picks</h2>
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid #333333;background:rgba(255,255,255,0.02);">
+                            <h2 id="cap-table-title" style="font-family:var(--font-display);font-size:18px;font-weight:700;margin:0;">Top 15 Captain Picks</h2>
                             <button class="btn btn-ghost btn-sm" onclick="FPL.renderCaptaincy()" style="gap:6px;font-size:0.75rem;padding:4px 12px;border:1px solid var(--md-sys-color-outline-variant);">
                                 <span class="material-symbols-outlined" style="font-size:16px;">filter_list</span> Filter
                             </button>
                         </div>
 
                         <!-- Table -->
-                        <div class="table-container" style="overflow-x:auto;">
-                            <table style="width:100%;border-collapse:collapse;font-size:0.8125rem;white-space:nowrap;">
+                        <div style="overflow-x:auto;">
+                            <table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
                                 <thead>
-                                    <tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);background:rgba(255,255,255,0.03);color:var(--md-sys-color-on-surface-variant);font-size:0.75rem;font-family:var(--font-mono);">
-                                        <th style="padding:var(--space-sm) var(--space-md);text-align:center;width:40px;">RK</th>
-                                        <th style="padding:var(--space-sm) var(--space-md);text-align:left;">PLAYER</th>
-                                        <th style="padding:var(--space-sm) var(--space-md);text-align:center;">OPP</th>
-                                        <th style="padding:var(--space-sm) var(--space-md);text-align:center;">FDR</th>
-                                        <th style="padding:var(--space-sm) var(--space-md);text-align:center;">FORM</th>
-                                        <th style="padding:var(--space-sm) var(--space-md);text-align:center;">xGI</th>
-                                        <th style="padding:var(--space-sm) var(--space-md);text-align:center;">xPTS <span class="material-symbols-outlined" style="font-size:14px;color:var(--fdr-1);vertical-align:middle;">arrow_drop_down</span></th>
+                                    <tr style="border-bottom:1px solid #333333;background:rgba(255,255,255,0.03);color:#B0B0B0;font-size:12px;font-family:var(--font-mono);">
+                                        <th style="padding:8px 16px;text-align:center;width:40px;">RK</th>
+                                        <th style="padding:8px 16px;text-align:left;">PLAYER</th>
+                                        <th style="padding:8px 16px;text-align:center;">OPP</th>
+                                        <th style="padding:8px 16px;text-align:center;">FDR</th>
+                                        <th style="padding:8px 16px;text-align:center;">FORM</th>
+                                        <th style="padding:8px 16px;text-align:center;">xGI</th>
+                                        <th style="padding:8px 16px;text-align:center;">xPTS <span class="material-symbols-outlined" style="font-size:14px;color:#1A9F39;vertical-align:middle;">arrow_drop_down</span></th>
                                     </tr>
                                 </thead>
                                 <tbody id="captain-picks-body">
-                                    <tr><td colspan="7" style="text-align:center;padding:var(--space-xl);"><div class="spinner" style="margin:0 auto var(--space-sm);"></div><p>Loading captaincy matrix data...</p></td></tr>
+                                    <tr><td colspan="7" style="text-align:center;padding:var(--space-xl);"><div style="display:flex;justify-content:center;padding:16px;"><div class="pixel-loader-container"><span class="pixel-grid" aria-hidden="true"><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span></span><span class="pixel-loader-label">Loading captaincy matrix data...</span></div></div></td></tr>
                                 </tbody>
                             </table>
                         </div>
 
                         <!-- Table Footer -->
-                        <div style="padding:var(--space-md);border-top:1px solid var(--md-sys-color-outline-variant);text-align:center;background:rgba(255,255,255,0.02);">
-                            <button onclick="FPL.renderCaptaincy()" style="background:transparent;border:none;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);font-size:0.75rem;font-weight:700;letter-spacing:0.05em;cursor:pointer;transition:color 0.2s;" onmouseover="this.style.color='#00FF85'" onmouseout="this.style.color='var(--md-sys-color-on-surface-variant)'">
+                        <div style="padding:16px;border-top:1px solid #333333;text-align:center;background:rgba(255,255,255,0.02);">
+                            <button onclick="FPL.renderCaptaincy()" style="background:transparent;border:none;color:#B0B0B0;font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:0.05em;cursor:pointer;transition:color 0.2s;" onmouseover="this.style.color='#00FF85'" onmouseout="this.style.color='#B0B0B0'">
                                 LOAD FULL TOP 15 RANKINGS
                             </button>
                         </div>
@@ -892,13 +905,13 @@
                     </div>
 
                     <!-- Bento Grid Highlights -->
-                    <div class="grid grid-3 mb-lg" style="gap:var(--space-md);">
+                    <div class="ownership-bento-grid" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:16px;margin-bottom:24px;">
                         <!-- Card 1: Transferred In -->
-                        <div class="card" style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);position:relative;overflow:hidden;">
-                            <div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--fdr-1);"></div>
-                            <div class="card-body" style="padding:var(--space-md);">
-                                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-sm);">
-                                    <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">24h Transferred In</div>
+                        <div style="background:#1E1E1E;border:1px solid #333333;position:relative;overflow:hidden;border-radius:12px;">
+                            <div style="position:absolute;top:0;left:0;right:0;height:2px;background:#1A9F39;"></div>
+                            <div style="padding:16px;">
+                                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                                    <div style="font-size:12px;color:#B0B0B0;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">24h Transferred In</div>
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00FF85" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
                                 </div>
                                 <div id="bento-in-content" style="display:flex;align-items:center;justify-content:space-between;">
@@ -908,11 +921,11 @@
                         </div>
 
                         <!-- Card 2: Transferred Out -->
-                        <div class="card" style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);position:relative;overflow:hidden;">
-                            <div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--fdr-5);"></div>
-                            <div class="card-body" style="padding:var(--space-md);">
-                                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-sm);">
-                                    <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">24h Transferred Out</div>
+                        <div style="background:#1E1E1E;border:1px solid #333333;position:relative;overflow:hidden;border-radius:12px;">
+                            <div style="position:absolute;top:0;left:0;right:0;height:2px;background:#E21C3D;"></div>
+                            <div style="padding:16px;">
+                                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                                    <div style="font-size:12px;color:#B0B0B0;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">24h Transferred Out</div>
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF005A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>
                                 </div>
                                 <div id="bento-out-content" style="display:flex;align-items:center;justify-content:space-between;">
@@ -922,11 +935,11 @@
                         </div>
 
                         <!-- Card 3: Velocity Shift -->
-                        <div class="card" style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);position:relative;overflow:hidden;">
-                            <div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--fdr-4);"></div>
-                            <div class="card-body" style="padding:var(--space-md);">
-                                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-sm);">
-                                    <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Highest Velocity Shift</div>
+                        <div style="background:#1E1E1E;border:1px solid #333333;position:relative;overflow:hidden;border-radius:12px;">
+                            <div style="position:absolute;top:0;left:0;right:0;height:2px;background:#F0613D;"></div>
+                            <div style="padding:16px;">
+                                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                                    <div style="font-size:12px;color:#B0B0B0;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Highest Velocity Shift</div>
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFA600" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                                 </div>
                                 <div id="bento-velocity-content" style="display:flex;align-items:center;justify-content:space-between;">
@@ -937,11 +950,11 @@
                     </div>
 
                     <!-- Main Table Section -->
-                    <div class="card">
+                    <div style="background:#1E1E1E;border:1px solid #333333;border-radius:12px;overflow:hidden;">
                         <!-- Toolbar -->
-                        <div class="card-header" style="flex-wrap:wrap;gap:var(--space-md);padding:var(--space-md) var(--space-lg);border-bottom:1px solid var(--md-sys-color-outline-variant);">
-                            <div style="display:flex;align-items:center;gap:var(--space-md);flex-wrap:wrap;">
-                                <h2 style="font-family:var(--font-display);font-size:1.125rem;font-weight:700;margin:0;">Player Ownership Analysis</h2>
+                        <div style="padding:16px 24px;border-bottom:1px solid #333333;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+                                <h2 style="font-family:var(--font-display);font-size:18px;font-weight:700;margin:0;">Player Ownership Analysis</h2>
                                 <div style="display:inline-flex;gap:4px;padding:3px;background:rgba(255,255,255,0.06);border-radius:8px;border:1px solid rgba(255,255,255,0.1);">
                                     <button class="own-pos-btn active" onclick="FPL.filterOwnershipPos('all', this)">All</button>
                                     <button class="own-pos-btn" onclick="FPL.filterOwnershipPos('GKP', this)">GKP</button>
@@ -950,37 +963,37 @@
                                     <button class="own-pos-btn" onclick="FPL.filterOwnershipPos('FWD', this)">FWD</button>
                                 </div>
                             </div>
-                            <div style="display:flex;align-items:center;gap:var(--space-md);flex-wrap:wrap;">
-                                <input type="text" id="own-search" class="input" placeholder="Search player..." style="width:180px;height:36px;font-size:0.8125rem;" oninput="FPL.renderOwnershipTable()">
-                                <select id="own-sort" class="input" style="width:160px;height:36px;font-size:0.8125rem;" onchange="FPL.renderOwnershipTable()">
+                            <div style="display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap;">
+                                <input type="text" id="own-search" placeholder="Search player..." style="flex:1;min-width:180px;max-width:280px;height:36px;font-size:13px;background-color:#2A2A2A;color:#E0E0E0;border:1px solid #444444;border-radius:8px;padding:4px 12px;outline:none;font-family:var(--font-mono);" oninput="FPL.renderOwnershipTable()">
+                                <select id="own-sort" style="width:180px;height:36px;font-size:13px;background-color:#2A2A2A;color:#E0E0E0;border:1px solid #444444;border-radius:8px;padding:4px 32px 4px 12px;appearance:none;background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22%23B0B0B0%22%3E%3Cpath d=%22M7 10l5 5 5-5z%22/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 10px center;font-family:var(--font-mono);" onchange="FPL.renderOwnershipTable()">
                                     <option value="ownership">Sort by: Own %</option>
                                     <option value="delta24h">Sort by: 24h Δ</option>
                                     <option value="delta3d">Sort by: 3d Δ</option>
                                     <option value="delta7d">Sort by: 7d Δ</option>
                                     <option value="cost">Sort by: Price</option>
                                 </select>
-                                <button class="btn btn-ghost btn-icon" onclick="FPL.renderOwnership()" style="width:36px;height:36px;"><span class="material-symbols-outlined" style="font-size:20px;">refresh</span></button>
+                                <button onclick="FPL.renderOwnership()" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid #444444;background:#2A2A2A;color:#B0B0B0;cursor:pointer;"><span class="material-symbols-outlined" style="font-size:20px;">refresh</span></button>
                             </div>
                         </div>
 
                         <!-- Table -->
-                        <div class="table-container" style="overflow-x:auto;">
-                            <table style="width:100%;border-collapse:collapse;font-size:0.8125rem;white-space:nowrap;">
+                        <div style="overflow-x:auto;">
+                            <table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
                                 <thead>
-                                    <tr style="border-bottom:2px solid var(--md-sys-color-outline-variant);background:var(--md-sys-color-surface-container-high);color:var(--md-sys-color-on-surface-variant);font-size:0.75rem;">
-                                        <th style="padding:var(--space-sm) var(--space-md);text-align:center;width:40px;">#</th>
-                                        <th style="padding:var(--space-sm) var(--space-md);text-align:center;">Player / Team</th>
-                                        <th style="padding:var(--space-sm) var(--space-md);text-align:center;">Price</th>
-                                        <th style="padding:var(--space-sm) var(--space-md);text-align:center;">Current Own %</th>
-                                        <th style="padding:var(--space-sm) var(--space-md);text-align:center;">24h Δ</th>
-                                        <th style="padding:var(--space-sm) var(--space-md);text-align:center;">3d Δ</th>
-                                        <th style="padding:var(--space-sm) var(--space-md);text-align:center;">7d Δ</th>
-                                        <th style="padding:var(--space-sm) var(--space-md);text-align:center;width:130px;">14-Day Trend</th>
-                                        <th style="padding:var(--space-sm) var(--space-md);text-align:center;width:60px;">Points</th>
+                                    <tr style="border-bottom:2px solid #333333;background:#2A2A2A;color:#B0B0B0;font-size:12px;">
+                                        <th style="padding:8px 16px;text-align:center;width:40px;">#</th>
+                                        <th style="padding:8px 16px;text-align:left;">Player / Team</th>
+                                        <th style="padding:8px 16px;text-align:center;">Price</th>
+                                        <th style="padding:8px 16px;text-align:center;">Current Own %</th>
+                                        <th style="padding:8px 16px;text-align:center;">24h Δ</th>
+                                        <th style="padding:8px 16px;text-align:center;">3d Δ</th>
+                                        <th style="padding:8px 16px;text-align:center;">7d Δ</th>
+                                        <th style="padding:8px 16px;text-align:center;width:130px;">14-Day Trend</th>
+                                        <th style="padding:8px 16px;text-align:center;width:60px;">Points</th>
                                     </tr>
                                 </thead>
                                 <tbody id="ownership-trends-table-body">
-                                    <tr><td colspan="9" style="text-align:center;padding:var(--space-xl);"><div class="spinner" style="margin:0 auto var(--space-sm);"></div><p>Loading ownership trend data...</p></td></tr>
+                                    <tr><td colspan="9" style="text-align:center;padding:var(--space-xl);"><div style="display:flex;justify-content:center;padding:16px;"><div class="pixel-loader-container"><span class="pixel-grid" aria-hidden="true"><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span></span><span class="pixel-loader-label">Loading ownership trend data...</span></div></div></td></tr>
                                 </tbody>
                             </table>
                         </div>

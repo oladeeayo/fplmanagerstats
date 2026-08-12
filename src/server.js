@@ -1554,6 +1554,27 @@ app.get('/api/dashboard/overview', async (req, res) => {
       }))
     ];
 
+    const injuryNews = [...elements]
+      .filter(p => p.news && p.news.trim() !== '' && (p.status === 'i' || p.status === 's' || p.status === 'd' || p.status === 'u'))
+      .sort((a, b) => {
+        const statusOrder = { i: 0, s: 1, d: 2, u: 3 };
+        return (statusOrder[a.status] || 4) - (statusOrder[b.status] || 4);
+      })
+      .slice(0, 6)
+      .map(p => {
+        const team = getTeam(p.team);
+        const statusMap = { i: 'Injured', s: 'Suspended', d: 'Doubtful', u: 'Unavailable' };
+        return {
+          name: p.web_name,
+          team: team ? team.short_name : 'FPL',
+          pos: getPosStr(p.element_type),
+          status: statusMap[p.status] || p.status,
+          statusKey: p.status,
+          news: p.news,
+          chanceNextGw: p.chance_next_gw
+        };
+      });
+
     const topTeamIds = [1, 13, 12, 6, 18, 14, 15];
     const nextGWs = [currentGW, currentGW + 1, currentGW + 2, currentGW + 3, currentGW + 4];
 
@@ -1592,6 +1613,7 @@ app.get('/api/dashboard/overview', async (req, res) => {
       topTransfersIn,
       topTransfersOut,
       priceChanges,
+      injuryNews,
       fdrGrid,
       nextGWs
     });
@@ -1647,44 +1669,44 @@ app.get('/api/tactics/zones', async (req, res) => {
     if (formation === '352') {
       nodes = [
         getPlayerNode(playersByPos[1][0], 'GK', '5%', '50%'),
-        getPlayerNode(playersByPos[2][0], 'LCB', '20%', '25%'),
+        getPlayerNode(playersByPos[2][0], 'LCB', '20%', '20%'),
         getPlayerNode(playersByPos[2][1], 'CB', '18%', '50%'),
-        getPlayerNode(playersByPos[2][2], 'RCB', '20%', '75%'),
-        getPlayerNode(playersByPos[3][0], 'LWB', '38%', '12%'),
-        getPlayerNode(playersByPos[3][1], 'LCM', '38%', '32%'),
+        getPlayerNode(playersByPos[2][2], 'RCB', '20%', '80%'),
+        getPlayerNode(playersByPos[3][0], 'LWB', '40%', '5%'),
+        getPlayerNode(playersByPos[3][1], 'LCM', '38%', '28%'),
         getPlayerNode(playersByPos[3][2], 'CM', '35%', '50%'),
-        getPlayerNode(playersByPos[3][3], 'RCM', '38%', '68%'),
-        getPlayerNode(playersByPos[3][4], 'RWB', '38%', '88%'),
-        getPlayerNode(playersByPos[4][0], 'LST', '18%', '38%'),
-        getPlayerNode(playersByPos[4][1], 'RST', '18%', '62%')
+        getPlayerNode(playersByPos[3][3], 'RCM', '38%', '72%'),
+        getPlayerNode(playersByPos[3][4], 'RWB', '40%', '95%'),
+        getPlayerNode(playersByPos[4][0], 'LST', '65%', '35%'),
+        getPlayerNode(playersByPos[4][1], 'RST', '65%', '65%')
       ];
     } else if (formation === '433') {
       nodes = [
         getPlayerNode(playersByPos[1][0], 'GK', '5%', '50%'),
-        getPlayerNode(playersByPos[2][0], 'LB', '22%', '15%'),
-        getPlayerNode(playersByPos[2][1], 'LCB', '20%', '38%'),
-        getPlayerNode(playersByPos[2][2], 'RCB', '20%', '62%'),
-        getPlayerNode(playersByPos[2][3], 'RB', '22%', '85%'),
-        getPlayerNode(playersByPos[3][0], 'LCM', '40%', '28%'),
-        getPlayerNode(playersByPos[3][1], 'CM', '36%', '50%'),
-        getPlayerNode(playersByPos[3][2], 'RCM', '40%', '72%'),
-        getPlayerNode(playersByPos[4][0], 'LW', '22%', '18%'),
-        getPlayerNode(playersByPos[4][1], 'ST', '16%', '50%'),
-        getPlayerNode(playersByPos[4][2], 'RW', '22%', '82%')
+        getPlayerNode(playersByPos[2][0], 'LB', '20%', '10%'),
+        getPlayerNode(playersByPos[2][1], 'LCB', '18%', '33%'),
+        getPlayerNode(playersByPos[2][2], 'RCB', '18%', '67%'),
+        getPlayerNode(playersByPos[2][3], 'RB', '20%', '90%'),
+        getPlayerNode(playersByPos[3][0], 'LCM', '42%', '22%'),
+        getPlayerNode(playersByPos[3][1], 'CM', '38%', '50%'),
+        getPlayerNode(playersByPos[3][2], 'RCM', '42%', '78%'),
+        getPlayerNode(playersByPos[4][0], 'LW', '62%', '15%'),
+        getPlayerNode(playersByPos[4][1], 'ST', '70%', '50%'),
+        getPlayerNode(playersByPos[4][2], 'RW', '62%', '85%')
       ];
     } else {
       nodes = [
-        getPlayerNode(playersByPos[1][0], 'GK', '8%', '50%'),
-        getPlayerNode(playersByPos[2][0], 'LB', '22%', '31%'),
-        getPlayerNode(playersByPos[2][1], 'LCB', '20%', '42%'),
-        getPlayerNode(playersByPos[2][2], 'RCB', '20%', '54%'),
-        getPlayerNode(playersByPos[2][3], 'RB', '22%', '65%'),
-        getPlayerNode(playersByPos[3][0], 'LDM', '38%', '41%'),
-        getPlayerNode(playersByPos[3][1], 'RDM', '38%', '55%'),
-        getPlayerNode(playersByPos[3][2], 'LAM', '50%', '33%'),
-        getPlayerNode(playersByPos[3][3], 'CAM', '50%', '48%'),
-        getPlayerNode(playersByPos[3][4], 'RAM', '50%', '63%'),
-        getPlayerNode(playersByPos[4][0], 'ST', '66%', '48%')
+        getPlayerNode(playersByPos[1][0], 'GK', '5%', '50%'),
+        getPlayerNode(playersByPos[2][0], 'LB', '20%', '10%'),
+        getPlayerNode(playersByPos[2][1], 'LCB', '18%', '33%'),
+        getPlayerNode(playersByPos[2][2], 'RCB', '18%', '67%'),
+        getPlayerNode(playersByPos[2][3], 'RB', '20%', '90%'),
+        getPlayerNode(playersByPos[3][0], 'LDM', '36%', '35%'),
+        getPlayerNode(playersByPos[3][1], 'RDM', '36%', '65%'),
+        getPlayerNode(playersByPos[3][2], 'LAM', '52%', '18%'),
+        getPlayerNode(playersByPos[3][3], 'CAM', '55%', '50%'),
+        getPlayerNode(playersByPos[3][4], 'RAM', '52%', '82%'),
+        getPlayerNode(playersByPos[4][0], 'ST', '72%', '50%')
       ];
     }
 
@@ -1692,6 +1714,18 @@ app.get('/api/tactics/zones', async (req, res) => {
       .filter(p => (p.element_type === 3 || p.element_type === 4) && p.minutes > 200)
       .sort((a, b) => (parseFloat(b.form) + parseFloat(b.expected_goal_involvements || 0)) - (parseFloat(a.form) + parseFloat(a.expected_goal_involvements || 0)))
       .slice(0, 2);
+
+    // Get real fixtures for the top attackers
+    const getTeamNextFixture = (teamId) => {
+      const teamFixtures = fixtures
+        .filter(f => f.team_h === teamId || f.team_a === teamId)
+        .sort((a, b) => a.event - b.event);
+      const next = teamFixtures.find(f => f.event >= currentGW);
+      if (!next) return 'TBD';
+      const isHome = next.team_h === teamId;
+      const oppTeam = getTeam(isHome ? next.team_a : next.team_h);
+      return `vs ${oppTeam ? oppTeam.short_name : '?'} (${isHome ? 'H' : 'A'})`;
+    };
 
     const targetZones = [
       {
@@ -1702,7 +1736,7 @@ app.get('/api/tactics/zones', async (req, res) => {
         player: {
           name: topAttackers[0] ? topAttackers[0].web_name : 'B. Saka',
           code: topAttackers[0] ? topAttackers[0].code : 438098,
-          fixture: 'vs SHU (H)'
+          fixture: topAttackers[0] ? getTeamNextFixture(topAttackers[0].team) : 'vs SHU (H)'
         }
       },
       {
@@ -1713,15 +1747,42 @@ app.get('/api/tactics/zones', async (req, res) => {
         player: {
           name: topAttackers[1] ? topAttackers[1].web_name : 'K. De Bruyne',
           code: topAttackers[1] ? topAttackers[1].code : 61366,
-          fixture: 'vs LUT (A)'
+          fixture: topAttackers[1] ? getTeamNextFixture(topAttackers[1].team) : 'vs LUT (A)'
         }
       }
     ];
 
-    const dangerZones = [
-      { fixture: 'TOT vs MCI', threatArea: 'Left Half-Space', xGConceded: '1.84', colorTier: 'fdr-5' },
-      { fixture: 'NEW vs CHE', threatArea: 'Central Penalty', xGConceded: '1.22', colorTier: 'fdr-4' },
-      { fixture: 'BHA vs EVE', threatArea: 'Right Wing', xGConceded: '0.65', colorTier: 'fdr-1' }
+    // Build danger zones from real fixture data - find matches with high xG potential
+    const teamXG = {};
+    elements.forEach(p => {
+      const xgc = parseFloat(p.expected_goals_conceded || 0);
+      if (xgc > 0) {
+        teamXG[p.team] = (teamXG[p.team] || 0) + xgc;
+      }
+    });
+
+    const dangerFixtures = fixtures
+      .filter(f => f.event === currentGW)
+      .map(f => {
+        const homeTeam = getTeam(f.team_h);
+        const awayTeam = getTeam(f.team_a);
+        const homeXG = teamXG[f.team_h] || 0;
+        const awayXG = teamXG[f.team_a] || 0;
+        const totalXG = homeXG + awayXG;
+        const threatArea = totalXG > 5 ? 'Central Penalty' : totalXG > 3 ? 'Left Half-Space' : 'Right Wing';
+        const tier = totalXG > 5 ? 'fdr-5' : totalXG > 3 ? 'fdr-4' : 'fdr-1';
+        return {
+          fixture: `${homeTeam ? homeTeam.short_name : '?'} vs ${awayTeam ? awayTeam.short_name : '?'}`,
+          threatArea,
+          xGConceded: totalXG.toFixed(2),
+          colorTier: tier
+        };
+      })
+      .sort((a, b) => parseFloat(b.xGConceded) - parseFloat(a.xGConceded))
+      .slice(0, 3);
+
+    const dangerZones = dangerFixtures.length > 0 ? dangerFixtures : [
+      { fixture: 'No fixtures', threatArea: 'N/A', xGConceded: '0.00', colorTier: 'fdr-1' }
     ];
 
     res.json({

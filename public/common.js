@@ -87,6 +87,10 @@ const FPL = {
                     const d = new Date(deadline.deadlineTime);
                     dlEl.textContent = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
                 }
+                // Start countdown timer
+                if (deadline.deadlineTime) {
+                    this.startCountdown(new Date(deadline.deadlineTime));
+                }
             }
 
             // Populate GW jump selector
@@ -140,14 +144,100 @@ const FPL = {
         }
     },
 
-    showLoading() {
+        loaderInterval: null,
+    loaderStartTime: 0,
+
+    showLoading(label = 'Loading FPL data...') {
         const el = document.getElementById('loading-overlay');
-        if (el) el.classList.remove('hidden');
+        if (el) {
+            const labelEl = el.querySelector('.pixel-loader-label');
+            if (labelEl) labelEl.textContent = label;
+            el.classList.remove('hidden');
+        }
+
+        const timerEl = document.getElementById('main-overlay-timer');
+        if (timerEl) {
+            this.loaderStartTime = Date.now();
+            if (this.loaderInterval) clearInterval(this.loaderInterval);
+            this.loaderInterval = setInterval(() => {
+                const ds = Math.floor((Date.now() - this.loaderStartTime) / 100);
+                const total = ds / 10;
+                if (total < 60) {
+                    timerEl.textContent = total.toFixed(1) + 's';
+                } else {
+                    timerEl.textContent = Math.floor(total / 60) + 'm ' + (total % 60).toFixed(1) + 's';
+                }
+            }, 100);
+        }
     },
 
     hideLoading() {
         const el = document.getElementById('loading-overlay');
         if (el) el.classList.add('hidden');
+        if (this.loaderInterval) {
+            clearInterval(this.loaderInterval);
+            this.loaderInterval = null;
+        }
+    },
+
+    startCountdown(deadlineDate) {
+        const countdownEl = document.getElementById('dash-countdown');
+        const dateEl = document.getElementById('dash-deadline-date');
+        if (!countdownEl) return;
+
+        if (dateEl && deadlineDate) {
+            dateEl.textContent = deadlineDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+        }
+
+        const update = () => {
+            const now = new Date();
+            const diff = deadlineDate - now;
+            if (diff <= 0) {
+                countdownEl.textContent = 'LIVE';
+                countdownEl.style.color = '#FF005A';
+                if (this._countdownInterval) clearInterval(this._countdownInterval);
+                return;
+            }
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+            if (days > 0) {
+                countdownEl.textContent = days + 'd ' + hours + 'h ' + minutes + 'm';
+            } else {
+                countdownEl.textContent = String(hours).padStart(2, '0') + ':' + String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+            }
+        };
+
+        update();
+        if (this._countdownInterval) clearInterval(this._countdownInterval);
+        this._countdownInterval = setInterval(update, 1000);
+    },
+
+    createPixelLoader(label = 'Loading FPL data...') {
+        const id = 'loader-timer-' + Math.random().toString(36).substring(2, 7);
+        setTimeout(() => {
+            const timerEl = document.getElementById(id);
+            if (!timerEl) return;
+            const startTime = Date.now();
+            const interval = setInterval(() => {
+                const currentEl = document.getElementById(id);
+                if (!currentEl) {
+                    clearInterval(interval);
+                    return;
+                }
+                const ds = Math.floor((Date.now() - startTime) / 100);
+                const total = ds / 10;
+                if (total < 60) {
+                    currentEl.textContent = total.toFixed(1) + 's';
+                } else {
+                    currentEl.textContent = Math.floor(total / 60) + 'm ' + (total % 60).toFixed(1) + 's';
+                }
+            }, 100);
+        }, 50);
+
+        return '<div class="pixel-loader-container"><span class="pixel-grid" aria-hidden="true"><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span></span><span class="pixel-loader-label">' + label + '</span><span id="' + id + '" class="pixel-loader-timer">0.0s</span></div>';
     },
 
     showError(message) {
@@ -362,7 +452,7 @@ const FPL = {
 
             const priceChangesContainer = document.getElementById('dash-price-changes-list');
             if (priceChangesContainer && data.priceChanges) {
-                priceChangesContainer.innerHTML = data.priceChanges.map(pc => `
+                priceChangesContainer.innerHTML = data.priceChanges.length > 0 ? data.priceChanges.map(pc => `
                     <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;">
                         <div>
                             <div style="font-size:13px;font-weight:700;color:#ffffff;">${pc.name}</div>
@@ -373,7 +463,43 @@ const FPL = {
                             <span class="material-symbols-outlined" style="font-size:16px;color:${pc.direction === 'up' ? '#00ff85' : '#FF005A'};">${pc.direction === 'up' ? 'arrow_upward' : 'arrow_downward'}</span>
                         </div>
                     </div>
-                `).join('');
+                `).join('') : '<div style="text-align:center;padding:12px;font-size:13px;color:#8ba396;">No price changes yet</div>';
+            }
+
+            const transfersOutContainer = document.getElementById('dash-transfers-out-list');
+            if (transfersOutContainer && data.topTransfersOut) {
+                transfersOutContainer.innerHTML = data.topTransfersOut.length > 0 ? data.topTransfersOut.map((p, idx) => `
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;${idx < data.topTransfersOut.length - 1 ? 'border-bottom:1px solid #19261f;' : ''}">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <div style="width:32px;height:32px;border-radius:50%;background:#1c2720;border:1px solid #28392e;display:flex;align-items:center;justify-content:center;font-weight:700;color:#FF005A;font-size:12px;">${idx + 1}</div>
+                            <div>
+                                <div style="font-size:14px;font-weight:700;color:#ffffff;">${p.name}</div>
+                                <div style="font-size:11px;color:#8ba396;font-family:var(--font-mono);">${p.team} • ${p.pos}</div>
+                            </div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:13px;font-weight:700;color:#FF005A;font-family:var(--font-mono);">${p.transfersCount}</div>
+                        </div>
+                    </div>
+                `).join('') : '<div style="text-align:center;padding:12px;font-size:13px;color:#8ba396;">No transfer data yet</div>';
+            }
+
+            const injuryContainer = document.getElementById('dash-injury-list');
+            if (injuryContainer && data.injuryNews) {
+                injuryContainer.innerHTML = data.injuryNews.length > 0 ? data.injuryNews.map(p => {
+                    const statusColor = p.statusKey === 'i' ? '#FF4D4D' : p.statusKey === 's' ? '#FFA600' : p.statusKey === 'd' ? '#FFD700' : '#8ba396';
+                    const statusBg = p.statusKey === 'i' ? 'rgba(255,77,77,0.15)' : p.statusKey === 's' ? 'rgba(255,166,0,0.15)' : p.statusKey === 'd' ? 'rgba(255,215,0,0.15)' : 'rgba(139,163,150,0.15)';
+                    return `
+                    <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #19261f;">
+                        <div style="width:32px;height:32px;border-radius:50%;background:${statusBg};border:1px solid ${statusColor}40;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <span class="material-symbols-outlined" style="color:${statusColor};font-size:18px;">${p.statusKey === 'i' ? 'healing' : p.statusKey === 's' ? 'block' : 'help_outline'}</span>
+                        </div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-size:13px;font-weight:700;color:#ffffff;">${p.name} <span style="font-size:10px;color:#8ba396;font-family:var(--font-mono);">${p.team} • ${p.pos}</span></div>
+                            <div style="font-size:11px;color:${statusColor};margin-top:2px;">${p.status}: ${p.news}</div>
+                        </div>
+                    </div>`;
+                }).join('') : '<div style="text-align:center;padding:16px;font-size:13px;color:#8ba396;">No injury or suspension news</div>';
             }
 
         } catch (err) {
@@ -557,24 +683,24 @@ const FPL = {
         const info = m?.managerInfo;
         const team = m?.currentTeam;
 
-        // Top Bento Stats
+        // Top Bento Stats - use real data only, show '--' if unavailable
         const rankEl = document.getElementById('team-overall-rank');
-        if (rankEl) rankEl.textContent = info?.overallRanking ? this.formatNumber(info.overallRanking) : '12,450';
+        if (rankEl) rankEl.textContent = info?.overallRanking ? this.formatNumber(info.overallRanking) : '--';
 
         const rankChangeEl = document.getElementById('team-rank-change');
-        if (rankChangeEl) rankChangeEl.textContent = info?.rankChange ? '↑ ' + this.formatNumber(info.rankChange) : '↑ 4,200';
+        if (rankChangeEl) rankChangeEl.textContent = info?.rankChange ? (info.rankChange > 0 ? '↑ ' : '↓ ') + this.formatNumber(Math.abs(info.rankChange)) : '--';
 
         const totalPtsEl = document.getElementById('team-total-points');
-        if (totalPtsEl) totalPtsEl.textContent = info?.managerPoints ? this.formatNumber(info.managerPoints) : '1,842';
+        if (totalPtsEl) totalPtsEl.textContent = info?.managerPoints ? this.formatNumber(info.managerPoints) : '--';
 
         const gwSubEl = document.getElementById('team-gw-points-sub');
-        if (gwSubEl) gwSubEl.textContent = 'GW: ' + (info?.highestPoints || '64');
+        if (gwSubEl) gwSubEl.textContent = info?.highestPoints ? 'GW: ' + info.highestPoints : 'GW: --';
 
         const tmplScoreEl = document.getElementById('team-template-score');
-        if (tmplScoreEl) tmplScoreEl.textContent = (info?.templateScore || '84') + '%';
+        if (tmplScoreEl) tmplScoreEl.textContent = info?.templateScore ? info.templateScore + '%' : '--%';
 
         const tmplBarEl = document.getElementById('team-template-score-bar');
-        if (tmplBarEl) tmplBarEl.style.width = Math.min(100, (info?.templateScore || 84)) + '%';
+        if (tmplBarEl) tmplBarEl.style.width = info?.templateScore ? Math.min(100, info.templateScore) + '%' : '0%';
 
         // Position Breakdown
         if (team && team.length > 0) {
@@ -596,26 +722,27 @@ const FPL = {
                 }
             });
 
-            if (document.getElementById('pos-gkp-pts')) document.getElementById('pos-gkp-pts').textContent = posStats.GKP.pts || '142';
-            if (document.getElementById('pos-gkp-top')) document.getElementById('pos-gkp-top').textContent = `Top: ${posStats.GKP.topName || 'Raya'} (${posStats.GKP.topPts || 128})`;
+            if (document.getElementById('pos-gkp-pts')) document.getElementById('pos-gkp-pts').textContent = posStats.GKP.pts || '0';
+            if (document.getElementById('pos-gkp-top')) document.getElementById('pos-gkp-top').textContent = posStats.GKP.topName ? `Top: ${posStats.GKP.topName} (${posStats.GKP.topPts})` : 'No data';
 
-            if (document.getElementById('pos-def-pts')) document.getElementById('pos-def-pts').textContent = posStats.DEF.pts || '486';
-            if (document.getElementById('pos-def-top')) document.getElementById('pos-def-top').textContent = `Top: ${posStats.DEF.topName || 'Gabriel'} (${posStats.DEF.topPts || 145})`;
+            if (document.getElementById('pos-def-pts')) document.getElementById('pos-def-pts').textContent = posStats.DEF.pts || '0';
+            if (document.getElementById('pos-def-top')) document.getElementById('pos-def-top').textContent = posStats.DEF.topName ? `Top: ${posStats.DEF.topName} (${posStats.DEF.topPts})` : 'No data';
 
-            if (document.getElementById('pos-mid-pts')) document.getElementById('pos-mid-pts').textContent = posStats.MID.pts || '892';
-            if (document.getElementById('pos-mid-top')) document.getElementById('pos-mid-top').textContent = `Top: ${posStats.MID.topName || 'Palmer'} (${posStats.MID.topPts || 212})`;
+            if (document.getElementById('pos-mid-pts')) document.getElementById('pos-mid-pts').textContent = posStats.MID.pts || '0';
+            if (document.getElementById('pos-mid-top')) document.getElementById('pos-mid-top').textContent = posStats.MID.topName ? `Top: ${posStats.MID.topName} (${posStats.MID.topPts})` : 'No data';
 
-            if (document.getElementById('pos-fwd-pts')) document.getElementById('pos-fwd-pts').textContent = posStats.FWD.pts || '322';
-            if (document.getElementById('pos-fwd-top')) document.getElementById('pos-fwd-top').textContent = `Top: ${posStats.FWD.topName || 'Haaland'} (${posStats.FWD.topPts || 188})`;
+            if (document.getElementById('pos-fwd-pts')) document.getElementById('pos-fwd-pts').textContent = posStats.FWD.pts || '0';
+            if (document.getElementById('pos-fwd-top')) document.getElementById('pos-fwd-top').textContent = posStats.FWD.topName ? `Top: ${posStats.FWD.topName} (${posStats.FWD.topPts})` : 'No data';
         }
 
         // Squad Performance Table
         const squadTbody = document.getElementById('squad-performance-tbody');
         if (squadTbody) {
-            const playersToRender = (team && team.length > 0) ? team : [
-                { name: 'Palmer', points: 212, gwApps: 28, starts: 27, captPts: 48, costStr: '£10.8m', ppg: 7.6 },
-                { name: 'Haaland', points: 188, gwApps: 25, starts: 25, captPts: 112, costStr: '£15.4m', ppg: 7.5 }
-            ];
+            if (!team || team.length === 0) {
+                squadTbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:#8ba396;font-size:13px;">Connect your FPL ID to see squad performance data</td></tr>';
+                return;
+            }
+            const playersToRender = team;
 
             squadTbody.innerHTML = playersToRender.map(p => `
                 <tr style="border-bottom:1px solid #16251e;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
@@ -628,7 +755,7 @@ const FPL = {
                     <td style="padding:14px 16px;text-align:center;color:#8ba396;font-family:var(--font-mono);">${p.starts || 27}</td>
                     <td style="padding:14px 16px;text-align:center;color:#8ba396;font-family:var(--font-mono);">${p.captPts || 0}</td>
                     <td style="padding:14px 16px;text-align:center;color:#ffffff;font-family:var(--font-mono);">${p.costStr || ('£' + ((p.nowCost || 100) / 10).toFixed(1) + 'm')}</td>
-                    <td style="padding:14px 20px;text-align:right;font-weight:700;color:#00FF85;font-family:var(--font-mono);font-size:14px;">${p.ppg || ( (p.totalPoints || p.points || 0) / 28 ).toFixed(1)}</td>
+                    <td style="padding:14px 20px;text-align:center;font-weight:700;color:#00FF85;font-family:var(--font-mono);font-size:14px;">${p.ppg || ( (p.totalPoints || p.points || 0) / 28 ).toFixed(1)}</td>
                 </tr>
             `).join('');
         }
@@ -836,11 +963,11 @@ const FPL = {
                     </td>
                     <td class="py-2 px-4 font-body-sm text-on-surface" style="padding:10px 16px;font-size:14px;color:var(--md-sys-color-on-surface);">${teamShort}</td>
                     <td class="py-2 px-4 font-label-caps text-label-caps text-on-surface-variant" style="padding:10px 16px;font-family:var(--font-mono);font-size:12px;color:var(--md-sys-color-on-surface-variant);">${posStr}</td>
-                    <td class="py-2 px-4 font-data-tabular text-data-tabular" style="padding:10px 16px;font-family:var(--font-mono);font-size:14px;color:var(--md-sys-color-on-surface);">£${(p.now_cost / 10).toFixed(1)}</td>
-                    <td class="py-2 px-4 font-data-tabular text-data-tabular text-right text-primary-fixed" style="padding:10px 16px;text-align:right;font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--fdr-1);">${p.total_points}</td>
-                    <td class="py-2 px-4 font-data-tabular text-data-tabular text-right" style="padding:10px 16px;text-align:right;font-family:var(--font-mono);font-size:14px;${xgColorClass}">${xG}</td>
-                    <td class="py-2 px-4 font-data-tabular text-data-tabular text-right" style="padding:10px 16px;text-align:right;font-family:var(--font-mono);font-size:14px;${xaColorClass}">${xA}</td>
-                    <td class="py-2 px-4 font-data-tabular text-data-tabular text-right" style="padding:10px 16px;text-align:right;font-family:var(--font-mono);font-size:14px;color:var(--md-sys-color-on-surface);">${p.ict_index || '0.0'}</td>
+                    <td class="py-2 px-4 font-data-tabular text-data-tabular" style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-size:14px;color:var(--md-sys-color-on-surface);">£${(p.now_cost / 10).toFixed(1)}</td>
+                    <td class="py-2 px-4 font-data-tabular text-data-tabular text-right text-primary-fixed" style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--fdr-1);">${p.total_points}</td>
+                    <td class="py-2 px-4 font-data-tabular text-data-tabular text-right" style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-size:14px;${xgColorClass}">${xG}</td>
+                    <td class="py-2 px-4 font-data-tabular text-data-tabular text-right" style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-size:14px;${xaColorClass}">${xA}</td>
+                    <td class="py-2 px-4 font-data-tabular text-data-tabular text-right" style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-size:14px;color:var(--md-sys-color-on-surface);">${p.ict_index || '0.0'}</td>
                     <td class="py-2 px-4" style="padding:10px 16px;">
                         <div class="flex items-center justify-center gap-1" style="display:flex;align-items:center;justify-content:center;gap:4px;">
                             <div style="width:6px;height:16px;border-radius:2px;background:var(--fdr-${formBars[0]});"></div>
@@ -931,10 +1058,10 @@ const FPL = {
                         <div style="font-weight:700;color:var(--md-sys-color-on-surface);">${m.managerName}</div>
                         <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);margin-top:2px;">${m.entryName}</div>
                     </td>
-                    <td class="mono" style="padding:var(--space-md);text-align:right;color:var(--md-sys-color-on-surface);font-weight:600;">${m.eventTotal}</td>
-                    <td class="mono" style="padding:var(--space-md);text-align:right;color:var(--fdr-1);font-weight:800;">${this.formatNumber(m.total)}</td>
+                    <td class="mono" style="padding:var(--space-md);text-align:center;color:var(--md-sys-color-on-surface);font-weight:600;">${m.eventTotal}</td>
+                    <td class="mono" style="padding:var(--space-md);text-align:center;color:var(--fdr-1);font-weight:800;">${this.formatNumber(m.total)}</td>
                     <td style="padding:var(--space-md);text-align:center;">${diffArrow}</td>
-                    <td style="padding:var(--space-md);text-align:right;">
+                    <td style="padding:var(--space-md);text-align:center;">
                         <span class="mono" style="background:var(--md-sys-color-surface-variant);color:var(--md-sys-color-on-surface);font-size:0.75rem;padding:3px 10px;border-radius:4px;font-weight:700;display:inline-block;">${this.formatNumber(m.diffCount)}</span>
                     </td>
                 </tr>`;
@@ -1436,43 +1563,44 @@ const FPL = {
         tbody.innerHTML = players.map((p, i) => {
             const formatDelta = (val) => {
                 const sign = val > 0 ? '+' : '';
-                const bg = val > 0 ? 'background:rgba(0,255,133,0.12);color:var(--fdr-1);' :
-                           val < 0 ? 'background:rgba(255,0,90,0.12);color:var(--fdr-5);' :
-                           'background:var(--md-sys-color-surface-container-high);color:var(--md-sys-color-on-surface-variant);';
-                return `<span class="mono" style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:0.75rem;font-weight:700;${bg}">${sign}${val.toFixed(2)}%</span>`;
+                const bg = val > 0 ? 'background:rgba(0,255,133,0.12);color:#1A9F39;' :
+                           val < 0 ? 'background:rgba(255,0,90,0.12);color:#E21C3D;' :
+                           'background:#2A2A2A;color:#B0B0B0;';
+                return `<span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700;font-family:var(--font-mono);${bg}">${sign}${val.toFixed(2)}%</span>`;
             };
 
             const sparklineSVG = this.generateSparklineSVG(p.sparkline, p.delta24h >= 0, 110, 24);
 
             return `
-            <tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);transition:background var(--transition-fast);">
-                <td style="padding:var(--space-sm) var(--space-md);text-align:center;color:var(--md-sys-color-on-surface-variant);">${i + 1}</td>
-                <td style="padding:var(--space-sm) var(--space-md);text-align:center;">
-                    <div style="display:inline-flex;align-items:center;gap:var(--space-sm);text-align:left;">
-                        <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.src='football.ico'" style="width:32px;height:32px;border-radius:50%;object-fit:cover;background:var(--md-sys-color-surface-container-high);">
+            <tr style="border-bottom:1px solid #333333;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
+                <td style="padding:10px 16px;text-align:center;color:#B0B0B0;font-family:var(--font-mono);font-size:13px;">${i + 1}</td>
+                <td style="padding:10px 16px;text-align:left;">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.src='football.ico'" style="width:36px;height:36px;border-radius:50%;object-fit:cover;background:#2A2A2A;border:1px solid #444444;">
                         <div>
-                            <div style="font-weight:600;font-size:0.875rem;">${p.name}</div>
-                            <div style="display:flex;align-items:center;gap:4px;font-size:0.6875rem;color:var(--md-sys-color-on-surface-variant);">
-                                <span style="font-weight:600;">${p.team}</span> • 
-                                <span style="padding:0 4px;border-radius:2px;font-weight:700;background:${posColors[p.position]}20;color:${posColors[p.position]};">${p.position}</span>
+                            <div style="font-weight:700;font-size:14px;color:#E0E0E0;">${p.name}</div>
+                            <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#B0B0B0;margin-top:2px;">
+                                <span style="font-weight:600;">${p.team}</span>
+                                <span style="color:#444;">•</span>
+                                <span style="padding:0 5px;border-radius:3px;font-weight:700;font-size:10px;background:${posColors[p.position]}20;color:${posColors[p.position]};">${p.position}</span>
                             </div>
                         </div>
                     </div>
                 </td>
-                <td style="padding:var(--space-sm) var(--space-md);text-align:center;font-family:var(--font-mono);font-weight:600;">${p.costStr}</td>
-                <td style="padding:var(--space-sm) var(--space-md);text-align:center;">
-                    <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-                        <span class="mono" style="font-weight:700;color:var(--md-sys-color-on-surface);">${p.ownership}%</span>
-                        <div style="height:3px;width:70px;background:var(--md-sys-color-surface-container-high);border-radius:2px;overflow:hidden;">
-                            <div style="height:100%;width:${Math.min(p.ownership, 100)}%;background:var(--md-sys-color-primary);"></div>
+                <td style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-weight:600;color:#E0E0E0;">${p.costStr}</td>
+                <td style="padding:10px 16px;text-align:center;">
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+                        <span style="font-weight:700;color:#E0E0E0;font-family:var(--font-mono);">${p.ownership}%</span>
+                        <div style="height:3px;width:60px;background:#2A2A2A;border-radius:2px;overflow:hidden;">
+                            <div style="height:100%;width:${Math.min(p.ownership, 100)}%;background:#00ff85;border-radius:2px;"></div>
                         </div>
                     </div>
                 </td>
-                <td style="padding:var(--space-sm) var(--space-md);text-align:center;">${formatDelta(p.delta24h)}</td>
-                <td style="padding:var(--space-sm) var(--space-md);text-align:center;">${formatDelta(p.delta3d)}</td>
-                <td style="padding:var(--space-sm) var(--space-md);text-align:center;">${formatDelta(p.delta7d)}</td>
-                <td style="padding:var(--space-sm) var(--space-md);text-align:center;">${sparklineSVG}</td>
-                <td style="padding:var(--space-sm) var(--space-md);text-align:center;font-family:var(--font-mono);font-weight:700;color:var(--md-sys-color-primary);">${p.points}</td>
+                <td style="padding:10px 16px;text-align:center;">${formatDelta(p.delta24h)}</td>
+                <td style="padding:10px 16px;text-align:center;">${formatDelta(p.delta3d)}</td>
+                <td style="padding:10px 16px;text-align:center;">${formatDelta(p.delta7d)}</td>
+                <td style="padding:10px 16px;text-align:center;">${sparklineSVG}</td>
+                <td style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-weight:700;color:#00ff85;">${p.points}</td>
             </tr>`;
         }).join('');
     },
@@ -1562,34 +1690,41 @@ const FPL = {
 
             const container = document.getElementById('zones-nodes-container');
             if (container && data.nodes) {
-                // Exact 1:1 node positions matching step 983 reference image
-                const customNodes = [
-                    { abbr: 'HAA', role: 'ST', top: '36%', left: '47%', type: 'pink' },
-                    { abbr: 'KDB', role: 'CAM', top: '46%', left: '47%', type: 'pink' },
-                    { abbr: 'SON', role: 'LAM', top: '50%', left: '33%', type: 'ring' },
-                    { abbr: 'SAK', role: 'RAM', top: '50%', left: '61%', type: 'ring' },
-                    { abbr: 'ROD', role: 'LDM', top: '63%', left: '40%', type: 'ring' },
-                    { abbr: 'RICE', role: 'RDM', top: '63%', left: '54%', type: 'ring' },
-                    { abbr: 'UDO', role: 'LB', top: '76%', left: '31%', type: 'cyan' },
-                    { abbr: 'SAL', role: 'LCB', top: '76%', left: '42%', type: 'ring' },
-                    { abbr: 'GAB', role: 'RCB', top: '76%', left: '53%', type: 'ring' },
-                    { abbr: 'POR', role: 'RB', top: '76%', left: '63%', type: 'ring' },
-                    { abbr: 'ARE', role: 'GK', top: '86%', left: '47%', type: 'ring' }
-                ];
+                container.innerHTML = data.nodes.map(n => {
+                    // Convert bottom% to top% (server uses bottom, CSS needs top)
+                    const topVal = n.bottom ? (100 - parseFloat(n.bottom)) + '%' : '50%';
+                    const leftVal = n.left || '50%';
 
-                container.innerHTML = customNodes.map(n => {
+                    // Determine node type: role-based ONLY, highThreat does not override defensive roles
+                    let nodeType = 'ring';
+                    const role = (n.role || '').toUpperCase();
+                    const isDefender = role === 'GK' || role === 'CB' || role === 'LCB' || role === 'RCB';
+                    const isFullback = role === 'LB' || role === 'RB' || role === 'LWB' || role === 'RWB';
+                    const isMidfielder = role === 'CM' || role === 'LCM' || role === 'RCM' || role === 'LDM' || role === 'RDM' || role === 'CDM' || role === 'CAM';
+                    const isAttacker = role === 'ST' || role === 'LST' || role === 'RST' || role === 'LW' || role === 'RW' || role === 'LAM' || role === 'RAM';
+
+                    if (isFullback) {
+                        nodeType = 'cyan';
+                    } else if (isAttacker || (isMidfielder && n.highThreat)) {
+                        nodeType = 'pink';
+                    } else {
+                        nodeType = 'ring';
+                    }
+
                     let nodeGraphic = '';
-                    if (n.type === 'cyan') {
+                    if (nodeType === 'cyan') {
                         nodeGraphic = `<div style="width:20px;height:20px;border-radius:50%;background:#00D1FF;box-shadow:0 0 16px #00D1FF, 0 0 32px rgba(0,209,255,0.85);"></div>`;
-                    } else if (n.type === 'pink') {
+                    } else if (nodeType === 'pink') {
                         nodeGraphic = `<div style="width:20px;height:20px;border-radius:50%;background:#FF005A;box-shadow:0 0 16px #FF005A, 0 0 32px rgba(255,0,90,0.85);"></div>`;
                     } else {
                         nodeGraphic = `<div style="width:22px;height:22px;border-radius:50%;background:#090e0c;border:2.5px solid #ffffff;box-shadow:0 1px 4px rgba(0,0,0,0.6);"></div>`;
                     }
 
-                    return `<div style="position:absolute;top:${n.top};left:${n.left};transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;cursor:pointer;z-index:10;">
+                    const abbr = n.abbr || (n.name ? n.name.substring(0, 3).toUpperCase() : '???');
+
+                    return `<div style="position:absolute;top:${topVal};left:${leftVal};transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;cursor:pointer;z-index:10;" title="${n.name || ''} | ${n.role || ''} | ${n.pts || 0} pts | xGI: ${n.xGI || 0}">
                         ${nodeGraphic}
-                        <span class="mono" style="font-size:10px;background:#090d0b;padding:1px 5px;margin-top:4px;border-radius:3px;color:#c5d8cd;white-space:nowrap;font-weight:700;border:1px solid #19271f;font-family:var(--font-mono);">${n.abbr}</span>
+                        <span class="mono" style="font-size:10px;background:#090d0b;padding:1px 5px;margin-top:4px;border-radius:3px;color:#c5d8cd;white-space:nowrap;font-weight:700;border:1px solid #19271f;font-family:var(--font-mono);">${abbr}</span>
                     </div>`;
                 }).join('');
             }
@@ -1633,7 +1768,7 @@ const FPL = {
                             <span style="color:#ffffff;font-weight:700;font-size:13px;font-family:var(--font-mono);">${dz.fixture}</span>
                         </td>
                         <td style="padding:12px 16px;color:#6c8577;font-size:13px;">${dz.threatArea}</td>
-                        <td style="padding:12px 16px;text-align:right;font-weight:700;color:${valColor};font-family:var(--font-mono);font-size:13px;">${dz.xGConceded}</td>
+                        <td style="padding:12px 16px;text-align:center;font-weight:700;color:${valColor};font-family:var(--font-mono);font-size:13px;">${dz.xGConceded}</td>
                     </tr>`;
                 }).join('');
             }
@@ -1651,7 +1786,7 @@ const FPL = {
         const newGW = (this.state.selectedGW || this.state.currentGW) + delta;
         if (newGW >= 1 && newGW <= 38) {
             this.state.selectedGW = newGW;
-            document.querySelectorAll('#current-gw, #fixture-gw-display, #captain-gw-display').forEach(el => {
+            document.querySelectorAll('#current-gw, #fixture-gw-display, #captain-gw-display, #zones-gw-display').forEach(el => {
                 if (el) el.textContent = newGW;
             });
             this.loadTabData(this.state.activeTab);
