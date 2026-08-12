@@ -2002,53 +2002,62 @@ app.get('/api/set-pieces', async (req, res) => {
     const teams = bs.teams;
     const getTeam = id => teams.find(t => t.id === id);
 
-    // Group players by team and sort by minutes/goals for set piece order
+    const makePlayer = (p) => ({
+      id: p.id, name: p.web_name, firstName: p.first_name, secondName: p.second_name,
+      code: p.code, position: POSITION_MAP[p.element_type - 1],
+      team: getTeam(p.team)?.short_name || '', teamFull: getTeam(p.team)?.name || '', teamId: p.team,
+      minutes: p.minutes || 0, goals: p.goals_scored || 0, assists: p.assists || 0,
+      bonus: p.bonus || 0, bps: p.bps || 0,
+      cost: p.now_cost, costStr: '£' + (p.now_cost / 10).toFixed(1) + 'm',
+      form: parseFloat(p.form) || 0, totalPoints: p.total_points || 0,
+      selectedBy: parseFloat(p.selected_by_percent) || 0,
+      ictIndex: parseFloat(p.ict_index) || 0,
+      influence: parseFloat(p.influence) || 0,
+      creativity: parseFloat(p.creativity) || 0,
+      threat: parseFloat(p.threat) || 0,
+      penaltiesSaved: p.penalties_saved || 0,
+      penaltiesMissed: p.penalties_missed || 0,
+      yellowCards: p.yellow_cards || 0, redCards: p.red_cards || 0,
+      saves: p.saves || 0, cleanSheets: p.clean_sheets || 0,
+      goalsConceded: p.goals_conceded || 0
+    });
+
+    // Group players by team
     const teamPlayers = {};
     elements.forEach(p => {
       if (!teamPlayers[p.team]) teamPlayers[p.team] = [];
-      teamPlayers[p.team].push({
-        id: p.id, name: p.web_name, code: p.code,
-        position: POSITION_MAP[p.element_type - 1],
-        team: getTeam(p.team)?.short_name || '',
-        minutes: p.minutes || 0,
-        goals: p.goals_scored || 0,
-        assists: p.assists || 0,
-        bonus: p.bonus || 0,
-        cost: p.now_cost,
-        form: parseFloat(p.form) || 0,
-        totalPoints: p.total_points || 0,
-        selectedBy: parseFloat(p.selected_by_percent) || 0
-      });
+      teamPlayers[p.team].push(makePlayer(p));
     });
 
     const setPieces = {};
     Object.entries(teamPlayers).forEach(([teamId, players]) => {
-      const sorted = [...players].sort((a, b) => b.minutes - a.minutes);
-      const goalscorers = [...players].sort((a, b) => b.goals - a.goals);
-      const assisters = [...players].sort((a, b) => b.assists - a.assists);
-      const bonusMagnet = [...players].sort((a, b) => b.bonus - a.bonus);
-      
+      const active = players.filter(p => p.minutes > 0);
       const team = getTeam(parseInt(teamId));
+
+      // Penalties: FWD/MID with most goals, weighted by penalty-related stats
+      const penaltyCandidates = active
+        .filter(p => p.position === 'FWD' || p.position === 'MID')
+        .sort((a, b) => (b.goals * 3 + b.penaltiesSaved * 5 + b.bps * 0.5) - (a.goals * 3 + a.penaltiesSaved * 5 + a.bps * 0.5))
+        .slice(0, 3);
+
+      // Direct free kicks: high creativity + ICT + assists
+      const fkCandidates = active
+        .filter(p => p.position !== 'GKP')
+        .sort((a, b) => (b.creativity * 2 + b.assists * 3 + b.ictIndex * 0.5) - (a.creativity * 2 + a.assists * 3 + a.ictIndex * 0.5))
+        .slice(0, 3);
+
+      // Corners & indirect FKs: wide mids + fullbacks with high assist numbers
+      const cornerCandidates = active
+        .filter(p => p.position === 'MID' || p.position === 'DEF')
+        .sort((a, b) => (b.assists * 3 + b.creativity * 2 + b.minutes * 0.01) - (a.assists * 3 + a.creativity * 2 + a.minutes * 0.01))
+        .slice(0, 3);
+
       setPieces[teamId] = {
         teamName: team?.short_name || '?',
         teamFull: team?.name || '?',
-        // Likely penalty taker: highest minutes + goals combo
-        penalties: sorted.filter(p => p.position === 'FWD' || p.position === 'MID')
-          .sort((a, b) => (b.goals * 2 + b.minutes) - (a.goals * 2 + a.minutes))
-          .slice(0, 2)
-          .map(p => ({ ...p, role: 'Penalty Taker' })),
-        // Likely free kick taker: high creativity + minutes
-        freeKicks: sorted.filter(p => p.position !== 'GKP')
-          .sort((a, b) => (b.assists * 2 + b.minutes) - (a.assists * 2 + a.minutes))
-          .slice(0, 2)
-          .map(p => ({ ...p, role: 'Free Kicks' })),
-        // Corners: typically wide players
-        corners: sorted.filter(p => p.position === 'MID' || p.position === 'DEF')
-          .sort((a, b) => (b.assists + b.minutes / 100) - (a.assists + a.minutes / 100))
-          .slice(0, 2)
-          .map(p => ({ ...p, role: 'Corners' })),
-        // Top bonus magnet
-        bonusMagnet: bonusMagnet.slice(0, 3).map(p => ({ ...p, role: 'Bonus Magnet' }))
+        penalties: penaltyCandidates,
+        freeKicks: fkCandidates,
+        corners: cornerCandidates
       };
     });
 

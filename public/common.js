@@ -384,6 +384,7 @@ const FPL = {
             case 'ownership': this.renderOwnership(); break;
             case 'zones': this.renderZones(); break;
             case 'manager': this.renderTeamAnalysis(); break;
+            case 'setpieces': this.renderSetPieces(); break;
         }
     },
 
@@ -2259,6 +2260,7 @@ const FPL = {
             case 'ownership': this.renderOwnership(); break;
             case 'zones': this.renderZones(); break;
             case 'manager': this.renderTeamAnalysis(); break;
+            case 'setpieces': this.renderSetPieces(); break;
         }
     },
 
@@ -2560,6 +2562,69 @@ const FPL = {
         this.state.leagueId = id;
         localStorage.setItem('fplLeagueId', id);
         this.loadLeagueData();
+    },
+
+    // ==================== RENDER: SET PIECE TAKERS ====================
+    async renderSetPieces() {
+        const container = document.getElementById('setpieces-table-container');
+        const tbody = document.getElementById('setpieces-tbody');
+        if (!tbody) return;
+
+        try {
+            const data = await this.apiFetch('/api/set-pieces');
+            if (!data || !data.setPieces) return;
+            const sp = data.setPieces;
+
+            const teamEntries = Object.entries(sp).sort((a, b) => a[1].teamFull.localeCompare(b[1].teamFull));
+
+            const renderPlayerCell = (players) => {
+                if (!players || players.length === 0) return '<span style="color:#5a7a66;">TBD</span>';
+                return players.map((p, i) => {
+                    const isFirst = i === 0;
+                    const weight = isFirst ? '700' : '500';
+                    const color = isFirst ? '#fff' : '#8ba396';
+                    const dot = isFirst ? '<span style="width:5px;height:5px;border-radius:50%;background:#00ff85;flex-shrink:0;"></span>' : '';
+                    const border = i < players.length - 1 ? 'border-bottom:1px solid #111;' : '';
+                    const imgUrl = 'https://resources.premierleague.com/premierleague25/r268/p' + p.code + '/ico/250.png';
+                    return '<div style="display:flex;align-items:center;gap:6px;padding:6px 0;' + border + '">'
+                        + dot
+                        + '<img src="' + imgUrl + '" style="width:28px;height:28px;border-radius:50%;object-fit:cover;background:#1c211e;border:1px solid #1A2E28;" onerror="this.style.display=\'none\'">'
+                        + '<div style="min-width:0;flex:1;">'
+                        + '<div style="font-size:13px;font-weight:' + weight + ';color:' + color + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + p.name + '</div>'
+                        + '<div style="font-size:11px;color:#5a7a66;font-family:var(--font-mono);">'
+                        + p.position + ' <span style="color:#00ff85;">' + p.costStr + '</span>'
+                        + '</div>'
+                        + '</div>'
+                        + '<div style="text-align:right;font-family:var(--font-mono);font-size:11px;color:#5a7a66;white-space:nowrap;">'
+                        + '<div>' + p.goals + 'G ' + p.assists + 'A</div>'
+                        + '<div>' + p.totalPoints + 'pts</div>'
+                        + '</div>'
+                        + '</div>';
+                }).join('');
+            };
+
+            let html = '';
+            teamEntries.forEach(([teamId, team]) => {
+                html += '<tr style="border-bottom:1px solid #1A2E28;">'
+                    + '<td style="padding:12px 16px;">'
+                    + '<div style="display:flex;align-items:center;gap:10px;">'
+                    + '<div style="width:32px;height:32px;border-radius:8px;background:#1c211e;border:1px solid #1A2E28;display:flex;align-items:center;justify-content:center;">'
+                    + '<span style="font-size:11px;font-weight:700;color:#8ba396;font-family:var(--font-mono);">' + team.teamName + '</span>'
+                    + '</div>'
+                    + '<div style="font-size:13px;font-weight:600;color:#fff;">' + team.teamFull + '</div>'
+                    + '</div>'
+                    + '</td>'
+                    + '<td style="padding:12px 16px;min-width:220px;">' + renderPlayerCell(team.penalties) + '</td>'
+                    + '<td style="padding:12px 16px;min-width:220px;">' + renderPlayerCell(team.freeKicks) + '</td>'
+                    + '<td style="padding:12px 16px;min-width:220px;">' + renderPlayerCell(team.corners) + '</td>'
+                    + '</tr>';
+            });
+
+            tbody.innerHTML = html;
+        } catch (e) {
+            console.error('Set pieces render error:', e);
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;color:#ff4d4d;">Failed to load set piece data</td></tr>';
+        }
     }
 };
 
