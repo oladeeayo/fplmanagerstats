@@ -1064,6 +1064,28 @@ const FPL = {
             const typeEl = document.getElementById('standings-league-type');
             if (typeEl) typeEl.textContent = data.leagueType || 'Classic League';
 
+            // Handle no-data state (season not started or no league data)
+            if (data.noData) {
+                const avgEl = document.getElementById('standings-league-avg');
+                if (avgEl) avgEl.textContent = '--';
+                const topScoreEl = document.getElementById('standings-top-score');
+                if (topScoreEl) topScoreEl.textContent = '--';
+                const topTeamEl = document.getElementById('standings-top-team');
+                if (topTeamEl) topTeamEl.textContent = '--';
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:var(--space-xl);color:var(--md-sys-color-on-surface-variant);font-size:14px;">
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+                        <span class="material-symbols-outlined" style="font-size:40px;color:var(--md-sys-color-outline);">hourglass_empty</span>
+                        <div style="font-weight:600;color:var(--md-sys-color-on-surface);">Season data not available yet</div>
+                        <div style="font-size:12px;max-width:300px;">League standings will appear here once the FPL season begins and managers have started making transfers.</div>
+                    </div>
+                </td></tr>`;
+                const pagEl = document.getElementById('standings-pagination-controls');
+                if (pagEl) pagEl.innerHTML = '';
+                const countEl = document.getElementById('standings-showing-count');
+                if (countEl) countEl.textContent = '';
+                return;
+            }
+
             // Bento Grid Card 2: Average Points
             const avgEl = document.getElementById('standings-league-avg');
             if (avgEl) avgEl.textContent = data.leagueAvgGW || 0;
