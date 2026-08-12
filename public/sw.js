@@ -1,10 +1,12 @@
-const CACHE_NAME = 'fpl-stats-v1';
+const CACHE_NAME = 'fpl-stats-v2';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
     '/common.js',
     '/design-system.css',
     '/football.ico',
+    '/icon-192.svg',
+    '/icon-512.svg',
     '/manifest.json'
 ];
 

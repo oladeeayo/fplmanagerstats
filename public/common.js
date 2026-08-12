@@ -2234,7 +2234,7 @@ const FPL = {
                 <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">calendar_today</span> Gameweek History</h3></div>
                 <div class="card-body">
                     <div class="table-scroll-mobile">
-                        <table style="border-collapse:collapse;font-size:12px;">
+                        <table style="width:100%;border-collapse:collapse;font-size:12px;">
                             <thead>
                                 <tr style="border-bottom:2px solid #1A2E28;background:#1c211e;">
                                     <th style="text-align:center;font-family:var(--font-mono);font-size:9px;color:#8ba396;text-transform:uppercase;">GW</th>
@@ -2285,7 +2285,7 @@ const FPL = {
                 <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">emoji_events</span> Past Seasons</h3></div>
                 <div class="card-body">
                     <div class="table-scroll-mobile">
-                        <table style="border-collapse:collapse;font-size:12px;">
+                        <table style="width:100%;border-collapse:collapse;font-size:12px;">
                             <thead>
                                 <tr style="border-bottom:2px solid #1A2E28;background:#1c211e;">
                                     <th style="text-align:left;font-family:var(--font-mono);font-size:9px;color:#8ba396;text-transform:uppercase;">Season</th>

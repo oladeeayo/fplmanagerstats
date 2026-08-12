@@ -827,8 +827,8 @@ select.input {
     .card-body { padding: 6px 8px; }
 
     /* ==================== TABLE COMPACTNESS ==================== */
-    /* Force all tables compact on mobile — override ALL inline styles */
-    table { font-size: 11px !important; border-collapse: collapse; box-sizing: border-box; width: max-content !important; min-width: 0 !important; }
+    /* Force all tables compact on mobile — override inline width:100% */
+    table { font-size: 11px !important; border-collapse: collapse; box-sizing: border-box; width: max-content !important; }
     th { padding: 5px 6px !important; font-size: 10px !important; white-space: nowrap; box-sizing: border-box; }
     td { padding: 4px 6px !important; white-space: nowrap; box-sizing: border-box; }
 
