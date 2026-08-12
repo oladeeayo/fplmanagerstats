@@ -458,17 +458,15 @@ const FPL = {
             const transfersInContainer = document.getElementById('dash-transfers-in-list');
             if (transfersInContainer && data.topTransfersIn) {
                 transfersInContainer.innerHTML = data.topTransfersIn.map(p => `
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;">
-                        <div style="display:flex;align-items:center;gap:10px;">
-                            <div style="width:32px;height:32px;border-radius:50%;background:#1c211e;border:1px solid #1A2E28;overflow:hidden;flex-shrink:0;">
-                                <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || p.web_name || 'FPL Player'} photo" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
-                            </div>
-                            <div>
-                                <div style="font-size:13px;font-weight:700;color:#ffffff;">${p.name}</div>
-                                <div class="mono" style="font-size:10px;color:#8ba396;">${p.team} • ${p.pos} • £${p.price || '?'}m</div>
-                            </div>
+                    <div style="display:flex;align-items:center;gap:10px;padding:4px 0;">
+                        <div style="width:32px;height:32px;border-radius:50%;background:#1c211e;border:1px solid #1A2E28;overflow:hidden;flex-shrink:0;">
+                            <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || p.web_name || 'FPL Player'} photo" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
                         </div>
-                        <div class="mono" style="font-size:13px;font-weight:700;color:#00ff85;">${p.transfersCount}</div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-size:13px;font-weight:700;color:#ffffff;">${p.name}</div>
+                            <div class="mono" style="font-size:10px;color:#8ba396;">${p.team} • ${p.pos} • £${p.price || '?'}m</div>
+                        </div>
+                        <div class="mono" style="font-size:13px;font-weight:700;color:#00ff85;white-space:nowrap;">${p.transfersCount}</div>
                     </div>
                 `).join('');
             }
@@ -492,17 +490,13 @@ const FPL = {
             const transfersOutContainer = document.getElementById('dash-transfers-out-list');
             if (transfersOutContainer && data.topTransfersOut) {
                 transfersOutContainer.innerHTML = data.topTransfersOut.length > 0 ? data.topTransfersOut.map((p, idx) => `
-                    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;${idx < data.topTransfersOut.length - 1 ? 'border-bottom:1px solid #19261f;' : ''}">
-                        <div style="display:flex;align-items:center;gap:10px;">
-                            <div style="width:32px;height:32px;border-radius:50%;background:#1c2720;border:1px solid #28392e;display:flex;align-items:center;justify-content:center;font-weight:700;color:#FF005A;font-size:12px;">${idx + 1}</div>
-                            <div>
-                                <div style="font-size:14px;font-weight:700;color:#ffffff;">${p.name}</div>
-                                <div style="font-size:11px;color:#8ba396;font-family:var(--font-mono);">${p.team} • ${p.pos} • £${p.price || '?'}m</div>
-                            </div>
+                    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;${idx < data.topTransfersOut.length - 1 ? 'border-bottom:1px solid #19261f;' : ''}">
+                        <div style="width:32px;height:32px;border-radius:50%;background:#1c2720;border:1px solid #28392e;display:flex;align-items:center;justify-content:center;font-weight:700;color:#FF005A;font-size:12px;">${idx + 1}</div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-size:14px;font-weight:700;color:#ffffff;">${p.name}</div>
+                            <div style="font-size:11px;color:#8ba396;font-family:var(--font-mono);">${p.team} • ${p.pos} • £${p.price || '?'}m</div>
                         </div>
-                        <div style="text-align:right;">
-                            <div style="font-size:13px;font-weight:700;color:#FF005A;font-family:var(--font-mono);">${p.transfersCount}</div>
-                        </div>
+                        <div style="font-size:13px;font-weight:700;color:#FF005A;font-family:var(--font-mono);white-space:nowrap;">${p.transfersCount}</div>
                     </div>
                 `).join('') : '<div style="text-align:center;padding:12px;font-size:13px;color:#8ba396;">No transfer data yet</div>';
             }
@@ -592,25 +586,36 @@ const FPL = {
         const gwEls = document.querySelectorAll('#current-gw, #fixture-gw-display, #captain-gw-display');
         gwEls.forEach(el => { if (el) el.textContent = s.selectedGW || s.currentGW; });
 
-        document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
+        const lastUpEl = document.getElementById('last-updated');
+        if (lastUpEl) lastUpEl.textContent = new Date().toLocaleTimeString();
 
         if (!m || !m.managerInfo) {
-            document.getElementById('stat-overall-rank').textContent = '--';
-            document.getElementById('stat-total-points').textContent = '--';
-            document.getElementById('stat-gw-rank').textContent = '--';
-            document.getElementById('stat-transfer-cost').textContent = '--';
-            document.getElementById('stat-team-value').textContent = '--';
+            const rankEl = document.getElementById('stat-overall-rank');
+            const ptsEl = document.getElementById('stat-total-points');
+            const gwRankEl = document.getElementById('stat-gw-rank');
+            const tcEl = document.getElementById('stat-transfer-cost');
+            const tvEl = document.getElementById('stat-team-value');
+            if (rankEl) rankEl.textContent = '--';
+            if (ptsEl) ptsEl.textContent = '--';
+            if (gwRankEl) gwRankEl.textContent = '--';
+            if (tcEl) tcEl.textContent = '--';
+            if (tvEl) tvEl.textContent = '--';
             return;
         }
 
         const info = m.managerInfo;
         const teamVal = m.playerStats ? (m.playerStats.reduce((s, p) => s + (p.nowCost || 0), 0) / 10) : 0;
 
-        document.getElementById('stat-overall-rank').textContent = this.formatNumber(info.overallRankRaw);
-        document.getElementById('stat-total-points').textContent = this.formatNumber(info.managerPoints);
-        document.getElementById('stat-gw-rank').textContent = info.lowestRank || '--';
-        document.getElementById('stat-transfer-cost').textContent = info.totalTransfers || 0;
-        document.getElementById('stat-team-value').textContent = '£' + teamVal.toFixed(1);
+        const rankEl = document.getElementById('stat-overall-rank');
+        const ptsEl = document.getElementById('stat-total-points');
+        const gwRankEl = document.getElementById('stat-gw-rank');
+        const tcEl = document.getElementById('stat-transfer-cost');
+        const tvEl = document.getElementById('stat-team-value');
+        if (rankEl) rankEl.textContent = this.formatNumber(info.overallRankRaw);
+        if (ptsEl) ptsEl.textContent = this.formatNumber(info.managerPoints);
+        if (gwRankEl) gwRankEl.textContent = info.lowestRank || '--';
+        if (tcEl) tcEl.textContent = info.totalTransfers || 0;
+        if (tvEl) tvEl.textContent = '£' + teamVal.toFixed(1);
 
         // Rank change
         const rankChangeEl = document.getElementById('stat-overall-rank-change');
