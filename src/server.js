@@ -1509,6 +1509,7 @@ app.get('/api/dashboard/overview', async (req, res) => {
           name: p.web_name,
           team: team ? team.short_name : 'FPL',
           pos: getPosStr(p.element_type),
+          price: (p.now_cost / 10).toFixed(1),
           transfersCount: '+' + count.toLocaleString()
         };
       });
@@ -1525,6 +1526,7 @@ app.get('/api/dashboard/overview', async (req, res) => {
           name: p.web_name,
           team: team ? team.short_name : 'FPL',
           pos: getPosStr(p.element_type),
+          price: (p.now_cost / 10).toFixed(1),
           transfersCount: '-' + count.toLocaleString()
         };
       });
@@ -2212,6 +2214,174 @@ app.get('/api/injury-news', async (req, res) => {
   } catch (e) {
     console.error('Injury news error:', e.message);
     res.status(500).json({ error: 'Failed to fetch injury news' });
+  }
+});
+
+// Match Analysis endpoint for Tactics page
+app.get('/api/match-analysis', async (req, res) => {
+  try {
+    const { team_h, team_a } = req.query;
+    if (!team_h || !team_a) return res.status(400).json({ error: 'team_h and team_a required' });
+
+    const bootstrapRes = await axios.get('https://fantasy.premierleague.com/api/bootstrap-static/');
+    const elements = bootstrapRes.data.elements;
+    const teams = bootstrapRes.data.teams;
+
+    const getTeam = id => teams.find(t => t.id === parseInt(id));
+    const getPosStr = type => {
+      if (type === 1) return 'GK';
+      if (type === 2) return 'DEF';
+      if (type === 3) return 'MID';
+      if (type === 4) return 'FWD';
+      return 'DEF';
+    };
+
+    const homeTeam = getTeam(team_h);
+    const awayTeam = getTeam(team_a);
+
+    const homePlayers = elements.filter(p => p.team === parseInt(team_h) && p.minutes > 0);
+    const awayPlayers = elements.filter(p => p.team === parseInt(team_a) && p.minutes > 0);
+
+    const buildTeamData = (players, teamInfo) => {
+      const posGroups = { GK: [], DEF: [], MID: [], FWD: [] };
+      players.forEach(p => {
+        const pos = getPosStr(p.element_type);
+        if (posGroups[pos]) {
+          posGroups[pos].push({
+            name: p.web_name,
+            code: p.code,
+            position: pos,
+            xGI: parseFloat(p.expected_goal_involvements || 0),
+            xG: parseFloat(p.expected_goals || 0),
+            xA: parseFloat(p.expected_assists || 0),
+            goals: p.goals_scored || 0,
+            assists: p.assists || 0,
+            goalsConceded: p.goals_conceded || 0,
+            cleanSheets: p.clean_sheets || 0,
+            minutes: p.minutes || 0,
+            form: parseFloat(p.form || 0),
+            cost: (p.now_cost / 10).toFixed(1),
+            totalPoints: p.total_points || 0,
+            ictIndex: parseFloat(p.ict_index || 0)
+          });
+        }
+      });
+
+      // Sort each position by xGI/points
+      Object.keys(posGroups).forEach(pos => {
+        posGroups[pos].sort((a, b) => b.xGI - a.xGI || b.totalPoints - a.totalPoints);
+      });
+
+      const totalXGI = players.reduce((s, p) => s + parseFloat(p.expected_goal_involvements || 0), 0);
+      const totalGoals = players.reduce((s, p) => s + (p.goals_scored || 0), 0);
+      const totalGC = players.reduce((s, p) => s + (p.goals_conceded || 0), 0);
+      const totalCS = players.reduce((s, p) => s + (p.clean_sheets || 0), 0);
+
+      // DEFCON: lower is stronger defence
+      const avgDefCon = players.length > 0 ?
+        (5 - (players.reduce((s, p) => s + parseFloat(p.form || 0), 0) / players.length) * 0.4).toFixed(1) : '3.0';
+
+      // Best picks by xGI
+      const bestPicks = [...players]
+        .sort((a, b) => parseFloat(b.expected_goal_involvements || 0) - parseFloat(a.expected_goal_involvements || 0))
+        .slice(0, 5)
+        .map(p => ({
+          name: p.web_name,
+          code: p.code,
+          position: getPosStr(p.element_type),
+          xGI: parseFloat(p.expected_goal_involvements || 0),
+          form: parseFloat(p.form || 0),
+          cost: (p.now_cost / 10).toFixed(1),
+          totalPoints: p.total_points || 0,
+          team: teamInfo.short_name
+        }));
+
+      return {
+        teamName: teamInfo.name,
+        teamShort: teamInfo.short_name,
+        short_name: teamInfo.short_name,
+        totalXGI: totalXGI.toFixed(1),
+        totalGoals,
+        totalGC,
+        totalCS,
+        defcon: avgDefCon,
+        posGroups,
+        bestPicks,
+        // Strongest position
+        strongSide: Object.entries(posGroups).reduce((best, [pos, players]) => {
+          const posXGI = players.reduce((s, p) => s + p.xGI, 0);
+          return posXGI > best.xgi ? { pos, xgi: posXGI } : best;
+        }, { pos: 'MID', xgi: 0 }).pos
+      };
+    };
+
+    const home = buildTeamData(homePlayers, homeTeam);
+    const away = buildTeamData(awayPlayers, awayTeam);
+
+    // Identify danger zones (attacking strength) and vulnerability zones (defensive weakness)
+    const dangerZones = [];
+    const vulnZones = [];
+
+    // Home attack vs Away defence
+    Object.entries(home.posGroups).forEach(([pos, players]) => {
+      const posTotalXGI = players.reduce((s, p) => s + p.xGI, 0);
+      if (posTotalXGI > 10) {
+        dangerZones.push({
+          team: home.teamShort,
+          zone: pos,
+          xGI: posTotalXGI.toFixed(1),
+          label: `${home.teamShort} ${pos}: ${posTotalXGI.toFixed(1)} xGI`
+        });
+      }
+    });
+
+    // Away attack vs Home defence
+    Object.entries(away.posGroups).forEach(([pos, players]) => {
+      const posTotalXGI = players.reduce((s, p) => s + p.xGI, 0);
+      if (posTotalXGI > 10) {
+        dangerZones.push({
+          team: away.teamShort,
+          zone: pos,
+          xGI: posTotalXGI.toFixed(1),
+          label: `${away.teamShort} ${pos}: ${posTotalXGI.toFixed(1)} xGI`
+        });
+      }
+    });
+
+    // Vulnerability zones (high GC)
+    const homeGCByPos = { DEF: 0, MID: 0 };
+    const awayGCByPos = { DEF: 0, MID: 0 };
+    homePlayers.forEach(p => {
+      const pos = getPosStr(p.element_type);
+      if (pos === 'DEF') homeGCByPos.DEF += p.goals_conceded || 0;
+      else if (pos === 'MID') homeGCByPos.MID += p.goals_conceded || 0;
+    });
+    awayPlayers.forEach(p => {
+      const pos = getPosStr(p.element_type);
+      if (pos === 'DEF') awayGCByPos.DEF += p.goals_conceded || 0;
+      else if (pos === 'MID') awayGCByPos.MID += p.goals_conceded || 0;
+    });
+
+    if (homeGCByPos.DEF > 20) vulnZones.push({ team: home.teamShort, zone: 'LCB/RCB', label: `${home.teamShort} CB: ${homeGCByPos.DEF} GC` });
+    if (awayGCByPos.DEF > 20) vulnZones.push({ team: away.teamShort, zone: 'LCB/RCB', label: `${away.teamShort} CB: ${awayGCByPos.DEF} GC` });
+
+    // Predicted danger
+    const homeStrength = parseFloat(home.totalXGI) - parseFloat(away.totalXGI);
+    const predictedDanger = homeStrength > 5 ? `${home.teamShort} favored` :
+                           homeStrength < -5 ? `${away.teamShort} favored` : 'Balanced';
+
+    res.json({
+      home,
+      away,
+      dangerZones: dangerZones.slice(0, 4),
+      vulnZones: vulnZones.slice(0, 4),
+      predictedDanger,
+      homeStrength: parseFloat(home.defcon),
+      awayStrength: parseFloat(away.defcon)
+    });
+  } catch (e) {
+    console.error('Match analysis error:', e.message);
+    res.status(500).json({ error: 'Failed to fetch match analysis' });
   }
 });
 

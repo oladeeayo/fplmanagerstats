@@ -454,7 +454,7 @@ const FPL = {
                             </div>
                             <div>
                                 <div style="font-size:13px;font-weight:700;color:#ffffff;">${p.name}</div>
-                                <div class="mono" style="font-size:10px;color:#8ba396;">${p.team} • ${p.pos}</div>
+                                <div class="mono" style="font-size:10px;color:#8ba396;">${p.team} • ${p.pos} • £${p.price || '?'}m</div>
                             </div>
                         </div>
                         <div class="mono" style="font-size:13px;font-weight:700;color:#00ff85;">${p.transfersCount}</div>
@@ -486,7 +486,7 @@ const FPL = {
                             <div style="width:32px;height:32px;border-radius:50%;background:#1c2720;border:1px solid #28392e;display:flex;align-items:center;justify-content:center;font-weight:700;color:#FF005A;font-size:12px;">${idx + 1}</div>
                             <div>
                                 <div style="font-size:14px;font-weight:700;color:#ffffff;">${p.name}</div>
-                                <div style="font-size:11px;color:#8ba396;font-family:var(--font-mono);">${p.team} • ${p.pos}</div>
+                                <div style="font-size:11px;color:#8ba396;font-family:var(--font-mono);">${p.team} • ${p.pos} • £${p.price || '?'}m</div>
                             </div>
                         </div>
                         <div style="text-align:right;">
@@ -717,34 +717,51 @@ const FPL = {
         // Position Breakdown
         if (team && team.length > 0) {
             const posStats = {
-                GKP: { pts: 0, topName: '', topPts: 0 },
-                DEF: { pts: 0, topName: '', topPts: 0 },
-                MID: { pts: 0, topName: '', topPts: 0 },
-                FWD: { pts: 0, topName: '', topPts: 0 }
+                GKP: { pts: 0, topName: '', topPts: 0, topCode: null },
+                DEF: { pts: 0, topName: '', topPts: 0, topCode: null },
+                MID: { pts: 0, topName: '', topPts: 0, topCode: null },
+                FWD: { pts: 0, topName: '', topPts: 0, topCode: null }
             };
 
             team.forEach(p => {
                 const pos = p.position || 'MID';
                 const pts = p.totalPoints || p.points || 0;
-                if (!posStats[pos]) posStats[pos] = { pts: 0, topName: '', topPts: 0 };
+                if (!posStats[pos]) posStats[pos] = { pts: 0, topName: '', topPts: 0, topCode: null };
                 posStats[pos].pts += pts;
                 if (pts >= posStats[pos].topPts) {
                     posStats[pos].topPts = pts;
                     posStats[pos].topName = p.webName || p.name || 'Player';
+                    posStats[pos].topCode = p.code;
                 }
             });
 
             if (document.getElementById('pos-gkp-pts')) document.getElementById('pos-gkp-pts').textContent = posStats.GKP.pts || '0';
             if (document.getElementById('pos-gkp-top')) document.getElementById('pos-gkp-top').textContent = posStats.GKP.topName ? `Top: ${posStats.GKP.topName} (${posStats.GKP.topPts})` : 'No data';
+            if (posStats.GKP.topCode) {
+                const imgEl = document.getElementById('pos-gkp-img');
+                if (imgEl) imgEl.innerHTML = `<img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${posStats.GKP.topCode}.png" onerror="this.parentElement.innerHTML='<span class=\\'material-symbols-outlined\\' style=\\'color:#444;font-size:28px;\\'>person</span>'" style="width:100%;height:100%;object-fit:cover;">`;
+            }
 
             if (document.getElementById('pos-def-pts')) document.getElementById('pos-def-pts').textContent = posStats.DEF.pts || '0';
             if (document.getElementById('pos-def-top')) document.getElementById('pos-def-top').textContent = posStats.DEF.topName ? `Top: ${posStats.DEF.topName} (${posStats.DEF.topPts})` : 'No data';
+            if (posStats.DEF.topCode) {
+                const imgEl = document.getElementById('pos-def-img');
+                if (imgEl) imgEl.innerHTML = `<img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${posStats.DEF.topCode}.png" onerror="this.parentElement.innerHTML='<span class=\\'material-symbols-outlined\\' style=\\'color:#444;font-size:28px;\\'>person</span>'" style="width:100%;height:100%;object-fit:cover;">`;
+            }
 
             if (document.getElementById('pos-mid-pts')) document.getElementById('pos-mid-pts').textContent = posStats.MID.pts || '0';
             if (document.getElementById('pos-mid-top')) document.getElementById('pos-mid-top').textContent = posStats.MID.topName ? `Top: ${posStats.MID.topName} (${posStats.MID.topPts})` : 'No data';
+            if (posStats.MID.topCode) {
+                const imgEl = document.getElementById('pos-mid-img');
+                if (imgEl) imgEl.innerHTML = `<img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${posStats.MID.topCode}.png" onerror="this.parentElement.innerHTML='<span class=\\'material-symbols-outlined\\' style=\\'color:#444;font-size:28px;\\'>person</span>'" style="width:100%;height:100%;object-fit:cover;">`;
+            }
 
             if (document.getElementById('pos-fwd-pts')) document.getElementById('pos-fwd-pts').textContent = posStats.FWD.pts || '0';
             if (document.getElementById('pos-fwd-top')) document.getElementById('pos-fwd-top').textContent = posStats.FWD.topName ? `Top: ${posStats.FWD.topName} (${posStats.FWD.topPts})` : 'No data';
+            if (posStats.FWD.topCode) {
+                const imgEl = document.getElementById('pos-fwd-img');
+                if (imgEl) imgEl.innerHTML = `<img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${posStats.FWD.topCode}.png" onerror="this.parentElement.innerHTML='<span class=\\'material-symbols-outlined\\' style=\\'color:#444;font-size:28px;\\'>person</span>'" style="width:100%;height:100%;object-fit:cover;">`;
+            }
         }
 
         // Squad Performance Table
@@ -905,6 +922,9 @@ const FPL = {
             filtered = filtered.filter(p => p.web_name.toLowerCase().includes(searchTerm) || (p.second_name || '').toLowerCase().includes(searchTerm));
         }
 
+        // Per 90 toggle
+        const per90 = document.getElementById('per90-toggle')?.checked || false;
+
         // Sorting
         const sortVal = document.getElementById('player-sort')?.value || 'pts';
         filtered.sort((a, b) => {
@@ -921,6 +941,10 @@ const FPL = {
                     return parseFloat(b.selected_by_percent || 0) - parseFloat(a.selected_by_percent || 0);
                 case 'ict':
                     return parseFloat(b.ict_index || 0) - parseFloat(a.ict_index || 0);
+                case 'mins':
+                    return (b.minutes || 0) - (a.minutes || 0);
+                case 'goals':
+                    return (b.goals_scored || 0) - (a.goals_scored || 0);
                 case 'pts':
                 default:
                     return (b.total_points || 0) - (a.total_points || 0);
@@ -928,70 +952,57 @@ const FPL = {
         });
 
         const posNames = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+        const posColors = { 1: '#FFD700', 2: '#4FC3F7', 3: '#81C784', 4: '#E57373' };
 
         tbody.innerHTML = filtered.slice(0, 50).map((p, idx) => {
             const team = teams.find(t => t.id === p.team);
             const teamShort = team ? team.short_name : 'FPL';
             const posStr = posNames[p.element_type] || 'DEF';
+            const posColor = posColors[p.element_type] || '#4FC3F7';
             const formVal = parseFloat(p.form || 0);
-            const xG = (parseFloat(p.threat || 0) / 10).toFixed(1);
-            const xA = (parseFloat(p.creativity || 0) / 10).toFixed(1);
-
-            let fdrClass = 'fdr-3';
-            if (formVal >= 6.0) fdrClass = 'fdr-1';
-            else if (formVal >= 4.5) fdrClass = 'fdr-2';
-            else if (formVal >= 3.0) fdrClass = 'fdr-3';
-            else if (formVal >= 2.0) fdrClass = 'fdr-4';
-            else fdrClass = 'fdr-5';
-
-            const xgColorClass = parseFloat(xG) >= 7.0 ? 'color:var(--fdr-1);font-weight:700;' : parseFloat(xG) >= 4.0 ? 'color:var(--fdr-2);' : parseFloat(xG) >= 2.0 ? 'color:var(--fdr-4);' : '';
-            const xaColorClass = parseFloat(xA) >= 5.0 ? 'color:var(--fdr-1);font-weight:700;' : parseFloat(xA) >= 3.0 ? 'color:var(--fdr-2);' : parseFloat(xA) >= 1.5 ? 'color:var(--fdr-4);' : '';
-
-            // DEFCON calculation
-            let defconNum = Math.max(1.0, Math.min(5.0, (5.0 - formVal * 0.4))).toFixed(1);
-            let defconTier = Math.round(parseFloat(defconNum));
-            if (defconTier < 1) defconTier = 1;
-            if (defconTier > 5) defconTier = 5;
-
-            // Form (L5) 5 vertical bars representation
-            const formBars = [
-                formVal >= 5 ? 1 : 2,
-                formVal >= 4 ? 2 : 3,
-                formVal >= 3 ? 1 : 2,
-                formVal >= 2 ? 3 : 4,
-                formVal >= 1 ? 1 : 5
-            ];
+            const price = (p.now_cost / 10).toFixed(1);
+            const mins = p.minutes || 0;
+            const goals = p.goals_scored || 0;
+            const xG = parseFloat(p.expected_goals || 0);
+            const goalsVsXG = goals - xG;
+            const xA = parseFloat(p.expected_assists || 0);
+            const xGI = parseFloat(p.expected_goal_involvements || 0);
+            const xgiPer90 = parseFloat(p.expected_goal_involvements_per_90 || 0);
 
             const isEven = idx % 2 === 1;
 
             return `
-                <tr class="hover:bg-tertiary transition-colors group relative ${isEven ? 'bg-surface-container-highest/30' : ''}" style="border-bottom:1px solid var(--pitch-line);transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='${isEven ? 'rgba(49,54,51,0.3)' : 'transparent'}'">
-                    <td class="py-2 px-4 flex items-center gap-3" style="padding:10px 16px;display:flex;align-items:center;gap:12px;position:relative;">
-                        <div style="width:4px;position:absolute;left:0;top:0;bottom:0;background:var(--${fdrClass});opacity:0;transition:opacity 0.2s;" class="group-hover:opacity-100"></div>
-                        <div style="width:32px;height:32px;border-radius:50%;overflow:hidden;background:var(--md-sys-color-surface);border:1px solid var(--pitch-line);flex-shrink:0;">
-                            <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
-                        </div>
-                        <span class="font-headline-md text-sm text-on-surface" style="font-weight:600;font-size:14px;color:var(--md-sys-color-on-surface);">${p.web_name}</span>
-                    </td>
-                    <td class="py-2 px-4 font-body-sm text-on-surface" style="padding:10px 16px;font-size:14px;color:var(--md-sys-color-on-surface);">${teamShort}</td>
-                    <td class="py-2 px-4 font-label-caps text-label-caps text-on-surface-variant" style="padding:10px 16px;font-family:var(--font-mono);font-size:12px;color:var(--md-sys-color-on-surface-variant);">${posStr}</td>
-                    <td class="py-2 px-4 font-data-tabular text-data-tabular" style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-size:14px;color:var(--md-sys-color-on-surface);">£${(p.now_cost / 10).toFixed(1)}</td>
-                    <td class="py-2 px-4 font-data-tabular text-data-tabular text-right text-primary-fixed" style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--fdr-1);">${p.total_points}</td>
-                    <td class="py-2 px-4 font-data-tabular text-data-tabular text-right" style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-size:14px;${xgColorClass}">${xG}</td>
-                    <td class="py-2 px-4 font-data-tabular text-data-tabular text-right" style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-size:14px;${xaColorClass}">${xA}</td>
-                    <td class="py-2 px-4 font-data-tabular text-data-tabular text-right" style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-size:14px;color:var(--md-sys-color-on-surface);">${p.ict_index || '0.0'}</td>
-                    <td class="py-2 px-4" style="padding:10px 16px;">
-                        <div class="flex items-center justify-center gap-1" style="display:flex;align-items:center;justify-content:center;gap:4px;">
-                            <div style="width:6px;height:16px;border-radius:2px;background:var(--fdr-${formBars[0]});"></div>
-                            <div style="width:6px;height:16px;border-radius:2px;background:var(--fdr-${formBars[1]});"></div>
-                            <div style="width:6px;height:16px;border-radius:2px;background:var(--fdr-${formBars[2]});"></div>
-                            <div style="width:6px;height:16px;border-radius:2px;background:var(--fdr-${formBars[3]});"></div>
-                            <div style="width:6px;height:16px;border-radius:2px;background:var(--fdr-${formBars[4]});"></div>
+                <tr style="border-bottom:1px solid #1A2E28;transition:background 0.2s;${isEven ? 'background:rgba(49,54,51,0.15);' : ''}" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='${isEven ? 'rgba(49,54,51,0.15)' : 'transparent'}'">
+                    <td style="padding:10px 16px;position:sticky;left:0;z-index:10;background:${isEven ? '#1E1E1E' : '#1A1A1A'};">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <div style="width:36px;height:36px;border-radius:50%;overflow:hidden;background:#2A2A2A;border:1px solid #333;flex-shrink:0;">
+                                <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
+                            </div>
+                            <div>
+                                <div style="font-weight:700;font-size:13px;color:#E0E0E0;">${p.web_name}</div>
+                                <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:#8ba396;">
+                                    <span style="padding:1px 4px;border-radius:3px;font-weight:700;background:${posColor}20;color:${posColor};">${posStr}</span>
+                                    <span>${teamShort}</span>
+                                    <span style="color:#444;">•</span>
+                                    <span style="font-family:var(--font-mono);color:#B0B0B0;">£${price}m</span>
+                                </div>
+                            </div>
                         </div>
                     </td>
-                    <td class="py-2 px-4 text-center" style="padding:10px 16px;text-align:center;">
-                        <span class="inline-block px-2 py-0.5 rounded font-data-tabular text-[12px]" style="display:inline-block;padding:2px 8px;border-radius:4px;font-family:var(--font-mono);font-size:12px;background:var(--fdr-${defconTier})/20;color:var(--fdr-${defconTier});border:1px solid var(--fdr-${defconTier})/30;">${defconNum}</span>
+                    <td style="padding:10px 12px;text-align:center;font-family:var(--font-mono);font-size:13px;font-weight:700;color:#00FF85;">${p.total_points}</td>
+                    <td style="padding:10px 12px;text-align:center;font-family:var(--font-mono);font-size:12px;color:#B0B0B0;">${mins.toLocaleString()}</td>
+                    <td style="padding:10px 12px;text-align:center;font-family:var(--font-mono);font-size:13px;color:${goals > 0 ? '#E0E0E0' : '#666'};">${goals}</td>
+                    <td style="padding:10px 12px;text-align:center;font-family:var(--font-mono);font-size:13px;color:${xG >= 5 ? '#00FF85' : xG >= 2 ? '#FFA600' : '#B0B0B0'};">${xG.toFixed(1)}</td>
+                    <td style="padding:10px 12px;text-align:center;font-family:var(--font-mono);font-size:13px;color:${goalsVsXG > 0 ? '#00FF85' : goalsVsXG < 0 ? '#FF005A' : '#666'};">${goalsVsXG > 0 ? '+' : ''}${goalsVsXG.toFixed(1)}</td>
+                    <td style="padding:10px 12px;text-align:center;font-family:var(--font-mono);font-size:12px;color:#B0B0B0;">${xA.toFixed(1)}</td>
+                    <td style="padding:10px 12px;text-align:center;font-family:var(--font-mono);font-size:13px;color:${xGI >= 5 ? '#00FF85' : xGI >= 2 ? '#FFA600' : '#B0B0B0'};">${xGI.toFixed(1)}</td>
+                    <td style="padding:10px 12px;text-align:center;font-family:var(--font-mono);font-size:12px;color:#B0B0B0;">${xgiPer90.toFixed(2)}</td>
+                    <td style="padding:10px 12px;text-align:center;">
+                        <div style="display:flex;align-items:center;justify-content:center;gap:3px;">
+                            ${[formVal >= 5 ? 1 : 2, formVal >= 4 ? 2 : 3, formVal >= 3 ? 1 : 2, formVal >= 2 ? 3 : 4, formVal >= 1 ? 1 : 5].map(h => `<div style="width:5px;height:${h * 4}px;border-radius:2px;background:var(--fdr-${h});"></div>`).join('')}
+                        </div>
                     </td>
+                    <td style="padding:10px 12px;text-align:center;font-family:var(--font-mono);font-size:12px;color:#B0B0B0;">${parseFloat(p.ict_index || 0).toFixed(1)}</td>
                 </tr>
             `;
         }).join('');
@@ -1687,111 +1698,197 @@ const FPL = {
         </svg>`;
     },
 
-    // ==================== RENDER: TACTICAL ZONES ====================
+    // ==================== RENDER: MATCH ANALYSIS (TACTICS) ====================
     async renderZones() {
-        const formation = this.state.selectedFormation || '4231';
-        try {
-            const data = await this.apiFetch(`/api/tactics/zones?formation=${formation}`);
-            this.state.zonesData = data;
+        // Load teams into dropdowns
+        const bootstrap = this.state.bootstrapData;
+        if (!bootstrap) return;
 
-            const gwEl = document.getElementById('zones-gw-display');
-            if (gwEl) gwEl.textContent = data.gw || '12';
+        const teams = bootstrap.teams;
+        const homeSelect = document.getElementById('zones-home-team');
+        const awaySelect = document.getElementById('zones-away-team');
 
-            const selEl = document.getElementById('zones-formation-select');
-            if (selEl) selEl.value = formation;
+        if (homeSelect && homeSelect.options.length <= 1) {
+            teams.forEach(t => {
+                homeSelect.add(new Option(t.short_name, t.id));
+                awaySelect.add(new Option(t.short_name, t.id));
+            });
+        }
 
-            const container = document.getElementById('zones-nodes-container');
-            if (container && data.nodes) {
-                container.innerHTML = data.nodes.map(n => {
-                    // Convert bottom% to top% (server uses bottom, CSS needs top)
-                    const topVal = n.bottom ? (100 - parseFloat(n.bottom)) + '%' : '50%';
-                    const leftVal = n.left || '50%';
-
-                    // Determine node type: role-based ONLY, highThreat does not override defensive roles
-                    let nodeType = 'ring';
-                    const role = (n.role || '').toUpperCase();
-                    const isDefender = role === 'GK' || role === 'CB' || role === 'LCB' || role === 'RCB';
-                    const isFullback = role === 'LB' || role === 'RB' || role === 'LWB' || role === 'RWB';
-                    const isMidfielder = role === 'CM' || role === 'LCM' || role === 'RCM' || role === 'LDM' || role === 'RDM' || role === 'CDM' || role === 'CAM';
-                    const isAttacker = role === 'ST' || role === 'LST' || role === 'RST' || role === 'LW' || role === 'RW' || role === 'LAM' || role === 'RAM';
-
-                    if (isFullback) {
-                        nodeType = 'cyan';
-                    } else if (isAttacker || (isMidfielder && n.highThreat)) {
-                        nodeType = 'pink';
-                    } else {
-                        nodeType = 'ring';
-                    }
-
-                    let nodeGraphic = '';
-                    if (nodeType === 'cyan') {
-                        nodeGraphic = `<div style="width:20px;height:20px;border-radius:50%;background:#00D1FF;box-shadow:0 0 16px #00D1FF, 0 0 32px rgba(0,209,255,0.85);"></div>`;
-                    } else if (nodeType === 'pink') {
-                        nodeGraphic = `<div style="width:20px;height:20px;border-radius:50%;background:#FF005A;box-shadow:0 0 16px #FF005A, 0 0 32px rgba(255,0,90,0.85);"></div>`;
-                    } else {
-                        nodeGraphic = `<div style="width:22px;height:22px;border-radius:50%;background:#090e0c;border:2.5px solid #ffffff;box-shadow:0 1px 4px rgba(0,0,0,0.6);"></div>`;
-                    }
-
-                    const abbr = n.abbr || (n.name ? n.name.substring(0, 3).toUpperCase() : '???');
-
-                    return `<div style="position:absolute;top:${topVal};left:${leftVal};transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;cursor:pointer;z-index:10;" title="${n.name || ''} | ${n.role || ''} | ${n.pts || 0} pts | xGI: ${n.xGI || 0}">
-                        ${nodeGraphic}
-                        <span class="mono" style="font-size:10px;background:#090d0b;padding:1px 5px;margin-top:4px;border-radius:3px;color:#c5d8cd;white-space:nowrap;font-weight:700;border:1px solid #19271f;font-family:var(--font-mono);">${abbr}</span>
-                    </div>`;
-                }).join('');
-            }
-
-            const targetContainer = document.getElementById('target-zones-list');
-            if (targetContainer && data.targetZones) {
-                targetContainer.innerHTML = data.targetZones.map(tz => `
-                    <div style="background:#141d18;border-radius:10px;padding:16px;border:1px solid #1e2e24;">
-                        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
-                            <div>
-                                <span class="mono" style="font-size:10px;text-transform:uppercase;padding:3px 8px;border-radius:4px;display:inline-block;margin-bottom:6px;font-weight:700;letter-spacing:0.05em;${tz.vulnClass === 'fdr-5' ? 'background:rgba(255,0,90,0.18);color:#FF005A;' : 'background:rgba(255,166,0,0.18);color:#FFA600;'}">${tz.vulnBadge}</span>
-                                <h4 style="font-size:15px;font-weight:700;color:#ffffff;margin:0;">${tz.zoneName}</h4>
-                            </div>
-                            <div style="text-align:right;">
-                                <div class="mono" style="font-size:11px;color:#6c8577;font-weight:500;">xPts</div>
-                                <div class="mono" style="font-size:16px;color:#ffffff;font-weight:700;">${tz.xPts}</div>
-                            </div>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
-                            <div style="width:32px;height:32px;border-radius:4px;background:#1a2820;border:1px solid #23352a;overflow:hidden;flex-shrink:0;">
-                                <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${tz.player.code}.png" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
-                            </div>
-                            <div style="display:flex;flex-direction:column;">
-                                <span style="font-size:13px;font-weight:700;color:#ffffff;">${tz.player.name}</span>
-                                <span class="mono" style="font-size:11px;color:#6c8577;">${tz.player.fixture}</span>
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
-            }
-
-            const dangerTbody = document.getElementById('danger-zones-table-body');
-            if (dangerTbody && data.dangerZones) {
-                dangerTbody.innerHTML = data.dangerZones.map(dz => {
-                    const valColor = dz.colorTier === 'fdr-5' ? '#FF005A' : dz.colorTier === 'fdr-4' ? '#FFA600' : '#dfe4e0';
-                    const barColor = dz.colorTier === 'fdr-5' ? '#FF005A' : dz.colorTier === 'fdr-4' ? '#FFA600' : '#00FF85';
-
-                    return `<tr style="border-bottom:1px solid #16251e;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
-                        <td style="padding:12px 16px;display:flex;align-items:center;gap:10px;">
-                            <span style="display:inline-block;width:3px;height:12px;border-radius:2px;background:${barColor};"></span>
-                            <span style="color:#ffffff;font-weight:700;font-size:13px;font-family:var(--font-mono);">${dz.fixture}</span>
-                        </td>
-                        <td style="padding:12px 16px;color:#6c8577;font-size:13px;">${dz.threatArea}</td>
-                        <td style="padding:12px 16px;text-align:center;font-weight:700;color:${valColor};font-family:var(--font-mono);font-size:13px;">${dz.xGConceded}</td>
-                    </tr>`;
-                }).join('');
-            }
-        } catch (err) {
-            console.error('Tactical zones render error:', err);
+        // Set default GW
+        const gwSelect = document.getElementById('zones-gw-select');
+        if (gwSelect && this.state.currentGW) {
+            gwSelect.value = this.state.currentGW;
         }
     },
 
-    changeFormation(fmt) {
-        this.state.selectedFormation = fmt;
-        this.renderZones();
+    loadMatchFixtures() {
+        // When GW changes, could load fixtures - for now just reset
+        document.getElementById('match-analysis-content').style.display = 'none';
+        document.getElementById('match-empty-state').style.display = 'block';
+    },
+
+    async loadMatchAnalysis() {
+        const homeId = document.getElementById('zones-home-team')?.value;
+        const awayId = document.getElementById('zones-away-team')?.value;
+        if (!homeId || !awayId) return;
+        if (homeId === awayId) return;
+
+        try {
+            const data = await this.apiFetch(`/api/match-analysis?team_h=${homeId}&team_a=${awayId}`);
+            this.renderMatchAnalysis(data);
+        } catch (err) {
+            console.error('Match analysis error:', err);
+        }
+    },
+
+    renderMatchAnalysis(data) {
+        const { home, away, dangerZones, vulnZones, predictedDanger, homeStrength, awayStrength } = data;
+
+        document.getElementById('match-empty-state').style.display = 'none';
+        document.getElementById('match-analysis-content').style.display = 'block';
+
+        // Render formation panel (reusable for both sides)
+        const renderFormationPanel = (teamData, isHome) => {
+            const posOrder = ['GK', 'DEF', 'MID', 'FWD'];
+            const posColors = { GK: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
+
+            // Build formation string from player counts
+            const formationStr = posOrder.slice(1).map(pos => (teamData.posGroups[pos] || []).length).join('-');
+
+            let rows = '';
+            posOrder.forEach(pos => {
+                const players = teamData.posGroups[pos] || [];
+                if (players.length === 0) return;
+                rows += `<div style="display:flex;justify-content:center;gap:8px;margin-bottom:8px;">`;
+                players.forEach(p => {
+                    const isTop = p.xGI >= 10;
+                    const bgColor = pos === 'GK' ? 'rgba(255,215,0,0.15)' :
+                                   pos === 'DEF' ? 'rgba(79,195,247,0.15)' :
+                                   pos === 'MID' ? 'rgba(129,199,132,0.15)' :
+                                   'rgba(229,115,115,0.15)';
+                    const borderColor = posColors[pos];
+                    rows += `<div style="background:${bgColor};border:1px solid ${borderColor}40;border-radius:8px;padding:8px 12px;min-width:80px;text-align:center;">
+                        <div style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:${borderColor};">${pos}</div>
+                        <div style="font-size:12px;font-weight:700;color:#fff;margin-top:2px;">${p.xGI.toFixed(1)} xGI</div>
+                        <div style="font-size:10px;color:#8ba396;margin-top:1px;">${p.name}</div>
+                    </div>`;
+                });
+                rows += `</div>`;
+            });
+
+            return `
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                    <h3 style="font-size:18px;font-weight:700;color:#fff;margin:0;">${teamData.teamName}</h3>
+                    <span style="font-family:var(--font-mono);font-size:13px;color:#8ba396;background:#1c211e;padding:4px 8px;border-radius:4px;">${formationStr}</span>
+                </div>
+                <div style="background:#0d1210;border-radius:8px;padding:16px;margin-bottom:16px;">
+                    ${rows}
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-family:var(--font-mono);font-size:12px;">
+                    <div style="padding:8px;background:#1c211e;border-radius:6px;text-align:center;">
+                        <div style="color:#8ba396;font-size:10px;">Total xGI</div>
+                        <div style="color:#00FF85;font-size:16px;font-weight:700;">${teamData.totalXGI}</div>
+                    </div>
+                    <div style="padding:8px;background:#1c211e;border-radius:6px;text-align:center;">
+                        <div style="color:#8ba396;font-size:10px;">Goals Scored</div>
+                        <div style="color:#fff;font-size:16px;font-weight:700;">${teamData.totalGoals}</div>
+                    </div>
+                    <div style="padding:8px;background:#1c211e;border-radius:6px;text-align:center;">
+                        <div style="color:#8ba396;font-size:10px;">DEFCON</div>
+                        <div style="color:${parseFloat(teamData.defcon) <= 2.5 ? '#00FF85' : parseFloat(teamData.defcon) <= 3.5 ? '#FFA600' : '#FF005A'};font-size:16px;font-weight:700;">${parseFloat(teamData.defcon) <= 2.5 ? 'Strong' : parseFloat(teamData.defcon) <= 3.5 ? 'Average' : 'Weak'}</div>
+                    </div>
+                    <div style="padding:8px;background:#1c211e;border-radius:6px;text-align:center;">
+                        <div style="color:#8ba396;font-size:10px;">GK: ${teamData.bestPicks.find(p => p.position === 'GK')?.name || '--'}</div>
+                        <div style="color:#fff;font-size:11px;">${teamData.totalCS} CS · ${teamData.totalGC} GC</div>
+                    </div>
+                </div>
+            `;
+        };
+
+        document.getElementById('home-formation-panel').innerHTML = renderFormationPanel(home, true);
+        document.getElementById('away-formation-panel').innerHTML = renderFormationPanel(away, false);
+
+        // Render center panel
+        const dangerHTML = dangerZones.length > 0 ? dangerZones.map(dz =>
+            `<div style="padding:8px 12px;background:rgba(255,0,90,0.1);border:1px solid rgba(255,0,90,0.2);border-radius:6px;font-size:13px;">
+                <span style="font-weight:700;color:#FF005A;">${dz.team}</span>: <span style="color:#fff;">${dz.zone}</span>
+            </div>`
+        ).join('') : '<div style="color:#8ba396;font-size:13px;">No significant danger zones</div>';
+
+        const vulnHTML = vulnZones.length > 0 ? vulnZones.map(vz =>
+            `<div style="padding:8px 12px;background:rgba(255,166,0,0.1);border:1px solid rgba(255,166,0,0.2);border-radius:6px;font-size:13px;">
+                <span style="font-weight:700;color:#FFA600;">${vz.team}</span>: <span style="color:#fff;">${vz.zone}</span>
+            </div>`
+        ).join('') : '<div style="color:#8ba396;font-size:13px;">No significant vulnerabilities</div>';
+
+        const predColor = predictedDanger.includes(home.teamShort) ? '#00FF85' :
+                         predictedDanger.includes(away.teamShort) ? '#FF005A' : '#FFA600';
+
+        document.getElementById('match-center-panel').innerHTML = `
+            <h3 style="font-size:16px;font-weight:700;color:#fff;margin:0;text-align:center;">Match Analysis</h3>
+
+            <div style="background:rgba(255,0,90,0.08);border:1px solid rgba(255,0,90,0.2);border-radius:8px;padding:12px;">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+                    <span class="material-symbols-outlined" style="color:#FF005A;font-size:16px;">warning</span>
+                    <span style="font-size:12px;font-weight:700;color:#FF005A;text-transform:uppercase;font-family:var(--font-mono);">Danger Zones</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px;">${dangerHTML}</div>
+            </div>
+
+            <div style="background:rgba(255,166,0,0.08);border:1px solid rgba(255,166,0,0.2);border-radius:8px;padding:12px;">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+                    <span class="material-symbols-outlined" style="color:#FFA600;font-size:16px;">shield</span>
+                    <span style="font-size:12px;font-weight:700;color:#FFA600;text-transform:uppercase;font-family:var(--font-mono);">Vulnerability Zones</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px;">${vulnHTML}</div>
+            </div>
+
+            <div style="background:#1c211e;border-radius:8px;padding:12px;">
+                <div style="text-align:center;margin-bottom:8px;font-size:11px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);">Defensive Strength</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <span style="font-size:20px;font-weight:700;color:#fff;">${home.defcon}</span>
+                    <span style="font-size:10px;color:#8ba396;font-family:var(--font-mono);">DEFCON</span>
+                    <span style="font-size:20px;font-weight:700;color:#fff;">${away.defcon}</span>
+                </div>
+                <div style="height:6px;background:#0d1210;border-radius:3px;margin-top:8px;overflow:hidden;display:flex;">
+                    <div style="height:100%;width:${homeStrength}%;background:#4FC3F7;border-radius:3px 0 0 3px;"></div>
+                    <div style="height:100%;width:${awayStrength}%;background:#FF005A;border-radius:0 3px 3px 0;"></div>
+                </div>
+            </div>
+
+            <div style="background:#1c211e;border-radius:8px;padding:12px;text-align:center;">
+                <div style="font-size:10px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);margin-bottom:4px;">Predicted Danger</div>
+                <div style="font-size:16px;font-weight:700;color:${predColor};">${predictedDanger}</div>
+            </div>
+        `;
+
+        // Render best picks
+        const renderPicks = (teamData, isHome) => {
+            return `
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+                    <span class="material-symbols-outlined" style="color:${isHome ? '#00FF85' : '#FF005A'};font-size:18px;">star</span>
+                    <h3 style="font-size:16px;font-weight:700;color:#fff;margin:0;">Best ${teamData.teamShort} Picks</h3>
+                </div>
+                ${teamData.bestPicks.slice(0, 3).map((p, i) => `
+                    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;${i < 2 ? 'border-bottom:1px solid #1A2E28;' : ''}">
+                        <div style="width:40px;height:40px;border-radius:50%;overflow:hidden;background:#2A2A2A;border:1px solid #333;flex-shrink:0;">
+                            <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
+                        </div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-weight:700;font-size:14px;color:#fff;">${p.name}</div>
+                            <div style="font-size:11px;color:#8ba396;font-family:var(--font-mono);">${p.position} · £${p.cost}m · F: ${p.form}</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:14px;font-weight:700;color:#00FF85;font-family:var(--font-mono);">${p.xGI.toFixed(1)} xGI</div>
+                        </div>
+                    </div>
+                `).join('')}
+            `;
+        };
+
+        document.getElementById('home-picks-panel').innerHTML = renderPicks(home, true);
+        document.getElementById('away-picks-panel').innerHTML = renderPicks(away, false);
     },
 
     changeGW(delta) {
