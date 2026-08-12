@@ -827,12 +827,12 @@ select.input {
     .card-body { padding: 6px 8px; }
 
     /* ==================== TABLE COMPACTNESS ==================== */
-    /* Force all tables to be compact on mobile - override inline styles */
-    table { font-size: 11px !important; border-collapse: collapse; box-sizing: border-box; }
-    th { padding: 6px 8px !important; font-size: 10px !important; white-space: nowrap; box-sizing: border-box; }
-    td { padding: 5px 8px !important; white-space: nowrap; box-sizing: border-box; }
+    /* Force all tables compact on mobile — override ALL inline styles */
+    table { font-size: 11px !important; border-collapse: collapse; box-sizing: border-box; width: max-content !important; min-width: 0 !important; }
+    th { padding: 5px 6px !important; font-size: 10px !important; white-space: nowrap; box-sizing: border-box; }
+    td { padding: 4px 6px !important; white-space: nowrap; box-sizing: border-box; }
 
-    /* Make all table containers scrollable and contain overflow */
+    /* Make all table containers scrollable and contain overflow — NO stretching */
     .card-body,
     .players-table-wrap,
     .league-table-wrap,
@@ -840,6 +840,7 @@ select.input {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
         max-width: 100%;
+        width: 100%;
         position: relative;
     }
 
@@ -851,16 +852,16 @@ select.input {
         display: none;
     }
 
-    /* Sticky first column for ALL tables inside scroll wrappers */
+    /* ALL tables inside scroll wrappers: no 100% width, force max-content */
     .players-table-wrap table,
     .league-table-wrap table,
     .table-scroll-mobile table,
     .card-body table {
-        min-width: 480px;
         border-collapse: separate;
         border-spacing: 0;
-        width: max-content;
     }
+
+    /* Sticky first column for ALL tables — compact width */
     .players-table-wrap th:first-child,
     .players-table-wrap td:first-child,
     .league-table-wrap th:first-child,
@@ -869,29 +870,41 @@ select.input {
     .table-scroll-mobile td:first-child,
     .card-body th:first-child,
     .card-body td:first-child {
-        position: sticky;
-        left: 0;
-        z-index: 10;
+        position: sticky !important;
+        left: 0 !important;
+        z-index: 10 !important;
+        min-width: 0 !important;
+        width: auto !important;
     }
     .players-table-wrap th:first-child,
     .league-table-wrap th:first-child,
     .table-scroll-mobile th:first-child,
     .card-body th:first-child {
-        background: #1c211e;
+        background: #1c211e !important;
+        max-width: 120px !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     .players-table-wrap td:first-child,
     .league-table-wrap td:first-child,
     .table-scroll-mobile td:first-child,
     .card-body td:first-child {
-        background: #141916;
+        background: #141916 !important;
+        max-width: 120px !important;
     }
 
-    /* Player stats specific - darker header */
-    .players-table-wrap thead th:first-child { background: #333333; }
+    /* Player stats header — compact */
+    .players-table-wrap thead th:first-child { background: #333333 !important; max-width: 110px !important; }
+    /* Player stats cell — hide overflow text */
+    .players-table-wrap tbody td:first-child { max-width: 110px !important; overflow: hidden; text-overflow: ellipsis; }
 
-    /* League standings - specific bg */
-    .league-table-wrap th:first-child { background: #022B1E; }
-    .league-table-wrap td:first-child { background: #022B1E; }
+    /* League standings — specific bg */
+    .league-table-wrap th:first-child { background: #022B1E !important; }
+    .league-table-wrap td:first-child { background: #022B1E !important; }
+
+    /* Fixture table TEAM column — compact */
+    .table-scroll-mobile th:first-child { background: #a7cfbc !important; color: #0a0f0d; max-width: 60px !important; }
+    .table-scroll-mobile td:first-child { max-width: 60px !important; font-size: 10px !important; font-weight: 700 !important; }
 
     /* Prevent page-level horizontal overflow */
     body { overflow-x: hidden; }
@@ -955,8 +968,18 @@ select.input {
 
     /* Even more compact tables on small screens */
     table { font-size: 10px !important; }
-    th { padding: 4px 6px !important; font-size: 9px !important; }
-    td { padding: 4px 6px !important; }
+    th { padding: 3px 4px !important; font-size: 9px !important; }
+    td { padding: 3px 4px !important; }
+
+    /* Even more compact sticky columns on small screens */
+    .players-table-wrap th:first-child,
+    .league-table-wrap th:first-child,
+    .table-scroll-mobile th:first-child,
+    .card-body th:first-child { max-width: 90px !important; }
+    .players-table-wrap td:first-child,
+    .league-table-wrap td:first-child,
+    .table-scroll-mobile td:first-child,
+    .card-body td:first-child { max-width: 90px !important; }
 
     /* Position summary cards - compact on small screens */
     .team-bento-4 > div { padding: 12px !important; }

@@ -2227,14 +2227,14 @@ const FPL = {
                 <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">calendar_today</span> Gameweek History</h3></div>
                 <div class="card-body">
                     <div class="table-scroll-mobile">
-                        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                        <table style="border-collapse:collapse;font-size:12px;">
                             <thead>
                                 <tr style="border-bottom:2px solid #1A2E28;background:#1c211e;">
-                                    <th style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-size:10px;color:#8ba396;text-transform:uppercase;">GW</th>
-                                    <th style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-size:10px;color:#8ba396;text-transform:uppercase;">Points</th>
-                                    <th style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-size:10px;color:#8ba396;text-transform:uppercase;">Rank</th>
-                                    <th style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-size:10px;color:#8ba396;text-transform:uppercase;">Bench</th>
-                                    <th style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-size:10px;color:#8ba396;text-transform:uppercase;">Pts Bar</th>
+                                    <th style="text-align:center;font-family:var(--font-mono);font-size:9px;color:#8ba396;text-transform:uppercase;">GW</th>
+                                    <th style="text-align:center;font-family:var(--font-mono);font-size:9px;color:#8ba396;text-transform:uppercase;">Points</th>
+                                    <th style="text-align:center;font-family:var(--font-mono);font-size:9px;color:#8ba396;text-transform:uppercase;">Rank</th>
+                                    <th style="text-align:center;font-family:var(--font-mono);font-size:9px;color:#8ba396;text-transform:uppercase;">Bench</th>
+                                    <th style="text-align:center;font-family:var(--font-mono);font-size:9px;color:#8ba396;text-transform:uppercase;">Pts Bar</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -2244,13 +2244,13 @@ const FPL = {
                                     const barWidth = bestGW > 0 ? Math.round((pts / bestGW) * 100) : 0;
                                     const ptsColor = pts >= 60 ? '#00FF85' : pts >= 40 ? '#FFA600' : pts >= 20 ? '#ffffff' : '#E57373';
                                     return `<tr style="border-bottom:1px solid #16251e;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
-                                        <td style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-weight:700;color:#8ba396;">${i + 1}</td>
-                                        <td style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-weight:700;color:${ptsColor};font-size:14px;">${pts}</td>
-                                        <td style="padding:10px 16px;text-align:center;font-family:var(--font-mono);color:#6c8577;font-size:12px;">${rank > 0 ? rank.toLocaleString() : '--'}</td>
-                                        <td style="padding:10px 16px;text-align:center;font-family:var(--font-mono);color:${bench > 0 ? '#E57373' : '#444'};">${bench > 0 ? '-' + bench : '--'}</td>
-                                        <td style="padding:10px 16px;width:120px;">
-                                            <div style="height:6px;background:#1A2E28;border-radius:3px;overflow:hidden;">
-                                                <div style="height:100%;width:${barWidth}%;background:${ptsColor};border-radius:3px;transition:width 0.3s;"></div>
+                                        <td style="text-align:center;font-family:var(--font-mono);font-weight:700;color:#8ba396;font-size:10px;">${i + 1}</td>
+                                        <td style="text-align:center;font-family:var(--font-mono);font-weight:700;color:${ptsColor};font-size:12px;">${pts}</td>
+                                        <td style="text-align:center;font-family:var(--font-mono);color:#6c8577;font-size:10px;">${rank > 0 ? rank.toLocaleString() : '--'}</td>
+                                        <td style="text-align:center;font-family:var(--font-mono);color:${bench > 0 ? '#E57373' : '#444'};font-size:10px;">${bench > 0 ? '-' + bench : '--'}</td>
+                                        <td style="text-align:center;width:80px;">
+                                            <div style="height:4px;background:#1A2E28;border-radius:2px;overflow:hidden;">
+                                                <div style="height:100%;width:${barWidth}%;background:${ptsColor};border-radius:2px;transition:width 0.3s;"></div>
                                             </div>
                                         </td>
                                     </tr>`;
@@ -2278,19 +2278,19 @@ const FPL = {
                 <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">emoji_events</span> Past Seasons</h3></div>
                 <div class="card-body">
                     <div class="table-scroll-mobile">
-                        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                        <table style="border-collapse:collapse;font-size:12px;">
                             <thead>
                                 <tr style="border-bottom:2px solid #1A2E28;background:#1c211e;">
-                                    <th style="padding:10px 16px;text-align:left;font-family:var(--font-mono);font-size:10px;color:#8ba396;text-transform:uppercase;">Season</th>
-                                    <th style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-size:10px;color:#8ba396;text-transform:uppercase;">Points</th>
-                                    <th style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-size:10px;color:#8ba396;text-transform:uppercase;">Rank</th>
+                                    <th style="text-align:left;font-family:var(--font-mono);font-size:9px;color:#8ba396;text-transform:uppercase;">Season</th>
+                                    <th style="text-align:center;font-family:var(--font-mono);font-size:9px;color:#8ba396;text-transform:uppercase;">Points</th>
+                                    <th style="text-align:center;font-family:var(--font-mono);font-size:9px;color:#8ba396;text-transform:uppercase;">Rank</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 ${seasonHistory.map(s => `<tr style="border-bottom:1px solid #16251e;">
-                                    <td style="padding:10px 16px;font-weight:600;color:#ffffff;">${s.season}</td>
-                                    <td style="padding:10px 16px;text-align:center;font-family:var(--font-mono);color:#00FF85;font-weight:700;">${s.points?.toLocaleString() || '--'}</td>
-                                    <td style="padding:10px 16px;text-align:center;font-family:var(--font-mono);color:#6c8577;">${s.rank?.toLocaleString() || '--'}</td>
+                                    <td style="font-weight:600;color:#ffffff;font-size:11px;">${s.season}</td>
+                                    <td style="text-align:center;font-family:var(--font-mono);color:#00FF85;font-weight:700;font-size:11px;">${s.points?.toLocaleString() || '--'}</td>
+                                    <td style="text-align:center;font-family:var(--font-mono);color:#6c8577;font-size:11px;">${s.rank?.toLocaleString() || '--'}</td>
                                 </tr>`).join('')}
                             </tbody>
                         </table>
