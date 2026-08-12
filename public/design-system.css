@@ -1067,14 +1067,6 @@ a:hover { text-decoration: underline; }
 .rank-2 { color: #C0C0C0; }
 .rank-3 { color: #CD7F32; }
 
-/* Sticky column for tables on mobile */
-.table-freeze-col {
-    position: sticky;
-    left: 0;
-    z-index: 10;
-    background: inherit;
-}
-
 /* Number column center alignment */
 td.num-col, th.num-col {
     text-align: center;

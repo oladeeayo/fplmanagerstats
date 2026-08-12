@@ -786,7 +786,7 @@ const FPL = {
 
             squadTbody.innerHTML = playersToRender.map(p => `
                 <tr style="border-bottom:1px solid #16251e;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
-                    <td style="padding:4px 6px;position:sticky;left:0;z-index:10;background:#141916;max-width:120px;overflow:hidden;display:flex;align-items:center;gap:6px;">
+                    <td style="padding:4px 6px;background:#141916;max-width:120px;overflow:hidden;display:flex;align-items:center;gap:6px;">
                         <div style="width:24px;height:24px;border-radius:50%;background:#1c2720;border:1px solid #28392e;flex-shrink:0;"></div>
                         <span style="font-weight:700;color:#ffffff;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.webName || p.name}</span>
                     </td>
@@ -1002,7 +1002,7 @@ const FPL = {
 
             return `
                 <tr style="border-bottom:1px solid #1A2E28;transition:background 0.2s;${isEven ? 'background:rgba(49,54,51,0.15);' : ''}" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='${isEven ? 'rgba(49,54,51,0.15)' : 'transparent'}'">
-                    <td style="padding:4px 6px;position:sticky;left:0;z-index:10;background:${isEven ? '#1E1E1E' : '#1A1A1A'};max-width:110px;overflow:hidden;">
+                    <td style="padding:4px 6px;background:${isEven ? '#1E1E1E' : '#1A1A1A'};max-width:110px;overflow:hidden;">
                         <div style="display:flex;align-items:center;gap:6px;">
                             <div style="width:28px;height:28px;border-radius:50%;overflow:hidden;background:#2A2A2A;border:1px solid #333;flex-shrink:0;">
                                 <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || p.web_name || 'FPL Player'} photo" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
@@ -1102,11 +1102,11 @@ const FPL = {
                 const borderTier = m.rank === 1 ? 'fdr-1' : m.rank === 2 ? 'fdr-2' : m.rank === 3 ? 'fdr-3' : m.rank === 4 ? 'fdr-4' : 'fdr-5';
 
                 return `<tr class="data-row" style="border-bottom:1px solid rgba(255,255,255,0.05);transition:background 0.2s;${rowBg}" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='${isEven ? 'rgba(255,255,255,0.03)' : 'transparent'}'">
-                    <td style="padding:4px 6px;position:relative;font-weight:700;color:var(--md-sys-color-on-surface);width:40px;position:sticky;left:0;z-index:10;background:${isEven ? 'rgba(2,43,30,0.5)' : '#022B1E'};">
+                    <td style="padding:4px 6px;position:relative;font-weight:700;color:var(--md-sys-color-on-surface);width:40px;background:${isEven ? 'rgba(2,43,30,0.5)' : '#022B1E'};">
                         <div style="position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:70%;background:var(--${borderTier});border-radius:0 2px 2px 0;"></div>
                         ${m.rank}
                     </td>
-                    <td style="padding:4px 6px;position:sticky;left:40px;z-index:10;background:${isEven ? 'rgba(2,43,30,0.5)' : '#022B1E'};max-width:140px;overflow:hidden;">
+                    <td style="padding:4px 6px;background:${isEven ? 'rgba(2,43,30,0.5)' : '#022B1E'};max-width:140px;overflow:hidden;">
                         <div style="font-weight:700;color:var(--md-sys-color-on-surface);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.managerName}</div>
                         <div style="font-size:9px;color:var(--md-sys-color-on-surface-variant);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.entryName}</div>
                     </td>
@@ -1237,7 +1237,7 @@ const FPL = {
         const headerRow = document.getElementById('fixture-grid-header-row');
         if (headerRow) {
             headerRow.style.background = '#a7cfbc';
-            headerRow.innerHTML = `<th style="padding:5px 6px;position:sticky;left:0;z-index:10;background:#a7cfbc;width:60px;max-width:60px;font-family:var(--font-mono);font-size:11px;color:#0a0f0d;font-weight:700;">TEAM</th>` +
+            headerRow.innerHTML = `<th style="padding:5px 6px;background:#a7cfbc;width:60px;max-width:60px;font-family:var(--font-mono);font-size:11px;color:#0a0f0d;font-weight:700;">TEAM</th>` +
                 targetGWs.map(gw => `<th style="padding:5px 6px;text-align:center;font-family:var(--font-mono);font-size:11px;color:#0a0f0d;font-weight:700;background:#a7cfbc;"><span style="color:#0a0f0d;font-weight:700;">GW${gw}</span></th>`).join('');
         }
 
@@ -1284,7 +1284,7 @@ const FPL = {
                 const teamAccentColor = fdrColors[avgFDR]?.bg || '#37DB59';
 
                 return `<tr style="border-bottom:1px solid #1A2E28;background:${isEven ? '#181d1a' : '#0f1412'};">
-                    <td style="padding:4px 6px;position:sticky;left:0;z-index:10;background:${isEven ? '#181d1a' : '#0f1412'};max-width:60px;overflow:hidden;text-overflow:ellipsis;font-family:var(--font-mono);font-size:10px;font-weight:700;color:#00ff85;">
+                    <td style="padding:4px 6px;background:${isEven ? '#181d1a' : '#0f1412'};max-width:60px;overflow:hidden;text-overflow:ellipsis;font-family:var(--font-mono);font-size:10px;font-weight:700;color:#00ff85;">
                         <div style="display:flex;align-items:center;gap:4px;">
                             <div style="width:3px;height:16px;background:${teamAccentColor};border-radius:999px;flex-shrink:0;"></div>
                             ${team.short_name}
@@ -1458,7 +1458,7 @@ const FPL = {
                 const rankColor = p.rk === 1 ? 'color:var(--fdr-1);font-size:1.125rem;' : p.rk <= 3 ? 'color:var(--md-sys-color-primary);font-size:1rem;' : 'color:var(--md-sys-color-on-surface);';
 
                 return `<tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);transition:background 0.2s;${rowBg}" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='${rowBg ? 'rgba(255,255,255,0.03)' : 'transparent'}'">
-                    <td style="padding:4px 6px;text-align:center;position:sticky;left:0;z-index:10;background:#1E1E1E;border-left:3px solid var(--${p.borderTier});font-weight:700;font-size:11px;">${p.rk}</td>
+                    <td style="padding:4px 6px;text-align:center;background:#1E1E1E;border-left:3px solid var(--${p.borderTier});font-weight:700;font-size:11px;">${p.rk}</td>
                     <td style="padding:4px 6px;">
                         <div style="display:flex;align-items:center;gap:6px;">
                             <div style="width:28px;height:28px;border-radius:50%;overflow:hidden;background:var(--md-sys-color-surface);flex-shrink:0;border:1px solid var(--md-sys-color-outline-variant);">
@@ -1497,21 +1497,28 @@ const FPL = {
             const data = await this.apiFetch(this.API.ownershipTrends);
             this.state.ownershipTrends = data;
 
-            // Update last snapshot time display
-            const lastSnapEl = document.getElementById('own-last-snapshot');
-            if (lastSnapEl) lastSnapEl.textContent = data.lastSnapshotTime || 'Just now';
-
             // Render Bento Grid Cards
             this.renderOwnershipBento(data);
 
             // Render Table
             this.renderOwnershipTable();
+
+            // Auto-capture snapshot in background (throttled server-side to 1hr)
+            this.autoCaptureSnapshot();
         } catch (err) {
             console.error('Ownership trends render error:', err);
             const tbody = document.getElementById('ownership-trends-table-body');
             if (tbody) {
                 tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:var(--space-lg);color:var(--md-sys-color-error);">Failed to load ownership trend data: ${err.message}</td></tr>`;
             }
+        }
+    },
+
+    async autoCaptureSnapshot() {
+        try {
+            await fetch('/api/ownership/snapshot', { method: 'POST' });
+        } catch (e) {
+            // Silent fail - snapshot is non-critical
         }
     },
 
@@ -1645,7 +1652,7 @@ const FPL = {
 
             return `
             <tr style="border-bottom:1px solid #333333;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
-                <td style="padding:4px 6px;text-align:center;color:#B0B0B0;font-family:var(--font-mono);font-size:10px;position:sticky;left:0;z-index:10;background:#1E1E1E;">${i + 1}</td>
+                <td style="padding:4px 6px;text-align:center;color:#B0B0B0;font-family:var(--font-mono);font-size:10px;background:#1E1E1E;">${i + 1}</td>
                 <td style="padding:4px 6px;text-align:left;">
                     <div style="display:flex;align-items:center;gap:6px;">
                         <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || 'FPL Player'}" onerror="this.src='football.ico'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;background:#2A2A2A;border:1px solid #444444;flex-shrink:0;">
