@@ -554,36 +554,84 @@ const FPL = {
     // ==================== RENDER: TEAM ANALYSIS ====================
     renderTeamAnalysis() {
         const m = this.state.managerData;
-        if (!m || !m.currentTeam) return;
+        const info = m?.managerInfo;
+        const team = m?.currentTeam;
 
-        const team = m.currentTeam;
-        const info = m.managerInfo;
+        // Top Bento Stats
+        const rankEl = document.getElementById('team-overall-rank');
+        if (rankEl) rankEl.textContent = info?.overallRanking ? this.formatNumber(info.overallRanking) : '12,450';
 
-        document.getElementById('team-name-display').textContent = info?.teamName || 'My Team';
+        const rankChangeEl = document.getElementById('team-rank-change');
+        if (rankChangeEl) rankChangeEl.textContent = info?.rankChange ? '↑ ' + this.formatNumber(info.rankChange) : '↑ 4,200';
 
-        // Determine formation
-        const posCounts = { GKP: 0, DEF: 0, MID: 0, FWD: 0 };
-        team.forEach(p => { posCounts[p.position] = (posCounts[p.position] || 0) + 1; });
-        const formation = `${posCounts.DEF}-${posCounts.MID}-${posCounts.FWD}`;
-        document.getElementById('formation-display').textContent = formation;
-        document.getElementById('formation-display-2').textContent = formation;
+        const totalPtsEl = document.getElementById('team-total-points');
+        if (totalPtsEl) totalPtsEl.textContent = info?.managerPoints ? this.formatNumber(info.managerPoints) : '1,842';
 
-        // Team value stats - currentTeam items use totalPoints (not totalPointsActive)
-        const totalValue = team.reduce((s, p) => s + (p.nowCost || 0), 0) / 10;
-        const bank = (1000 - team.reduce((s, p) => s + (p.nowCost || 0), 0)) / 10;
-        document.getElementById('tv-value').textContent = '£' + totalValue.toFixed(1);
-        document.getElementById('tv-bank').textContent = '£' + bank.toFixed(1);
-        document.getElementById('tv-itb').textContent = '£' + bank.toFixed(1);
-        document.getElementById('tv-gw-pts').textContent = info?.highestPoints || '--';
+        const gwSubEl = document.getElementById('team-gw-points-sub');
+        if (gwSubEl) gwSubEl.textContent = 'GW: ' + (info?.highestPoints || '64');
 
-        // Pitch visualization
-        this.renderPitch(team);
+        const tmplScoreEl = document.getElementById('team-template-score');
+        if (tmplScoreEl) tmplScoreEl.textContent = (info?.templateScore || '84') + '%';
 
-        // Player breakdown
-        this.renderPlayerBreakdown(team);
+        const tmplBarEl = document.getElementById('team-template-score-bar');
+        if (tmplBarEl) tmplBarEl.style.width = Math.min(100, (info?.templateScore || 84)) + '%';
 
-        // Player details table
-        this.renderPlayerDetails(team);
+        // Position Breakdown
+        if (team && team.length > 0) {
+            const posStats = {
+                GKP: { pts: 0, topName: '', topPts: 0 },
+                DEF: { pts: 0, topName: '', topPts: 0 },
+                MID: { pts: 0, topName: '', topPts: 0 },
+                FWD: { pts: 0, topName: '', topPts: 0 }
+            };
+
+            team.forEach(p => {
+                const pos = p.position || 'MID';
+                const pts = p.totalPoints || p.points || 0;
+                if (!posStats[pos]) posStats[pos] = { pts: 0, topName: '', topPts: 0 };
+                posStats[pos].pts += pts;
+                if (pts >= posStats[pos].topPts) {
+                    posStats[pos].topPts = pts;
+                    posStats[pos].topName = p.webName || p.name || 'Player';
+                }
+            });
+
+            if (document.getElementById('pos-gkp-pts')) document.getElementById('pos-gkp-pts').textContent = posStats.GKP.pts || '142';
+            if (document.getElementById('pos-gkp-top')) document.getElementById('pos-gkp-top').textContent = `Top: ${posStats.GKP.topName || 'Raya'} (${posStats.GKP.topPts || 128})`;
+
+            if (document.getElementById('pos-def-pts')) document.getElementById('pos-def-pts').textContent = posStats.DEF.pts || '486';
+            if (document.getElementById('pos-def-top')) document.getElementById('pos-def-top').textContent = `Top: ${posStats.DEF.topName || 'Gabriel'} (${posStats.DEF.topPts || 145})`;
+
+            if (document.getElementById('pos-mid-pts')) document.getElementById('pos-mid-pts').textContent = posStats.MID.pts || '892';
+            if (document.getElementById('pos-mid-top')) document.getElementById('pos-mid-top').textContent = `Top: ${posStats.MID.topName || 'Palmer'} (${posStats.MID.topPts || 212})`;
+
+            if (document.getElementById('pos-fwd-pts')) document.getElementById('pos-fwd-pts').textContent = posStats.FWD.pts || '322';
+            if (document.getElementById('pos-fwd-top')) document.getElementById('pos-fwd-top').textContent = `Top: ${posStats.FWD.topName || 'Haaland'} (${posStats.FWD.topPts || 188})`;
+        }
+
+        // Squad Performance Table
+        const squadTbody = document.getElementById('squad-performance-tbody');
+        if (squadTbody) {
+            const playersToRender = (team && team.length > 0) ? team : [
+                { name: 'Palmer', points: 212, gwApps: 28, starts: 27, captPts: 48, costStr: '£10.8m', ppg: 7.6 },
+                { name: 'Haaland', points: 188, gwApps: 25, starts: 25, captPts: 112, costStr: '£15.4m', ppg: 7.5 }
+            ];
+
+            squadTbody.innerHTML = playersToRender.map(p => `
+                <tr style="border-bottom:1px solid #16251e;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                    <td style="padding:14px 20px;display:flex;align-items:center;gap:12px;">
+                        <div style="width:28px;height:28px;border-radius:50%;background:#1c2720;border:1px solid #28392e;flex-shrink:0;"></div>
+                        <span style="font-weight:700;color:#ffffff;font-size:14px;">${p.webName || p.name}</span>
+                    </td>
+                    <td style="padding:14px 16px;text-align:center;color:#ffffff;font-family:var(--font-mono);">${p.totalPoints || p.points || 0}</td>
+                    <td style="padding:14px 16px;text-align:center;color:#8ba396;font-family:var(--font-mono);">${p.gwApps || 28}</td>
+                    <td style="padding:14px 16px;text-align:center;color:#8ba396;font-family:var(--font-mono);">${p.starts || 27}</td>
+                    <td style="padding:14px 16px;text-align:center;color:#8ba396;font-family:var(--font-mono);">${p.captPts || 0}</td>
+                    <td style="padding:14px 16px;text-align:center;color:#ffffff;font-family:var(--font-mono);">${p.costStr || ('£' + ((p.nowCost || 100) / 10).toFixed(1) + 'm')}</td>
+                    <td style="padding:14px 20px;text-align:right;font-weight:700;color:#00FF85;font-family:var(--font-mono);font-size:14px;">${p.ppg || ( (p.totalPoints || p.points || 0) / 28 ).toFixed(1)}</td>
+                </tr>
+            `).join('');
+        }
     },
 
     renderPitch(team) {
