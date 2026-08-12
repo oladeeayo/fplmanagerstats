@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — FPL Stats Analytics</title>
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#0D0D0D">
+  <link rel="icon" href="football.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: #0a0a0a; color: #e0e0e0; min-height: 100vh; }
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+
+    /* Login Screen */
+    #login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #0a0a0a; }
+    .login-card { background: #141916; border: 1px solid #1A2E28; border-radius: 16px; padding: 40px; width: 380px; max-width: 90vw; text-align: center; }
+    .login-card h1 { font-size: 24px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+    .login-card p { font-size: 13px; color: #8ba396; margin-bottom: 28px; }
+    .login-input { width: 100%; padding: 12px 16px; background: #0d1210; border: 1px solid #1A2E28; border-radius: 8px; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 14px; outline: none; transition: border-color 0.2s; }
+    .login-input:focus { border-color: #00ff85; }
+    .login-btn { width: 100%; padding: 12px; background: #00ff85; color: #000; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 16px; transition: opacity 0.2s; }
+    .login-btn:hover { opacity: 0.9; }
+    .login-error { color: #ff4d4d; font-size: 12px; margin-top: 12px; display: none; }
+
+    /* Dashboard */
+    #dashboard { display: none; padding: 24px; max-width: 1400px; margin: 0 auto; }
+    .dash-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .dash-header h1 { font-size: 24px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 10px; }
+    .dash-header h1 .material-symbols-outlined { color: #00ff85; font-size: 28px; }
+    .dash-header-right { display: flex; gap: 12px; align-items: center; }
+    .period-btn { padding: 6px 14px; border-radius: 6px; border: 1px solid #1A2E28; background: transparent; color: #8ba396; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'JetBrains Mono', monospace; transition: all 0.15s; }
+    .period-btn.active { background: rgba(0,255,133,0.12); color: #00ff85; border-color: rgba(0,255,133,0.4); }
+    .period-btn:hover { color: #fff; background: rgba(255,255,255,0.05); }
+    .logout-btn { padding: 6px 14px; border-radius: 6px; border: 1px solid #ff4d4d33; background: transparent; color: #ff4d4d; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'JetBrains Mono', monospace; transition: all 0.15s; }
+    .logout-btn:hover { background: rgba(255,77,77,0.12); border-color: #ff4d4d; }
+
+    /* Stat Cards */
+    .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: #141916; border: 1px solid #1A2E28; border-radius: 12px; padding: 20px; }
+    .stat-label { font-size: 11px; color: #8ba396; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; font-weight: 600; letter-spacing: 0.06em; }
+    .stat-value { font-size: 32px; font-weight: 800; color: #fff; margin-top: 6px; font-family: 'JetBrains Mono', monospace; }
+    .stat-sub { font-size: 12px; color: #5a7a66; margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
+    .stat-value.green { color: #00ff85; }
+
+    /* Chart Grid */
+    .chart-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px; }
+    .chart-card { background: #141916; border: 1px solid #1A2E28; border-radius: 12px; padding: 20px; }
+    .chart-card h3 { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .chart-card h3 .material-symbols-outlined { font-size: 18px; color: #00ff85; }
+    .chart-container { position: relative; height: 260px; }
+
+    /* Full width chart */
+    .chart-full { grid-column: 1 / -1; }
+
+    /* Tables */
+    .table-card { background: #141916; border: 1px solid #1A2E28; border-radius: 12px; overflow: hidden; margin-bottom: 24px; }
+    .table-header { padding: 16px 20px; border-bottom: 1px solid #1A2E28; display: flex; justify-content: space-between; align-items: center; }
+    .table-header h3 { font-size: 14px; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 8px; }
+    .table-header h3 .material-symbols-outlined { font-size: 18px; color: #00ff85; }
+    table { width: 100%; border-collapse: collapse; }
+    thead { background: rgba(255,255,255,0.02); }
+    th { padding: 10px 16px; text-align: left; font-size: 11px; color: #8ba396; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; font-weight: 600; letter-spacing: 0.04em; border-bottom: 1px solid #1A2E28; white-space: nowrap; }
+    td { padding: 10px 16px; font-size: 13px; border-bottom: 1px solid #111; white-space: nowrap; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .table-scroll { overflow-x: auto; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+    .badge-desktop { background: rgba(0,255,133,0.12); color: #00ff85; }
+    .badge-mobile { background: rgba(255,166,0,0.12); color: #ffa600; }
+    .badge-tablet { background: rgba(100,150,255,0.12); color: #6496ff; }
+
+    /* Country Flag */
+    .country-cell { display: flex; align-items: center; gap: 8px; }
+    .country-flag { font-size: 18px; line-height: 1; }
+    .country-code { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+
+    /* Pagination */
+    .pagination { display: flex; justify-content: center; gap: 8px; padding: 16px; }
+    .page-btn { padding: 6px 12px; border-radius: 6px; border: 1px solid #1A2E28; background: transparent; color: #8ba396; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'JetBrains Mono', monospace; }
+    .page-btn.active { background: rgba(0,255,133,0.12); color: #00ff85; border-color: rgba(0,255,133,0.4); }
+    .page-btn:hover:not(.active) { color: #fff; }
+
+    /* Loading */
+    .loading-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #1A2E28; border-top-color: #00ff85; border-radius: 50%; animation: spin 0.6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-overlay { display: flex; align-items: center; justify-content: center; padding: 40px; color: #8ba396; font-size: 13px; gap: 10px; }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .stat-grid { grid-template-columns: repeat(2, 1fr); }
+      .chart-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      .stat-grid { grid-template-columns: 1fr; }
+      #dashboard { padding: 16px; }
+      .dash-header { flex-direction: column; gap: 12px; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Login Screen -->
+  <div id="login-screen">
+    <div class="login-card">
+      <span class="material-symbols-outlined" style="font-size:48px;color:#00ff85;margin-bottom:16px;">admin_panel_settings</span>
+      <h1>Admin Access</h1>
+      <p>Enter your admin key to view analytics</p>
+      <input type="password" id="admin-key-input" class="login-input" placeholder="Admin key..." autofocus>
+      <button class="login-btn" onclick="Admin.login()">Access Dashboard</button>
+      <div id="login-error" class="login-error">Invalid key. Try again.</div>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard">
+    <div class="dash-header">
+      <h1><span class="material-symbols-outlined">analytics</span> Admin Analytics</h1>
+      <div class="dash-header-right">
+        <div style="display:flex;gap:4px;">
+          <button class="period-btn active" data-days="1" onclick="Admin.setPeriod(1)">24h</button>
+          <button class="period-btn" data-days="7" onclick="Admin.setPeriod(7)">7d</button>
+          <button class="period-btn" data-days="30" onclick="Admin.setPeriod(30)">30d</button>
+          <button class="period-btn" data-days="90" onclick="Admin.setPeriod(90)">90d</button>
+        </div>
+        <button class="logout-btn" onclick="Admin.logout()">Logout</button>
+      </div>
+    </div>
+
+    <!-- Stat Cards -->
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label">Page Views Today</div>
+        <div class="stat-value green" id="pv-today">--</div>
+        <div class="stat-sub" id="pv-week">-- this week</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Unique Visitors Today</div>
+        <div class="stat-value" id="uv-today">--</div>
+        <div class="stat-sub" id="uv-week">-- this week</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Visitors (All Time)</div>
+        <div class="stat-value" id="uv-all">--</div>
+        <div class="stat-sub" id="pv-all">-- total page views</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Avg Response Time</div>
+        <div class="stat-value" id="avg-response">--</div>
+        <div class="stat-sub">milliseconds (7d avg)</div>
+      </div>
+    </div>
+
+    <!-- Charts Row 1 -->
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3><span class="material-symbols-outlined">public</span> Visitors by Country</h3>
+        <div class="chart-container"><canvas id="chart-countries"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3><span class="material-symbols-outlined">devices</span> Device Type</h3>
+        <div class="chart-container"><canvas id="chart-devices"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3><span class="material-symbols-outlined">language</span> Browser</h3>
+        <div class="chart-container"><canvas id="chart-browsers"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3><span class="material-symbols-outlined">computer</span> Operating System</h3>
+        <div class="chart-container"><canvas id="chart-os"></canvas></div>
+      </div>
+      <div class="chart-card chart-full">
+        <h3><span class="material-symbols-outlined">schedule</span> Traffic by Hour (UTC)</h3>
+        <div class="chart-container"><canvas id="chart-hourly"></canvas></div>
+      </div>
+      <div class="chart-card chart-full">
+        <h3><span class="material-symbols-outlined">trending_up</span> Daily Visitors</h3>
+        <div class="chart-container"><canvas id="chart-daily"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Referrers -->
+    <div class="table-card">
+      <div class="table-header">
+        <h3><span class="material-symbols-outlined">share</span> Traffic Sources</h3>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Source</th><th>Page Views</th><th>Unique Visitors</th><th>% of Total</th></tr></thead>
+          <tbody id="referrers-body"><tr><td colspan="4" class="loading-overlay"><div class="loading-spinner"></div> Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Feature Usage -->
+    <div class="table-card">
+      <div class="table-header">
+        <h3><span class="material-symbols-outlined">widget_features</span> Feature Usage</h3>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Feature</th><th>Hits</th><th>Unique Users</th><th>% of Total</th><th>Avg Response</th></tr></thead>
+          <tbody id="features-body"><tr><td colspan="5" class="loading-overlay"><div class="loading-spinner"></div> Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Top Pages -->
+    <div class="table-card">
+      <div class="table-header">
+        <h3><span class="material-symbols-outlined">route</span> Top Pages</h3>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Path</th><th>Views</th><th>Unique Visitors</th><th>Avg Response (ms)</th></tr></thead>
+          <tbody id="pages-body"><tr><td colspan="4" class="loading-overlay"><div class="loading-spinner"></div> Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Recent Visitors -->
+    <div class="table-card">
+      <div class="table-header">
+        <h3><span class="material-symbols-outlined">people</span> Recent Visitors</h3>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Time</th><th>Country</th><th>Device</th><th>Browser</th><th>OS</th><th>Page</th></tr></thead>
+          <tbody id="visitors-body"><tr><td colspan="6" class="loading-overlay"><div class="loading-spinner"></div> Loading...</td></tr></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="visitors-pagination"></div>
+    </div>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>

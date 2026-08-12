@@ -7,10 +7,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Neon database connection
-const NEON_URL = process.env.NEON_DATABASE_URL || 'REMOVED_NEON_DATABASE_URL';
+const NEON_URL = process.env.NEON_DATABASE_URL;
 const sql = neon(NEON_URL);
 
-// Initialize database table
+// Initialize database tables
 async function initDatabase() {
   try {
     await sql`
@@ -22,6 +22,68 @@ async function initDatabase() {
       )
     `;
     await sql`CREATE INDEX IF NOT EXISTS idx_ownership_timestamp ON ownership_snapshots(timestamp)`;
+
+    // Analytics tables
+    await sql`
+      CREATE TABLE IF NOT EXISTS admin_page_views (
+        id SERIAL PRIMARY KEY,
+        session_id VARCHAR(64) NOT NULL,
+        path VARCHAR(512) NOT NULL,
+        referrer VARCHAR(1024),
+        ip_hash VARCHAR(128),
+        country VARCHAR(8),
+        city VARCHAR(128),
+        continent VARCHAR(32),
+        device_type VARCHAR(16),
+        browser VARCHAR(64),
+        os VARCHAR(64),
+        os_version VARCHAR(64),
+        status_code INT,
+        response_time_ms INT,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_pv_created ON admin_page_views(created_at)`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_pv_session ON admin_page_views(session_id)`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_pv_country ON admin_page_views(country)`;
+
+    await sql`
+      CREATE TABLE IF NOT EXISTS admin_visitor_sessions (
+        id SERIAL PRIMARY KEY,
+        session_id VARCHAR(64) UNIQUE NOT NULL,
+        ip_hash VARCHAR(128),
+        country VARCHAR(8),
+        city VARCHAR(128),
+        continent VARCHAR(32),
+        device_type VARCHAR(16),
+        browser VARCHAR(64),
+        os VARCHAR(64),
+        os_version VARCHAR(64),
+        first_page VARCHAR(512),
+        last_page VARCHAR(512),
+        page_count INT DEFAULT 1,
+        is_returning BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT NOW(),
+        last_active_at TIMESTAMP DEFAULT NOW()
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_vs_created ON admin_visitor_sessions(created_at)`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_vs_country ON admin_visitor_sessions(country)`;
+
+    await sql`
+      CREATE TABLE IF NOT EXISTS admin_daily_stats (
+        id SERIAL PRIMARY KEY,
+        date DATE UNIQUE NOT NULL,
+        unique_visitors INT DEFAULT 0,
+        page_views INT DEFAULT 0,
+        top_country VARCHAR(8),
+        top_page VARCHAR(512),
+        avg_response_time_ms INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_ds_date ON admin_daily_stats(date)`;
+
     console.log('Database initialized successfully');
   } catch (e) {
     console.error('Database init error:', e.message);
@@ -38,6 +100,117 @@ app.use((req, res, next) => {
 
 app.use(express.static(path.join(__dirname, '../public')));
 app.use(express.json());
+
+// ---- Analytics Tracking ----
+const crypto = require('crypto');
+const geoCache = new Map();
+const GEO_CACHE_TTL = 24 * 60 * 60 * 1000;
+
+function parseUserAgent(ua) {
+  if (!ua) return { deviceType: 'Unknown', browser: 'Unknown', os: 'Unknown', osVersion: '' };
+  const lower = ua.toLowerCase();
+
+  let deviceType = 'Desktop';
+  if (/mobile|android|iphone|ipod/i.test(lower)) deviceType = 'Mobile';
+  else if (/tablet|ipad/i.test(lower)) deviceType = 'Tablet';
+
+  let browser = 'Other';
+  if (/edg\//i.test(lower)) browser = 'Edge';
+  else if (/chrome/i.test(lower) && !/opr\//i.test(lower)) browser = 'Chrome';
+  else if (/firefox/i.test(lower)) browser = 'Firefox';
+  else if (/safari/i.test(lower) && !/chrome/i.test(lower)) browser = 'Safari';
+  else if (/opr\//i.test(lower) || /opera/i.test(lower)) browser = 'Opera';
+
+  let os = 'Other', osVersion = '';
+  if (/windows/i.test(lower)) { os = 'Windows'; const m = ua.match(/Windows NT (\d+\.\d+)/); if (m) osVersion = m[1]; }
+  else if (/mac os x|macintosh/i.test(lower)) { os = 'macOS'; const m = ua.match(/Mac OS X (\d+[._]\d+)/); if (m) osVersion = m[1].replace('_', '.'); }
+  else if (/iphone|ipad|ipod/i.test(lower)) { os = ua.match(/OS (\d+_\d+)/)?.[1]?.replace('_', '.') || 'iOS'; osVersion = os; os = 'iOS'; }
+  else if (/android/i.test(lower)) { os = 'Android'; const m = ua.match(/Android (\d+\.?\d*)/); if (m) osVersion = m[1]; }
+  else if (/linux/i.test(lower)) os = 'Linux';
+  else if (/cros/i.test(lower)) { os = 'ChromeOS'; osVersion = ''; }
+
+  return { deviceType, browser, os, osVersion };
+}
+
+async function lookupGeo(ip) {
+  if (!ip || ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1') {
+    return { country: 'Local', city: 'Local', continent: 'Local' };
+  }
+  const cached = geoCache.get(ip);
+  if (cached && Date.now() - cached.ts < GEO_CACHE_TTL) return cached.data;
+  try {
+    const res = await axios.get(`http://ip-api.com/json/${ip}?fields=status,country,countryCode,city,continent`, { timeout: 3000 });
+    if (res.data.status === 'success') {
+      const geo = { country: res.data.countryCode || 'XX', city: res.data.city || '', continent: res.data.continent || '' };
+      geoCache.set(ip, { data: geo, ts: Date.now() });
+      return geo;
+    }
+  } catch (e) { /* geo lookup failed */ }
+  return { country: 'XX', city: '', continent: '' };
+}
+
+function hashIP(ip) {
+  return crypto.createHash('sha256').update(ip + 'fplstats_salt_2024').digest('hex').slice(0, 16);
+}
+
+function generateSessionId() {
+  return crypto.randomBytes(16).toString('hex');
+}
+
+// Tracking middleware
+app.use(async (req, res, next) => {
+  const startTime = Date.now();
+  const originalEnd = res.end;
+
+  res.end = function(...args) {
+    const responseTime = Date.now() - startTime;
+    const path = req.originalUrl || req.url;
+
+    // Skip admin routes and static assets from tracking
+    if (path.startsWith('/api/admin') || path.includes('.') && !path.includes('?')) {
+      return originalEnd.apply(this, args);
+    }
+
+    // Fire-and-forget tracking
+    (async () => {
+      try {
+        const forwarded = req.headers['x-forwarded-for'];
+        const ip = forwarded ? forwarded.split(',')[0].trim() : (req.socket?.remoteAddress || '');
+        const ua = req.headers['user-agent'] || '';
+        const referrer = req.headers['referer'] || req.headers['referrer'] || '';
+        const sessionId = req.headers['x-session-id'] || generateSessionId();
+
+        const { deviceType, browser, os, osVersion } = parseUserAgent(ua);
+        const geo = await lookupGeo(ip);
+        const ipHash = hashIP(ip);
+
+        await sql`
+          INSERT INTO admin_page_views (session_id, path, referrer, ip_hash, country, city, continent, device_type, browser, os, os_version, status_code, response_time_ms)
+          VALUES (${sessionId}, ${path.slice(0, 512)}, ${referrer.slice(0, 1024)}, ${ipHash}, ${geo.country}, ${geo.city.slice(0, 128)}, ${geo.continent}, ${deviceType}, ${browser}, ${os}, ${osVersion}, ${res.statusCode}, ${Math.min(responseTime, 99999)})
+        `;
+
+        // Upsert session
+        const existing = await sql`SELECT session_id, page_count FROM admin_visitor_sessions WHERE session_id = ${sessionId}`;
+        if (existing.length > 0) {
+          await sql`
+            UPDATE admin_visitor_sessions
+            SET page_count = page_count + 1, last_page = ${path.slice(0, 512)}, last_active_at = NOW()
+            WHERE session_id = ${sessionId}
+          `;
+        } else {
+          await sql`
+            INSERT INTO admin_visitor_sessions (session_id, ip_hash, country, city, continent, device_type, browser, os, os_version, first_page, last_page, page_count, is_returning)
+            VALUES (${sessionId}, ${ipHash}, ${geo.country}, ${geo.city.slice(0, 128)}, ${geo.continent}, ${deviceType}, ${browser}, ${os}, ${osVersion}, ${path.slice(0, 512)}, ${path.slice(0, 512)}, 1, FALSE)
+          `;
+        }
+      } catch (e) { /* tracking error — don't break the app */ }
+    })();
+
+    return originalEnd.apply(this, args);
+  };
+
+  next();
+});
 
 const POSITION_MAP = ["GKP", "DEF", "MID", "FWD"];
 const { DETAILED_POSITIONS, ZONE_MAP, ZONE_LABELS, ZONE_GROUP, POSITION_LABELS, ATTACKING_ZONES, DEFENSIVE_ZONES, MIDFIELD_ZONES, ALL_ZONES } = require('./playerPositions');
@@ -1381,63 +1554,18 @@ app.get('/api/leagues-classic/:leagueId/standings', async (req, res) => {
       }
     }
 
-    // If no results from FPL API (e.g. mock or private league), return formatted demo standings
+    // If no results from FPL API (season not started or no data yet), return no-data response
     if (results.length === 0) {
-      const leaderTotalPoints = 1245;
-      const demoManagers = [];
-      
-      const top5 = [
-        { rank: 1, managerName: 'Alex Johnson', entryName: 'Saka Potatoes', eventTotal: 89, total: 1245, lastRank: 3 },
-        { rank: 2, managerName: 'Sarah Smith', entryName: "Haaland's Heroes", eventTotal: 75, total: 1230, lastRank: 2 },
-        { rank: 3, managerName: 'David Chen', entryName: 'Expected Toulouse', eventTotal: 54, total: 1215, lastRank: 1 },
-        { rank: 4, managerName: 'Elena Rodriguez', entryName: 'Pint of Wine', eventTotal: 62, total: 1198, lastRank: 5 },
-        { rank: 5, managerName: 'Marcus Williams', entryName: 'Lads on Toure', eventTotal: 38, total: 1180, lastRank: 4 }
-      ];
-
-      for (let i = 1; i <= 50; i++) {
-        const rank = (page - 1) * 50 + i;
-        if (page === 1 && i <= 5) {
-          const t = top5[i - 1];
-          demoManagers.push({
-            rank: t.rank,
-            managerName: t.managerName,
-            entryName: t.entryName,
-            entryId: t.rank,
-            eventTotal: t.eventTotal,
-            total: t.total,
-            rankDiff: t.lastRank - t.rank,
-            diffCount: leaderTotalPoints - t.total,
-            borderTier: t.rank === 1 ? 'fdr-1' : t.rank === 2 ? 'fdr-2' : t.rank === 3 ? 'fdr-3' : t.rank === 4 ? 'fdr-4' : 'fdr-5'
-          });
-        } else {
-          const totalPts = Math.max(800, leaderTotalPoints - (rank - 1) * 7);
-          demoManagers.push({
-            rank,
-            managerName: `Manager ${rank}`,
-            entryName: `FC Team ${rank}`,
-            entryId: rank,
-            eventTotal: 40 + (rank % 35),
-            total: totalPts,
-            rankDiff: (rank % 5) - 2,
-            diffCount: leaderTotalPoints - totalPts,
-            borderTier: 'fdr-5'
-          });
-        }
-      }
-
       return res.json({
         leagueId: parseInt(leagueId) || 314,
         leagueName: leagueInfo.name || `Overall Top 50k`,
         leagueType: 'Public Global',
-        page,
-        totalPages: 5,
-        totalEntries: 250,
-        hasMore: page < 5,
-        leagueAvgGW: 42,
-        topScoreGW: 89,
-        topScorerTeam: "Haaland's Heroes",
-        topScorerManager: 'Sarah Smith',
-        managers: demoManagers
+        page: 1,
+        totalPages: 0,
+        totalEntries: 0,
+        hasMore: false,
+        noData: true,
+        managers: []
       });
     }
   } catch (e) {
@@ -2383,6 +2511,303 @@ app.get('/api/match-analysis', async (req, res) => {
     console.error('Match analysis error:', e.message);
     res.status(500).json({ error: 'Failed to fetch match analysis' });
   }
+});
+
+// ---- Admin Analytics API ----
+const ADMIN_KEY = process.env.ADMIN_KEY || 'fpladmin2024';
+
+function requireAdmin(req, res) {
+  const key = req.query.key || req.headers['x-admin-key'];
+  if (key !== ADMIN_KEY) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return false;
+  }
+  return true;
+}
+
+app.get('/api/admin/stats', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const now = Date.now();
+    const ONE_DAY = 24 * 60 * 60 * 1000;
+    const SEVEN_DAYS = 7 * ONE_DAY;
+    const THIRTY_DAYS = 30 * ONE_DAY;
+
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const weekAgo = new Date(now - SEVEN_DAYS);
+    const monthAgo = new Date(now - THIRTY_DAYS);
+
+    const [todayPV, weekPV, monthPV, totalPV] = await Promise.all([
+      sql`SELECT COUNT(*) as count FROM admin_page_views WHERE created_at >= ${todayStart.toISOString()}`,
+      sql`SELECT COUNT(*) as count FROM admin_page_views WHERE created_at >= ${weekAgo.toISOString()}`,
+      sql`SELECT COUNT(*) as count FROM admin_page_views WHERE created_at >= ${monthAgo.toISOString()}`,
+      sql`SELECT COUNT(*) as count FROM admin_page_views`
+    ]);
+
+    const [todayUV, weekUV, monthUV, totalUV] = await Promise.all([
+      sql`SELECT COUNT(DISTINCT session_id) as count FROM admin_page_views WHERE created_at >= ${todayStart.toISOString()}`,
+      sql`SELECT COUNT(DISTINCT session_id) as count FROM admin_page_views WHERE created_at >= ${weekAgo.toISOString()}`,
+      sql`SELECT COUNT(DISTINCT session_id) as count FROM admin_page_views WHERE created_at >= ${monthAgo.toISOString()}`,
+      sql`SELECT COUNT(DISTINCT session_id) as count FROM admin_page_views`
+    ]);
+
+    const avgResponse = await sql`SELECT AVG(response_time_ms)::int as avg_ms FROM admin_page_views WHERE created_at >= ${weekAgo.toISOString()} AND response_time_ms > 0`;
+
+    const recentVisitors = await sql`
+      SELECT session_id, country, device_type, browser, os, created_at, path
+      FROM admin_page_views
+      WHERE created_at >= ${new Date(now - 4 * ONE_DAY).toISOString()}
+      ORDER BY created_at DESC
+      LIMIT 50
+    `;
+
+    res.json({
+      pageViews: { today: todayPV[0].count, week: weekPV[0].count, month: monthPV[0].count, allTime: totalPV[0].count },
+      uniqueVisitors: { today: todayUV[0].count, week: weekUV[0].count, month: monthUV[0].count, allTime: totalUV[0].count },
+      avgResponseTimeMs: avgResponse[0].avg_ms || 0,
+      recentVisitors
+    });
+  } catch (e) {
+    console.error('Admin stats error:', e.message);
+    res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
+
+app.get('/api/admin/countries', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const days = Math.min(parseInt(req.query.days) || 30, 365);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+    const countries = await sql`
+      SELECT country, COUNT(*) as views, COUNT(DISTINCT session_id) as unique_visitors
+      FROM admin_page_views
+      WHERE created_at >= ${since} AND country IS NOT NULL AND country != 'XX' AND country != 'Local'
+      GROUP BY country
+      ORDER BY views DESC
+      LIMIT 50
+    `;
+
+    res.json({ countries, days });
+  } catch (e) {
+    console.error('Admin countries error:', e.message);
+    res.status(500).json({ error: 'Failed to fetch countries' });
+  }
+});
+
+app.get('/api/admin/devices', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const days = Math.min(parseInt(req.query.days) || 30, 365);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+    const [devices, browsers, osList] = await Promise.all([
+      sql`SELECT device_type, COUNT(*) as count FROM admin_page_views WHERE created_at >= ${since} GROUP BY device_type ORDER BY count DESC`,
+      sql`SELECT browser, COUNT(*) as count FROM admin_page_views WHERE created_at >= ${since} AND browser IS NOT NULL GROUP BY browser ORDER BY count DESC`,
+      sql`SELECT os, COUNT(*) as count FROM admin_page_views WHERE created_at >= ${since} AND os IS NOT NULL GROUP BY os ORDER BY count DESC`
+    ]);
+
+    res.json({ devices, browsers, osList, days });
+  } catch (e) {
+    console.error('Admin devices error:', e.message);
+    res.status(500).json({ error: 'Failed to fetch devices' });
+  }
+});
+
+app.get('/api/admin/pages', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const days = Math.min(parseInt(req.query.days) || 30, 365);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+    const pages = await sql`
+      SELECT
+        CASE
+          WHEN path LIKE '/api/analyze-manager%' THEN '/api/analyze-manager'
+          WHEN path LIKE '/api/league-standings%' THEN '/api/league-standings'
+          WHEN path LIKE '/api/zone-analysis%' THEN '/api/zone-analysis'
+          WHEN path LIKE '/api/captain-picks%' THEN '/api/captain-picks'
+          WHEN path LIKE '/api/ownership%' THEN '/api/ownership'
+          WHEN path LIKE '/api/fixtures-detail%' THEN '/api/fixtures-detail'
+          WHEN path LIKE '/api/dashboard%' THEN '/api/dashboard'
+          WHEN path LIKE '/api/price%' THEN '/api/price-*'
+          WHEN path LIKE '/api/bootstrap%' THEN '/api/bootstrap-static'
+          WHEN path LIKE '/api%' THEN path
+          ELSE path
+        END as page_group,
+        path,
+        COUNT(*) as views,
+        COUNT(DISTINCT session_id) as unique_visitors,
+        AVG(response_time_ms)::int as avg_response_ms
+      FROM admin_page_views
+      WHERE created_at >= ${since}
+      GROUP BY page_group, path
+      ORDER BY views DESC
+      LIMIT 50
+    `;
+
+    res.json({ pages, days });
+  } catch (e) {
+    console.error('Admin pages error:', e.message);
+    res.status(500).json({ error: 'Failed to fetch pages' });
+  }
+});
+
+app.get('/api/admin/hourly', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const days = Math.min(parseInt(req.query.days) || 7, 30);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+    const hourly = await sql`
+      SELECT EXTRACT(HOUR FROM created_at)::int as hour, COUNT(*) as views, COUNT(DISTINCT session_id) as unique_visitors
+      FROM admin_page_views
+      WHERE created_at >= ${since}
+      GROUP BY hour
+      ORDER BY hour
+    `;
+
+    const daily = await sql`
+      SELECT DATE(created_at) as date, COUNT(*) as views, COUNT(DISTINCT session_id) as unique_visitors
+      FROM admin_page_views
+      WHERE created_at >= ${since}
+      GROUP BY date
+      ORDER BY date
+    `;
+
+    res.json({ hourly, daily, days });
+  } catch (e) {
+    console.error('Admin hourly error:', e.message);
+    res.status(500).json({ error: 'Failed to fetch hourly data' });
+  }
+});
+
+app.get('/api/admin/referrers', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const days = Math.min(parseInt(req.query.days) || 30, 365);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+    const referrers = await sql`
+      SELECT
+        CASE
+          WHEN referrer = '' OR referrer IS NULL THEN 'Direct'
+          WHEN referrer LIKE '%google%' THEN 'Google'
+          WHEN referrer LIKE '%facebook%' OR referrer LIKE '%fb.%' THEN 'Facebook'
+          WHEN referrer LIKE '%twitter%' OR referrer LIKE '%t.co%' THEN 'Twitter'
+          WHEN referrer LIKE '%reddit%' THEN 'Reddit'
+          WHEN referrer LIKE '%instagram%' THEN 'Instagram'
+          WHEN referrer LIKE '%youtube%' THEN 'YouTube'
+          WHEN referrer LIKE '%myfplstats%' THEN 'Internal'
+          ELSE SUBSTRING(referrer FROM 'https?://([^/]+)')
+        END as source,
+        COUNT(*) as views,
+        COUNT(DISTINCT session_id) as unique_visitors
+      FROM admin_page_views
+      WHERE created_at >= ${since}
+      GROUP BY source
+      ORDER BY views DESC
+      LIMIT 20
+    `;
+
+    res.json({ referrers, days });
+  } catch (e) {
+    console.error('Admin referrers error:', e.message);
+    res.status(500).json({ error: 'Failed to fetch referrers' });
+  }
+});
+
+app.get('/api/admin/feature-usage', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const days = Math.min(parseInt(req.query.days) || 30, 365);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+    const features = await sql`
+      SELECT
+        CASE
+          WHEN path LIKE '/api/analyze-manager%' THEN 'Team Analysis'
+          WHEN path LIKE '/api/league-standings%' THEN 'League Standings'
+          WHEN path LIKE '/api/leagues-classic%' THEN 'League Standings'
+          WHEN path LIKE '/api/zone-analysis%' THEN 'Zone Analysis'
+          WHEN path LIKE '/api/tactics%' THEN 'Tactics'
+          WHEN path LIKE '/api/captain-picks%' THEN 'Captain Picks'
+          WHEN path LIKE '/api/captaincy%' THEN 'Captaincy Matrix'
+          WHEN path LIKE '/api/ownership%' THEN 'Ownership'
+          WHEN path LIKE '/api/fixtures-detail%' THEN 'Fixtures'
+          WHEN path LIKE '/api/fixtures%' THEN 'Fixtures'
+          WHEN path LIKE '/api/dashboard%' THEN 'Dashboard'
+          WHEN path LIKE '/api/price-changes%' THEN 'Price Changes'
+          WHEN path LIKE '/api/price-predictions%' THEN 'Price Predictions'
+          WHEN path LIKE '/api/bootstrap-static%' THEN 'Bootstrap Data'
+          WHEN path LIKE '/api/xpts%' THEN 'xPts Projections'
+          WHEN path LIKE '/api/chip-strategy%' THEN 'Chip Strategy'
+          WHEN path LIKE '/api/differentials%' THEN 'Differentials'
+          WHEN path LIKE '/api/set-pieces%' THEN 'Set Pieces'
+          WHEN path LIKE '/api/injury-news%' THEN 'Injury News'
+          WHEN path LIKE '/api/deadline%' THEN 'Deadline'
+          WHEN path LIKE '/api/compare-managers%' THEN 'Compare Managers'
+          WHEN path LIKE '/api/manager-roi%' THEN 'Manager ROI'
+          WHEN path LIKE '/api/match-analysis%' THEN 'Match Analysis'
+          WHEN path LIKE '/api%' THEN 'Other API'
+          WHEN path = '/' OR path = '/index.html' THEN 'Homepage'
+          WHEN path LIKE '%.html%' THEN 'Page: ' || path
+          ELSE 'Static/Other'
+        END as feature,
+        COUNT(*) as hits,
+        COUNT(DISTINCT session_id) as unique_users
+      FROM admin_page_views
+      WHERE created_at >= ${since}
+      GROUP BY feature
+      ORDER BY hits DESC
+    `;
+
+    res.json({ features, days });
+  } catch (e) {
+    console.error('Admin feature usage error:', e.message);
+    res.status(500).json({ error: 'Failed to fetch feature usage' });
+  }
+});
+
+app.get('/api/admin/visitors', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(10, parseInt(req.query.limit) || 50));
+    const offset = (page - 1) * limit;
+    const days = Math.min(parseInt(req.query.days) || 7, 90);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+    const [visitors, countResult] = await Promise.all([
+      sql`
+        SELECT session_id, country, city, device_type, browser, os, first_page, last_page, page_count, is_returning, created_at, last_active_at
+        FROM admin_visitor_sessions
+        WHERE created_at >= ${since}
+        ORDER BY created_at DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `,
+      sql`SELECT COUNT(*) as total FROM admin_visitor_sessions WHERE created_at >= ${since}`
+    ]);
+
+    res.json({
+      visitors,
+      total: countResult[0].total,
+      page,
+      limit,
+      totalPages: Math.ceil(countResult[0].total / limit)
+    });
+  } catch (e) {
+    console.error('Admin visitors error:', e.message);
+    res.status(500).json({ error: 'Failed to fetch visitors' });
+  }
+});
+
+// Admin page route
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/admin.html'));
+});
+app.get('/admin.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/admin.html'));
 });
 
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
