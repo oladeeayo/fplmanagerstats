@@ -118,9 +118,21 @@ const FPL = {
             this.state.managerId = managerId;
             localStorage.setItem('fplManagerId', managerId);
 
-            // Update manager ID display
+            // Update manager ID display in sidebar
             const display = document.getElementById('manager-id-display');
-            if (display) display.textContent = `Manager: ${data.managerInfo?.name || managerId}`;
+            if (display) {
+                display.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:8px;height:8px;border-radius:50%;background:#00FF85;box-shadow:0 0 6px #00FF85;"></span> ${data.managerInfo?.name || 'Manager ' + managerId}</span>`;
+            }
+
+            // Update topbar connect button to show connected state
+            const topbarBtn = document.querySelector('.topbar-right .btn-primary');
+            if (topbarBtn) {
+                topbarBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px;color:#00FF85;">check_circle</span> Connected`;
+                topbarBtn.onclick = () => this.showDialog('connect-dialog');
+                topbarBtn.style.background = 'rgba(0,255,133,0.12)';
+                topbarBtn.style.border = '1px solid rgba(0,255,133,0.3)';
+                topbarBtn.style.color = '#00FF85';
+            }
 
             // Auto-load league if we have a league ID stored
             if (this.state.leagueId) {
@@ -1979,54 +1991,252 @@ const FPL = {
         if (!container || !this.state.managerData) return;
         const m = this.state.managerData;
         const weeklyPts = m.weeklyPoints || [];
+        const weeklyRanks = m.weeklyRanks || [];
+        const benchPts = m.weeklyPointsLostBench || [];
+        const chips = m.managerInfo?.chipsUsed || [];
+        const seasonHistory = m.seasonHistory || [];
+        const info = m.managerInfo || {};
 
         if (weeklyPts.length === 0) {
-            container.innerHTML = '<div class="card"><div class="card-body"><div class="empty-state"><span class="material-symbols-outlined">history</span><p>No gameweek history</p></div></div></div>';
+            container.innerHTML = '<div class="card"><div class="card-body"><div class="empty-state"><span class="material-symbols-outlined">history</span><p>No gameweek history available yet.</p></div></div></div>';
             return;
         }
 
-        container.innerHTML = `<div class="card">
-            <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">history</span> Gameweek History</h3></div>
-            <div class="card-body">
-                <div style="display:flex;flex-wrap:wrap;gap:8px;">
-                    ${weeklyPts.map((pts, i) => `<div style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:var(--md-sys-color-surface-container);border-radius:var(--radius-pill);font-size:0.75rem;">
-                        <span style="color:var(--md-sys-color-on-surface-variant);">GW${i + 1}:</span>
-                        <span class="mono" style="font-weight:700;color:${pts >= 50 ? 'var(--fdr-1)' : pts >= 30 ? 'var(--fdr-3)' : 'var(--fdr-5)'};">${pts} pts</span>
-                    </div>`).join('')}
+        const totalPts = weeklyPts.reduce((a, b) => a + b, 0);
+        const avgPts = (totalPts / weeklyPts.length).toFixed(1);
+        const totalBench = benchPts.reduce((a, b) => a + b, 0);
+        const bestGW = Math.max(...weeklyPts);
+        const bestGWIdx = weeklyPts.indexOf(bestGW) + 1;
+        const worstGW = Math.min(...weeklyPts.filter(p => p > 0));
+        const worstGWIdx = weeklyPts.indexOf(worstGW) + 1;
+
+        container.innerHTML = `<div style="display:flex;flex-direction:column;gap:20px;">
+            <!-- Season Stats Banner -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:12px;">
+                <div style="background:#141916;border:1px solid #1A2E28;border-radius:10px;padding:16px;text-align:center;">
+                    <div style="font-size:0.7rem;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);letter-spacing:0.05em;margin-bottom:4px;">Total Points</div>
+                    <div style="font-size:1.5rem;font-weight:700;color:#00FF85;font-family:var(--font-mono);">${totalPts}</div>
+                </div>
+                <div style="background:#141916;border:1px solid #1A2E28;border-radius:10px;padding:16px;text-align:center;">
+                    <div style="font-size:0.7rem;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);letter-spacing:0.05em;margin-bottom:4px;">Avg / GW</div>
+                    <div style="font-size:1.5rem;font-weight:700;color:#ffffff;font-family:var(--font-mono);">${avgPts}</div>
+                </div>
+                <div style="background:#141916;border:1px solid #1A2E28;border-radius:10px;padding:16px;text-align:center;">
+                    <div style="font-size:0.7rem;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);letter-spacing:0.05em;margin-bottom:4px;">Best GW</div>
+                    <div style="font-size:1.5rem;font-weight:700;color:#FFA600;font-family:var(--font-mono);">${bestGW}</div>
+                    <div style="font-size:0.65rem;color:#6c8577;">GW${bestGWIdx}</div>
+                </div>
+                <div style="background:#141916;border:1px solid #1A2E28;border-radius:10px;padding:16px;text-align:center;">
+                    <div style="font-size:0.7rem;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);letter-spacing:0.05em;margin-bottom:4px;">Bench Pts Lost</div>
+                    <div style="font-size:1.5rem;font-weight:700;color:#E57373;font-family:var(--font-mono);">${totalBench}</div>
                 </div>
             </div>
+
+            <!-- GW History Table -->
+            <div class="card">
+                <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">calendar_today</span> Gameweek History</h3></div>
+                <div class="card-body">
+                    <div class="table-scroll-wrap">
+                        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                            <thead>
+                                <tr style="border-bottom:2px solid #1A2E28;background:#1c211e;">
+                                    <th style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-size:10px;color:#8ba396;text-transform:uppercase;">GW</th>
+                                    <th style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-size:10px;color:#8ba396;text-transform:uppercase;">Points</th>
+                                    <th style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-size:10px;color:#8ba396;text-transform:uppercase;">Rank</th>
+                                    <th style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-size:10px;color:#8ba396;text-transform:uppercase;">Bench</th>
+                                    <th style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-size:10px;color:#8ba396;text-transform:uppercase;">Pts Bar</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${weeklyPts.map((pts, i) => {
+                                    const rank = weeklyRanks[i] || 0;
+                                    const bench = benchPts[i] || 0;
+                                    const barWidth = bestGW > 0 ? Math.round((pts / bestGW) * 100) : 0;
+                                    const ptsColor = pts >= 60 ? '#00FF85' : pts >= 40 ? '#FFA600' : pts >= 20 ? '#ffffff' : '#E57373';
+                                    return `<tr style="border-bottom:1px solid #16251e;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                                        <td style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-weight:700;color:#8ba396;">${i + 1}</td>
+                                        <td style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-weight:700;color:${ptsColor};font-size:14px;">${pts}</td>
+                                        <td style="padding:10px 16px;text-align:center;font-family:var(--font-mono);color:#6c8577;font-size:12px;">${rank > 0 ? rank.toLocaleString() : '--'}</td>
+                                        <td style="padding:10px 16px;text-align:center;font-family:var(--font-mono);color:${bench > 0 ? '#E57373' : '#444'};">${bench > 0 ? '-' + bench : '--'}</td>
+                                        <td style="padding:10px 16px;width:120px;">
+                                            <div style="height:6px;background:#1A2E28;border-radius:3px;overflow:hidden;">
+                                                <div style="height:100%;width:${barWidth}%;background:${ptsColor};border-radius:3px;transition:width 0.3s;"></div>
+                                            </div>
+                                        </td>
+                                    </tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chips Used -->
+            ${chips.length > 0 ? `
+            <div class="card">
+                <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">local_fire_department</span> Chips Used</h3></div>
+                <div class="card-body">
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                        ${chips.map(c => `<span style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:var(--radius-pill);font-size:0.8125rem;font-weight:600;color:var(--md-sys-color-on-surface);">${c}</span>`).join('')}
+                    </div>
+                </div>
+            </div>` : ''}
+
+            <!-- Past Seasons -->
+            ${seasonHistory.length > 0 ? `
+            <div class="card">
+                <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">emoji_events</span> Past Seasons</h3></div>
+                <div class="card-body">
+                    <div class="table-scroll-wrap">
+                        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                            <thead>
+                                <tr style="border-bottom:2px solid #1A2E28;background:#1c211e;">
+                                    <th style="padding:10px 16px;text-align:left;font-family:var(--font-mono);font-size:10px;color:#8ba396;text-transform:uppercase;">Season</th>
+                                    <th style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-size:10px;color:#8ba396;text-transform:uppercase;">Points</th>
+                                    <th style="padding:10px 16px;text-align:center;font-family:var(--font-mono);font-size:10px;color:#8ba396;text-transform:uppercase;">Rank</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${seasonHistory.map(s => `<tr style="border-bottom:1px solid #16251e;">
+                                    <td style="padding:10px 16px;font-weight:600;color:#ffffff;">${s.season}</td>
+                                    <td style="padding:10px 16px;text-align:center;font-family:var(--font-mono);color:#00FF85;font-weight:700;">${s.points?.toLocaleString() || '--'}</td>
+                                    <td style="padding:10px 16px;text-align:center;font-family:var(--font-mono);color:#6c8577;">${s.rank?.toLocaleString() || '--'}</td>
+                                </tr>`).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>` : ''}
         </div>`;
     },
 
     initSettings() {
         const container = document.getElementById('settings-section');
         if (!container) return;
-        container.innerHTML = `<div class="card">
-            <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">settings</span> Settings</h3></div>
-            <div class="card-body">
-                <div class="input-group mb-md">
-                    <label class="input-label">FPL Manager ID</label>
-                    <div style="display:flex;gap:8px;">
-                        <input type="number" class="input" id="settings-manager-id" placeholder="Enter your FPL Manager ID" value="${this.state.managerId || ''}">
-                        <button class="btn btn-primary" onclick="FPL.updateManagerId()">Save</button>
+        const m = this.state.managerData;
+        const gw = this.state.selectedGW || this.state.currentGW || 1;
+
+        container.innerHTML = `<div style="display:flex;flex-direction:column;gap:20px;">
+            <!-- Connection Card -->
+            <div class="card">
+                <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">link</span> Connection</h3></div>
+                <div class="card-body">
+                    <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--md-sys-color-surface-container);border-radius:var(--radius-md);margin-bottom:16px;">
+                        <span style="width:10px;height:10px;border-radius:50%;background:${this.state.managerId ? '#00FF85' : '#666'};box-shadow:${this.state.managerId ? '0 0 8px #00FF85' : 'none'};"></span>
+                        <span style="font-weight:600;color:var(--md-sys-color-on-surface);">${this.state.managerId ? 'Connected' : 'Not Connected'}</span>
+                        ${m?.managerInfo?.name ? `<span style="color:var(--md-sys-color-on-surface-variant);margin-left:auto;">${m.managerInfo.name}</span>` : ''}
                     </div>
-                    <small style="color:var(--md-sys-color-on-surface-variant);">Find your Manager ID in the URL when viewing your team.</small>
-                </div>
-                <div class="input-group mb-md">
-                    <label class="input-label">League ID</label>
-                    <div style="display:flex;gap:8px;">
-                        <input type="number" class="input" id="settings-league-id" placeholder="Enter your League ID" value="${this.state.leagueId || ''}">
-                        <button class="btn btn-primary" onclick="FPL.updateLeagueId()">Save</button>
+                    <div class="input-group mb-md">
+                        <label class="input-label">FPL Manager ID</label>
+                        <div style="display:flex;gap:8px;">
+                            <input type="number" class="input" id="settings-manager-id" placeholder="e.g. 123456" value="${this.state.managerId || ''}" style="flex:1;">
+                            <button class="btn btn-primary" onclick="FPL.updateManagerId()">Save</button>
+                        </div>
+                        <small style="color:var(--md-sys-color-on-surface-variant);">Find your ID in the URL on the FPL website.</small>
                     </div>
-                    <small style="color:var(--md-sys-color-on-surface-variant);">Classic League ID for standings view.</small>
+                    <div class="input-group">
+                        <label class="input-label">League ID (optional)</label>
+                        <div style="display:flex;gap:8px;">
+                            <input type="number" class="input" id="settings-league-id" placeholder="e.g. 314" value="${this.state.leagueId || ''}" style="flex:1;">
+                            <button class="btn btn-primary" onclick="FPL.updateLeagueId()">Save</button>
+                        </div>
+                        <small style="color:var(--md-sys-color-on-surface-variant);">Classic League ID for standings view.</small>
+                    </div>
                 </div>
-                <div class="divider"></div>
-                <div class="flex items-center justify-between">
-                    <span>Clear saved data</span>
-                    <button class="btn btn-outline" onclick="FPL.clearData()" style="border-color:var(--md-sys-color-error);color:var(--md-sys-color-error);">Clear Data</button>
+            </div>
+
+            <!-- Preferences Card -->
+            <div class="card">
+                <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">tune</span> Preferences</h3></div>
+                <div class="card-body">
+                    <div class="input-group mb-md">
+                        <label class="input-label">Default Formation</label>
+                        <select class="input" id="settings-formation" onchange="FPL.saveSetting('formation', this.value)">
+                            <option value="4231" ${this.getSetting('formation') === '4231' ? 'selected' : ''}>4-2-3-1</option>
+                            <option value="352" ${this.getSetting('formation') === '352' ? 'selected' : ''}>3-5-2</option>
+                            <option value="433" ${this.getSetting('formation') === '433' ? 'selected' : ''}>4-3-3</option>
+                        </select>
+                    </div>
+                    <div class="input-group mb-md">
+                        <label class="input-label">Price Display</label>
+                        <select class="input" id="settings-price-format" onchange="FPL.saveSetting('priceFormat', this.value)">
+                            <option value="decimal" ${this.getSetting('priceFormat') === 'decimal' ? 'selected' : ''}>Decimal (e.g. 7.5)</option>
+                            <option value="integer" ${this.getSetting('priceFormat') === 'integer' ? 'selected' : ''}>Integer (e.g. 75)</option>
+                        </select>
+                    </div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--md-sys-color-outline-variant);">
+                        <div>
+                            <div style="font-weight:600;color:var(--md-sys-color-on-surface);">Auto-refresh Data</div>
+                            <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">Refresh data every 5 minutes</div>
+                        </div>
+                        <label style="position:relative;display:inline-block;width:48px;height:26px;cursor:pointer;">
+                            <input type="checkbox" id="settings-auto-refresh" onchange="FPL.saveSetting('autoRefresh', this.checked)" ${this.getSetting('autoRefresh') ? 'checked' : ''} style="opacity:0;width:0;height:0;">
+                            <span style="position:absolute;inset:0;background:${this.getSetting('autoRefresh') ? '#00FF85' : '#444'};border-radius:13px;transition:0.3s;"></span>
+                            <span style="position:absolute;top:3px;left:${this.getSetting('autoRefresh') ? '25px' : '3px'};width:20px;height:20px;background:#fff;border-radius:50%;transition:0.3s;"></span>
+                        </label>
+                    </div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;">
+                        <div>
+                            <div style="font-weight:600;color:var(--md-sys-color-on-surface);">Show Player Photos</div>
+                            <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">Load player images in tables</div>
+                        </div>
+                        <label style="position:relative;display:inline-block;width:48px;height:26px;cursor:pointer;">
+                            <input type="checkbox" id="settings-show-photos" onchange="FPL.saveSetting('showPhotos', this.checked)" ${this.getSetting('showPhotos') !== false ? 'checked' : ''} style="opacity:0;width:0;height:0;">
+                            <span style="position:absolute;inset:0;background:${this.getSetting('showPhotos') !== false ? '#00FF85' : '#444'};border-radius:13px;transition:0.3s;"></span>
+                            <span style="position:absolute;top:3px;left:${this.getSetting('showPhotos') !== false ? '25px' : '3px'};width:20px;height:20px;background:#fff;border-radius:50%;transition:0.3s;"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Management Card -->
+            <div class="card">
+                <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">storage</span> Data Management</h3></div>
+                <div class="card-body">
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--md-sys-color-outline-variant);">
+                        <div>
+                            <div style="font-weight:600;color:var(--md-sys-color-on-surface);">Cached Data</div>
+                            <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">Manager, league, and player data</div>
+                        </div>
+                        <span style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);">${this.state.managerId ? 'In use' : 'Empty'}</span>
+                    </div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;">
+                        <div>
+                            <div style="font-weight:600;color:var(--md-sys-color-on-surface);">Clear All Data</div>
+                            <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">Reset all saved preferences and cached data</div>
+                        </div>
+                        <button class="btn btn-outline" onclick="FPL.clearData()" style="border-color:var(--md-sys-color-error);color:var(--md-sys-color-error);">Clear</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- About Card -->
+            <div class="card">
+                <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">info</span> About</h3></div>
+                <div class="card-body">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+                        <span class="material-symbols-outlined" style="font-size:32px;color:#00FF85;">sports_soccer</span>
+                        <div>
+                            <div style="font-weight:700;color:var(--md-sys-color-on-surface);font-size:16px;">FPL Manager Stats</div>
+                            <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">v1.0.0</div>
+                        </div>
+                    </div>
+                    <p style="font-size:0.8125rem;color:var(--md-sys-color-on-surface-variant);line-height:1.5;">Advanced analytics and insights for Fantasy Premier League managers. Track your performance, analyze fixtures, and make data-driven decisions.</p>
                 </div>
             </div>
         </div>`;
+    },
+
+    getSetting(key) {
+        const val = localStorage.getItem('fpl_' + key);
+        if (val === null) return key === 'showPhotos' ? true : key === 'autoRefresh' ? false : '4231';
+        if (val === 'true') return true;
+        if (val === 'false') return false;
+        return val;
+    },
+
+    saveSetting(key, value) {
+        localStorage.setItem('fpl_' + key, value);
     },
 
     updateLeagueId() {

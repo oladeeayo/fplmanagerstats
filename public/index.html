@@ -6,7 +6,12 @@
     <title>FPL Manager Stats</title>
     <meta name="description" content="Fantasy Premier League Manager Statistics Dashboard">
     <meta name="theme-color" content="#0D0D0D">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="FPL Stats">
     <link rel="icon" href="football.ico">
+    <link rel="apple-touch-icon" href="icon-192.svg">
+    <link rel="manifest" href="manifest.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -594,7 +599,7 @@
                     </div>
 
                     <!-- Bento Grid Layout -->
-                    <div style="display:grid;grid-template-columns:repeat(12, 1fr);gap:24px;flex:1;min-height:600px;">
+                    <div class="tactical-layout" style="display:grid;grid-template-columns:repeat(12, 1fr);gap:24px;flex:1;min-height:600px;">
                         <!-- Pitch Visualization (Center - 8 cols) -->
                         <section style="grid-column:span 8;background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:24px;display:flex;flex-direction:column;position:relative;overflow:hidden;">
                             <div style="position:absolute;inset:0;opacity:0.1;pointer-events:none;background-image:radial-gradient(circle at 50% 50%, rgba(0, 255, 133, 0.1) 0%, transparent 70%);"></div>
@@ -1033,10 +1038,23 @@
             FPL.init().then(() => {
                 document.getElementById('loading-overlay').classList.add('hidden');
                 if (FPL.state.managerId) {
-                    document.getElementById('manager-id-display').textContent = 'Manager ID: ' + FPL.state.managerId;
+                    const display = document.getElementById('manager-id-display');
+                    if (display) display.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:8px;height:8px;border-radius:50%;background:#00FF85;box-shadow:0 0 6px #00FF85;"></span> Manager ${FPL.state.managerId}</span>`;
+                    const topbarBtn = document.querySelector('.topbar-right .btn-primary');
+                    if (topbarBtn) {
+                        topbarBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px;color:#00FF85;">check_circle</span> Connected`;
+                        topbarBtn.style.background = 'rgba(0,255,133,0.12)';
+                        topbarBtn.style.border = '1px solid rgba(0,255,133,0.3)';
+                        topbarBtn.style.color = '#00FF85';
+                    }
                 }
             });
         });
+    </script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
+        }
     </script>
 </body>
 </html>
