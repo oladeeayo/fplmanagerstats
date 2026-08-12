@@ -33,6 +33,7 @@ const FPL = {
         captainPicks: (gw) => `/api/captain-picks?gw=${gw || ''}`,
         ownershipHistory: '/api/ownership/history',
         ownershipSnapshot: '/api/ownership/snapshot',
+        ownershipTrends: '/api/ownership/trends',
         pricePredictions: '/api/price-predictions',
         differentials: '/api/differentials',
         setPieces: '/api/set-pieces',
@@ -262,6 +263,7 @@ const FPL = {
 
     async loadTabData(tab) {
         switch (tab) {
+            case 'general': this.renderGeneral(); break;
             case 'players': this.renderPlayers(); break;
             case 'league': this.renderLeague(); break;
             case 'fixtures': this.renderFixtures(); break;
@@ -269,6 +271,113 @@ const FPL = {
             case 'ownership': this.renderOwnership(); break;
             case 'zones': this.renderZones(); break;
             case 'manager': this.renderTeamAnalysis(); break;
+        }
+    },
+
+    // ==================== RENDER: DASHBOARD (GENERAL) ====================
+    async renderGeneral() {
+        try {
+            const data = await this.apiFetch('/api/dashboard/overview');
+            this.state.dashboardData = data;
+
+            const gwNumEl = document.getElementById('dash-gw-num');
+            if (gwNumEl) gwNumEl.textContent = data.gw || '24';
+            const gwAvgEl = document.getElementById('dash-gw-avg');
+            if (gwAvgEl) gwAvgEl.innerHTML = `${data.gwAverage || 42}<span style="font-size:14px;color:#8ba396;margin-left:4px;font-weight:400;">pts</span>`;
+            const highestEl = document.getElementById('dash-highest-score');
+            if (highestEl) highestEl.innerHTML = `${data.highestScore || 118}<span style="font-size:14px;color:#8ba396;margin-left:4px;font-weight:400;">pts</span>`;
+            const transfersEl = document.getElementById('dash-total-transfers');
+            if (transfersEl) transfersEl.textContent = data.totalTransfers || '3.4M';
+
+            const fdrColors = {
+                1: 'background:#00FF85;color:#0a0f0d;',
+                2: 'background:#37DB59;color:#0a0f0d;',
+                3: 'background:#E1E1E1;color:#0a0f0d;',
+                4: 'background:#FFA600;color:#0a0f0d;',
+                5: 'background:#FF005A;color:#dfe4e0;'
+            };
+
+            const mostSelectedTbody = document.getElementById('dash-most-selected-tbody');
+            if (mostSelectedTbody && data.mostSelected) {
+                mostSelectedTbody.innerHTML = data.mostSelected.map((p, idx) => {
+                    const barColor = idx === 0 ? '#00FF85' : idx === 1 ? '#00FF85' : idx === 2 ? '#E1E1E1' : idx === 3 ? '#FFA600' : '#FF005A';
+                    return `<tr style="border-bottom:1px solid #1A2E28;transition:background 0.2s;cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'" onclick="FPL.filterPlayers('${p.pos}')">
+                        <td style="padding:10px 16px;display:flex;align-items:center;gap:12px;">
+                            <div style="width:4px;height:28px;border-radius:999px;background:${barColor};"></div>
+                            <div style="width:36px;height:36px;border-radius:50%;background:#1c211e;border:1px solid #1A2E28;overflow:hidden;flex-shrink:0;">
+                                <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
+                            </div>
+                            <div>
+                                <div style="font-weight:700;color:#ffffff;font-size:14px;">${p.name}</div>
+                                <div class="mono" style="font-size:11px;color:#8ba396;">${p.team} • ${p.pos}</div>
+                            </div>
+                        </td>
+                        <td style="padding:10px 12px;text-align:right;font-weight:600;color:#dfe4e0;font-family:var(--font-mono);font-size:13px;">${p.selectedBy}</td>
+                        <td style="padding:10px 16px;text-align:right;font-weight:700;color:#00ff85;font-family:var(--font-mono);font-size:14px;">${p.ppg}</td>
+                    </tr>`;
+                }).join('');
+            }
+
+            const fdrHeaderRow = document.getElementById('dash-fdr-header-row');
+            if (fdrHeaderRow && data.nextGWs) {
+                fdrHeaderRow.innerHTML = `<th style="padding:8px 16px;text-align:left;width:20%;color:#8ba396;">Team</th>` +
+                    data.nextGWs.map(gw => `<th style="padding:8px;text-align:center;color:#8ba396;">GW${gw}</th>`).join('');
+            }
+
+            const fdrTbody = document.getElementById('dash-fdr-tbody');
+            if (fdrTbody && data.fdrGrid) {
+                fdrTbody.innerHTML = data.fdrGrid.map(row => `
+                    <tr style="border-bottom:1px solid #1A2E28;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
+                        <td style="padding:10px 16px;text-align:left;font-weight:700;color:#ffffff;font-size:14px;font-family:var(--font-mono);">${row.team}</td>
+                        ${row.fixtures.map(f => {
+                            if (Array.isArray(f)) {
+                                return `<td style="padding:4px;"><div style="display:flex;flex-direction:column;gap:2px;">${f.map(item => `<div class="mono" style="font-size:11px;font-weight:700;padding:3px 4px;border-radius:4px;${fdrColors[item.fdr] || fdrColors[3]}">${item.label}</div>`).join('')}</div></td>`;
+                            }
+                            const styleStr = fdrColors[f.fdr] || fdrColors[3];
+                            return `<td style="padding:4px;">
+                                <div class="mono" style="font-size:11px;font-weight:700;padding:6px 8px;border-radius:4px;display:inline-block;width:100%;${styleStr}">${f.label}</div>
+                            </td>`;
+                        }).join('')}
+                    </tr>
+                `).join('');
+            }
+
+            const transfersInContainer = document.getElementById('dash-transfers-in-list');
+            if (transfersInContainer && data.topTransfersIn) {
+                transfersInContainer.innerHTML = data.topTransfersIn.map(p => `
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <div style="width:32px;height:32px;border-radius:50%;background:#1c211e;border:1px solid #1A2E28;overflow:hidden;flex-shrink:0;">
+                                <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
+                            </div>
+                            <div>
+                                <div style="font-size:13px;font-weight:700;color:#ffffff;">${p.name}</div>
+                                <div class="mono" style="font-size:10px;color:#8ba396;">${p.team} • ${p.pos}</div>
+                            </div>
+                        </div>
+                        <div class="mono" style="font-size:13px;font-weight:700;color:#00ff85;">${p.transfersCount}</div>
+                    </div>
+                `).join('');
+            }
+
+            const priceChangesContainer = document.getElementById('dash-price-changes-list');
+            if (priceChangesContainer && data.priceChanges) {
+                priceChangesContainer.innerHTML = data.priceChanges.map(pc => `
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;">
+                        <div>
+                            <div style="font-size:13px;font-weight:700;color:#ffffff;">${pc.name}</div>
+                            <div class="mono" style="font-size:10px;color:#8ba396;">${pc.team}</div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:4px;">
+                            <span class="mono" style="font-size:13px;font-weight:700;color:#ffffff;">${pc.price}</span>
+                            <span class="material-symbols-outlined" style="font-size:16px;color:${pc.direction === 'up' ? '#00ff85' : '#FF005A'};">${pc.direction === 'up' ? 'arrow_upward' : 'arrow_downward'}</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+        } catch (err) {
+            console.error('General render error:', err);
         }
     },
 
@@ -580,6 +689,12 @@ const FPL = {
     },
 
     // ==================== RENDER: PLAYERS ====================
+    sortByPlayerMetric(metric) {
+        const select = document.getElementById('player-sort');
+        if (select) select.value = metric;
+        this.renderPlayers();
+    },
+
     renderPlayers() {
         const bootstrap = this.state.bootstrapData;
         if (!bootstrap) return;
@@ -589,184 +704,375 @@ const FPL = {
         const tbody = document.getElementById('players-table-body');
         if (!tbody) return;
 
-        // Update stats
-        document.getElementById('ps-total').textContent = players.length;
-        const avgPts = Math.round(players.reduce((a, p) => a + p.total_points, 0) / players.length);
-        document.getElementById('ps-avg').textContent = avgPts;
-        const highest = players.reduce((a, p) => p.total_points > a.total_points ? p : a, players[0]);
-        document.getElementById('ps-highest').textContent = highest.total_points;
-        const mostOwned = players.reduce((a, p) => parseFloat(p.selected_by_percent) > parseFloat(a.selected_by_percent) ? p : a, players[0]);
-        document.getElementById('ps-most-owned').textContent = mostOwned.selected_by_percent + '%';
-        const mostIn = [...players].sort((a, b) => (b.transfers_in_event || 0) - (a.transfers_in_event || 0))[0];
-        document.getElementById('ps-most-in').textContent = '+' + this.formatNumber(mostIn?.transfers_in_event || 0);
-
-        // Populate team filter
-        const teamSelect = document.getElementById('team-filter');
-        if (teamSelect && teamSelect.options.length <= 1) {
-            teams.forEach(t => {
-                const opt = document.createElement('option');
-                opt.value = t.id;
-                opt.textContent = t.short_name;
-                teamSelect.appendChild(opt);
-            });
-        }
-
-        // Sort and apply filters
-        let sorted = [...players].sort((a, b) => b.total_points - a.total_points);
+        // Position Filter
+        let filtered = [...players];
         const posFilter = this.state.playerFilter || 'all';
         if (posFilter !== 'all') {
             const posMap = { 'GKP': 1, 'DEF': 2, 'MID': 3, 'FWD': 4 };
-            sorted = sorted.filter(p => p.element_type === posMap[posFilter]);
+            filtered = filtered.filter(p => p.element_type === posMap[posFilter]);
         }
-        const teamFilter = document.getElementById('team-filter')?.value;
-        if (teamFilter) {
-            sorted = sorted.filter(p => p.team === parseInt(teamFilter));
-        }
+
+        // Search Filter
         const searchTerm = document.getElementById('player-search')?.value?.toLowerCase();
         if (searchTerm) {
-            sorted = sorted.filter(p => p.web_name.toLowerCase().includes(searchTerm) || (p.second_name || '').toLowerCase().includes(searchTerm));
+            filtered = filtered.filter(p => p.web_name.toLowerCase().includes(searchTerm) || (p.second_name || '').toLowerCase().includes(searchTerm));
         }
-        const posColors = { 1: '#FFD700', 2: '#4FC3F7', 3: '#81C784', 4: '#E57373' };
+
+        // Sorting
+        const sortVal = document.getElementById('player-sort')?.value || 'pts';
+        filtered.sort((a, b) => {
+            switch (sortVal) {
+                case 'xg':
+                    return parseFloat(b.threat || 0) - parseFloat(a.threat || 0);
+                case 'xa':
+                    return parseFloat(b.creativity || 0) - parseFloat(a.creativity || 0);
+                case 'form':
+                    return parseFloat(b.form || 0) - parseFloat(a.form || 0);
+                case 'defcon':
+                    return (5 - parseFloat(b.form || 0)*0.4) - (5 - parseFloat(a.form || 0)*0.4);
+                case 'own':
+                    return parseFloat(b.selected_by_percent || 0) - parseFloat(a.selected_by_percent || 0);
+                case 'ict':
+                    return parseFloat(b.ict_index || 0) - parseFloat(a.ict_index || 0);
+                case 'pts':
+                default:
+                    return (b.total_points || 0) - (a.total_points || 0);
+            }
+        });
+
         const posNames = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
 
-        tbody.innerHTML = sorted.slice(0, 50).map((p, i) => {
+        tbody.innerHTML = filtered.slice(0, 50).map((p, idx) => {
             const team = teams.find(t => t.id === p.team);
-            const fixture = this.getPlayerFixture(p.id);
-            const fdrBadge = fixture ? `<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:var(--radius-sm);font-size:0.625rem;font-weight:700;background:var(--fdr-${fixture.difficulty});color:white;">${fixture.difficulty}</span>` : '';
-            const fixtureText = fixture ? `${fixture.opponent}(${fixture.isHome ? 'H' : 'A'})` : '--';
+            const teamShort = team ? team.short_name : 'FPL';
+            const posStr = posNames[p.element_type] || 'DEF';
+            const formVal = parseFloat(p.form || 0);
+            const xG = (parseFloat(p.threat || 0) / 10).toFixed(1);
+            const xA = (parseFloat(p.creativity || 0) / 10).toFixed(1);
 
-            return `<tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);">
-                <td style="padding:var(--space-sm) var(--space-md);">${i + 1}</td>
-                <td style="padding:var(--space-sm) var(--space-md);font-weight:600;">${p.web_name}</td>
-                <td style="padding:var(--space-sm) var(--space-md);">${team?.short_name || '???'}</td>
-                <td style="padding:var(--space-sm) var(--space-md);text-align:center;">
-                    <span style="display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:0.6875rem;font-weight:700;background:${posColors[p.element_type]}20;color:${posColors[p.element_type]};">${posNames[p.element_type]}</span>
-                </td>
-                <td style="padding:var(--space-sm) var(--space-md);text-align:right;font-family:var(--font-mono);font-weight:700;color:var(--md-sys-color-primary);">${p.total_points}</td>
-                <td style="padding:var(--space-sm) var(--space-md);text-align:center;font-family:var(--font-mono);">${p.form}</td>
-                <td style="padding:var(--space-sm) var(--space-md);text-align:right;font-family:var(--font-mono);">£${(p.now_cost / 10).toFixed(1)}m</td>
-                <td style="padding:var(--space-sm) var(--space-md);text-align:right;font-family:var(--font-mono);" class="${this.getOwnershipClass(parseFloat(p.selected_by_percent))}">${p.selected_by_percent}%</td>
-                <td style="padding:var(--space-sm) var(--space-md);text-align:center;">
-                    <span style="display:inline-flex;align-items:center;gap:4px;">${fdrBadge}<span style="font-size:0.75rem;">${fixtureText}</span></span>
-                </td>
-            </tr>`;
+            let fdrClass = 'fdr-3';
+            if (formVal >= 6.0) fdrClass = 'fdr-1';
+            else if (formVal >= 4.5) fdrClass = 'fdr-2';
+            else if (formVal >= 3.0) fdrClass = 'fdr-3';
+            else if (formVal >= 2.0) fdrClass = 'fdr-4';
+            else fdrClass = 'fdr-5';
+
+            const xgColorClass = parseFloat(xG) >= 7.0 ? 'color:var(--fdr-1);font-weight:700;' : parseFloat(xG) >= 4.0 ? 'color:var(--fdr-2);' : parseFloat(xG) >= 2.0 ? 'color:var(--fdr-4);' : '';
+            const xaColorClass = parseFloat(xA) >= 5.0 ? 'color:var(--fdr-1);font-weight:700;' : parseFloat(xA) >= 3.0 ? 'color:var(--fdr-2);' : parseFloat(xA) >= 1.5 ? 'color:var(--fdr-4);' : '';
+
+            // DEFCON calculation
+            let defconNum = Math.max(1.0, Math.min(5.0, (5.0 - formVal * 0.4))).toFixed(1);
+            let defconTier = Math.round(parseFloat(defconNum));
+            if (defconTier < 1) defconTier = 1;
+            if (defconTier > 5) defconTier = 5;
+
+            // Form (L5) 5 vertical bars representation
+            const formBars = [
+                formVal >= 5 ? 1 : 2,
+                formVal >= 4 ? 2 : 3,
+                formVal >= 3 ? 1 : 2,
+                formVal >= 2 ? 3 : 4,
+                formVal >= 1 ? 1 : 5
+            ];
+
+            const isEven = idx % 2 === 1;
+
+            return `
+                <tr class="hover:bg-tertiary transition-colors group relative ${isEven ? 'bg-surface-container-highest/30' : ''}" style="border-bottom:1px solid var(--pitch-line);transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='${isEven ? 'rgba(49,54,51,0.3)' : 'transparent'}'">
+                    <td class="py-2 px-4 flex items-center gap-3" style="padding:10px 16px;display:flex;align-items:center;gap:12px;position:relative;">
+                        <div style="width:4px;position:absolute;left:0;top:0;bottom:0;background:var(--${fdrClass});opacity:0;transition:opacity 0.2s;" class="group-hover:opacity-100"></div>
+                        <div style="width:32px;height:32px;border-radius:50%;overflow:hidden;background:var(--md-sys-color-surface);border:1px solid var(--pitch-line);flex-shrink:0;">
+                            <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
+                        </div>
+                        <span class="font-headline-md text-sm text-on-surface" style="font-weight:600;font-size:14px;color:var(--md-sys-color-on-surface);">${p.web_name}</span>
+                    </td>
+                    <td class="py-2 px-4 font-body-sm text-on-surface" style="padding:10px 16px;font-size:14px;color:var(--md-sys-color-on-surface);">${teamShort}</td>
+                    <td class="py-2 px-4 font-label-caps text-label-caps text-on-surface-variant" style="padding:10px 16px;font-family:var(--font-mono);font-size:12px;color:var(--md-sys-color-on-surface-variant);">${posStr}</td>
+                    <td class="py-2 px-4 font-data-tabular text-data-tabular" style="padding:10px 16px;font-family:var(--font-mono);font-size:14px;color:var(--md-sys-color-on-surface);">£${(p.now_cost / 10).toFixed(1)}</td>
+                    <td class="py-2 px-4 font-data-tabular text-data-tabular text-right text-primary-fixed" style="padding:10px 16px;text-align:right;font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--fdr-1);">${p.total_points}</td>
+                    <td class="py-2 px-4 font-data-tabular text-data-tabular text-right" style="padding:10px 16px;text-align:right;font-family:var(--font-mono);font-size:14px;${xgColorClass}">${xG}</td>
+                    <td class="py-2 px-4 font-data-tabular text-data-tabular text-right" style="padding:10px 16px;text-align:right;font-family:var(--font-mono);font-size:14px;${xaColorClass}">${xA}</td>
+                    <td class="py-2 px-4 font-data-tabular text-data-tabular text-right" style="padding:10px 16px;text-align:right;font-family:var(--font-mono);font-size:14px;color:var(--md-sys-color-on-surface);">${p.ict_index || '0.0'}</td>
+                    <td class="py-2 px-4" style="padding:10px 16px;">
+                        <div class="flex items-center justify-center gap-1" style="display:flex;align-items:center;justify-content:center;gap:4px;">
+                            <div style="width:6px;height:16px;border-radius:2px;background:var(--fdr-${formBars[0]});"></div>
+                            <div style="width:6px;height:16px;border-radius:2px;background:var(--fdr-${formBars[1]});"></div>
+                            <div style="width:6px;height:16px;border-radius:2px;background:var(--fdr-${formBars[2]});"></div>
+                            <div style="width:6px;height:16px;border-radius:2px;background:var(--fdr-${formBars[3]});"></div>
+                            <div style="width:6px;height:16px;border-radius:2px;background:var(--fdr-${formBars[4]});"></div>
+                        </div>
+                    </td>
+                    <td class="py-2 px-4 text-center" style="padding:10px 16px;text-align:center;">
+                        <span class="inline-block px-2 py-0.5 rounded font-data-tabular text-[12px]" style="display:inline-block;padding:2px 8px;border-radius:4px;font-family:var(--font-mono);font-size:12px;background:var(--fdr-${defconTier})/20;color:var(--fdr-${defconTier});border:1px solid var(--fdr-${defconTier})/30;">${defconNum}</span>
+                    </td>
+                </tr>
+            `;
         }).join('');
     },
 
-    // ==================== RENDER: LEAGUE ====================
-    renderLeague() {
-        const data = this.state.leagueData;
+    // ==================== RENDER: LEAGUE STANDINGS ====================
+    async renderLeague() {
+        const leagueId = this.state.selectedLeagueId || this.state.leagueId || 314;
+        const page = this.state.standingsPage || 1;
+        
         const tbody = document.getElementById('league-standings-body');
         if (!tbody) return;
 
-        if (!data || !data.standings || data.standings.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:var(--space-lg);color:var(--md-sys-color-on-surface-variant);">' +
-                (this.state.leagueId ?
-                    'Loading league data...' :
-                    'Set your League ID in Settings to view standings') + '</td></tr>';
-            if (this.state.leagueId) {
-                this.loadLeagueData();
+        try {
+            const data = await this.apiFetch(`/api/leagues-classic/${leagueId}/standings?page=${page}`);
+            this.state.standingsData = data;
+
+            // Bento Grid Card 1: League Name & ID
+            const nameEl = document.getElementById('standings-league-name');
+            if (nameEl) nameEl.textContent = data.leagueName || `League ${leagueId}`;
+
+            const badgeEl = document.getElementById('standings-league-id-badge');
+            if (badgeEl) badgeEl.textContent = `ID: ${data.leagueId}`;
+
+            const typeEl = document.getElementById('standings-league-type');
+            if (typeEl) typeEl.textContent = data.leagueType || 'Classic League';
+
+            // Bento Grid Card 2: Average Points
+            const avgEl = document.getElementById('standings-league-avg');
+            if (avgEl) avgEl.textContent = data.leagueAvgGW || 0;
+
+            // Bento Grid Card 3: Top Score
+            const topScoreEl = document.getElementById('standings-top-score');
+            if (topScoreEl) topScoreEl.textContent = data.topScoreGW || 0;
+
+            const topTeamEl = document.getElementById('standings-top-team');
+            if (topTeamEl) topTeamEl.textContent = data.topScorerTeam || data.topScorerManager || 'Leader';
+
+            // Render Table Rows
+            const managers = data.managers || [];
+            if (managers.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:var(--space-lg);color:var(--md-sys-color-on-surface-variant);">No standings data available.</td></tr>`;
+                return;
             }
-            return;
+
+            tbody.innerHTML = managers.map((m, idx) => {
+                const isEven = idx % 2 === 1;
+                const rowBg = isEven ? 'background:rgba(255,255,255,0.03);' : '';
+                
+                let diffArrow = '';
+                if (m.rankDiff > 0) {
+                    diffArrow = `<div style="display:inline-flex;align-items:center;gap:2px;color:var(--fdr-2);">
+                        <span class="material-symbols-outlined" style="font-size:16px;">arrow_upward</span>
+                        <span class="mono" style="font-size:0.75rem;font-weight:700;">${m.rankDiff}</span>
+                    </div>`;
+                } else if (m.rankDiff < 0) {
+                    diffArrow = `<div style="display:inline-flex;align-items:center;gap:2px;color:var(--fdr-5);">
+                        <span class="material-symbols-outlined" style="font-size:16px;">arrow_downward</span>
+                        <span class="mono" style="font-size:0.75rem;font-weight:700;">${Math.abs(m.rankDiff)}</span>
+                    </div>`;
+                } else {
+                    diffArrow = `<div style="display:inline-flex;align-items:center;gap:2px;color:var(--md-sys-color-on-surface-variant);">
+                        <span class="material-symbols-outlined" style="font-size:16px;">remove</span>
+                        <span class="mono" style="font-size:0.75rem;font-weight:700;">0</span>
+                    </div>`;
+                }
+
+                const borderTier = m.rank === 1 ? 'fdr-1' : m.rank === 2 ? 'fdr-2' : m.rank === 3 ? 'fdr-3' : m.rank === 4 ? 'fdr-4' : 'fdr-5';
+
+                return `<tr class="data-row" style="border-bottom:1px solid rgba(255,255,255,0.05);transition:background 0.2s;${rowBg}" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='${isEven ? 'rgba(255,255,255,0.03)' : 'transparent'}'">
+                    <td class="mono" style="padding:var(--space-md);position:relative;font-weight:700;color:var(--md-sys-color-on-surface);width:60px;">
+                        <div style="position:absolute;left:0;top:50%;transform:translateY(-50%);width:4px;height:75%;background:var(--${borderTier});border-radius:0 2px 2px 0;"></div>
+                        ${m.rank}
+                    </td>
+                    <td style="padding:var(--space-md);">
+                        <div style="font-weight:700;color:var(--md-sys-color-on-surface);">${m.managerName}</div>
+                        <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);margin-top:2px;">${m.entryName}</div>
+                    </td>
+                    <td class="mono" style="padding:var(--space-md);text-align:right;color:var(--md-sys-color-on-surface);font-weight:600;">${m.eventTotal}</td>
+                    <td class="mono" style="padding:var(--space-md);text-align:right;color:var(--fdr-1);font-weight:800;">${this.formatNumber(m.total)}</td>
+                    <td style="padding:var(--space-md);text-align:center;">${diffArrow}</td>
+                    <td style="padding:var(--space-md);text-align:right;">
+                        <span class="mono" style="background:var(--md-sys-color-surface-variant);color:var(--md-sys-color-on-surface);font-size:0.75rem;padding:3px 10px;border-radius:4px;font-weight:700;display:inline-block;">${this.formatNumber(m.diffCount)}</span>
+                    </td>
+                </tr>`;
+            }).join('');
+
+            this.renderStandingsPagination(data);
+        } catch (err) {
+            console.error('League standings error:', err);
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:var(--space-lg);color:var(--md-sys-color-error);">Failed to load standings: ${err.message}</td></tr>`;
+        }
+    },
+
+    renderStandingsPagination(data) {
+        const page = data.page || 1;
+        const totalPages = Math.min(5, data.totalPages || 1);
+        const startNum = (page - 1) * 50 + 1;
+        const endNum = Math.min(startNum + (data.managers?.length || 0) - 1, 250);
+        
+        const countEl = document.getElementById('standings-showing-count');
+        if (countEl) {
+            countEl.textContent = `Showing ${startNum}-${endNum} of ${Math.min(250, data.totalEntries || 250)} Managers`;
         }
 
-        // Update league name
-        document.getElementById('league-name-display').textContent = data.leagueName || '--';
+        const controlsEl = document.getElementById('standings-pagination-controls');
+        if (!controlsEl) return;
 
-        // Update stats
-        const standings = data.standings;
-        const myEntry = standings.find(s => s.entry === parseInt(this.state.managerId));
-        if (myEntry) {
-            document.getElementById('league-rank').textContent = myEntry.rank;
-            document.getElementById('league-rank-detail').textContent = `out of ${standings.length} managers`;
+        let btnsHTML = '';
+        
+        const prevDisabled = page === 1;
+        btnsHTML += `<button onclick="FPL.changeStandingsPage(${page - 1})" ${prevDisabled ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : ''} style="width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:4px;border:1px solid var(--md-sys-color-outline-variant);background:transparent;color:var(--md-sys-color-on-surface);cursor:pointer;">
+            <span class="material-symbols-outlined" style="font-size:18px;">chevron_left</span>
+        </button>`;
+
+        for (let p = 1; p <= totalPages; p++) {
+            const isActive = p === page;
+            btnsHTML += `<button onclick="FPL.changeStandingsPage(${p})" style="width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:4px;border:1px solid ${isActive ? 'var(--fdr-1)' : 'var(--md-sys-color-outline-variant)'};background:${isActive ? 'rgba(0,255,133,0.15)' : 'transparent'};color:${isActive ? 'var(--fdr-1)' : 'var(--md-sys-color-on-surface)'};font-weight:700;font-family:var(--font-mono);cursor:pointer;">${p}</button>`;
         }
 
-        // Leader stats
-        const leader = standings[0];
-        if (leader) {
-            document.getElementById('league-leader').textContent = `Leader: ${this.formatNumber(leader.totalPoints)} pts`;
-            if (myEntry) {
-                const behind = leader.totalPoints - myEntry.totalPoints;
-                document.getElementById('league-behind').textContent = behind;
-            }
-        }
+        const nextDisabled = page >= totalPages;
+        btnsHTML += `<button onclick="FPL.changeStandingsPage(${page + 1})" ${nextDisabled ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : ''} style="width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:4px;border:1px solid var(--md-sys-color-outline-variant);background:transparent;color:var(--md-sys-color-on-surface);cursor:pointer;">
+            <span class="material-symbols-outlined" style="font-size:18px;">chevron_right</span>
+        </button>`;
 
-        const avg = Math.round(standings.reduce((s, e) => s + (e.totalPoints || 0), 0) / standings.length);
-        document.getElementById('league-avg').textContent = this.formatNumber(avg);
-        document.getElementById('league-size').textContent = standings.length;
+        controlsEl.innerHTML = btnsHTML;
+    },
 
-        // Render table
-        tbody.innerHTML = standings.map((entry, i) => {
-            const isMe = entry.entry === parseInt(this.state.managerId);
-            const rankClass = entry.rank <= 3 ? this.getRankClass(entry.rank) : '';
-            const chipLabels = entry.chipsUsed || 'None';
-            const rankChange = entry.rankChange || 0;
-            const arrow = rankChange > 0 ? '<span style="color:var(--fdr-1)">▲</span>' : rankChange < 0 ? '<span style="color:var(--fdr-5)">▼</span>' : '<span style="color:var(--md-sys-color-on-surface-variant)">—</span>';
+    changeStandingsPage(p) {
+        if (p < 1 || p > 5) return;
+        this.state.standingsPage = p;
+        this.renderLeague();
+    },
 
-            return `<tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);${isMe ? 'background:rgba(0,255,133,0.06);' : ''}">
-                <td style="padding:0.75rem 1rem;">
-                    <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;font-weight:700;font-size:0.8125rem;${rankClass ? `background:linear-gradient(135deg,var(--fdr-${entry.rank === 1 ? '3' : entry.rank === 2 ? '2' : '4'}),var(--fdr-${entry.rank}));color:white;` : `background:var(--md-sys-color-surface-container-high);color:var(--md-sys-color-on-surface-variant);`}${isMe ? 'background:var(--md-sys-color-primary);color:#000;' : ''}">${entry.rank}</span>
-                </td>
-                <td style="padding:0.75rem 1rem;">
-                    <div style="display:flex;align-items:center;gap:0.75rem;">
-                        <div style="width:32px;height:32px;border-radius:var(--radius-sm);background:var(--md-sys-color-surface-container-high);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;color:var(--md-sys-color-on-surface);">${entry.teamName?.substring(0, 2).toUpperCase() || '??'}</div>
-                        <div>
-                            <div style="font-weight:600;${isMe ? 'color:var(--md-sys-color-primary);' : ''}">${entry.playerName || 'Unknown'}</div>
-                            <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">${entry.teamName || ''}</div>
-                        </div>
-                    </div>
-                </td>
-                <td style="padding:0.75rem 1rem;text-align:right;font-family:var(--font-mono);font-weight:600;">${entry.gwPoints || '--'}</td>
-                <td style="padding:0.75rem 1rem;text-align:right;font-family:var(--font-mono);font-weight:600;">${this.formatNumber(entry.totalPoints)}</td>
-                <td style="padding:0.75rem 1rem;text-align:right;font-family:var(--font-mono);">${chipLabels}</td>
-                <td style="padding:0.75rem 1rem;text-align:center;">${arrow}</td>
-            </tr>`;
-        }).join('');
+    switchLeague(leagueId) {
+        if (!leagueId) return;
+        this.state.selectedLeagueId = leagueId;
+        this.state.standingsPage = 1;
+        this.renderLeague();
+    },
+
+    loadCustomLeague() {
+        const input = document.getElementById('league-id-input');
+        const val = input?.value?.trim();
+        if (!val || isNaN(val)) return;
+        this.switchLeague(parseInt(val));
     },
 
     // ==================== RENDER: FIXTURES ====================
+    setFixtureLookahead(n) {
+        this.state.fixtureLookahead = n;
+        ['3', '5', '10'].forEach(val => {
+            const btn = document.getElementById(`lookahead-${val}`);
+            if (btn) {
+                if (parseInt(val) === n) {
+                    btn.style.background = 'var(--md-sys-color-secondary-container)';
+                    btn.style.color = 'var(--md-sys-color-on-secondary-container)';
+                    btn.style.fontWeight = '700';
+                } else {
+                    btn.style.background = 'transparent';
+                    btn.style.color = 'var(--md-sys-color-on-surface-variant)';
+                    btn.style.fontWeight = '400';
+                }
+            }
+        });
+        this.renderFixtures();
+    },
+
     renderFixtures() {
         const fixtures = this.state.fixtures;
-        const gw = this.state.selectedGW;
-        if (!fixtures) return;
+        const bootstrap = this.state.bootstrapData;
+        if (!fixtures || !bootstrap) return;
 
-        document.getElementById('fixture-gw-display').textContent = gw;
+        const lookaheadCount = this.state.fixtureLookahead || 5;
+        const currentGW = this.state.selectedGW || bootstrap.events?.find(e => e.is_current)?.id || 1;
+        const teams = bootstrap.teams || [];
+        const elements = bootstrap.elements || [];
 
-        const gwFixtures = fixtures.filter(f => f.event === gw);
-        const container = document.getElementById('fixtures-list-body');
-        if (!container) return;
-
-        document.getElementById('fixture-count-chip').textContent = `${gwFixtures.length} Fixtures`;
-
-        if (gwFixtures.length === 0) {
-            container.innerHTML = '<div class="empty-state"><span class="material-symbols-outlined">sports_soccer</span><p>No fixtures for this gameweek</p></div>';
-            return;
+        // Dynamic Gameweeks header
+        const targetGWs = [];
+        for (let g = currentGW; g < Math.min(39, currentGW + lookaheadCount); g++) {
+            targetGWs.push(g);
         }
 
-        container.innerHTML = gwFixtures.map(fx => {
-            const home = this.state.teamMap[fx.team_h];
-            const away = this.state.teamMap[fx.team_a];
-            const played = fx.team_h_score !== null && fx.team_h_score !== undefined;
-            const score = played ? `${fx.team_h_score} - ${fx.team_a_score}` : (fx.kickoff_time ? new Date(fx.kickoff_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'TBA');
+        const headerRow = document.getElementById('fixture-grid-header-row');
+        if (headerRow) {
+            headerRow.style.background = '#a7cfbc';
+            headerRow.innerHTML = `<th class="p-3 font-label-caps text-label-caps uppercase sticky left-0 z-10 bg-secondary" style="padding:12px 16px;position:sticky;left:0;z-index:10;background:#a7cfbc;width:100px;font-family:var(--font-mono);font-size:12px;color:#0a0f0d;font-weight:700;">TEAM</th>` +
+                targetGWs.map(gw => `<th class="p-3 font-label-caps text-label-caps text-center" style="padding:12px 16px;text-align:center;font-family:var(--font-mono);font-size:12px;color:#0a0f0d;font-weight:700;background:#a7cfbc;"><span style="color:#0a0f0d;font-weight:700;">GW${gw}</span></th>`).join('');
+        }
 
-            return `<div class="fixture-row" style="display:grid;grid-template-columns:1fr auto 1fr;gap:var(--space-md);padding:var(--space-sm) var(--space-md);border-radius:var(--radius-md);border-bottom:1px solid var(--md-sys-color-outline-variant);">
-                <div class="fixture-team home" style="display:flex;align-items:center;justify-content:flex-end;gap:var(--space-sm);">
-                    <span style="font-weight:600;">${home?.name || '???'}</span>
-                    <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:var(--radius-sm);font-size:0.625rem;font-weight:700;background:var(--fdr-${fx.team_h_difficulty || fx.difficulty || 3});color:white;">${fx.team_h_difficulty || fx.difficulty || 3}</span>
-                </div>
-                <div class="fixture-score" style="font-family:var(--font-mono);font-weight:700;font-size:1rem;min-width:60px;text-align:center;${played ? '' : 'color:var(--md-sys-color-on-surface-variant);font-size:0.875rem;'}">${score}</div>
-                <div class="fixture-team away" style="display:flex;align-items:center;gap:var(--space-sm);">
-                    <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:var(--radius-sm);font-size:0.625rem;font-weight:700;background:var(--fdr-${fx.team_a_difficulty || fx.difficulty || 3});color:white;">${fx.team_a_difficulty || fx.difficulty || 3}</span>
-                    <span style="font-weight:600;">${away?.name || '???'}</span>
-                </div>
-            </div>`;
-        }).join('');
+        // Render Table Rows for all 20 teams
+        const tbody = document.getElementById('fixture-grid-table-body');
+        if (tbody) {
+            const fdrColors = {
+                1: { bg: '#00FF85', text: '#0a0f0d' },
+                2: { bg: '#37DB59', text: '#0a0f0d' },
+                3: { bg: '#E1E1E1', text: '#0a0f0d' },
+                4: { bg: '#FFA600', text: '#0a0f0d' },
+                5: { bg: '#FF005A', text: '#dfe4e0' }
+            };
 
-        // Fixture difficulty sidebar
-        this.renderFixtureDifficulty(gwFixtures);
+            tbody.innerHTML = teams.map((team, idx) => {
+                const isEven = idx % 2 === 1;
+                let cellHTMLs = targetGWs.map(gw => {
+                    // Find fixture for this team in this GW
+                    const fx = fixtures.find(f => f.event === gw && (f.team_h === team.id || f.team_a === team.id));
+                    if (!fx) {
+                        return `<td class="p-1" style="padding:4px;"><div class="bg-surface-variant rounded-lg p-2 flex flex-col items-center justify-center border border-pitch-line h-14 opacity-50" style="background:#313633;border-radius:8px;padding:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;height:56px;opacity:0.5;"><span class="font-bold text-sm uppercase text-on-surface-variant" style="font-size:12px;font-family:var(--font-mono);color:#b9cbb9;">BLANK</span></div></td>`;
+                    }
+                    const isHome = fx.team_h === team.id;
+                    const oppId = isHome ? fx.team_a : fx.team_h;
+                    const oppTeam = teams.find(t => t.id === oppId);
+                    const oppShort = oppTeam ? oppTeam.short_name : 'TBD';
+                    const diff = isHome ? (fx.team_h_difficulty || fx.difficulty || 3) : (fx.team_a_difficulty || fx.difficulty || 3);
+                    const venueStr = isHome ? 'H' : 'A';
+                    const colStyle = fdrColors[diff] || fdrColors[3];
 
-        // Upcoming fixtures
-        this.renderUpcomingFixtures();
+                    return `<td class="p-1" style="padding:4px;">
+                        <div class="rounded-lg p-2 flex flex-col items-center justify-center border border-black/10 h-14" style="background:${colStyle.bg};border-radius:8px;padding:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;height:56px;">
+                            <span class="font-bold text-sm uppercase" style="font-size:13px;font-weight:700;font-family:var(--font-mono);color:${colStyle.text}">${oppShort} (${venueStr})</span>
+                        </div>
+                    </td>`;
+                }).join('');
+
+                const avgFDR = Math.round(targetGWs.reduce((acc, gw) => {
+                    const fx = fixtures.find(f => f.event === gw && (f.team_h === team.id || f.team_a === team.id));
+                    if (!fx) return acc + 3;
+                    return acc + (fx.team_h === team.id ? (fx.team_h_difficulty || 3) : (fx.team_a_difficulty || 3));
+                }, 0) / targetGWs.length);
+
+                const teamAccentColor = fdrColors[avgFDR]?.bg || '#37DB59';
+
+                return `<tr class="border-b border-pitch-line data-table-row transition-colors" style="border-bottom:1px solid #1A2E28;background:${isEven ? '#181d1a' : '#0f1412'};">
+                    <td class="p-3 font-bold sticky left-0 z-10 flex items-center gap-3 text-fdr-1 text-primary-fixed" style="padding:10px 16px;position:sticky;left:0;z-index:10;background:${isEven ? '#181d1a' : '#0f1412'};display:flex;align-items:center;gap:12px;font-family:var(--font-mono);font-size:14px;font-weight:700;color:#00ff85;">
+                        <div style="width:4px;height:24px;background:${teamAccentColor};border-radius:999px;"></div>
+                        ${team.short_name}
+                    </td>
+                    ${cellHTMLs}
+                </tr>`;
+            }).join('');
+        }
+
+        // Sidebar: Form Leaders (Upcoming)
+        const formLeadersContainer = document.getElementById('form-leaders-list');
+        if (formLeadersContainer) {
+            const sortedByForm = [...elements].sort((a, b) => parseFloat(b.form || 0) - parseFloat(a.form || 0)).slice(0, 5);
+            formLeadersContainer.innerHTML = sortedByForm.map(p => {
+                const team = teams.find(t => t.id === p.team);
+                const posNames = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+                const posStr = posNames[p.element_type] || 'MID';
+
+                return `<div class="flex items-center gap-3 p-3 rounded-lg bg-surface border border-pitch-line hover:border-fdr-1 transition-colors cursor-pointer group" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;background:var(--md-sys-color-surface);border:1px solid var(--pitch-line);" onclick="FPL.navigateTo('players')">
+                    <div style="width:40px;height:40px;border-radius:50%;overflow:hidden;background:var(--md-sys-color-surface-variant);border:1px solid var(--pitch-line);position:relative;flex-shrink:0;">
+                        <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
+                        <div style="position:absolute;bottom:0;right:0;width:10px;height:10px;background:var(--fdr-1);border-radius:50%;border:1px solid var(--md-sys-color-surface);"></div>
+                    </div>
+                    <div style="flex:1;">
+                        <p style="margin:0;font-weight:700;font-size:14px;color:var(--fdr-1);line-height:1.2;">${p.web_name}</p>
+                        <p style="margin:2px 0 0 0;font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-on-surface-variant);">${team?.short_name || 'FPL'} • ${posStr}</p>
+                    </div>
+                    <div style="text-align:right;">
+                        <p style="margin:0;font-family:var(--font-mono);font-size:15px;font-weight:700;color:var(--md-sys-color-primary);">${p.form}</p>
+                        <p style="margin:2px 0 0 0;font-family:var(--font-mono);font-size:10px;color:var(--md-sys-color-on-surface-variant);">Form</p>
+                    </div>
+                </div>`;
+            }).join('');
+        }
     },
 
     renderFixtureDifficulty(gwFixtures) {
@@ -813,127 +1119,484 @@ const FPL = {
         container.innerHTML = upcoming.join('') || '<div class="empty-state"><p>No upcoming fixtures</p></div>';
     },
 
-    // ==================== RENDER: CAPTAINCY ====================
+    // ==================== RENDER: CAPTAINCY MATRIX ====================
     async renderCaptaincy() {
-        const gw = this.state.selectedGW;
         try {
-            const data = await this.apiFetch(this.API.captainPicks(gw));
-            this.state.captainPicks = data;
+            const data = await this.apiFetch('/api/captaincy/matrix');
+            
+            // Header model update badge
+            const modelUpdatedEl = document.getElementById('cap-model-updated');
+            if (modelUpdatedEl && data.modelUpdated) {
+                modelUpdatedEl.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;color:var(--fdr-1);">update</span> <span>Model Updated: ${data.modelUpdated}</span>`;
+            }
 
+            // Hero Model Pick Card
+            if (data.modelPick) {
+                const mp = data.modelPick;
+                const heroImg = document.getElementById('cap-hero-img');
+                if (heroImg) heroImg.src = `https://resources.premierleague.com/premierleague/photos/players/110x140/p${mp.code}.png`;
+                
+                const heroName = document.getElementById('cap-hero-name');
+                if (heroName) heroName.textContent = mp.name;
+
+                const heroTeamPos = document.getElementById('cap-hero-team-pos');
+                if (heroTeamPos) heroTeamPos.textContent = `${mp.team} (${mp.position})`;
+
+                const heroDesc = document.getElementById('cap-hero-desc');
+                if (heroDesc) heroDesc.textContent = mp.description || 'Unprecedented underlying stats against a vulnerable defense. High captaincy ownership expected.';
+
+                const heroXpts = document.getElementById('cap-hero-xpts');
+                if (heroXpts) heroXpts.textContent = mp.xPTS;
+
+                const heroOpp = document.getElementById('cap-hero-opp');
+                if (heroOpp) heroOpp.textContent = mp.opp;
+
+                const heroFdr = document.getElementById('cap-hero-fdr');
+                if (heroFdr) heroFdr.style.background = `var(--fdr-${mp.fdr})`;
+
+                const heroXgi = document.getElementById('cap-hero-xgi');
+                if (heroXgi) heroXgi.textContent = mp.xGI;
+            }
+
+            // Differential Card
+            if (data.differentialPick) {
+                const diff = data.differentialPick;
+                const diffName = document.getElementById('cap-diff-name');
+                if (diffName) diffName.textContent = diff.name;
+
+                const diffTeam = document.getElementById('cap-diff-team');
+                if (diffTeam) diffTeam.textContent = `${diff.team} (${diff.position})`;
+
+                const diffXpts = document.getElementById('cap-diff-xpts');
+                if (diffXpts) diffXpts.textContent = `${diff.xPTS} xPts`;
+            }
+
+            // Form Warning Card
+            if (data.formWarning) {
+                const warn = data.formWarning;
+                const warnName = document.getElementById('cap-warn-name');
+                if (warnName) warnName.textContent = warn.name;
+
+                const warnTeam = document.getElementById('cap-warn-team');
+                if (warnTeam) warnTeam.textContent = `${warn.team} (${warn.position})`;
+
+                const warnReason = document.getElementById('cap-warn-reason');
+                if (warnReason) warnReason.textContent = warn.reason || 'xG Underperf.';
+            }
+
+            // Table Title
+            const tableTitle = document.getElementById('cap-table-title');
+            if (tableTitle && data.gameweek) {
+                tableTitle.textContent = `Top 15 Captain Picks (GW${data.gameweek})`;
+            }
+
+            // Table Rows
             const tbody = document.getElementById('captain-picks-body');
             if (!tbody) return;
 
-            document.getElementById('cap-most').textContent = data.captainPicks?.[0]?.name || '--';
-            document.getElementById('cap-vice').textContent = data.captainPicks?.[1]?.name || '--';
-            document.getElementById('cap-avg').textContent = data.captainPicks?.[0]?.xpts || '--';
+            const picks = data.topPicks || [];
+            if (picks.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:var(--space-lg);">No captain picks available.</td></tr>`;
+                return;
+            }
 
-            tbody.innerHTML = (data.captainPicks || []).slice(0, 10).map((p, i) => {
-                const fixture = this.getPlayerFixture(p.id, gw);
-                const fdrBadge = fixture ? `<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:var(--radius-sm);font-size:0.625rem;font-weight:700;background:var(--fdr-${fixture.difficulty});color:white;">${fixture.difficulty}</span>` : '';
+            tbody.innerHTML = picks.map((p) => {
+                const badgeIcon = p.badge === 'differential' 
+                    ? `<span class="material-symbols-outlined text-fdr-4" style="font-size:14px;color:#FFA600;margin-left:4px;" title="Differential Pick">trending_up</span>`
+                    : p.badge === 'warning'
+                    ? `<span class="material-symbols-outlined text-fdr-5" style="font-size:14px;color:#FF005A;margin-left:4px;" title="Form Warning">warning</span>`
+                    : '';
 
-                return `<tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);">
-                    <td style="padding:var(--space-sm) var(--space-md);">${i + 1}</td>
-                    <td style="padding:var(--space-sm) var(--space-md);font-weight:600;">${p.name} <span style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">${p.teamShort}</span></td>
-                    <td style="padding:var(--space-sm) var(--space-md);text-align:right;font-family:var(--font-mono);font-weight:700;color:var(--md-sys-color-primary);">${p.totalPts}</td>
-                    <td style="padding:var(--space-sm) var(--space-md);text-align:center;font-family:var(--font-mono);">${p.xpts}</td>
-                    <td style="padding:var(--space-sm) var(--space-md);text-align:center;">
-                        <div class="progress" style="height:6px;width:80px;"><div class="progress-bar" style="width:${Math.min(p.xpts * 5, 100)}%"></div></div>
+                const rowBg = p.badge === 'differential' ? 'background:rgba(255,255,255,0.03);' : p.badge === 'warning' ? 'opacity:0.85;' : '';
+                const rankColor = p.rk === 1 ? 'color:var(--fdr-1);font-size:1.125rem;' : p.rk <= 3 ? 'color:var(--md-sys-color-primary);font-size:1rem;' : 'color:var(--md-sys-color-on-surface);';
+
+                return `<tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);transition:background 0.2s;${rowBg}" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='${rowBg ? 'rgba(255,255,255,0.03)' : 'transparent'}'">
+                    <td class="mono" style="padding:var(--space-sm) var(--space-md);text-align:center;border-left:4px solid var(--${p.borderTier});font-weight:700;">${p.rk}</td>
+                    <td style="padding:var(--space-sm) var(--space-md);">
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div style="width:36px;height:36px;border-radius:50%;overflow:hidden;background:var(--md-sys-color-surface);flex-shrink:0;border:1px solid var(--md-sys-color-outline-variant);">
+                                <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
+                            </div>
+                            <div>
+                                <div style="font-weight:600;color:var(--md-sys-color-on-surface);display:flex;align-items:center;">
+                                    ${p.name} ${badgeIcon}
+                                </div>
+                                <div class="mono" style="font-size:0.6875rem;color:var(--md-sys-color-on-surface-variant);">${p.team} (${p.position})</div>
+                            </div>
+                        </div>
                     </td>
+                    <td class="mono" style="padding:var(--space-sm) var(--space-md);text-align:center;font-weight:500;">${p.opp}</td>
                     <td style="padding:var(--space-sm) var(--space-md);text-align:center;">
-                        <span style="display:inline-flex;align-items:center;gap:4px;">${fdrBadge}<span style="font-size:0.75rem;">${fixture ? fixture.opponent + (fixture.isHome ? '(H)' : '(A)') : '--'}</span></span>
+                        <span class="mono" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:4px;background:var(--fdr-${p.fdr});color:#0a0f0d;font-size:0.75rem;font-weight:800;">${p.fdr}</span>
                     </td>
+                    <td class="mono" style="padding:var(--space-sm) var(--space-md);text-align:center;font-weight:600;color:var(--fdr-1);">${p.form}</td>
+                    <td class="mono" style="padding:var(--space-sm) var(--space-md);text-align:center;font-weight:600;color:#00D1FF;">${p.xGI}</td>
+                    <td class="mono" style="padding:var(--space-sm) var(--space-md);text-align:center;font-weight:800;${rankColor}">${p.xPTS}</td>
                 </tr>`;
             }).join('');
         } catch (err) {
-            console.error('Captaincy render error:', err);
+            console.error('Captaincy matrix render error:', err);
+            const tbody = document.getElementById('captain-picks-body');
+            if (tbody) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:var(--space-lg);color:var(--md-sys-color-error);">Failed to load captaincy matrix: ${err.message}</td></tr>`;
+            }
         }
     },
 
     // ==================== RENDER: OWNERSHIP ====================
+    // ==================== RENDER: OWNERSHIP TRENDS ====================
     async renderOwnership() {
         try {
-            const [ownership, snapshot] = await Promise.all([
-                this.apiFetch(this.API.priceChanges),
-                this.apiFetch(this.API.ownershipHistory).catch(() => null)
-            ]);
+            const data = await this.apiFetch(this.API.ownershipTrends);
+            this.state.ownershipTrends = data;
 
-            this.state.ownershipData = ownership;
+            // Update last snapshot time display
+            const lastSnapEl = document.getElementById('own-last-snapshot');
+            if (lastSnapEl) lastSnapEl.textContent = data.lastSnapshotTime || 'Just now';
 
-            // Stats
-            if (ownership.risers?.length > 0) {
-                document.getElementById('own-most-in').textContent = '+' + this.formatNumber(ownership.risers[0]?.netTransfers || 0);
-                document.getElementById('own-most-in-detail').textContent = ownership.risers[0]?.name || '';
-            }
-            if (ownership.fallers?.length > 0) {
-                document.getElementById('own-most-out').textContent = '-' + this.formatNumber(Math.abs(ownership.fallers[0]?.netTransfers || 0));
-                document.getElementById('own-most-out-detail').textContent = ownership.fallers[0]?.name || '';
-            }
+            // Render Bento Grid Cards
+            this.renderOwnershipBento(data);
 
-            // Ownership table
-            const bootstrap = this.state.bootstrapData;
-            if (!bootstrap) return;
-
-            const players = bootstrap.elements
-                .sort((a, b) => parseFloat(b.selected_by_percent) - parseFloat(a.selected_by_percent))
-                .slice(0, 30);
-
-            const posColors = { 1: '#FFD700', 2: '#4FC3F7', 3: '#81C784', 4: '#E57373' };
-            const posNames = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
-
-            const tbody = document.getElementById('ownership-table-body');
+            // Render Table
+            this.renderOwnershipTable();
+        } catch (err) {
+            console.error('Ownership trends render error:', err);
+            const tbody = document.getElementById('ownership-trends-table-body');
             if (tbody) {
-                tbody.innerHTML = players.map((p, i) => {
-                    const team = bootstrap.teams.find(t => t.id === p.team);
-                    return `<tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);">
-                        <td style="padding:var(--space-sm) var(--space-md);">${i + 1}</td>
-                        <td style="padding:var(--space-sm) var(--space-md);font-weight:600;">${p.web_name}</td>
-                        <td style="padding:var(--space-sm) var(--space-md);">${team?.short_name || '???'}</td>
-                        <td style="padding:var(--space-sm) var(--space-md);text-align:center;">
-                            <span style="display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:0.6875rem;font-weight:700;background:${posColors[p.element_type]}20;color:${posColors[p.element_type]};">${posNames[p.element_type]}</span>
-                        </td>
-                        <td style="padding:var(--space-sm) var(--space-md);text-align:right;">
-                            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
-                                <span class="mono ${this.getOwnershipClass(parseFloat(p.selected_by_percent))}">${p.selected_by_percent}%</span>
-                                <div class="progress" style="height:4px;width:80px;"><div class="progress-bar" style="width:${p.selected_by_percent}%;background:var(--md-sys-color-primary);"></div></div>
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:var(--space-lg);color:var(--md-sys-color-error);">Failed to load ownership trend data: ${err.message}</td></tr>`;
+            }
+        }
+    },
+
+    renderOwnershipBento(data) {
+        const inContainer = document.getElementById('bento-in-content');
+        const outContainer = document.getElementById('bento-out-content');
+        const velContainer = document.getElementById('bento-velocity-content');
+
+        const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
+
+        // 1. Transferred In
+        if (inContainer && data.topTransferredIn) {
+            const p = data.topTransferredIn;
+            const ownDeltaClass = p.delta24h >= 0 ? 'color:var(--fdr-1);' : 'color:var(--fdr-5);';
+            const deltaSign = p.delta24h >= 0 ? '+' : '';
+            const sparklineSVG = this.generateSparklineSVG(p.sparkline, p.delta24h >= 0, 100, 32);
+
+            inContainer.innerHTML = `
+                <div style="display:flex;align-items:center;gap:var(--space-md);">
+                    <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.src='football.ico'" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--fdr-1);background:var(--md-sys-color-surface-container-high);">
+                    <div>
+                        <div style="font-weight:700;font-size:0.9375rem;display:flex;align-items:center;gap:6px;">
+                            ${p.name}
+                            <span style="padding:1px 6px;border-radius:var(--radius-pill);font-size:0.625rem;font-weight:700;background:${posColors[p.position]}20;color:${posColors[p.position]};">${p.position}</span>
+                        </div>
+                        <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">${p.team} • ${p.costStr}</div>
+                        <div class="mono" style="font-size:0.8125rem;font-weight:700;color:var(--fdr-1);margin-top:2px;">+${this.formatNumber(p.netTransfers)} net</div>
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                    <div class="mono" style="font-size:1.125rem;font-weight:800;${ownDeltaClass}">${p.ownership}%</div>
+                    <div class="mono" style="font-size:0.75rem;font-weight:600;${ownDeltaClass}">${deltaSign}${p.delta24h}% (24h)</div>
+                    <div style="margin-top:4px;">${sparklineSVG}</div>
+                </div>`;
+        }
+
+        // 2. Transferred Out
+        if (outContainer && data.topTransferredOut) {
+            const p = data.topTransferredOut;
+            const ownDeltaClass = p.delta24h >= 0 ? 'color:var(--fdr-1);' : 'color:var(--fdr-5);';
+            const deltaSign = p.delta24h >= 0 ? '+' : '';
+            const sparklineSVG = this.generateSparklineSVG(p.sparkline, p.delta24h >= 0, 100, 32);
+
+            outContainer.innerHTML = `
+                <div style="display:flex;align-items:center;gap:var(--space-md);">
+                    <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.src='football.ico'" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--fdr-5);background:var(--md-sys-color-surface-container-high);">
+                    <div>
+                        <div style="font-weight:700;font-size:0.9375rem;display:flex;align-items:center;gap:6px;">
+                            ${p.name}
+                            <span style="padding:1px 6px;border-radius:var(--radius-pill);font-size:0.625rem;font-weight:700;background:${posColors[p.position]}20;color:${posColors[p.position]};">${p.position}</span>
+                        </div>
+                        <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">${p.team} • ${p.costStr}</div>
+                        <div class="mono" style="font-size:0.8125rem;font-weight:700;color:var(--fdr-5);margin-top:2px;">${this.formatNumber(p.netTransfers)} net</div>
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                    <div class="mono" style="font-size:1.125rem;font-weight:800;${ownDeltaClass}">${p.ownership}%</div>
+                    <div class="mono" style="font-size:0.75rem;font-weight:600;${ownDeltaClass}">${deltaSign}${p.delta24h}% (24h)</div>
+                    <div style="margin-top:4px;">${sparklineSVG}</div>
+                </div>`;
+        }
+
+        // 3. Highest Velocity Shift
+        if (velContainer && data.highestVelocity) {
+            const p = data.highestVelocity;
+            const velSign = p.velocityShift >= 0 ? '+' : '';
+            const sparklineSVG = this.generateSparklineSVG(p.sparkline, p.velocityShift >= 0, 100, 32);
+
+            velContainer.innerHTML = `
+                <div style="display:flex;align-items:center;gap:var(--space-md);">
+                    <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.src='football.ico'" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--fdr-4);background:var(--md-sys-color-surface-container-high);">
+                    <div>
+                        <div style="font-weight:700;font-size:0.9375rem;display:flex;align-items:center;gap:6px;">
+                            ${p.name}
+                            <span style="padding:1px 6px;border-radius:var(--radius-pill);font-size:0.625rem;font-weight:700;background:${posColors[p.position]}20;color:${posColors[p.position]};">${p.position}</span>
+                        </div>
+                        <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">${p.team} • ${p.costStr}</div>
+                        <div class="mono" style="font-size:0.8125rem;font-weight:700;color:var(--fdr-4);margin-top:2px;">${velSign}${p.velocityShift}% Δ (7d vs 24h)</div>
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                    <div class="mono" style="font-size:1.125rem;font-weight:800;color:var(--md-sys-color-primary);">${p.ownership}%</div>
+                    <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">Own %</div>
+                    <div style="margin-top:4px;">${sparklineSVG}</div>
+                </div>`;
+        }
+    },
+
+    renderOwnershipTable() {
+        const data = this.state.ownershipTrends;
+        if (!data || !data.players) return;
+
+        const tbody = document.getElementById('ownership-trends-table-body');
+        if (!tbody) return;
+
+        let players = [...data.players];
+
+        // Apply position filter
+        const posFilter = this.state.ownPosFilter || 'all';
+        if (posFilter !== 'all') {
+            players = players.filter(p => p.position === posFilter);
+        }
+
+        // Apply search query
+        const searchInput = document.getElementById('own-search')?.value?.toLowerCase();
+        if (searchInput) {
+            players = players.filter(p => p.name.toLowerCase().includes(searchInput) || (p.teamFull || '').toLowerCase().includes(searchInput));
+        }
+
+        // Apply sort selection
+        const sortKey = document.getElementById('own-sort')?.value || 'ownership';
+        players.sort((a, b) => (b[sortKey] ?? 0) - (a[sortKey] ?? 0));
+
+        const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
+
+        if (players.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:var(--space-lg);color:var(--md-sys-color-on-surface-variant);">No players match the selected filters.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = players.map((p, i) => {
+            const formatDelta = (val) => {
+                const sign = val > 0 ? '+' : '';
+                const bg = val > 0 ? 'background:rgba(0,255,133,0.12);color:var(--fdr-1);' :
+                           val < 0 ? 'background:rgba(255,0,90,0.12);color:var(--fdr-5);' :
+                           'background:var(--md-sys-color-surface-container-high);color:var(--md-sys-color-on-surface-variant);';
+                return `<span class="mono" style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:0.75rem;font-weight:700;${bg}">${sign}${val.toFixed(2)}%</span>`;
+            };
+
+            const sparklineSVG = this.generateSparklineSVG(p.sparkline, p.delta24h >= 0, 110, 24);
+
+            return `
+            <tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);transition:background var(--transition-fast);">
+                <td style="padding:var(--space-sm) var(--space-md);text-align:center;color:var(--md-sys-color-on-surface-variant);">${i + 1}</td>
+                <td style="padding:var(--space-sm) var(--space-md);text-align:center;">
+                    <div style="display:inline-flex;align-items:center;gap:var(--space-sm);text-align:left;">
+                        <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.src='football.ico'" style="width:32px;height:32px;border-radius:50%;object-fit:cover;background:var(--md-sys-color-surface-container-high);">
+                        <div>
+                            <div style="font-weight:600;font-size:0.875rem;">${p.name}</div>
+                            <div style="display:flex;align-items:center;gap:4px;font-size:0.6875rem;color:var(--md-sys-color-on-surface-variant);">
+                                <span style="font-weight:600;">${p.team}</span> • 
+                                <span style="padding:0 4px;border-radius:2px;font-weight:700;background:${posColors[p.position]}20;color:${posColors[p.position]};">${p.position}</span>
                             </div>
+                        </div>
+                    </div>
+                </td>
+                <td style="padding:var(--space-sm) var(--space-md);text-align:center;font-family:var(--font-mono);font-weight:600;">${p.costStr}</td>
+                <td style="padding:var(--space-sm) var(--space-md);text-align:center;">
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+                        <span class="mono" style="font-weight:700;color:var(--md-sys-color-on-surface);">${p.ownership}%</span>
+                        <div style="height:3px;width:70px;background:var(--md-sys-color-surface-container-high);border-radius:2px;overflow:hidden;">
+                            <div style="height:100%;width:${Math.min(p.ownership, 100)}%;background:var(--md-sys-color-primary);"></div>
+                        </div>
+                    </div>
+                </td>
+                <td style="padding:var(--space-sm) var(--space-md);text-align:center;">${formatDelta(p.delta24h)}</td>
+                <td style="padding:var(--space-sm) var(--space-md);text-align:center;">${formatDelta(p.delta3d)}</td>
+                <td style="padding:var(--space-sm) var(--space-md);text-align:center;">${formatDelta(p.delta7d)}</td>
+                <td style="padding:var(--space-sm) var(--space-md);text-align:center;">${sparklineSVG}</td>
+                <td style="padding:var(--space-sm) var(--space-md);text-align:center;font-family:var(--font-mono);font-weight:700;color:var(--md-sys-color-primary);">${p.points}</td>
+            </tr>`;
+        }).join('');
+    },
+
+    filterOwnershipPos(pos, el) {
+        this.state.ownPosFilter = pos;
+        document.querySelectorAll('.own-pos-btn').forEach(t => t.classList.remove('active'));
+        if (el) el.classList.add('active');
+        this.renderOwnershipTable();
+    },
+
+    async takeOwnershipSnapshot() {
+        const btn = document.getElementById('btn-take-snapshot');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<span class="spinner" style="width:16px;height:16px;border-width:2px;margin:0;"></span> Capturing...`;
+        }
+
+        try {
+            const res = await window.fetch('/api/ownership/snapshot', { method: 'POST' });
+            const data = await res.json();
+            if (data.skipped) {
+                this.showError('Snapshot recently captured (< 1h ago)');
+            } else {
+                this.showError('New ownership snapshot saved to Neon DB!');
+            }
+            await this.renderOwnership();
+        } catch (err) {
+            console.error('Take snapshot error:', err);
+            this.showError('Failed to capture snapshot');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px;">photo_camera</span> Take Snapshot`;
+            }
+        }
+    },
+
+    generateSparklineSVG(points, isPositive, width = 100, height = 28) {
+        if (!points || points.length < 2) {
+            return `<svg width="${width}" height="${height}"></svg>`;
+        }
+
+        const min = Math.min(...points);
+        const max = Math.max(...points);
+        const range = (max - min) || 1;
+        const padding = 4;
+        const drawHeight = height - padding * 2;
+        const drawWidth = width;
+
+        const coords = points.map((val, idx) => {
+            const x = (idx / (points.length - 1)) * drawWidth;
+            const y = height - padding - ((val - min) / range) * drawHeight;
+            return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
+        });
+
+        const pathD = coords.reduce((acc, pt, i) => i === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`, '');
+        const fillD = `${pathD} L ${drawWidth} ${height} L 0 ${height} Z`;
+
+        const strokeColor = isPositive ? '#00FF85' : '#FF005A';
+        const gradientId = `spark-grad-${Math.random().toString(36).substring(2, 7)}`;
+
+        return `<svg width="${width}" height="${height}" style="overflow:visible;vertical-align:middle;">
+            <defs>
+                <linearGradient id="${gradientId}" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="${strokeColor}" stop-opacity="0.35"/>
+                    <stop offset="100%" stop-color="${strokeColor}" stop-opacity="0.0"/>
+                </linearGradient>
+            </defs>
+            <path d="${fillD}" fill="url(#${gradientId})"/>
+            <path d="${pathD}" fill="none" stroke="${strokeColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>`;
+    },
+
+    // ==================== RENDER: TACTICAL ZONES ====================
+    async renderZones() {
+        const formation = this.state.selectedFormation || '4231';
+        try {
+            const data = await this.apiFetch(`/api/tactics/zones?formation=${formation}`);
+            this.state.zonesData = data;
+
+            const gwEl = document.getElementById('zones-gw-display');
+            if (gwEl) gwEl.textContent = data.gw || '12';
+
+            const selEl = document.getElementById('zones-formation-select');
+            if (selEl) selEl.value = formation;
+
+            const container = document.getElementById('zones-nodes-container');
+            if (container && data.nodes) {
+                // Exact 1:1 node positions matching step 983 reference image
+                const customNodes = [
+                    { abbr: 'HAA', role: 'ST', top: '36%', left: '47%', type: 'pink' },
+                    { abbr: 'KDB', role: 'CAM', top: '46%', left: '47%', type: 'pink' },
+                    { abbr: 'SON', role: 'LAM', top: '50%', left: '33%', type: 'ring' },
+                    { abbr: 'SAK', role: 'RAM', top: '50%', left: '61%', type: 'ring' },
+                    { abbr: 'ROD', role: 'LDM', top: '63%', left: '40%', type: 'ring' },
+                    { abbr: 'RICE', role: 'RDM', top: '63%', left: '54%', type: 'ring' },
+                    { abbr: 'UDO', role: 'LB', top: '76%', left: '31%', type: 'cyan' },
+                    { abbr: 'SAL', role: 'LCB', top: '76%', left: '42%', type: 'ring' },
+                    { abbr: 'GAB', role: 'RCB', top: '76%', left: '53%', type: 'ring' },
+                    { abbr: 'POR', role: 'RB', top: '76%', left: '63%', type: 'ring' },
+                    { abbr: 'ARE', role: 'GK', top: '86%', left: '47%', type: 'ring' }
+                ];
+
+                container.innerHTML = customNodes.map(n => {
+                    let nodeGraphic = '';
+                    if (n.type === 'cyan') {
+                        nodeGraphic = `<div style="width:20px;height:20px;border-radius:50%;background:#00D1FF;box-shadow:0 0 16px #00D1FF, 0 0 32px rgba(0,209,255,0.85);"></div>`;
+                    } else if (n.type === 'pink') {
+                        nodeGraphic = `<div style="width:20px;height:20px;border-radius:50%;background:#FF005A;box-shadow:0 0 16px #FF005A, 0 0 32px rgba(255,0,90,0.85);"></div>`;
+                    } else {
+                        nodeGraphic = `<div style="width:22px;height:22px;border-radius:50%;background:#090e0c;border:2.5px solid #ffffff;box-shadow:0 1px 4px rgba(0,0,0,0.6);"></div>`;
+                    }
+
+                    return `<div style="position:absolute;top:${n.top};left:${n.left};transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;cursor:pointer;z-index:10;">
+                        ${nodeGraphic}
+                        <span class="mono" style="font-size:10px;background:#090d0b;padding:1px 5px;margin-top:4px;border-radius:3px;color:#c5d8cd;white-space:nowrap;font-weight:700;border:1px solid #19271f;font-family:var(--font-mono);">${n.abbr}</span>
+                    </div>`;
+                }).join('');
+            }
+
+            const targetContainer = document.getElementById('target-zones-list');
+            if (targetContainer && data.targetZones) {
+                targetContainer.innerHTML = data.targetZones.map(tz => `
+                    <div style="background:#141d18;border-radius:10px;padding:16px;border:1px solid #1e2e24;">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+                            <div>
+                                <span class="mono" style="font-size:10px;text-transform:uppercase;padding:3px 8px;border-radius:4px;display:inline-block;margin-bottom:6px;font-weight:700;letter-spacing:0.05em;${tz.vulnClass === 'fdr-5' ? 'background:rgba(255,0,90,0.18);color:#FF005A;' : 'background:rgba(255,166,0,0.18);color:#FFA600;'}">${tz.vulnBadge}</span>
+                                <h4 style="font-size:15px;font-weight:700;color:#ffffff;margin:0;">${tz.zoneName}</h4>
+                            </div>
+                            <div style="text-align:right;">
+                                <div class="mono" style="font-size:11px;color:#6c8577;font-weight:500;">xPts</div>
+                                <div class="mono" style="font-size:16px;color:#ffffff;font-weight:700;">${tz.xPts}</div>
+                            </div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
+                            <div style="width:32px;height:32px;border-radius:4px;background:#1a2820;border:1px solid #23352a;overflow:hidden;flex-shrink:0;">
+                                <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${tz.player.code}.png" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
+                            </div>
+                            <div style="display:flex;flex-direction:column;">
+                                <span style="font-size:13px;font-weight:700;color:#ffffff;">${tz.player.name}</span>
+                                <span class="mono" style="font-size:11px;color:#6c8577;">${tz.player.fixture}</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            const dangerTbody = document.getElementById('danger-zones-table-body');
+            if (dangerTbody && data.dangerZones) {
+                dangerTbody.innerHTML = data.dangerZones.map(dz => {
+                    const valColor = dz.colorTier === 'fdr-5' ? '#FF005A' : dz.colorTier === 'fdr-4' ? '#FFA600' : '#dfe4e0';
+                    const barColor = dz.colorTier === 'fdr-5' ? '#FF005A' : dz.colorTier === 'fdr-4' ? '#FFA600' : '#00FF85';
+
+                    return `<tr style="border-bottom:1px solid #16251e;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                        <td style="padding:12px 16px;display:flex;align-items:center;gap:10px;">
+                            <span style="display:inline-block;width:3px;height:12px;border-radius:2px;background:${barColor};"></span>
+                            <span style="color:#ffffff;font-weight:700;font-size:13px;font-family:var(--font-mono);">${dz.fixture}</span>
                         </td>
-                        <td style="padding:var(--space-sm) var(--space-md);text-align:right;font-family:var(--font-mono);">£${(p.now_cost / 10).toFixed(1)}m</td>
-                        <td style="padding:var(--space-sm) var(--space-md);text-align:right;font-family:var(--font-mono);font-weight:700;color:var(--md-sys-color-primary);">${p.total_points}</td>
+                        <td style="padding:12px 16px;color:#6c8577;font-size:13px;">${dz.threatArea}</td>
+                        <td style="padding:12px 16px;text-align:right;font-weight:700;color:${valColor};font-family:var(--font-mono);font-size:13px;">${dz.xGConceded}</td>
                     </tr>`;
                 }).join('');
             }
         } catch (err) {
-            console.error('Ownership render error:', err);
+            console.error('Tactical zones render error:', err);
         }
     },
 
-    // ==================== RENDER: ZONES ====================
-    async renderZones() {
-        try {
-            const data = await this.apiFetch(this.API.zoneAnalysis(this.state.selectedGW));
-            this.state.zoneData = data;
-
-            if (data.zoneLabels) {
-                Object.entries(data.zoneLabels).forEach(([zone, label]) => {
-                    const el = document.getElementById(`zone-${zone}`);
-                    if (el) el.textContent = label;
-                });
-            }
-
-            // Zone breakdown
-            const breakdownEl = document.getElementById('zone-breakdown-content');
-            if (breakdownEl && data.teamAnalysis) {
-                const topTeams = data.teamAnalysis.slice(0, 5);
-                breakdownEl.innerHTML = topTeams.map(t => `
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:var(--space-xs) 0;border-bottom:1px solid var(--md-sys-color-outline-variant);">
-                        <span style="font-weight:600;font-size:0.875rem;">${t.teamName}</span>
-                        <span class="mono" style="font-weight:700;color:var(--md-sys-color-primary);">${(t.totalXG || 0).toFixed(1)} xGI</span>
-                    </div>
-                `).join('');
-            }
-        } catch (err) {
-            console.error('Zones render error:', err);
-        }
+    changeFormation(fmt) {
+        this.state.selectedFormation = fmt;
+        this.renderZones();
     },
 
     changeGW(delta) {
