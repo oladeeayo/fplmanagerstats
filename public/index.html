@@ -189,33 +189,27 @@
                 <!-- DASHBOARD -->
                 <div id="content-general" class="tab-content active">
                     <!-- Gameweek Overview Banner -->
-                    <section class="dash-stat-banner" style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:24px;position:relative;margin-bottom:24px;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:20px;">
-                            <div>
-                                <h1 style="font-size:26px;font-weight:700;color:#ffffff;margin:0;">Gameweek <span id="dash-gw-num">1</span> Overview</h1>
-                                <p style="font-size:13px;color:#8ba396;margin-top:6px;">Live updates. Last updated: <span id="dash-last-updated">just now</span></p>
+                    <section class="dash-stat-banner" style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;position:relative;margin-bottom:20px;">
+                        <div class="dash-stat-title" style="text-align:center;margin-bottom:16px;">
+                            <h1 style="font-size:22px;font-weight:700;color:#ffffff;margin:0;">Gameweek <span id="dash-gw-num">1</span></h1>
+                            <p style="font-size:11px;color:#8ba396;margin-top:4px;">Last updated: <span id="dash-last-updated">just now</span></p>
+                        </div>
+                        <div class="dash-stat-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;">
+                            <div class="dash-stat-item" style="text-align:center;padding:8px 4px;border-right:1px solid #1A2E28;">
+                                <div style="font-size:9px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);font-weight:700;letter-spacing:0.06em;">AVG</div>
+                                <div style="font-size:20px;font-weight:700;color:#ffffff;margin-top:2px;" id="dash-gw-avg">--</div>
                             </div>
-                            <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
-                                <div style="display:flex;flex-direction:column;align-items:center;">
-                                    <span style="font-size:10px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);font-weight:700;letter-spacing:0.08em;">GW Average</span>
-                                    <span style="font-size:24px;font-weight:700;color:#ffffff;margin-top:2px;" id="dash-gw-avg">42<span style="font-size:13px;color:#8ba396;margin-left:3px;font-weight:400;">pts</span></span>
-                                </div>
-                                <div style="width:1px;height:40px;background:#1A2E28;"></div>
-                                <div style="display:flex;flex-direction:column;align-items:center;">
-                                    <span style="font-size:10px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);font-weight:700;letter-spacing:0.08em;">Highest Score</span>
-                                    <span style="font-size:24px;font-weight:700;color:#00ff85;margin-top:2px;" id="dash-highest-score">118<span style="font-size:13px;color:#8ba396;margin-left:3px;font-weight:400;">pts</span></span>
-                                </div>
-                                <div style="width:1px;height:40px;background:#1A2E28;"></div>
-                                <div style="display:flex;flex-direction:column;align-items:center;">
-                                    <span style="font-size:10px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);font-weight:700;letter-spacing:0.08em;">Total Transfers</span>
-                                    <span style="font-size:24px;font-weight:700;color:#ffffff;margin-top:2px;" id="dash-total-transfers">--</span>
-                                </div>
-                                <div style="width:1px;height:40px;background:#1A2E28;"></div>
-                                <div style="display:flex;flex-direction:column;align-items:center;">
-                                    <span style="font-size:10px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);font-weight:700;letter-spacing:0.08em;">Next Deadline</span>
-                                    <div id="dash-countdown" style="font-size:20px;font-weight:700;color:#00ff85;font-family:var(--font-mono);margin-top:2px;">--:--:--</div>
-                                    <div id="dash-deadline-date" style="font-size:10px;color:#8ba396;margin-top:2px;"></div>
-                                </div>
+                            <div class="dash-stat-item" style="text-align:center;padding:8px 4px;border-right:1px solid #1A2E28;">
+                                <div style="font-size:9px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);font-weight:700;letter-spacing:0.06em;">BEST</div>
+                                <div style="font-size:20px;font-weight:700;color:#00ff85;margin-top:2px;" id="dash-highest-score">--</div>
+                            </div>
+                            <div class="dash-stat-item" style="text-align:center;padding:8px 4px;border-right:1px solid #1A2E28;">
+                                <div style="font-size:9px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);font-weight:700;letter-spacing:0.06em;">XFER</div>
+                                <div style="font-size:20px;font-weight:700;color:#ffffff;margin-top:2px;" id="dash-total-transfers">--</div>
+                            </div>
+                            <div class="dash-stat-item" style="text-align:center;padding:8px 4px;">
+                                <div style="font-size:9px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);font-weight:700;letter-spacing:0.06em;">DEADLINE</div>
+                                <div id="dash-countdown" style="font-size:18px;font-weight:700;color:#00ff85;font-family:var(--font-mono);margin-top:2px;">--:--</div>
                             </div>
                         </div>
                     </section>
@@ -474,7 +468,7 @@
                     <!-- Squad Performance Table Section -->
                     <div style="margin-bottom:24px;">
                         <h2 style="font-size:18px;font-weight:700;color:#ffffff;margin:0 0 16px 0;font-family:var(--font-display);">Squad Performance</h2>
-                        <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;">
+                        <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;overflow:clip;">
                             <div class="table-scroll-mobile">
                                 <table style="width:100%;border-collapse:collapse;text-align:left;">
                                     <thead>
@@ -578,7 +572,7 @@
                     </div>
 
                     <!-- Data Table (Standings) -->
-                    <div style="background:#022B1E;border:1px solid #333333;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;">
+                    <div style="background:#022B1E;border:1px solid #333333;border-radius:12px;overflow:clip;display:flex;flex-direction:column;">
                         <div class="league-table-wrap">
                             <table style="width:100%;border-collapse:collapse;font-size:14px;white-space:nowrap;min-width:700px;">
                                 <thead>
@@ -636,7 +630,7 @@
                     </div>
 
                     <!-- Data Table Container -->
-                    <div style="background:#1E1E1E;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;">
+                    <div style="background:#1E1E1E;border:1px solid #1A2E28;border-radius:12px;overflow:clip;">
                         <div class="players-table-wrap">
                             <table style="width:100%;border-collapse:collapse;white-space:nowrap;">
                                 <thead style="background:#333333;border-bottom:1px solid #1A2E28;font-family:var(--font-mono);font-size:11px;text-transform:uppercase;">
@@ -760,7 +754,7 @@
                             </div>
 
                             <!-- Fixture Grid Container -->
-                            <div style="background:#1c211e;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;">
+                            <div style="background:#1c211e;border:1px solid #1A2E28;border-radius:12px;overflow:clip;">
                         <div class="table-scroll-mobile">
                                     <table style="width:100%;border-collapse:collapse;white-space:nowrap;">
                                         <thead>
@@ -896,7 +890,7 @@
                     </div>
 
                     <!-- Main Data Table Container -->
-                    <div style="background:#1E1E1E;border:1px solid #333333;border-radius:12px;overflow:hidden;">
+                    <div style="background:#1E1E1E;border:1px solid #333333;border-radius:12px;overflow:clip;">
                         <!-- Header -->
                         <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid #333333;background:rgba(255,255,255,0.02);">
                             <h2 id="cap-table-title" style="font-family:var(--font-display);font-size:18px;font-weight:700;margin:0;">Top 15 Captain Picks</h2>
@@ -1004,7 +998,7 @@
                     </div>
 
                     <!-- Main Table Section -->
-                    <div style="background:#1E1E1E;border:1px solid #333333;border-radius:12px;overflow:hidden;">
+                    <div style="background:#1E1E1E;border:1px solid #333333;border-radius:12px;overflow:clip;">
                         <!-- Toolbar -->
                         <div style="padding:16px 24px;border-bottom:1px solid #333333;">
                             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">

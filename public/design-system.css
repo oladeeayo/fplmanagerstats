@@ -807,8 +807,8 @@ select.input {
     .topbar { padding: 0 12px; height: 52px; }
     .topbar-left { gap: 8px; }
 
-    /* Content area */
-    .layout-content { padding: 12px; padding-bottom: 84px; }
+    /* Content area - prevent page-level overflow but allow inner scroll */
+    .layout-content { padding: 10px; padding-bottom: 84px; overflow-x: clip; }
 
     /* Dialog */
     .dialog { width: 95%; margin: 12px; }
@@ -820,15 +820,81 @@ select.input {
     /* Tabs */
     .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding: 0 8px; }
     .tabs::-webkit-scrollbar { display: none; }
-    .tab { padding: 8px 12px; font-size: 0.8125rem; white-space: nowrap; }
+    .tab { padding: 6px 10px; font-size: 0.75rem; white-space: nowrap; }
 
     /* Card headers */
-    .card-header { padding: 8px 12px; }
-    .card-body { padding: 8px 12px; }
+    .card-header { padding: 8px 10px; }
+    .card-body { padding: 6px 8px; }
 
-    /* Tables base */
-    table { font-size: 12px; }
-    th, td { padding: 6px 8px; }
+    /* ==================== TABLE COMPACTNESS ==================== */
+    /* Force all tables to be compact on mobile - override inline styles */
+    table { font-size: 11px !important; border-collapse: collapse; box-sizing: border-box; }
+    th { padding: 6px 8px !important; font-size: 10px !important; white-space: nowrap; box-sizing: border-box; }
+    td { padding: 5px 8px !important; white-space: nowrap; box-sizing: border-box; }
+
+    /* Make all table containers scrollable and contain overflow */
+    .card-body,
+    .players-table-wrap,
+    .league-table-wrap,
+    .table-scroll-mobile {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        max-width: 100%;
+        position: relative;
+    }
+
+    /* Hide scrollbar but keep scroll */
+    .card-body::-webkit-scrollbar,
+    .players-table-wrap::-webkit-scrollbar,
+    .league-table-wrap::-webkit-scrollbar,
+    .table-scroll-mobile::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Sticky first column for ALL tables inside scroll wrappers */
+    .players-table-wrap table,
+    .league-table-wrap table,
+    .table-scroll-mobile table,
+    .card-body table {
+        min-width: 480px;
+        border-collapse: separate;
+        border-spacing: 0;
+        width: max-content;
+    }
+    .players-table-wrap th:first-child,
+    .players-table-wrap td:first-child,
+    .league-table-wrap th:first-child,
+    .league-table-wrap td:first-child,
+    .table-scroll-mobile th:first-child,
+    .table-scroll-mobile td:first-child,
+    .card-body th:first-child,
+    .card-body td:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 10;
+    }
+    .players-table-wrap th:first-child,
+    .league-table-wrap th:first-child,
+    .table-scroll-mobile th:first-child,
+    .card-body th:first-child {
+        background: #1c211e;
+    }
+    .players-table-wrap td:first-child,
+    .league-table-wrap td:first-child,
+    .table-scroll-mobile td:first-child,
+    .card-body td:first-child {
+        background: #141916;
+    }
+
+    /* Player stats specific - darker header */
+    .players-table-wrap thead th:first-child { background: #333333; }
+
+    /* League standings - specific bg */
+    .league-table-wrap th:first-child { background: #022B1E; }
+    .league-table-wrap td:first-child { background: #022B1E; }
+
+    /* Prevent page-level horizontal overflow */
+    body { overflow-x: hidden; }
 
     /* Bottom nav */
     .bottom-nav-item { min-width: 0; flex: 1; }
@@ -837,32 +903,44 @@ select.input {
     /* Pitch */
     .pitch { min-height: 300px; }
 
-    /* Dashboard stats banner - stack vertically */
-    .dash-stat-banner { flex-direction: column !important; align-items: stretch !important; gap: 0 !important; }
-    .dash-stat-banner > div { flex-direction: row !important; justify-content: space-between !important; align-items: center !important; padding: 10px 0 !important; }
-    .dash-stat-banner > div + div { border-top: 1px solid #1A2E28; }
-    .dash-stat-banner > div[style*="width:1px"] { display: none !important; }
+    /* ==================== DASHBOARD STATS BANNER ==================== */
+    .dash-stat-banner { padding: 14px 10px !important; }
+    .dash-stat-title { margin-bottom: 10px !important; }
+    .dash-stat-title h1 { font-size: 18px !important; }
+    .dash-stat-grid {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 0 !important;
+    }
+    .dash-stat-item {
+        padding: 8px 4px !important;
+        border-right: none !important;
+    }
+    .dash-stat-item:nth-child(1),
+    .dash-stat-item:nth-child(2) {
+        border-bottom: 1px solid #1A2E28 !important;
+    }
+    .dash-stat-item:nth-child(odd) {
+        border-right: 1px solid #1A2E28 !important;
+    }
+    .dash-stat-item div[style*="font-size:20px"],
+    .dash-stat-item div[style*="font-size:18px"] {
+        font-size: 16px !important;
+    }
 
     /* Player filter bar */
-    .player-filter-bar { flex-direction: column !important; align-items: stretch !important; }
-    .player-filter-bar > div { justify-content: center !important; }
+    .player-filter-bar { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
+    .player-filter-bar > div { justify-content: center !important; flex-wrap: wrap !important; }
 
     /* Position summary grid */
     .team-bento-4 { grid-template-columns: 1fr !important; }
     .team-bento-2 { grid-template-columns: 1fr !important; }
     .league-bento-3 { grid-template-columns: 1fr !important; }
 
-    /* Table freeze on mobile - for card-body tables */
-    .card-body { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .card-body table { min-width: 500px; }
-    .card-body table th:first-child,
-    .card-body table td:first-child {
-        position: sticky;
-        left: 0;
-        z-index: 10;
-    }
-    .card-body table th:first-child { background: #1c211e; }
-    .card-body table td:first-child { background: #141916; }
+    /* Section spacing */
+    section { margin-bottom: 16px !important; }
+
+    /* Buttons and interactive elements - bigger touch targets */
+    button { min-height: 32px; }
 }
 
 /* Small mobile */
@@ -875,81 +953,16 @@ select.input {
     .bottom-nav-item { padding: 6px 0; }
     .layout-content { padding: 8px; padding-bottom: 84px; }
 
+    /* Even more compact tables on small screens */
+    table { font-size: 10px !important; }
+    th { padding: 4px 6px !important; font-size: 9px !important; }
+    td { padding: 4px 6px !important; }
+
     /* Position summary cards - compact on small screens */
-    .team-bento-4 > div { padding: 14px !important; }
-}
+    .team-bento-4 > div { padding: 12px !important; }
 
-/* ==================== TABLE STICKY COLUMNS ==================== */
-
-/* Player stats table - sticky first column */
-.players-table-wrap {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-}
-
-@media (max-width: 768px) {
-    .players-table-wrap {
-        position: relative;
-    }
-    .players-table-wrap table {
-        min-width: 700px;
-    }
-    .players-table-wrap table th:first-child,
-    .players-table-wrap table td:first-child {
-        position: sticky;
-        left: 0;
-        z-index: 10;
-    }
-    .players-table-wrap table th:first-child {
-        background: #333333;
-    }
-    .players-table-wrap table td:first-child {
-        background: #1E1E1E;
-    }
-    /* Ensure alternating row backgrounds work with sticky */
-    .players-table-wrap table tr:nth-child(even) td:first-child {
-        background: #1A1A1A;
-    }
-}
-
-/* League table - sticky first column */
-.league-table-wrap {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-}
-
-@media (max-width: 768px) {
-    .league-table-wrap table {
-        min-width: 500px;
-    }
-    .league-table-wrap table th:first-child,
-    .league-table-wrap table td:first-child {
-        position: sticky;
-        left: 0;
-        z-index: 10;
-    }
-    .league-table-wrap table th:first-child { background: #1c211e; }
-    .league-table-wrap table td:first-child { background: #141916; }
-}
-
-/* Generic table scroll wrapper */
-.table-scroll-mobile {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-}
-
-@media (max-width: 768px) {
-    .table-scroll-mobile table {
-        min-width: 500px;
-    }
-    .table-scroll-mobile table th:first-child,
-    .table-scroll-mobile table td:first-child {
-        position: sticky;
-        left: 0;
-        z-index: 10;
-    }
-    .table-scroll-mobile table th:first-child { background: #1c211e; }
-    .table-scroll-mobile table td:first-child { background: #141916; }
+    /* Dashboard title */
+    .dash-stat-banner h1 { font-size: 18px !important; }
 }
 
 /* ==================== END RESPONSIVE ==================== */

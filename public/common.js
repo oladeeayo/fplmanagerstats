@@ -385,11 +385,11 @@ const FPL = {
             const gwNumEl = document.getElementById('dash-gw-num');
             if (gwNumEl) gwNumEl.textContent = data.gw || '24';
             const gwAvgEl = document.getElementById('dash-gw-avg');
-            if (gwAvgEl) gwAvgEl.innerHTML = `${data.gwAverage || 42}<span style="font-size:14px;color:#8ba396;margin-left:4px;font-weight:400;">pts</span>`;
+            if (gwAvgEl) gwAvgEl.textContent = data.gwAverage || '--';
             const highestEl = document.getElementById('dash-highest-score');
-            if (highestEl) highestEl.innerHTML = `${data.highestScore || 118}<span style="font-size:14px;color:#8ba396;margin-left:4px;font-weight:400;">pts</span>`;
+            if (highestEl) highestEl.textContent = data.highestScore || '--';
             const transfersEl = document.getElementById('dash-total-transfers');
-            if (transfersEl) transfersEl.textContent = data.totalTransfers || '3.4M';
+            if (transfersEl) transfersEl.textContent = data.totalTransfers || '--';
 
             const fdrColors = {
                 1: 'background:#00FF85;color:#0a0f0d;',
@@ -2133,7 +2133,7 @@ const FPL = {
             <div class="card">
                 <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">calendar_today</span> Gameweek History</h3></div>
                 <div class="card-body">
-                    <div class="table-scroll-wrap">
+                    <div class="table-scroll-mobile">
                         <table style="width:100%;border-collapse:collapse;font-size:13px;">
                             <thead>
                                 <tr style="border-bottom:2px solid #1A2E28;background:#1c211e;">
@@ -2184,7 +2184,7 @@ const FPL = {
             <div class="card">
                 <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">emoji_events</span> Past Seasons</h3></div>
                 <div class="card-body">
-                    <div class="table-scroll-wrap">
+                    <div class="table-scroll-mobile">
                         <table style="width:100%;border-collapse:collapse;font-size:13px;">
                             <thead>
                                 <tr style="border-bottom:2px solid #1A2E28;background:#1c211e;">
