@@ -7,7 +7,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Neon database connection
-const NEON_URL = process.env.NEON_DATABASE_URL || 'REMOVED_NEON_DATABASE_URL';
+const NEON_URL = process.env.NEON_DATABASE_URL;
+if (!NEON_URL) throw new Error('NEON_DATABASE_URL is required');
 const sql = neon(NEON_URL);
 
 // Initialize database table
