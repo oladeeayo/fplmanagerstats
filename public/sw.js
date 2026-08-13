@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fpl-stats-v4';
+const CACHE_NAME = 'fpl-stats-v5';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
