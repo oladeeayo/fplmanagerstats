@@ -2566,6 +2566,7 @@ const FPL = {
 
     // ==================== RENDER: SET PIECE TAKERS ====================
     async renderSetPieces() {
+        const container = document.getElementById('setpieces-table-container');
         const tbody = document.getElementById('setpieces-tbody');
         if (!tbody) return;
 
@@ -2576,68 +2577,78 @@ const FPL = {
 
             const teamEntries = Object.entries(sp).sort((a, b) => a[1].teamFull.localeCompare(b[1].teamFull));
 
-            const renderPlayerCell = (players, statType) => {
-                if (!players || players.length === 0) return '<span style="color:#5a7a66;">TBD</span>';
-                return players.map((p, i) => {
-                    const isFirst = i === 0;
-                    const weight = isFirst ? '700' : '500';
-                    const color = isFirst ? '#fff' : '#8ba396';
-                    const dot = isFirst ? '<span style="width:5px;height:5px;border-radius:50%;background:#00ff85;flex-shrink:0;"></span>' : '<span style="width:5px;height:5px;flex-shrink:0;"></span>';
-                    const border = i < players.length - 1 ? 'border-bottom:1px solid #111;' : '';
-                    const imgUrl = p.code ? 'https://resources.premierleague.com/premierleague25/r268/p' + p.code + '/ico/250.png' : '';
+            const posColors = { FWD: '#FF005A', MID: '#37DB59', DEF: '#6496ff', GKP: '#ffa600' };
 
-                    let statLabel = '';
-                    if (statType === 'penalties') {
-                        statLabel = '<span style="color:#00ff85;" title="Total Goals">' + (p.goals ?? 0) + 'G</span>';
-                        if (p.penaltiesMissed && p.penaltiesMissed > 0) {
-                            statLabel += ' <span style="color:#ff005a;font-size:10px;" title="Penalties Missed">(' + p.penaltiesMissed + ' PM)</span>';
-                        }
-                        if (p.xG && parseFloat(p.xG) > 0) {
-                            statLabel += ' <span style="color:#00e5ff;font-size:10px;" title="Expected Goals">(' + p.xG + ' xG)</span>';
-                        }
-                    } else if (statType === 'freeKicks') {
-                        statLabel = '<span style="color:#00ff85;" title="Goals">' + (p.goals ?? 0) + 'G</span> <span style="color:#ffa600;" title="Assists">' + (p.assists ?? 0) + 'A</span>';
-                        if (p.xG && parseFloat(p.xG) > 0) {
-                            statLabel += ' <span style="color:#00e5ff;font-size:10px;" title="xG Threat">(' + p.xG + ' xG)</span>';
-                        }
-                    } else if (statType === 'corners') {
-                        statLabel = '<span style="color:#ffa600;" title="Assists">' + (p.assists ?? 0) + 'A</span> <span style="color:#00ff85;" title="Goals">' + (p.goals ?? 0) + 'G</span>';
-                        if (p.xA && parseFloat(p.xA) > 0) {
-                            statLabel += ' <span style="color:#00e5ff;font-size:10px;" title="xA Chance Creation">(' + p.xA + ' xA)</span>';
-                        }
-                    }
+            const renderPlayer = (p, idx, total) => {
+                if (!p.found) {
+                    return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;color:#5a7a66;font-size:12px;">' + p.name + ' (not in FPL)</div>';
+                }
+                const isPrimary = idx === 0;
+                const bg = isPrimary ? 'rgba(0,255,133,0.06)' : 'transparent';
+                const borderL = isPrimary ? 'border-left:2px solid #00ff85;' : 'border-left:2px solid transparent;';
+                const rank = idx + 1;
+                const imgUrl = p.code ? ('https://resources.premierleague.com/premierleague25/r268/p' + p.code + '/ico/250.png') : '';
+                const posColor = posColors[p.position] || '#8ba396';
 
-                    return '<div style="display:flex;align-items:center;gap:6px;padding:6px 0;' + border + '">'
-                        + dot
-                        + (imgUrl ? '<img src="' + imgUrl + '" style="width:28px;height:28px;border-radius:50%;object-fit:cover;background:#1c211e;border:1px solid #1A2E28;" onerror="this.style.display=\'none\'">' : '')
-                        + '<div style="min-width:0;flex:1;">'
-                        + '<div style="font-size:13px;font-weight:' + weight + ';color:' + color + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + p.name + '</div>'
-                        + '<div style="font-size:11px;color:#5a7a66;font-family:var(--font-mono);">'
-                        + (p.position || '') + ' <span style="color:#00ff85;">' + (p.costStr || '') + '</span>'
-                        + '</div>'
-                        + '</div>'
-                        + '<div style="text-align:right;font-family:var(--font-mono);font-size:11px;white-space:nowrap;">'
-                        + statLabel
-                        + '</div>'
-                        + '</div>';
-                }).join('');
+                return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:' + bg + ';' + borderL + 'border-radius:6px;margin-bottom:2px;">'
+                    + '<div style="width:34px;height:34px;border-radius:50%;background:#1c211e;border:1px solid #1A2E28;overflow:hidden;flex-shrink:0;">'
+                    + (imgUrl ? '<img src="' + imgUrl + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display=\'none\'">' : '')
+                    + '</div>'
+                    + '<div style="flex:1;min-width:0;">'
+                    + '<div style="font-size:13px;font-weight:' + (isPrimary ? '700' : '500') + ';color:' + (isPrimary ? '#fff' : '#ccc') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + p.name + '</div>'
+                    + '<div style="display:flex;align-items:center;gap:6px;margin-top:2px;">'
+                    + '<span style="font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;background:' + posColor + '22;color:' + posColor + ';">' + p.position + '</span>'
+                    + '<span style="font-size:11px;color:#00ff85;font-family:var(--font-mono);font-weight:600;">' + p.costStr + '</span>'
+                    + '</div>'
+                    + '</div>'
+                    + '<div style="text-align:right;font-family:var(--font-mono);font-size:11px;white-space:nowrap;">'
+                    + '<div style="color:#fff;font-weight:600;">' + p.goals + '<span style="color:#5a7a66;">G</span> ' + p.assists + '<span style="color:#5a7a66;">A</span></div>'
+                    + '<div style="color:#5a7a66;margin-top:1px;">' + p.totalPoints + ' pts</div>'
+                    + '</div>'
+                    + '</div>';
             };
 
             let html = '';
-            teamEntries.forEach(([teamId, team]) => {
-                html += '<tr style="border-bottom:1px solid #1A2E28;">'
-                    + '<td style="padding:12px 16px;">'
+            teamEntries.forEach(([shortName, team]) => {
+                html += '<tr style="border-bottom:1px solid #1A2E28;vertical-align:top;">';
+
+                // Team cell
+                html += '<td style="padding:16px 14px;min-width:140px;">'
                     + '<div style="display:flex;align-items:center;gap:10px;">'
-                    + '<div style="width:32px;height:32px;border-radius:8px;background:#1c211e;border:1px solid #1A2E28;display:flex;align-items:center;justify-content:center;">'
+                    + '<div style="width:36px;height:36px;border-radius:8px;background:#1c211e;border:1px solid #1A2E28;display:flex;align-items:center;justify-content:center;">'
                     + '<span style="font-size:11px;font-weight:700;color:#8ba396;font-family:var(--font-mono);">' + team.teamName + '</span>'
                     + '</div>'
-                    + '<div style="font-size:13px;font-weight:600;color:#fff;">' + team.teamFull + '</div>'
+                    + '<div>'
+                    + '<div style="font-size:14px;font-weight:700;color:#fff;">' + team.teamFull + '</div>'
                     + '</div>'
-                    + '</td>'
-                    + '<td style="padding:12px 16px;min-width:240px;">' + renderPlayerCell(team.penalties, 'penalties') + '</td>'
-                    + '<td style="padding:12px 16px;min-width:240px;">' + renderPlayerCell(team.freeKicks, 'freeKicks') + '</td>'
-                    + '<td style="padding:12px 16px;min-width:240px;">' + renderPlayerCell(team.corners, 'corners') + '</td>'
-                    + '</tr>';
+                    + '</div>'
+                    + '</td>';
+
+                // Penalties
+                html += '<td style="padding:16px 12px;min-width:250px;">'
+                    + '<div style="font-size:10px;font-weight:700;color:#ffa600;text-transform:uppercase;letter-spacing:0.08em;font-family:var(--font-mono);margin-bottom:8px;display:flex;align-items:center;gap:6px;">'
+                    + '<span class="material-symbols-outlined" style="font-size:14px;">sports_soccer</span> Penalties'
+                    + '</div>';
+                team.penalties.forEach((p, i) => { html += renderPlayer(p, i, team.penalties.length); });
+                html += '</td>';
+
+                // Direct Free-Kicks
+                html += '<td style="padding:16px 12px;min-width:250px;">'
+                    + '<div style="font-size:10px;font-weight:700;color:#6496ff;text-transform:uppercase;letter-spacing:0.08em;font-family:var(--font-mono);margin-bottom:8px;display:flex;align-items:center;gap:6px;">'
+                    + '<span class="material-symbols-outlined" style="font-size:14px;">my_location</span> Direct Free-Kicks'
+                    + '</div>';
+                team.freeKicks.forEach((p, i) => { html += renderPlayer(p, i, team.freeKicks.length); });
+                html += '</td>';
+
+                // Corners
+                html += '<td style="padding:16px 12px;min-width:250px;">'
+                    + '<div style="font-size:10px;font-weight:700;color:#c084fc;text-transform:uppercase;letter-spacing:0.08em;font-family:var(--font-mono);margin-bottom:8px;display:flex;align-items:center;gap:6px;">'
+                    + '<span class="material-symbols-outlined" style="font-size:14px;">corner_right_up</span> Corners & Indirect FKs'
+                    + '</div>';
+                team.corners.forEach((p, i) => { html += renderPlayer(p, i, team.corners.length); });
+                html += '</td>';
+
+                html += '</tr>';
             });
 
             tbody.innerHTML = html;

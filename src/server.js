@@ -1994,109 +1994,67 @@ app.get('/api/differentials', async (req, res) => {
   }
 });
 
-// ---- Set Piece Takers (Official FPL Scout data) ----
-const OFFICIAL_SET_PIECES = {
-  'Arsenal': {
-    penalties: ['Saka', 'Gyökeres', 'Ødegaard'],
-    freeKicks: ['Rice', 'Saka', 'Eze'],
-    corners: ['Rice', 'Saka', 'Ødegaard', 'Tzolis', 'Madueke']
-  },
-  'Aston Villa': {
-    penalties: ['Buendía', 'Watkins'],
-    freeKicks: ['Buendía'],
-    corners: ['Cash', 'McGinn']
-  },
-  'Bournemouth': {
-    penalties: ['Kroupi.Jr', 'Kluivert', 'Tavernier'],
-    freeKicks: ['Tavernier', 'Kluivert', 'Brooks', 'Scott', 'Enes Ünal'],
-    corners: ['Tavernier', 'Scott', 'Kluivert', 'Brooks', 'Cook', 'Christie']
-  },
-  'Brentford': {
-    penalties: ['Thiago', 'Schade', 'Jensen'],
-    freeKicks: ['Lewis-Potter', 'Jensen', 'Damsgaard'],
-    corners: ['Jensen', 'Damsgaard', 'Janelt', 'O.Dango']
-  },
-  'Brighton': {
-    penalties: ['Groß', "O'Riley"],
-    freeKicks: ['Ayari', 'Dunk', 'De Cuyper', 'Gomez'],
-    corners: ['Groß', 'F.Kadıoğlu', 'Minteh', 'De Cuyper', 'Ayari']
-  },
-  'Chelsea': {
-    penalties: ['Palmer', 'Enzo', 'Estêvão', 'Delap'],
-    freeKicks: ['James', 'Enzo', 'Palmer', 'Neto'],
-    corners: ['James', 'Enzo', 'Neto', 'Estêvão']
-  },
-  'Coventry City': {
-    penalties: ['Wright', 'Torp', 'Grimes', 'Thomas-Asante'],
-    freeKicks: ['Rudoni', 'Torp'],
-    corners: ['Grimes', 'Torp', 'Rudoni']
-  },
-  'Crystal Palace': {
-    penalties: ['Mateta', 'Sarr', 'Devenny'],
-    freeKicks: ['Yeremy', 'Devenny'],
-    corners: ['Wharton', 'Yeremy', 'Hughes', 'Kamada']
-  },
-  'Everton': {
-    penalties: ['Ndiaye', 'Barry', 'Garner', 'Beto'],
-    freeKicks: ['Garner'],
-    corners: ['Garner', 'Dewsbury-Hall']
-  },
-  'Fulham': {
-    penalties: ['Robinson', 'Iwobi'],
-    freeKicks: ['Iwobi'],
-    corners: ['Iwobi', 'Bobb', 'Kevin']
-  },
-  'Hull City': {
-    penalties: ['Crooks', 'McBurnie'],
-    freeKicks: ['Giles', 'Belloumi'],
-    corners: ['Giles', 'Slater', 'Belloumi']
-  },
-  'Ipswich Town': {
-    penalties: ['Hirst', 'Clarke', 'Philogene'],
-    freeKicks: ['Núñez', 'Davis', 'Clarke'],
-    corners: ['Núñez', 'Davis', 'Clarke', 'Philogene']
-  },
-  'Leeds': {
-    penalties: ['Calvert-Lewin', 'Nmecha', 'Piroe'],
-    freeKicks: ['Stach', 'Longstaff', 'Aaronson'],
-    corners: ['Stach', 'Wilson', 'Longstaff', 'Tanaka']
-  },
-  'Liverpool': {
-    penalties: ['Isak', 'Szoboszlai', 'Gakpo', 'Wirtz', 'Mac Allister'],
-    freeKicks: ['Szoboszlai', 'Wirtz'],
-    corners: ['Szoboszlai', 'Gakpo', 'Wirtz']
-  },
-  'Man City': {
-    penalties: ['Haaland', 'Marmoush', 'Semenyo', 'Doku', 'Matheus N.'],
-    freeKicks: ['Cherki', 'Marmoush', 'Foden', 'Reijnders'],
-    corners: ['Cherki', 'Foden', 'Anderson', 'Reijnders']
-  },
-  'Man Utd': {
-    penalties: ['B.Fernandes', 'Mbeumo', 'Tielemans'],
-    freeKicks: ['B.Fernandes', 'Mbeumo', 'Mount'],
-    corners: ['B.Fernandes', 'Mbeumo', 'Shaw', 'Amad']
-  },
-  'Newcastle': {
-    penalties: ['Woltemade', 'Osula', 'Wissa'],
-    freeKicks: ['Hall', 'Schär'],
-    corners: ['Hall', 'J.Murphy', 'L.Miley', 'Elanga']
-  },
-  "Nott'm Forest": {
-    penalties: ['Wood', 'Gibbs-White', 'Igor Jesus'],
-    freeKicks: ['Gibbs-White', 'Murillo', 'N.Williams', 'Hudson-Odoi'],
-    corners: ['N.Williams', 'Hutchinson', 'Ndoye', 'Bakwa']
-  },
-  'Spurs': {
-    penalties: ['Solanke', 'Kudus', 'Xavi', 'Richarlison'],
-    freeKicks: ['Pedro Porro', 'Xavi', 'Kudus', 'Tonali'],
-    corners: ['Pedro Porro', 'Kudus', 'Tel', 'Xavi', 'Tonali']
-  },
-  'Sunderland': {
-    penalties: ['Diarra', 'E.Le Fée'],
-    freeKicks: ['Xhaka', 'E.Le Fée'],
-    corners: ['E.Le Fée', 'Xhaka', 'Hume']
-  }
+// ---- Set Piece Takers (Official FPL Scout Data) ----
+const SET_PIECE_DATA = {
+  'ARS': { penalties: ['Saka','Gy\u00f6keres','\u00d8degaard'], freeKicks: ['Rice','Saka','Eze'], corners: ['Rice','Saka','\u00d8degaard','Tzolis','Madueke'] },
+  'AVL': { penalties: ['Buend\u00eda','Watkins'], freeKicks: ['Buend\u00eda'], corners: ['Cash','McGinn'] },
+  'BOU': { penalties: ['Kroupi','Kluivert','Tavernier'], freeKicks: ['Tavernier','Kluivert','Brooks','Scott','\u00dcnal'], corners: ['Tavernier','Scott','Kluivert','Brooks','Cook','Christie'] },
+  'BRE': { penalties: ['Thiago','Schade','Jensen'], freeKicks: ['Lewis-Potter','Jensen','Damsgaard'], corners: ['Jensen','Damsgaard','Janelt','Dango'] },
+  'BHA': { penalties: ['Gr\u00f8s','O\'Riley'], freeKicks: ['Ayari','Dunk','De Cuyper','Gomez'], corners: ['Gr\u00f8s','Kad\u0131o\u011flu','Minteh','De Cuyper','Ayari'] },
+  'CHE': { penalties: ['Palmer','Enzo','Est\u00eav\u00e3o','Delap'], freeKicks: ['James','Enzo','Palmer','Neto'], corners: ['James','Enzo','Neto','Est\u00eav\u00e3o'] },
+  'COV': { penalties: ['Wright','Torp','Grimes','Thomas-Asante'], freeKicks: ['Rudoni','Torp'], corners: ['Grimes','Torp','Rudoni'] },
+  'CRY': { penalties: ['Mateta','Sarr','Devenny'], freeKicks: ['Yeremy','Devenny'], corners: ['Wharton','Yeremy','Hughes','Kamada'] },
+  'EVE': { penalties: ['Ndiaye','Barry','Garner','Beto'], freeKicks: ['Garner'], corners: ['Garner','Dewsbury-Hall'] },
+  'FUL': { penalties: ['Robinson','Iwobi'], freeKicks: ['Iwobi'], corners: ['Iwobi','Bobb','Kevin'] },
+  'HUL': { penalties: ['Crooks','McBurnie'], freeKicks: ['Giles','Belloumi'], corners: ['Giles','Slater','Belloumi'] },
+  'IPS': { penalties: ['Hirst','Clarke','Philogene'], freeKicks: ['N\u00fa\u00f1ez','Davis','Clarke'], corners: ['N\u00fa\u00f1ez','Davis','Clarke','Philogene'] },
+  'LEE': { penalties: ['Calvert-Lewin','Nmecha','Piroe'], freeKicks: ['Stach','Longstaff','Aaronson'], corners: ['Stach','Wilson','Longstaff','Tanaka'] },
+  'LIV': { penalties: ['Isak','Szoboszlai','Gakpo','Wirtz','Mac Allister'], freeKicks: ['Szoboszlai','Wirtz'], corners: ['Szoboszlai','Gakpo','Wirtz'] },
+  'MCI': { penalties: ['Haaland','Marmoush','Semenyo','Doku','Matheus N.'], freeKicks: ['Cherki','Marmoush','Foden','Reijnders'], corners: ['Cherki','Foden','Anderson','Reijnders'] },
+  'MUN': { penalties: ['B.Fernandes','Mbeumo','Tielemans'], freeKicks: ['B.Fernandes','Mbeumo','Mount'], corners: ['B.Fernandes','Mbeumo','Shaw','Amad'] },
+  'NEW': { penalties: ['Woltemade','Osula','Wissa'], freeKicks: ['Hall','Sch\u00e4r'], corners: ['Hall','J.Murphy','L.Miley','Elanga'] },
+  'NFO': { penalties: ['Wood','Gibbs-White','Igor Jesus'], freeKicks: ['Gibbs-White','Murillo','N.Williams','Hudson-Odoi'], corners: ['N.Williams','Hutchinson','Ndoye','Bakwa'] },
+  'TOT': { penalties: ['Solanke','Kudus','Xavi','Richarlison'], freeKicks: ['Pedro Porro','Xavi','Kudus','Tonali'], corners: ['Pedro Porro','Kudus','Tel','Xavi','Tonali'] },
+  'SUN': { penalties: ['Diarra','Le F\u00e9e'], freeKicks: ['Xhaka','Le F\u00e9e'], corners: ['Le F\u00e9e','Xhaka','Hume'] },
+  'WOL': { penalties: ['Cunha','Hwang','Sarabia'], freeKicks: ['Sarabia','Nunes','A\u00eft-Nouri'], corners: ['Sarabia','Nunes','A\u00eft-Nouri'] }
 };
+
+// Fuzzy name matcher: matches FPL list name to bootstrap web_name
+function findPlayer(listName, elements, teamId) {
+  const ln = listName.toLowerCase().replace(/[^a-z]/g, '');
+  // Try exact team match first, then global
+  const teamEls = teamId ? elements.filter(e => e.team === teamId) : elements;
+  const allEls = elements;
+
+  const tryMatch = (pool) => {
+    // Exact web_name
+    let m = pool.find(e => e.web_name.toLowerCase() === listName.toLowerCase());
+    if (m) return m;
+    // Fuzzy: stripped comparison
+    m = pool.find(e => e.web_name.toLowerCase().replace(/[^a-z]/g, '') === ln);
+    if (m) return m;
+    // Partial: listName contained in web_name or vice versa
+    m = pool.find(e => {
+      const wn = e.web_name.toLowerCase().replace(/[^a-z]/g, '');
+      return wn.includes(ln) || ln.includes(wn);
+    });
+    if (m) return m;
+    // Check second_name
+    m = pool.find(e => {
+      const sn = (e.second_name || '').toLowerCase().replace(/[^a-z]/g, '');
+      return sn === ln || sn.includes(ln) || ln.includes(sn);
+    });
+    if (m) return m;
+    // Check first_name
+    m = pool.find(e => {
+      const fn = (e.first_name || '').toLowerCase().replace(/[^a-z]/g, '');
+      return fn === ln || ln.includes(fn);
+    });
+    return m || null;
+  };
+
+  return tryMatch(teamEls) || tryMatch(allEls);
+}
 
 app.get('/api/set-pieces', async (req, res) => {
   try {
@@ -2104,179 +2062,39 @@ app.get('/api/set-pieces', async (req, res) => {
     const elements = bs.elements;
     const teams = bs.teams;
     const getTeam = id => teams.find(t => t.id === id);
+    const getTeamByShort = name => teams.find(t => t.short_name === name || t.name === name);
 
-    const normalize = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const result = {};
+    Object.entries(SET_PIECE_DATA).forEach(([shortName, sp]) => {
+      const team = getTeamByShort(shortName);
+      if (!team) return;
+      const teamId = team.id;
 
-    // Build a lookup: match web_name, first_name, second_name to find FPL element
-    const findPlayer = (teamName, displayName) => {
-      const normTeamName = normalize(teamName);
-      const teamObj = teams.find(t => {
-        const tn = normalize(t.name);
-        const sn = normalize(t.short_name);
-        return tn === normTeamName || sn === normTeamName || tn.includes(normTeamName) || normTeamName.includes(tn);
-      });
-
-      const teamPlayers = teamObj ? elements.filter(p => p.team === teamObj.id) : elements;
-      const normDisplay = normalize(displayName);
-
-      // 1. Exact web_name
-      let match = teamPlayers.find(p => p.web_name.toLowerCase() === displayName.toLowerCase());
-      if (match) return match;
-
-      // 2. Normalized web_name
-      match = teamPlayers.find(p => normalize(p.web_name) === normDisplay);
-      if (match) return match;
-
-      // 3. Substring web_name
-      match = teamPlayers.find(p => {
-        const nw = normalize(p.web_name);
-        return nw.length > 2 && (nw.includes(normDisplay) || normDisplay.includes(nw));
-      });
-      if (match) return match;
-
-      // 4. Second name
-      match = teamPlayers.find(p => p.second_name && normalize(p.second_name) === normDisplay);
-      if (match) return match;
-
-      // 5. First + Second name
-      match = teamPlayers.find(p => {
-        const full = normalize((p.first_name || '') + (p.second_name || ''));
-        return full.includes(normDisplay) || normDisplay.includes(full);
-      });
-      if (match) return match;
-
-      // 6. Token matching
-      const tokens = displayName.split(/[\s.-]+/).map(normalize).filter(t => t.length > 2);
-      if (tokens.length > 0) {
-        match = teamPlayers.find(p => {
-          const full = normalize((p.first_name || '') + ' ' + (p.second_name || '') + ' ' + (p.web_name || ''));
-          return tokens.every(tok => full.includes(tok));
-        });
-        if (match) return match;
-      }
-
-      // Global fallback if team filter missed
-      if (teamObj) {
-        let globalMatch = elements.find(p => p.web_name.toLowerCase() === displayName.toLowerCase() || normalize(p.web_name) === normDisplay);
-        if (globalMatch) return globalMatch;
-      }
-
-      return null;
-    };
-
-    const makePlayerInfo = (p, fallbackName = '', fallbackTeam = '') => {
-      if (!p) {
+      const resolve = (names) => names.map(name => {
+        const p = findPlayer(name, elements, teamId);
+        if (!p) return { name, team: shortName, teamFull: team.name, teamId, cost: 0, costStr: '?', goals: 0, assists: 0, totalPoints: 0, form: 0, code: 0, position: '?', found: false };
         return {
-          name: fallbackName,
-          code: 0,
-          cost: 0,
-          costStr: '?',
-          goals: 0,
-          assists: 0,
-          g_a: 0,
-          penaltiesMissed: 0,
-          penaltiesOrder: null,
-          freeKicksOrder: null,
-          cornersOrder: null,
-          xG: '0.00',
-          xA: '0.00',
-          xGI: '0.00',
-          totalPoints: 0,
-          form: 0,
-          position: '?',
-          team: fallbackTeam,
-          teamFull: fallbackTeam,
-          selectedBy: 0,
-          minutes: 0
+          id: p.id, name: p.web_name, code: p.code,
+          position: POSITION_MAP[p.element_type - 1],
+          team: shortName, teamFull: team.name, teamId,
+          cost: p.now_cost, costStr: '\u00a3' + (p.now_cost / 10).toFixed(1) + 'm',
+          goals: p.goals_scored || 0, assists: p.assists || 0,
+          totalPoints: p.total_points || 0, form: parseFloat(p.form) || 0,
+          minutes: p.minutes || 0, selectedBy: parseFloat(p.selected_by_percent) || 0,
+          bonus: p.bonus || 0, ictIndex: parseFloat(p.ict_index) || 0,
+          found: true
         };
-      }
-      const team = getTeam(p.team);
-      const totalGoals = p.goals_scored || 0;
-      const totalAssists = p.assists || 0;
-      const xG = p.expected_goals ? parseFloat(p.expected_goals).toFixed(2) : '0.00';
-      const xA = p.expected_assists ? parseFloat(p.expected_assists).toFixed(2) : '0.00';
-      const xGI = p.expected_goal_involvements ? parseFloat(p.expected_goal_involvements).toFixed(2) : '0.00';
-
-      return {
-        id: p.id,
-        name: p.web_name,
-        fullName: `${p.first_name || ''} ${p.second_name || ''}`.trim(),
-        code: p.code,
-        position: POSITION_MAP[p.element_type - 1],
-        team: team?.short_name || '',
-        teamFull: team?.name || '',
-        cost: p.now_cost,
-        costStr: '£' + (p.now_cost / 10).toFixed(1) + 'm',
-        goals: totalGoals,
-        assists: totalAssists,
-        g_a: totalGoals + totalAssists,
-        penaltiesMissed: p.penalties_missed || 0,
-        penaltiesOrder: p.penalties_order || null,
-        freeKicksOrder: p.direct_freekicks_order || null,
-        cornersOrder: p.corners_and_indirect_freekicks_order || null,
-        penaltiesText: p.penalties_text || '',
-        freeKicksText: p.direct_freekicks_text || '',
-        cornersText: p.corners_and_indirect_freekicks_text || '',
-        xG,
-        xA,
-        xGI,
-        totalPoints: p.total_points || 0,
-        form: parseFloat(p.form) || 0,
-        selectedBy: parseFloat(p.selected_by_percent) || 0,
-        minutes: p.minutes || 0
-      };
-    };
-
-    const setPieces = {};
-
-    // Process curated teams first
-    Object.entries(OFFICIAL_SET_PIECES).forEach(([teamName, official]) => {
-      const teamObj = teams.find(t => {
-        const tn = normalize(t.name);
-        const sn = normalize(t.short_name);
-        const target = normalize(teamName);
-        return tn === target || sn === target || tn.includes(target) || target.includes(tn);
       });
 
-      const key = teamObj ? teamObj.id : teamName;
-      const teamShort = teamObj ? teamObj.short_name : teamName.slice(0, 3).toUpperCase();
-      const teamFull = teamObj ? teamObj.name : teamName;
-
-      const enrich = (names) => names.map(name => {
-        const fplPlayer = findPlayer(teamName, name);
-        return makePlayerInfo(fplPlayer, name, teamShort);
-      });
-
-      setPieces[key] = {
-        teamName: teamShort,
-        teamFull: teamFull,
-        penalties: enrich(official.penalties),
-        freeKicks: enrich(official.freeKicks),
-        corners: enrich(official.corners)
+      result[shortName] = {
+        teamName: shortName, teamFull: team.name, teamId,
+        penalties: resolve(sp.penalties),
+        freeKicks: resolve(sp.freeKicks),
+        corners: resolve(sp.corners)
       };
     });
 
-    // Also include any FPL teams not covered by curated list
-    teams.forEach(team => {
-      if (!setPieces[team.id]) {
-        const teamPenalties = elements.filter(p => p.team === team.id && p.penalties_order !== null)
-          .sort((a,b) => a.penalties_order - b.penalties_order).map(p => makePlayerInfo(p, p.web_name, team.short_name));
-        const teamFK = elements.filter(p => p.team === team.id && p.direct_freekicks_order !== null)
-          .sort((a,b) => a.direct_freekicks_order - b.direct_freekicks_order).map(p => makePlayerInfo(p, p.web_name, team.short_name));
-        const teamCorners = elements.filter(p => p.team === team.id && p.corners_and_indirect_freekicks_order !== null)
-          .sort((a,b) => a.corners_and_indirect_freekicks_order - b.corners_and_indirect_freekicks_order).map(p => makePlayerInfo(p, p.web_name, team.short_name));
-
-        setPieces[team.id] = {
-          teamName: team.short_name,
-          teamFull: team.name,
-          penalties: teamPenalties,
-          freeKicks: teamFK,
-          corners: teamCorners
-        };
-      }
-    });
-
-    res.json({ setPieces });
+    res.json({ setPieces: result });
   } catch (e) {
     console.error('Set pieces error:', e.message);
     res.status(500).json({ error: 'Failed to calculate set pieces' });
