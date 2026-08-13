@@ -416,40 +416,40 @@ const FPL = {
                 mostSelectedTbody.innerHTML = data.mostSelected.map((p, idx) => {
                     const barColor = idx === 0 ? '#00FF85' : idx === 1 ? '#00FF85' : idx === 2 ? '#E1E1E1' : idx === 3 ? '#FFA600' : '#FF005A';
                     return `<tr style="border-bottom:1px solid #1A2E28;transition:background 0.2s;cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'" onclick="FPL.filterPlayers('${p.pos}')">
-                        <td style="padding:10px 16px;display:flex;align-items:center;gap:12px;">
-                            <div style="width:4px;height:28px;border-radius:999px;background:${barColor};"></div>
-                            <div style="width:36px;height:36px;border-radius:50%;background:#1c211e;border:1px solid #1A2E28;overflow:hidden;flex-shrink:0;">
+                        <td style="padding:8px 12px;display:flex;align-items:center;gap:10px;background:#141916;position:relative;">
+                            <div style="width:3px;height:24px;border-radius:999px;background:${barColor};flex-shrink:0;"></div>
+                            <div style="width:32px;height:32px;border-radius:50%;background:#1c211e;border:1px solid #1A2E28;overflow:hidden;flex-shrink:0;">
                                 <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || p.web_name || 'FPL Player'} photo" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
                             </div>
-                            <div>
-                                <div style="font-weight:700;color:#ffffff;font-size:14px;">${p.name}</div>
-                                <div class="mono" style="font-size:11px;color:#8ba396;">${p.team} • ${p.pos}</div>
+                            <div style="min-width:0;">
+                                <div style="font-weight:700;color:#ffffff;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name}</div>
+                                <div class="mono" style="font-size:10px;color:#8ba396;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.team} • ${p.pos}</div>
                             </div>
                         </td>
-                        <td style="padding:10px 12px;text-align:right;font-weight:600;color:#dfe4e0;font-family:var(--font-mono);font-size:13px;">${p.selectedBy}</td>
-                        <td style="padding:10px 16px;text-align:right;font-weight:700;color:#00ff85;font-family:var(--font-mono);font-size:14px;">${p.ppg}</td>
+                        <td style="padding:8px 12px;text-align:right;font-weight:600;color:#dfe4e0;font-family:var(--font-mono);font-size:12px;white-space:nowrap;">${p.selectedBy}</td>
+                        <td style="padding:8px 12px;text-align:right;font-weight:700;color:#00ff85;font-family:var(--font-mono);font-size:13px;white-space:nowrap;">${p.ppg}</td>
                     </tr>`;
                 }).join('');
             }
 
             const fdrHeaderRow = document.getElementById('dash-fdr-header-row');
             if (fdrHeaderRow && data.nextGWs) {
-                fdrHeaderRow.innerHTML = `<th style="padding:8px 16px;text-align:left;width:20%;color:#8ba396;">Team</th>` +
-                    data.nextGWs.map(gw => `<th style="padding:8px;text-align:center;color:#8ba396;">GW${gw}</th>`).join('');
+                fdrHeaderRow.innerHTML = `<th style="padding:8px 12px;text-align:left;color:#8ba396;background:#141916;position:sticky;left:0;z-index:2;">Team</th>` +
+                    data.nextGWs.map(gw => `<th style="padding:6px 8px;text-align:center;color:#8ba396;">GW${gw}</th>`).join('');
             }
 
             const fdrTbody = document.getElementById('dash-fdr-tbody');
             if (fdrTbody && data.fdrGrid) {
                 fdrTbody.innerHTML = data.fdrGrid.map(row => `
                     <tr style="border-bottom:1px solid #1A2E28;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
-                        <td style="padding:10px 16px;text-align:left;font-weight:700;color:#ffffff;font-size:14px;font-family:var(--font-mono);">${row.team}</td>
+                        <td style="padding:8px 12px;text-align:left;font-weight:700;color:#ffffff;font-size:12px;font-family:var(--font-mono);background:#141916;white-space:nowrap;">${row.team}</td>
                         ${row.fixtures.map(f => {
                             if (Array.isArray(f)) {
-                                return `<td style="padding:4px;"><div style="display:flex;flex-direction:column;gap:2px;">${f.map(item => `<div class="mono" style="font-size:11px;font-weight:700;padding:3px 4px;border-radius:4px;${fdrColors[item.fdr] || fdrColors[3]}">${item.label}</div>`).join('')}</div></td>`;
+                                return `<td style="padding:4px;"><div style="display:flex;flex-direction:column;gap:2px;">${f.map(item => `<div class="mono" style="font-size:10px;font-weight:700;padding:3px 6px;border-radius:4px;${fdrColors[item.fdr] || fdrColors[3]}">${item.label}</div>`).join('')}</div></td>`;
                             }
                             const styleStr = fdrColors[f.fdr] || fdrColors[3];
                             return `<td style="padding:4px;">
-                                <div class="mono" style="font-size:11px;font-weight:700;padding:6px 8px;border-radius:4px;display:inline-block;width:100%;${styleStr}">${f.label}</div>
+                                <div class="mono" style="font-size:10px;font-weight:700;padding:5px 8px;border-radius:4px;display:inline-block;width:100%;${styleStr}">${f.label}</div>
                             </td>`;
                         }).join('')}
                     </tr>
@@ -2587,7 +2587,7 @@ const FPL = {
                 const bg = isPrimary ? 'rgba(0,255,133,0.06)' : 'transparent';
                 const borderL = isPrimary ? 'border-left:2px solid #00ff85;' : 'border-left:2px solid transparent;';
                 const rank = idx + 1;
-                const imgUrl = p.code ? ('https://resources.premierleague.com/premierleague25/r268/p' + p.code + '/ico/250.png') : '';
+                const imgUrl = p.code ? ('https://resources.premierleague.com/premierleague/photos/players/250x250/p' + p.code + '.png') : '';
                 const posColor = posColors[p.position] || '#8ba396';
 
                 return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:' + bg + ';' + borderL + 'border-radius:6px;margin-bottom:2px;">'
@@ -2627,7 +2627,7 @@ const FPL = {
                 // Penalties
                 html += '<td style="padding:16px 12px;min-width:250px;">'
                     + '<div style="font-size:10px;font-weight:700;color:#ffa600;text-transform:uppercase;letter-spacing:0.08em;font-family:var(--font-mono);margin-bottom:8px;display:flex;align-items:center;gap:6px;">'
-                    + '<span class="material-symbols-outlined" style="font-size:14px;">sports_soccer</span> Penalties'
+                    + '<span style="color:#ffa600;font-size:14px;">⚽</span> Penalties'
                     + '</div>';
                 team.penalties.forEach((p, i) => { html += renderPlayer(p, i, team.penalties.length); });
                 html += '</td>';
@@ -2635,7 +2635,7 @@ const FPL = {
                 // Direct Free-Kicks
                 html += '<td style="padding:16px 12px;min-width:250px;">'
                     + '<div style="font-size:10px;font-weight:700;color:#6496ff;text-transform:uppercase;letter-spacing:0.08em;font-family:var(--font-mono);margin-bottom:8px;display:flex;align-items:center;gap:6px;">'
-                    + '<span class="material-symbols-outlined" style="font-size:14px;">my_location</span> Direct Free-Kicks'
+                    + '<span style="color:#6496ff;font-size:14px;">🎯</span> Direct Free-Kicks'
                     + '</div>';
                 team.freeKicks.forEach((p, i) => { html += renderPlayer(p, i, team.freeKicks.length); });
                 html += '</td>';
@@ -2643,7 +2643,7 @@ const FPL = {
                 // Corners
                 html += '<td style="padding:16px 12px;min-width:250px;">'
                     + '<div style="font-size:10px;font-weight:700;color:#c084fc;text-transform:uppercase;letter-spacing:0.08em;font-family:var(--font-mono);margin-bottom:8px;display:flex;align-items:center;gap:6px;">'
-                    + '<span class="material-symbols-outlined" style="font-size:14px;">corner_right_up</span> Corners & Indirect FKs'
+                    + '<span style="color:#c084fc;font-size:14px;">📐</span> Corners & Indirect FKs'
                     + '</div>';
                 team.corners.forEach((p, i) => { html += renderPlayer(p, i, team.corners.length); });
                 html += '</td>';
