@@ -219,18 +219,18 @@
                     <div class="dash-main-grid" style="display:grid;grid-template-columns:repeat(12, 1fr);gap:24px;">
                         <!-- Left Column (8 cols) -->
                         <div style="grid-column:span 8;display:flex;flex-direction:column;gap:24px;">
-                            <section style="background:#141916;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;min-height:380px;">
+                            <section style="background:#141916;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;">
                                 <div style="padding:16px;border-bottom:1px solid #1A2E28;display:flex;justify-content:space-between;align-items:center;background:rgba(28,33,30,0.5);">
                                     <h3 style="font-size:16px;font-weight:600;color:#ffffff;margin:0;">Most Selected Players</h3>
-                                    <button class="text-primary font-label-caps text-xs font-bold hover:underline" style="color:#00ff85;font-size:12px;font-weight:700;background:none;border:none;cursor:pointer;" onclick="FPL.navigateTo('players')">View All</button>
+                                    <button style="color:#00ff85;font-size:12px;font-weight:700;background:none;border:none;cursor:pointer;" onclick="FPL.navigateTo('players')">View All</button>
                                 </div>
-                                <div class="table-scroll-mobile" style="overflow-y:auto;flex:1;padding:8px;">
-                                    <table style="width:100%;border-collapse:collapse;">
+                                <div class="table-scroll-mobile" style="padding:0;">
+                                    <table style="width:100%;border-collapse:separate;border-spacing:0;">
                                         <thead>
                                             <tr style="border-bottom:1px solid #1A2E28;font-size:11px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);">
-                                                <th style="padding:12px 16px;text-align:left;">Player</th>
-                                                <th style="padding:12px;text-align:right;">Selected By</th>
-                                                <th style="padding:12px 16px;text-align:right;">PPG</th>
+                                                <th style="padding:10px 12px;text-align:left;background:#1c211e;">Player</th>
+                                                <th style="padding:10px 12px;text-align:right;background:#1c211e;">Selected By</th>
+                                                <th style="padding:10px 12px;text-align:right;background:#1c211e;">PPG</th>
                                             </tr>
                                         </thead>
                                         <tbody id="dash-most-selected-tbody">
@@ -250,14 +250,14 @@
                                     <button style="background:#1c211e;border:1px solid #1A2E28;color:#8ba396;font-family:var(--font-mono);font-size:11px;padding:6px 12px;border-radius:4px;cursor:pointer;" onclick="FPL.navigateTo('fixtures')">Sort by FDR</button>
                                 </div>
                                 <div class="table-scroll-mobile">
-                                    <table style="width:100%;border-collapse:collapse;text-align:center;min-width:500px;">
+                                    <table style="width:100%;border-collapse:separate;border-spacing:0;text-align:center;min-width:500px;">
                                         <thead>
-                                            <tr id="dash-fdr-header-row" style="border-bottom:1px solid #1A2E28;font-size:11px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);">
-                                                <th style="padding:8px 16px;text-align:left;width:20%;color:#8ba396;">Team</th>
+                                            <tr id="dash-fdr-header-row" style="border-bottom:1px solid #1A2E28;font-size:10px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);">
+                                                <th style="padding:8px 12px;text-align:left;color:#8ba396;background:#141916;position:sticky;left:0;z-index:2;">Team</th>
                                                 <!-- Dynamic GW columns -->
                                             </tr>
                                         </thead>
-                                            <tbody id="dash-fdr-tbody">
+                                        <tbody id="dash-fdr-tbody">
                                             <!-- Dynamic FDR rows -->
                                         </tbody>
                                     </table>
@@ -575,10 +575,10 @@
                     <!-- Data Table (Standings) -->
                     <div style="background:#022B1E;border:1px solid #333333;border-radius:12px;overflow:clip;display:flex;flex-direction:column;">
                         <div class="league-table-wrap">
-                            <table style="width:100%;border-collapse:collapse;font-size:14px;white-space:nowrap;min-width:700px;">
+                            <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:13px;white-space:nowrap;min-width:700px;">
                                 <thead>
-                                    <tr style="border-bottom:1px solid #333333;background:rgba(255,255,255,0.03);color:#E0E0E0;font-size:12px;font-family:var(--font-mono);">
-                                        <th style="text-align:left;width:40px;background:#022B1E;">RANK</th>
+                                    <tr style="border-bottom:1px solid #333333;background:rgba(255,255,255,0.03);color:#E0E0E0;font-size:11px;font-family:var(--font-mono);">
+                                        <th style="text-align:left;width:40px;background:#022B1E;position:sticky;left:0;z-index:2;border-right:2px solid rgba(255,255,255,0.1);">RANK</th>
                                         <th style="text-align:left;background:#022B1E;">MANAGER / TEAM</th>
                                         <th style="text-align:center;">GW PTS</th>
                                         <th style="text-align:center;">TOTAL PTS</th>
@@ -637,20 +637,20 @@
                     <!-- Data Table Container -->
                     <div style="background:#1E1E1E;border:1px solid #1A2E28;border-radius:12px;overflow:clip;">
                         <div class="players-table-wrap">
-                            <table style="width:100%;border-collapse:collapse;white-space:nowrap;">
-                                <thead style="background:#333333;border-bottom:1px solid #1A2E28;font-family:var(--font-mono);font-size:11px;text-transform:uppercase;">
+                            <table style="width:100%;border-collapse:separate;border-spacing:0;white-space:nowrap;">
+                                <thead style="background:#333333;border-bottom:1px solid #1A2E28;font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.03em;">
                                     <tr>
-                                        <th style="background:#333333;min-width:110px;">Player</th>
-                                        <th style="padding:10px 12px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('pts')">Pts <span id="sort-icon-pts" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;">arrow_downward</span></th>
-                                        <th style="padding:10px 12px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('mins')">Mins <span id="sort-icon-mins" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
-                                        <th id="th-goals" style="padding:10px 12px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('goals')">Goals <span id="sort-icon-goals" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
-                                        <th id="th-xg" style="padding:10px 12px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('xg')">xG <span id="sort-icon-xg" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
-                                        <th style="padding:10px 12px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('gxg')">G-xG <span id="sort-icon-gxg" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
-                                        <th id="th-xa" style="padding:10px 12px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('xa')">xA <span id="sort-icon-xa" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
-                                        <th id="th-xgi" style="padding:10px 12px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('xgi')">xGI <span id="sort-icon-xgi" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
-                                        <th style="padding:10px 12px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('xgi90')">xGI/90 <span id="sort-icon-xgi90" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
-                                        <th style="padding:10px 12px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('form')">Form <span id="sort-icon-form" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
-                                        <th style="padding:10px 12px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('defcon')">DefCon <span id="sort-icon-defcon" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th style="background:#333333;min-width:110px;position:sticky;left:0;z-index:2;border-right:2px solid rgba(255,255,255,0.1);">Player</th>
+                                        <th style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('pts')">Pts <span id="sort-icon-pts" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;">arrow_downward</span></th>
+                                        <th style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('mins')">Mins <span id="sort-icon-mins" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th id="th-goals" style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('goals')">Goals <span id="sort-icon-goals" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th id="th-xg" style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('xg')">xG <span id="sort-icon-xg" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('gxg')">G-xG <span id="sort-icon-gxg" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th id="th-xa" style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('xa')">xA <span id="sort-icon-xa" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th id="th-xgi" style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('xgi')">xGI <span id="sort-icon-xgi" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('xgi90')">xGI/90 <span id="sort-icon-xgi90" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('form')">Form <span id="sort-icon-form" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('defcon')">DefCon <span id="sort-icon-defcon" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
                                     </tr>
                                 </thead>
                                 <tbody id="players-table-body" class="divide-y divide-pitch-line">
@@ -760,10 +760,10 @@
                             <!-- Fixture Grid Container -->
                             <div style="background:#1c211e;border:1px solid #1A2E28;border-radius:12px;overflow:clip;">
                         <div class="table-scroll-mobile">
-                            <table style="width:100%;border-collapse:collapse;white-space:nowrap;">
+                            <table style="width:100%;border-collapse:separate;border-spacing:0;white-space:nowrap;">
                                         <thead>
                                             <tr id="fixture-grid-header-row" style="background:#a7cfbc;border-bottom:1px solid #1A2E28;">
-                                                <th style="background:#a7cfbc;width:60px;max-width:60px;font-family:var(--font-mono);font-size:12px;color:#0a0f0d;font-weight:700;">TEAM</th>
+                                                <th style="background:#a7cfbc;width:60px;max-width:60px;font-family:var(--font-mono);font-size:11px;color:#0a0f0d;font-weight:700;position:sticky;left:0;z-index:2;border-right:2px solid rgba(0,0,0,0.1);">TEAM</th>
                                                 <!-- Dynamic GW Header Columns -->
                                             </tr>
                                         </thead>
@@ -905,16 +905,16 @@
 
                         <!-- Table -->
                         <div class="table-scroll-mobile">
-                            <table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
+                            <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:12px;white-space:nowrap;">
                                 <thead>
-                                    <tr style="border-bottom:1px solid #333333;background:rgba(255,255,255,0.03);color:#B0B0B0;font-size:12px;font-family:var(--font-mono);">
-                                        <th style="text-align:center;width:40px;background:#1E1E1E;">RK</th>
+                                    <tr style="border-bottom:1px solid #333333;background:rgba(255,255,255,0.03);color:#B0B0B0;font-size:11px;font-family:var(--font-mono);">
+                                        <th style="text-align:center;width:40px;background:#1E1E1E;position:sticky;left:0;z-index:2;border-right:2px solid rgba(255,255,255,0.1);">RK</th>
                                         <th style="text-align:left;">PLAYER</th>
-                                        <th style="padding:8px 16px;text-align:center;">OPP</th>
-                                        <th style="padding:8px 16px;text-align:center;">FDR</th>
-                                        <th style="padding:8px 16px;text-align:center;">FORM</th>
-                                        <th style="padding:8px 16px;text-align:center;">xGI</th>
-                                        <th style="padding:8px 16px;text-align:center;">xPTS <span class="material-symbols-outlined" style="font-size:14px;color:#1A9F39;vertical-align:middle;">arrow_drop_down</span></th>
+                                        <th style="padding:8px 12px;text-align:center;">OPP</th>
+                                        <th style="padding:8px 12px;text-align:center;">FDR</th>
+                                        <th style="padding:8px 12px;text-align:center;">FORM</th>
+                                        <th style="padding:8px 12px;text-align:center;">xGI</th>
+                                        <th style="padding:8px 12px;text-align:center;">xPTS <span class="material-symbols-outlined" style="font-size:14px;color:#1A9F39;vertical-align:middle;">arrow_drop_down</span></th>
                                     </tr>
                                 </thead>
                                 <tbody id="captain-picks-body">
@@ -1023,18 +1023,18 @@
 
                         <!-- Table -->
                         <div class="table-scroll-mobile">
-                            <table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
+                            <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:12px;white-space:nowrap;">
                                 <thead>
-                                    <tr style="border-bottom:2px solid #333333;background:#2A2A2A;color:#B0B0B0;font-size:12px;">
-                                        <th style="text-align:center;width:40px;background:#2A2A2A;">#</th>
+                                    <tr style="border-bottom:2px solid #333333;background:#2A2A2A;color:#B0B0B0;font-size:11px;">
+                                        <th style="text-align:center;width:40px;background:#2A2A2A;position:sticky;left:0;z-index:2;border-right:2px solid rgba(255,255,255,0.1);">#</th>
                                         <th style="text-align:left;cursor:pointer;" onclick="FPL.toggleOwnershipSort('name')">Player / Team <span id="own-sort-icon-name" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
-                                        <th style="padding:8px 16px;text-align:center;cursor:pointer;" onclick="FPL.toggleOwnershipSort('cost')">Price <span id="own-sort-icon-cost" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
-                                        <th style="padding:8px 16px;text-align:center;cursor:pointer;" onclick="FPL.toggleOwnershipSort('ownership')">Current Own % <span id="own-sort-icon-ownership" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
-                                        <th style="padding:8px 16px;text-align:center;cursor:pointer;" onclick="FPL.toggleOwnershipSort('delta24h')">24h Δ <span id="own-sort-icon-delta24h" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
-                                        <th style="padding:8px 16px;text-align:center;cursor:pointer;" onclick="FPL.toggleOwnershipSort('delta3d')">3d Δ <span id="own-sort-icon-delta3d" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
-                                        <th style="padding:8px 16px;text-align:center;cursor:pointer;" onclick="FPL.toggleOwnershipSort('delta7d')">7d Δ <span id="own-sort-icon-delta7d" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
-                                        <th style="padding:8px 16px;text-align:center;width:130px;">14-Day Trend</th>
-                                        <th style="padding:8px 16px;text-align:center;width:60px;cursor:pointer;" onclick="FPL.toggleOwnershipSort('points')">Points <span id="own-sort-icon-points" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th style="padding:8px 12px;text-align:center;cursor:pointer;" onclick="FPL.toggleOwnershipSort('cost')">Price <span id="own-sort-icon-cost" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th style="padding:8px 12px;text-align:center;cursor:pointer;" onclick="FPL.toggleOwnershipSort('ownership')">Own % <span id="own-sort-icon-ownership" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th style="padding:8px 12px;text-align:center;cursor:pointer;" onclick="FPL.toggleOwnershipSort('delta24h')">24h Δ <span id="own-sort-icon-delta24h" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th style="padding:8px 12px;text-align:center;cursor:pointer;" onclick="FPL.toggleOwnershipSort('delta3d')">3d Δ <span id="own-sort-icon-delta3d" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th style="padding:8px 12px;text-align:center;cursor:pointer;" onclick="FPL.toggleOwnershipSort('delta7d')">7d Δ <span id="own-sort-icon-delta7d" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th style="padding:8px 12px;text-align:center;width:110px;">Trend</th>
+                                        <th style="padding:8px 12px;text-align:center;width:50px;cursor:pointer;" onclick="FPL.toggleOwnershipSort('points')">Pts <span id="own-sort-icon-points" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
                                     </tr>
                                 </thead>
                                 <tbody id="ownership-trends-table-body">
@@ -1052,14 +1052,14 @@
                         <p style="font-size:13px;color:#8ba396;margin-top:6px;">Penalty takers, free kick specialists, and corner takers for every Premier League team.</p>
                     </div>
                     <div id="setpieces-table-container" style="background:#141916;border:1px solid #1A2E28;border-radius:12px;overflow:clip;">
-                        <div style="overflow-x:auto;">
-                            <table style="width:100%;border-collapse:collapse;min-width:900px;">
+                        <div class="table-scroll-mobile">
+                            <table style="width:100%;border-collapse:separate;border-spacing:0;min-width:700px;">
                                 <thead>
-                                    <tr style="background:#1c211e;border-bottom:1px solid #1A2E28;font-size:11px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);">
-                                        <th style="padding:14px 14px;text-align:left;">Team</th>
-                                        <th style="padding:14px 12px;text-align:left;color:#ffa600;">Penalties</th>
-                                        <th style="padding:14px 12px;text-align:left;color:#6496ff;">Direct Free-Kicks</th>
-                                        <th style="padding:14px 12px;text-align:left;color:#c084fc;">Corners &amp; Indirect FKs</th>
+                                    <tr style="background:#1c211e;border-bottom:1px solid #1A2E28;font-size:10px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);letter-spacing:0.03em;">
+                                        <th style="padding:10px 12px;text-align:left;background:#1c211e;position:sticky;left:0;z-index:2;border-right:2px solid rgba(255,255,255,0.1);">Team</th>
+                                        <th style="padding:10px 12px;text-align:left;">Penalties <span style="color:#5a7a66;text-transform:none;font-weight:400;">(G)</span></th>
+                                        <th style="padding:10px 12px;text-align:left;">Free-Kicks <span style="color:#5a7a66;text-transform:none;font-weight:400;">(G/A)</span></th>
+                                        <th style="padding:10px 12px;text-align:left;">Corners <span style="color:#5a7a66;text-transform:none;font-weight:400;">(A)</span></th>
                                     </tr>
                                 </thead>
                                 <tbody id="setpieces-tbody">

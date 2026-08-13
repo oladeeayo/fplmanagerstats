@@ -827,41 +827,50 @@ select.input {
     .card-body { padding: 6px 8px; }
 
     /* ==================== TABLE COMPACTNESS ==================== */
-    /* Force all tables compact on mobile — override inline width:100% */
-    table { font-size: 11px !important; border-collapse: collapse; box-sizing: border-box; width: max-content !important; }
-    th { padding: 5px 6px !important; font-size: 10px !important; white-space: nowrap; box-sizing: border-box; }
-    td { padding: 4px 6px !important; white-space: nowrap; box-sizing: border-box; }
+    /* Table font sizes on mobile */
+    table { font-size: 12px !important; box-sizing: border-box; }
+    th { padding: 8px 10px !important; font-size: 10px !important; white-space: nowrap; box-sizing: border-box; text-transform: uppercase; letter-spacing: 0.03em; }
+    td { padding: 6px 10px !important; white-space: nowrap; box-sizing: border-box; }
 
-    /* Make all table containers scrollable and contain overflow — NO stretching */
+    /* All table scroll wrappers - horizontal scroll with frozen column */
     .card-body,
     .players-table-wrap,
     .league-table-wrap,
     .table-scroll-mobile {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        max-width: 100%;
-        width: 100%;
-        position: relative;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        position: relative !important;
     }
 
-    /* Hide scrollbar but keep scroll */
+    /* Hide scrollbar but keep scroll functionality */
     .card-body::-webkit-scrollbar,
     .players-table-wrap::-webkit-scrollbar,
     .league-table-wrap::-webkit-scrollbar,
     .table-scroll-mobile::-webkit-scrollbar {
-        display: none;
+        display: none !important;
+    }
+    .card-body,
+    .players-table-wrap,
+    .league-table-wrap,
+    .table-scroll-mobile {
+        scrollbar-width: none !important;
     }
 
-    /* ALL tables inside scroll wrappers: no 100% width, force max-content */
+    /* Tables inside scroll wrappers - use separate border model for sticky to work */
     .players-table-wrap table,
     .league-table-wrap table,
     .table-scroll-mobile table,
     .card-body table {
-        border-collapse: separate;
-        border-spacing: 0;
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
+        width: max-content !important;
+        min-width: 100% !important;
     }
 
-    /* Sticky first column for ALL tables — compact width */
+    /* ==================== STICKY FIRST COLUMN ==================== */
+    /* Sticky first column for ALL tables */
     .players-table-wrap th:first-child,
     .players-table-wrap td:first-child,
     .league-table-wrap th:first-child,
@@ -872,39 +881,81 @@ select.input {
     .card-body td:first-child {
         position: sticky !important;
         left: 0 !important;
-        z-index: 10 !important;
-        min-width: 0 !important;
-        width: auto !important;
+        z-index: 2 !important;
+        background: inherit !important;
     }
+
+    /* Header backgrounds for sticky column */
+    .players-table-wrap th:first-child { background: #333333 !important; }
+    .league-table-wrap th:first-child { background: #022B1E !important; }
+    .table-scroll-mobile th:first-child { background: #a7cfbc !important; color: #0a0f0d !important; }
+    .card-body th:first-child { background: #1c211e !important; }
+
+    /* Cell backgrounds for sticky column */
+    .players-table-wrap td:first-child { background: #1E1E1E !important; }
+    .league-table-wrap td:first-child { background: #022B1E !important; }
+    .table-scroll-mobile td:first-child { background: #141916 !important; }
+    .card-body td:first-child { background: #141916 !important; }
+
+    /* Frozen column width and text handling */
+    .players-table-wrap th:first-child,
+    .players-table-wrap td:first-child,
+    .league-table-wrap th:first-child,
+    .league-table-wrap td:first-child,
+    .table-scroll-mobile th:first-child,
+    .table-scroll-mobile td:first-child,
+    .card-body th:first-child,
+    .card-body td:first-child {
+        min-width: 100px !important;
+        max-width: 140px !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+    }
+
+    /* Separator line between frozen column and scrollable area */
     .players-table-wrap th:first-child,
     .league-table-wrap th:first-child,
     .table-scroll-mobile th:first-child,
     .card-body th:first-child {
-        background: #1c211e !important;
-        max-width: 120px !important;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        border-right: 2px solid rgba(255,255,255,0.15) !important;
     }
     .players-table-wrap td:first-child,
     .league-table-wrap td:first-child,
     .table-scroll-mobile td:first-child,
     .card-body td:first-child {
-        background: #141916 !important;
-        max-width: 120px !important;
+        border-right: 2px solid rgba(255,255,255,0.08) !important;
     }
 
-    /* Player stats header — compact */
-    .players-table-wrap thead th:first-child { background: #333333 !important; max-width: 110px !important; }
-    /* Player stats cell — hide overflow text */
-    .players-table-wrap tbody td:first-child { max-width: 110px !important; overflow: hidden; text-overflow: ellipsis; }
+    /* Scroll hint shadow on right edge */
+    .table-scroll-mobile::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 24px;
+        background: linear-gradient(to left, rgba(20,25,22,0.9), transparent);
+        pointer-events: none;
+        z-index: 1;
+    }
 
-    /* League standings — specific bg */
-    .league-table-wrap th:first-child { background: #022B1E !important; }
-    .league-table-wrap td:first-child { background: #022B1E !important; }
+    /* Full-width content containers */
+    .layout-content > div {
+        max-width: 100% !important;
+        overflow: hidden !important;
+    }
 
-    /* Fixture table TEAM column — compact */
-    .table-scroll-mobile th:first-child { background: #a7cfbc !important; color: #0a0f0d; max-width: 60px !important; }
-    .table-scroll-mobile td:first-child { max-width: 60px !important; font-size: 10px !important; font-weight: 700 !important; }
+    /* Dashboard grid full width */
+    .dash-main-grid > div {
+        min-width: 0 !important;
+    }
+
+    /* Fix section overflow */
+    section {
+        min-width: 0 !important;
+        overflow: hidden !important;
+    }
 
     /* Prevent page-level horizontal overflow */
     body { overflow-x: hidden; }
@@ -967,19 +1018,19 @@ select.input {
     .layout-content { padding: 8px; padding-bottom: 84px; }
 
     /* Even more compact tables on small screens */
-    table { font-size: 10px !important; }
-    th { padding: 3px 4px !important; font-size: 9px !important; }
-    td { padding: 3px 4px !important; }
+    table { font-size: 11px !important; }
+    th { padding: 6px 8px !important; font-size: 9px !important; }
+    td { padding: 5px 8px !important; }
 
     /* Even more compact sticky columns on small screens */
     .players-table-wrap th:first-child,
     .league-table-wrap th:first-child,
     .table-scroll-mobile th:first-child,
-    .card-body th:first-child { max-width: 90px !important; }
+    .card-body th:first-child { min-width: 80px !important; max-width: 100px !important; }
     .players-table-wrap td:first-child,
     .league-table-wrap td:first-child,
     .table-scroll-mobile td:first-child,
-    .card-body td:first-child { max-width: 90px !important; }
+    .card-body td:first-child { min-width: 80px !important; max-width: 100px !important; }
 
     /* Position summary cards - compact on small screens */
     .team-bento-4 > div { padding: 12px !important; }
