@@ -988,6 +988,376 @@ select.input {
     .dash-stat-banner h1 { font-size: 18px !important; }
 }
 
+/* ==================== PAGE-SPECIFIC MOBILE FIXES ==================== */
+
+/* League page - filter bar stacking */
+@media (max-width: 768px) {
+    #content-league > div:first-child {
+        gap: 12px !important;
+    }
+    #content-league > div:first-child > div:last-child {
+        flex-direction: column !important;
+        width: 100% !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+    }
+    #content-league select,
+    #content-league input[type="text"] {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    #content-league .league-bento-3 {
+        grid-template-columns: 1fr !important;
+    }
+    /* League stats bento cards */
+    #content-league .league-bento-3 > div {
+        padding: 16px !important;
+    }
+    #content-league .league-bento-3 > div > div:first-child > div:first-child {
+        font-size: 10px !important;
+    }
+    #content-league .league-bento-3 > div > div > div:first-child + div {
+        font-size: 1.75rem !important;
+    }
+    /* League table */
+    #content-league .league-table-wrap {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+    #content-league table {
+        min-width: 600px !important;
+    }
+    /* Pagination */
+    #content-league > div:last-child > div:last-child {
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 8px !important;
+    }
+}
+
+/* Fixtures page - sidebar stacking */
+@media (max-width: 1024px) {
+    .fixtures-flex-layout {
+        flex-direction: column !important;
+    }
+    .fixtures-flex-layout > aside {
+        width: 100% !important;
+        max-width: 100% !important;
+        order: 2;
+    }
+    .fixtures-flex-layout > aside > div {
+        max-height: none !important;
+    }
+    /* Fixtures controls bar */
+    .fixtures-flex-layout > div:first-child > div:first-child {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 12px !important;
+        padding: 12px !important;
+    }
+    .fixtures-flex-layout > div:first-child > div:first-child > div:first-child {
+        flex-direction: column !important;
+        gap: 12px !important;
+        width: 100% !important;
+    }
+    .fixtures-flex-layout > div:first-child > div:first-child > div:first-child > div {
+        width: 100% !important;
+    }
+    /* Lookahead buttons */
+    .fixtures-flex-layout > div:first-child > div:first-child > div:first-child > div:last-child {
+        width: 100% !important;
+        justify-content: stretch !important;
+    }
+    .fixtures-flex-layout > div:first-child > div:first-child > div:first-child > div:last-child > div {
+        flex: 1 !important;
+        width: 100% !important;
+    }
+    .fixtures-flex-layout > div:first-child > div:first-child > div:first-child > div:last-child > div > button {
+        flex: 1 !important;
+        padding: 8px 8px !important;
+        font-size: 12px !important;
+    }
+    /* FDR scale - hide on mobile */
+    .fixtures-flex-layout > div:first-child > div:first-child > div:last-child {
+        display: none !important;
+    }
+}
+
+/* Tactics/Zones - header controls stacking */
+@media (max-width: 768px) {
+    #content-zones > div:first-child > div:last-child {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+    }
+    #content-zones > div:first-child > div:last-child > div {
+        width: 100% !important;
+    }
+    #content-zones > div:first-child > div:last-child > span {
+        display: none !important;
+    }
+    /* Tactical layout grid */
+    .tactical-layout {
+        grid-template-columns: 1fr !important;
+    }
+    .tactical-layout > section {
+        min-height: auto !important;
+    }
+    /* Best picks row */
+    #match-analysis-content > div:last-child {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* Captaincy - hero card responsive */
+@media (max-width: 768px) {
+    .captain-bento-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .captain-bento-grid > div:first-child {
+        grid-column: span 1 !important;
+    }
+    .captain-bento-grid > div:last-child {
+        grid-column: span 1 !important;
+        flex-direction: column !important;
+    }
+    /* Hero card layout */
+    .captain-bento-grid > div:first-child > div {
+        flex-direction: column !important;
+        align-items: center !important;
+        text-align: center !important;
+        padding: 16px !important;
+    }
+    .captain-bento-grid > div:first-child > div > div:last-child {
+        min-width: 100% !important;
+    }
+    .captain-bento-grid > div:first-child > div > div:last-child > div:first-child {
+        flex-wrap: wrap !important;
+        justify-content: center !important;
+        gap: 8px !important;
+    }
+    /* Hero player name */
+    .captain-bento-grid > div:first-child > div > div:last-child > h2 {
+        font-size: 1.25rem !important;
+        text-align: center !important;
+    }
+    /* Hero description */
+    .captain-bento-grid > div:first-child > div > div:last-child > p {
+        text-align: center !important;
+    }
+    /* Hero metrics grid */
+    .captain-bento-grid > div:first-child > div > div:last-child > div:last-child {
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 8px !important;
+        text-align: center !important;
+    }
+    /* Secondary cards */
+    .captain-bento-grid > div:last-child > div {
+        flex-direction: column !important;
+        flex: none !important;
+        padding: 12px !important;
+    }
+    /* Captain table header */
+    #content-captain > div:last-child > div:first-child {
+        padding: 12px 16px !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+    }
+}
+
+/* Ownership - filter/search toolbar */
+@media (max-width: 768px) {
+    #content-ownership > div:first-child > div:last-child {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        width: 100% !important;
+    }
+    #content-ownership .ownership-bento-grid {
+        grid-template-columns: 1fr !important;
+    }
+    #content-ownership .ownership-bento-grid > div {
+        min-width: 100% !important;
+    }
+    /* Search and sort inputs */
+    #content-ownership input[type="text"],
+    #content-ownership select {
+        max-width: 100% !important;
+        width: 100% !important;
+        flex: 1 1 100% !important;
+    }
+    /* Position filter buttons */
+    #content-ownership > div:nth-child(2) > div:first-child > div:last-child {
+        flex-wrap: wrap !important;
+    }
+    #content-ownership > div:nth-child(2) > div:first-child > div:last-child > button {
+        flex: 1 !important;
+        min-width: 0 !important;
+    }
+    /* Search row */
+    #content-ownership > div:nth-child(2) > div:last-child {
+        flex-direction: column !important;
+        width: 100% !important;
+        gap: 8px !important;
+    }
+    #content-ownership > div:nth-child(2) > div:last-child > input,
+    #content-ownership > div:nth-child(2) > div:last-child > select {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 40px !important;
+    }
+}
+
+/* Player Stats - filter bar */
+@media (max-width: 768px) {
+    .player-filter-bar {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 12px !important;
+    }
+    .player-filter-bar > h1 {
+        font-size: 24px !important;
+    }
+    .player-filter-bar > div {
+        flex-wrap: wrap !important;
+        justify-content: center !important;
+        gap: 8px !important;
+    }
+    .player-filter-bar > div > div {
+        flex-wrap: wrap !important;
+        justify-content: center !important;
+    }
+    /* Position filter buttons */
+    .player-filter-bar > div > div:last-child {
+        width: 100% !important;
+        justify-content: center !important;
+    }
+    .player-filter-bar > div > div:last-child > button {
+        flex: 1 !important;
+        min-width: 0 !important;
+    }
+}
+
+/* Page header - general responsive */
+@media (max-width: 768px) {
+    .page-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+    }
+    .page-title {
+        font-size: 1.5rem !important;
+    }
+    .page-subtitle {
+        font-size: 0.8125rem !important;
+    }
+}
+
+/* Set Pieces table */
+@media (max-width: 768px) {
+    #setpieces-table-container > div {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+    #setpieces-table-container table {
+        min-width: 700px !important;
+    }
+}
+
+/* Dashboard - responsive grid */
+@media (max-width: 768px) {
+    .dash-main-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .dash-main-grid > div {
+        grid-column: span 1 !important;
+    }
+    /* Dashboard stat banner */
+    .dash-stat-grid {
+        grid-template-columns: 1fr 1fr !important;
+    }
+    /* Section spacing */
+    #content-general > div {
+        margin-bottom: 16px !important;
+    }
+    #content-general > div:last-child {
+        margin-bottom: 0 !important;
+    }
+}
+
+/* Team Analysis - responsive bento grids */
+@media (max-width: 768px) {
+    .team-bento-4 {
+        grid-template-columns: 1fr 1fr !important;
+    }
+    .team-bento-4 > div {
+        min-height: auto !important;
+        padding: 16px !important;
+    }
+    .team-bento-2 {
+        grid-template-columns: 1fr !important;
+    }
+    /* Position summary cards */
+    .team-bento-4 > div > div:last-child > div:first-child {
+        font-size: 22px !important;
+    }
+}
+
+/* Small mobile - even more compact */
+@media (max-width: 480px) {
+    /* League */
+    #content-league .league-bento-3 > div > div > div:first-child + div {
+        font-size: 1.5rem !important;
+    }
+    #content-league .league-bento-3 > div > div > div:first-child {
+        font-size: 9px !important;
+    }
+    /* Captaincy */
+    .captain-bento-grid > div:first-child > div > div:last-child > div:last-child {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+    .captain-bento-grid > div:first-child > div > div:last-child > h2 {
+        font-size: 1.1rem !important;
+    }
+    /* Player stats */
+    .player-filter-bar > div > div:last-child > button {
+        padding: 6px 8px !important;
+        font-size: 11px !important;
+    }
+    .player-filter-bar > h1 {
+        font-size: 20px !important;
+    }
+    /* Team bento */
+    .team-bento-4 {
+        grid-template-columns: 1fr !important;
+    }
+    .team-bento-4 > div {
+        padding: 12px !important;
+    }
+    .team-bento-4 > div > div:last-child > div:first-child {
+        font-size: 18px !important;
+    }
+    /* Dashboard stat items */
+    .dash-stat-item > div:first-child {
+        font-size: 8px !important;
+    }
+    .dash-stat-item > div:last-child {
+        font-size: 14px !important;
+    }
+    /* Fixtures controls */
+    .fixtures-flex-layout > div:first-child > div:first-child > div:first-child > div:last-child > div > button {
+        padding: 8px 6px !important;
+        font-size: 11px !important;
+    }
+    /* Ownership */
+    #content-ownership > div:nth-child(2) > div:last-child > input,
+    #content-ownership > div:nth-child(2) > div:last-child > select {
+        height: 38px !important;
+        font-size: 12px !important;
+    }
+}
+
 /* ==================== END RESPONSIVE ==================== */
 
 /* Also bump the default bottom-nav height slightly */
