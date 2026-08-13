@@ -46,13 +46,18 @@ const FPL = {
     },
 
     async apiFetch(url) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 20000);
         try {
-            const res = await window.fetch(url);
+            const res = await window.fetch(url, { signal: controller.signal });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             return await res.json();
         } catch (err) {
             console.error(`Fetch error for ${url}:`, err);
+            if (err.name === 'AbortError') throw new Error('The FPL data request timed out. Please try again.');
             throw err;
+        } finally {
+            clearTimeout(timeout);
         }
     },
 
@@ -111,13 +116,11 @@ const FPL = {
                 await this.loadManagerData(this.state.managerId);
             }
 
-            // Render
-            this.render();
-            this.hideLoading();
         } catch (err) {
             this.state.error = err.message;
+            this.showError(err.message || 'Unable to load FPL data');
+        } finally {
             this.hideLoading();
-            this.showError(err.message);
         }
     },
 
@@ -369,6 +372,8 @@ const FPL = {
     },
 
     navigateTo(tab) {
+        const validTabs = ['general', 'manager', 'league', 'players', 'zones', 'fixtures', 'captain', 'ownership', 'setpieces'];
+        if (!validTabs.includes(tab)) tab = 'general';
         this.state.activeTab = tab;
 
         // Update tab content visibility
@@ -438,7 +443,7 @@ const FPL = {
             if (mostSelectedTbody && data.mostSelected) {
                 mostSelectedTbody.innerHTML = data.mostSelected.map((p, idx) => {
                     const barColor = idx === 0 ? '#00FF85' : idx === 1 ? '#00FF85' : idx === 2 ? '#E1E1E1' : idx === 3 ? '#FFA600' : '#FF005A';
-                    return `<tr style="border-bottom:1px solid #1A2E28;transition:background 0.2s;cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'" onclick="FPL.filterPlayers('${p.pos}')">
+                    return `<tr style="border-bottom:1px solid #1A2E28;transition:background 0.2s;cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'" onclick="FPL.openPlayersByPosition('${p.pos}')">
                         <td style="padding:8px 10px;display:flex;align-items:center;gap:8px;background:#141916;position:relative;">
                             <div style="width:3px;height:24px;border-radius:999px;background:${barColor};flex-shrink:0;"></div>
                             <div style="width:32px;height:32px;border-radius:50%;background:#1c211e;border:1px solid #1A2E28;overflow:hidden;flex-shrink:0;">
@@ -593,12 +598,25 @@ const FPL = {
 
     showDialog(id) {
         const el = document.getElementById(id);
-        if (el) el.classList.add('active');
+        if (el) {
+            el.classList.add('active');
+            el.setAttribute('aria-hidden', 'false');
+            if (id === 'connect-dialog') {
+                const managerInput = document.getElementById('connect-manager-id');
+                const leagueInput = document.getElementById('connect-league-id');
+                if (managerInput) managerInput.value = this.state.managerId || '';
+                if (leagueInput) leagueInput.value = this.state.leagueId || '';
+                managerInput?.focus();
+            }
+        }
     },
 
     hideDialog(id) {
         const el = document.getElementById(id);
-        if (el) el.classList.remove('active');
+        if (el) {
+            el.classList.remove('active');
+            el.setAttribute('aria-hidden', 'true');
+        }
     },
 
     // ==================== RENDER: DASHBOARD ====================
@@ -2249,8 +2267,12 @@ const FPL = {
     },
 
     filterPlayers(pos, el) {
-        document.querySelectorAll('#content-players .tabs .tab').forEach(t => t.classList.remove('active'));
-        el.classList.add('active');
+        document.querySelectorAll('#content-players [onclick^="FPL.filterPlayers"]').forEach(t => {
+            const active = t === el;
+            t.classList.toggle('active', active);
+            t.style.background = active ? 'rgba(0,255,133,0.16)' : 'transparent';
+            t.style.color = active ? '#00FF85' : '#B0B0B0';
+        });
         this.state.playerFilter = pos;
         this.renderPlayers();
     },
@@ -2292,11 +2314,31 @@ const FPL = {
     connectManager() {
         const input = document.getElementById('connect-manager-id');
         const id = input?.value?.trim();
-        if (!id) return;
+        const leagueInput = document.getElementById('connect-league-id');
+        const leagueId = leagueInput?.value?.trim();
+        if (!/^\d+$/.test(id || '') || Number(id) < 1) {
+            this.showError('Enter a valid Manager ID');
+            input?.focus();
+            return;
+        }
+        if (leagueId && (!/^\d+$/.test(leagueId) || Number(leagueId) < 1)) {
+            this.showError('Enter a valid League ID');
+            leagueInput?.focus();
+            return;
+        }
         this.state.managerId = id;
         localStorage.setItem('fplManagerId', id);
+        if (leagueId) {
+            this.state.leagueId = leagueId;
+            localStorage.setItem('fplLeagueId', leagueId);
+        }
         this.hideDialog('connect-dialog');
         this.loadManagerData(id).then(() => this.render());
+    },
+
+    openPlayersByPosition(pos) {
+        this.state.playerFilter = pos;
+        this.navigateTo('players');
     },
 
     connectLeague() {
@@ -2682,13 +2724,4 @@ const FPL = {
     }
 };
 
-// Initialize on DOM ready
-document.addEventListener('DOMContentLoaded', () => {
-    FPL.initSidebar();
-    FPL.initDialogs();
-    FPL.initFromURL();
-});
-
-window.addEventListener('popstate', () => {
-    FPL.initFromURL();
-});
+window.FPL = FPL;

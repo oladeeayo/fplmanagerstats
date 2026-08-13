@@ -5,13 +5,18 @@ const { neon } = require('@neondatabase/serverless');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const clientDistPath = path.join(__dirname, '../dist');
 
 // Neon database connection
 const NEON_URL = process.env.NEON_DATABASE_URL;
-const sql = neon(NEON_URL);
+const sql = NEON_URL ? neon(NEON_URL) : null;
 
 // Initialize database tables
 async function initDatabase() {
+  if (!sql) {
+    console.warn('NEON_DATABASE_URL is not set; ownership history and admin analytics are disabled.');
+    return;
+  }
   try {
     await sql`
       CREATE TABLE IF NOT EXISTS ownership_snapshots (
@@ -95,11 +100,23 @@ app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
 
+app.use(express.static(clientDistPath));
 app.use(express.static(path.join(__dirname, '../public')));
 app.use(express.json());
+
+function requireDatabase(req, res) {
+  if (sql) return true;
+  res.status(503).json({ error: 'Database features are not configured' });
+  return false;
+}
+
+function parsePositiveId(value) {
+  return /^\d+$/.test(String(value)) && Number(value) > 0 ? String(value) : null;
+}
 
 // ---- Analytics Tracking ----
 const crypto = require('crypto');
@@ -159,6 +176,7 @@ function generateSessionId() {
 
 // Tracking middleware
 app.use(async (req, res, next) => {
+  if (!sql) return next();
   const startTime = Date.now();
   const originalEnd = res.end;
 
@@ -464,18 +482,23 @@ async function analyzeManager(managerId, playerData, leagueId = 314) {
 const managerCache = {};
 
 app.get('/api/analyze-manager/:managerId', async (req, res) => {
+  const managerId = parsePositiveId(req.params.managerId);
+  if (!managerId) return res.status(400).json({ error: 'Invalid manager ID' });
   try {
     const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
-    const result = await analyzeManager(req.params.managerId, bs, 314);
-    managerCache[req.params.managerId] = result;
+    const result = await analyzeManager(managerId, bs, 314);
+    managerCache[managerId] = result;
     res.json(result);
   } catch (e) { console.error('Error:', e.message); res.status(500).json({ error: 'Failed to analyze manager' }); }
 });
 
 app.get('/api/compare-managers/:id1/:id2', async (req, res) => {
+  const id1 = parsePositiveId(req.params.id1);
+  const id2 = parsePositiveId(req.params.id2);
+  if (!id1 || !id2) return res.status(400).json({ error: 'Invalid manager ID' });
   try {
     const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
-    const [m1, m2] = await Promise.all([analyzeManager(req.params.id1, bs, 314), analyzeManager(req.params.id2, bs, 314)]);
+    const [m1, m2] = await Promise.all([analyzeManager(id1, bs, 314), analyzeManager(id2, bs, 314)]);
     res.json({ manager1: m1, manager2: m2 });
   } catch (e) { res.status(500).json({ error: 'Failed to compare' }); }
 });
@@ -491,8 +514,10 @@ app.get('/api/price-changes', async (req, res) => {
 });
 
 app.get('/api/league-standings/:leagueId', async (req, res) => {
+  const requestedLeagueId = parsePositiveId(req.params.leagueId);
+  if (!requestedLeagueId) return res.status(400).json({ error: 'Invalid league ID' });
   try {
-    const leagueId = req.params.leagueId || 314;
+    const leagueId = requestedLeagueId;
     const [bs, p1] = await Promise.all([
       apiGet('https://fantasy.premierleague.com/api/bootstrap-static/'),
       apiGet(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/?page_standings=1&phase=1`)
@@ -1117,6 +1142,7 @@ app.get('/api/captain-picks', async (req, res) => {
 
 // ---- Ownership Tracking ----
 app.get('/api/ownership/history', async (req, res) => {
+  if (!requireDatabase(req, res)) return;
   try {
     const result = await sql`SELECT timestamp, players FROM ownership_snapshots ORDER BY timestamp ASC`;
     const snapshots = result;
@@ -1156,6 +1182,7 @@ app.get('/api/ownership/history', async (req, res) => {
 });
 
 app.post('/api/ownership/snapshot', async (req, res) => {
+  if (!requireDatabase(req, res)) return;
   try {
     // Check throttle - get last snapshot
     const lastResult = await sql`SELECT timestamp FROM ownership_snapshots ORDER BY timestamp DESC LIMIT 1`;
@@ -2556,11 +2583,18 @@ app.get('/api/match-analysis', async (req, res) => {
 });
 
 // ---- Admin Analytics API ----
-const ADMIN_KEY = process.env.ADMIN_KEY || 'fpladmin2024';
+const ADMIN_KEY = process.env.ADMIN_KEY;
 
 function requireAdmin(req, res) {
-  const key = req.query.key || req.headers['x-admin-key'];
-  if (key !== ADMIN_KEY) {
+  if (!ADMIN_KEY) {
+    res.status(503).json({ error: 'Admin analytics are not configured' });
+    return false;
+  }
+  if (!sql) return requireDatabase(req, res);
+  const key = req.headers['x-admin-key'];
+  const supplied = typeof key === 'string' ? Buffer.from(key) : Buffer.alloc(0);
+  const expected = Buffer.from(ADMIN_KEY);
+  if (supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) {
     res.status(401).json({ error: 'Unauthorized' });
     return false;
   }
@@ -2852,4 +2886,16 @@ app.get('/admin.html', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/admin.html'));
 });
 
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+// Client-side routes are rendered by React Router.
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api/')) return next();
+  res.sendFile(path.join(clientDistPath, 'index.html'), (error) => {
+    if (error) next(error);
+  });
+});
+
+if (require.main === module) {
+  app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+}
+
+module.exports = app;

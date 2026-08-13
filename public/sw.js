@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fpl-stats-v6';
+const CACHE_NAME = 'fpl-stats-react-v1';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -14,7 +14,9 @@ const STATIC_ASSETS = [
 
 self.addEventListener('install', (event) => {
     event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
+        caches.open(CACHE_NAME).then((cache) => Promise.allSettled(
+            STATIC_ASSETS.map((asset) => cache.add(asset))
+        ))
     );
     self.skipWaiting();
 });
@@ -46,7 +48,7 @@ self.addEventListener('fetch', (event) => {
                     caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
                 }
                 return response;
-            }).catch(() => caches.match(event.request))
+            }).catch(() => caches.match(event.request).then((cached) => cached || caches.match('/index.html')))
         );
         return;
     }

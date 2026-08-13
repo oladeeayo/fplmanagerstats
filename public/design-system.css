@@ -654,6 +654,12 @@ select.input {
 .bottom-nav-item:hover,
 .bottom-nav-item.active { color: var(--md-sys-color-primary); }
 .bottom-nav-item .material-symbols-outlined { font-size: 24px; }
+.sidebar-nav-item:focus-visible,
+.bottom-nav-item:focus-visible,
+.mobile-menu-btn:focus-visible {
+    outline: 2px solid var(--md-sys-color-primary);
+    outline-offset: 2px;
+}
 
 /* Mobile Menu Button */
 .mobile-menu-btn {

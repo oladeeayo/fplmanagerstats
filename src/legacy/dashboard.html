@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FPL Manager Stats - Fantasy Premier League Analytics Dashboard | xG, Captain Picks, Transfers</title>
     <meta name="description" content="Free Fantasy Premier League analytics dashboard with advanced stats: xG/xA predictions, captain picks, transfer trends, ownership tracking, fixture difficulty ratings, and tactical zone analysis. Real-time FPL data updated daily.">
     <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
@@ -102,6 +102,7 @@
         .sidebar-nav-item:hover { background: var(--md-sys-color-surface-container); color: var(--md-sys-color-on-surface); }
         .sidebar-nav-item.active { background: var(--fpl-accent-dim); color: var(--md-sys-color-primary); }
         .sidebar-nav-item .material-symbols-outlined { font-size: 20px; }
+        .sidebar-nav-button { width: 100%; border: 0; background: transparent; font-family: inherit; text-align: left; }
         .chart-bars { display: flex; flex-direction: column; gap: var(--space-sm); }
         .chart-bar-group { display: flex; align-items: center; gap: var(--space-sm); }
         .chart-bar-label { width: 40px; font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); text-align: right; }
@@ -151,22 +152,22 @@
             <nav style="padding:var(--space-md);flex:1;">
                 <div style="margin-bottom:var(--space-md);">
                     <div style="font-size:0.625rem;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.1em;padding:var(--space-sm) var(--space-md);font-weight:600;">Menu</div>
-                    <a class="sidebar-nav-item active" data-tab="general" onclick="FPL.navigateTo('general')"><span class="material-symbols-outlined">dashboard</span> Dashboard</a>
-                    <a class="sidebar-nav-item" data-tab="manager" onclick="FPL.navigateTo('manager')"><span class="material-symbols-outlined">groups</span> Team Analysis</a>
-                    <a class="sidebar-nav-item" data-tab="league" onclick="FPL.navigateTo('league')"><span class="material-symbols-outlined">leaderboard</span> Standings</a>
-                    <a class="sidebar-nav-item" data-tab="players" onclick="FPL.navigateTo('players')"><span class="material-symbols-outlined">person_search</span> Player Stats</a>
-                    <a class="sidebar-nav-item" data-tab="zones" onclick="FPL.navigateTo('zones')"><span class="material-symbols-outlined">sports</span> Tactics</a>
-                    <a class="sidebar-nav-item" data-tab="fixtures" onclick="FPL.navigateTo('fixtures')"><span class="material-symbols-outlined">calendar_month</span> Fixtures</a>
-                    <a class="sidebar-nav-item" data-tab="captain" onclick="FPL.navigateTo('captain')"><span class="material-symbols-outlined">star</span> Captaincy</a>
-                    <a class="sidebar-nav-item" data-tab="ownership" onclick="FPL.navigateTo('ownership')"><span class="material-symbols-outlined">pie_chart</span> Ownership</a>
-                    <a class="sidebar-nav-item" data-tab="setpieces" onclick="FPL.navigateTo('setpieces')"><span class="material-symbols-outlined">sports_motorsports</span> Set Pieces</a>
+                    <a href="/" class="sidebar-nav-item active" data-tab="general" onclick="event.preventDefault();FPL.navigateTo('general')"><span class="material-symbols-outlined">dashboard</span> Dashboard</a>
+                    <a href="/manager" class="sidebar-nav-item" data-tab="manager" onclick="event.preventDefault();FPL.navigateTo('manager')"><span class="material-symbols-outlined">groups</span> Team Analysis</a>
+                    <a href="/league" class="sidebar-nav-item" data-tab="league" onclick="event.preventDefault();FPL.navigateTo('league')"><span class="material-symbols-outlined">leaderboard</span> Standings</a>
+                    <a href="/players" class="sidebar-nav-item" data-tab="players" onclick="event.preventDefault();FPL.navigateTo('players')"><span class="material-symbols-outlined">person_search</span> Player Stats</a>
+                    <a href="/tactics" class="sidebar-nav-item" data-tab="zones" onclick="event.preventDefault();FPL.navigateTo('zones')"><span class="material-symbols-outlined">sports</span> Tactics</a>
+                    <a href="/fixtures" class="sidebar-nav-item" data-tab="fixtures" onclick="event.preventDefault();FPL.navigateTo('fixtures')"><span class="material-symbols-outlined">calendar_month</span> Fixtures</a>
+                    <a href="/captaincy" class="sidebar-nav-item" data-tab="captain" onclick="event.preventDefault();FPL.navigateTo('captain')"><span class="material-symbols-outlined">star</span> Captaincy</a>
+                    <a href="/ownership" class="sidebar-nav-item" data-tab="ownership" onclick="event.preventDefault();FPL.navigateTo('ownership')"><span class="material-symbols-outlined">pie_chart</span> Ownership</a>
+                    <a href="/set-pieces" class="sidebar-nav-item" data-tab="setpieces" onclick="event.preventDefault();FPL.navigateTo('setpieces')"><span class="material-symbols-outlined">sports_motorsports</span> Set Pieces</a>
                 </div>
                 <div class="divider"></div>
                 <div>
                     <div style="font-size:0.625rem;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.1em;padding:var(--space-sm) var(--space-md);font-weight:600;">More</div>
-                    <a class="sidebar-nav-item" onclick="FPL.showDialog('connect-dialog')"><span class="material-symbols-outlined">link</span> Connect FPL ID</a>
-                    <a class="sidebar-nav-item" onclick="FPL.initHistory()"><span class="material-symbols-outlined">history</span> History</a>
-                    <a class="sidebar-nav-item" onclick="FPL.initSettings()"><span class="material-symbols-outlined">settings</span> Settings</a>
+                    <button type="button" class="sidebar-nav-item sidebar-nav-button" onclick="FPL.showDialog('connect-dialog')"><span class="material-symbols-outlined">link</span> Connect FPL ID</button>
+                    <button type="button" class="sidebar-nav-item sidebar-nav-button" onclick="FPL.initHistory()"><span class="material-symbols-outlined">history</span> History</button>
+                    <button type="button" class="sidebar-nav-item sidebar-nav-button" onclick="FPL.initSettings()"><span class="material-symbols-outlined">settings</span> Settings</button>
                 </div>
             </nav>
             <div style="padding:var(--space-md);border-top:1px solid var(--md-sys-color-outline-variant);">
@@ -178,7 +179,7 @@
         <div class="layout-main">
             <header class="topbar">
                 <div class="topbar-left">
-                    <button id="mobile-menu-btn" class="mobile-menu-btn"><span class="material-symbols-outlined">menu</span></button>
+                    <button id="mobile-menu-btn" class="mobile-menu-btn" type="button" aria-label="Open navigation menu"><span class="material-symbols-outlined" aria-hidden="true">menu</span></button>
                     <span class="topbar-title"><span class="material-symbols-outlined filled" style="font-size:24px;">sports_soccer</span> FPL Stats</span>
                 </div>
                 <div class="topbar-right">
@@ -1076,23 +1077,23 @@
 
     <!-- Mobile Bottom Nav -->
     <nav class="bottom-nav">
-        <a class="bottom-nav-item active" data-tab="general" onclick="FPL.navigateTo('general')"><span class="material-symbols-outlined">dashboard</span><span>Home</span></a>
-        <a class="bottom-nav-item" data-tab="manager" onclick="FPL.navigateTo('manager')"><span class="material-symbols-outlined">groups</span><span>Team</span></a>
-        <a class="bottom-nav-item" data-tab="players" onclick="FPL.navigateTo('players')"><span class="material-symbols-outlined">person_search</span><span>Players</span></a>
-        <a class="bottom-nav-item" data-tab="fixtures" onclick="FPL.navigateTo('fixtures')"><span class="material-symbols-outlined">calendar_month</span><span>Fixtures</span></a>
-        <a class="bottom-nav-item" data-tab="captain" onclick="FPL.navigateTo('captain')"><span class="material-symbols-outlined">star</span><span>Captain</span></a>
-        <a class="bottom-nav-item" data-tab="ownership" onclick="FPL.navigateTo('ownership')"><span class="material-symbols-outlined">pie_chart</span><span>Own</span></a>
+        <a href="/" class="bottom-nav-item active" data-tab="general" onclick="event.preventDefault();FPL.navigateTo('general')"><span class="material-symbols-outlined">dashboard</span><span>Home</span></a>
+        <a href="/manager" class="bottom-nav-item" data-tab="manager" onclick="event.preventDefault();FPL.navigateTo('manager')"><span class="material-symbols-outlined">groups</span><span>Team</span></a>
+        <a href="/players" class="bottom-nav-item" data-tab="players" onclick="event.preventDefault();FPL.navigateTo('players')"><span class="material-symbols-outlined">person_search</span><span>Players</span></a>
+        <a href="/fixtures" class="bottom-nav-item" data-tab="fixtures" onclick="event.preventDefault();FPL.navigateTo('fixtures')"><span class="material-symbols-outlined">calendar_month</span><span>Fixtures</span></a>
+        <a href="/captaincy" class="bottom-nav-item" data-tab="captain" onclick="event.preventDefault();FPL.navigateTo('captain')"><span class="material-symbols-outlined">star</span><span>Captain</span></a>
+        <a href="/ownership" class="bottom-nav-item" data-tab="ownership" onclick="event.preventDefault();FPL.navigateTo('ownership')"><span class="material-symbols-outlined">pie_chart</span><span>Own</span></a>
     </nav>
 
     <!-- Connect Dialog -->
-    <div id="connect-dialog" class="dialog-overlay">
+    <div id="connect-dialog" class="dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="connect-dialog-title" aria-hidden="true">
         <div class="dialog">
-            <div class="dialog-header"><h3 style="font-family:var(--font-display);font-weight:700;">Connect FPL ID</h3><button class="btn btn-ghost btn-icon" onclick="FPL.hideDialog('connect-dialog')"><span class="material-symbols-outlined">close</span></button></div>
+            <div class="dialog-header"><h3 id="connect-dialog-title" style="font-family:var(--font-display);font-weight:700;">Connect FPL ID</h3><button class="btn btn-ghost btn-icon" type="button" aria-label="Close dialog" onclick="FPL.hideDialog('connect-dialog')"><span class="material-symbols-outlined" aria-hidden="true">close</span></button></div>
             <div class="dialog-body">
                 <p style="font-size:0.875rem;color:var(--md-sys-color-on-surface-variant);margin-bottom:var(--space-md);">Enter your FPL Manager ID. Find it in the URL when viewing your team on the FPL website.</p>
-                <div class="input-group mb-md"><label class="input-label">Manager ID</label><input type="number" id="connect-manager-id" class="input" placeholder="e.g. 123456"></div>
+                <div class="input-group mb-md"><label class="input-label" for="connect-manager-id">Manager ID</label><input type="number" id="connect-manager-id" class="input" min="1" inputmode="numeric" placeholder="e.g. 123456"></div>
                 <p style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);margin-bottom:var(--space-sm);">Optionally add a Classic League ID to view standings.</p>
-                <div class="input-group"><label class="input-label">League ID (optional)</label><input type="number" id="connect-league-id" class="input" placeholder="e.g. 314" value="${localStorage.getItem('fplLeagueId') || ''}"></div>
+                <div class="input-group"><label class="input-label" for="connect-league-id">League ID (optional)</label><input type="number" id="connect-league-id" class="input" min="1" inputmode="numeric" placeholder="e.g. 314"></div>
             </div>
             <div class="dialog-footer"><button class="btn btn-outline" onclick="FPL.hideDialog('connect-dialog')">Cancel</button><button class="btn btn-primary" onclick="FPL.connectManager()"><span class="material-symbols-outlined" style="font-size:18px;">link</span> Connect</button></div>
         </div>
