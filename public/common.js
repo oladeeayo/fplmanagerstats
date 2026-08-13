@@ -2588,11 +2588,23 @@ const FPL = {
 
                     let statLabel = '';
                     if (statType === 'penalties') {
-                        statLabel = '<span style="color:#00ff85;">' + p.goals + 'G</span>';
+                        statLabel = '<span style="color:#00ff85;" title="Total Goals">' + (p.goals ?? 0) + 'G</span>';
+                        if (p.penaltiesMissed && p.penaltiesMissed > 0) {
+                            statLabel += ' <span style="color:#ff005a;font-size:10px;" title="Penalties Missed">(' + p.penaltiesMissed + ' PM)</span>';
+                        }
+                        if (p.xG && parseFloat(p.xG) > 0) {
+                            statLabel += ' <span style="color:#00e5ff;font-size:10px;" title="Expected Goals">(' + p.xG + ' xG)</span>';
+                        }
                     } else if (statType === 'freeKicks') {
-                        statLabel = '<span style="color:#00ff85;">' + p.goals + 'G</span> <span style="color:#ffa600;">' + p.assists + 'A</span>';
+                        statLabel = '<span style="color:#00ff85;" title="Goals">' + (p.goals ?? 0) + 'G</span> <span style="color:#ffa600;" title="Assists">' + (p.assists ?? 0) + 'A</span>';
+                        if (p.xG && parseFloat(p.xG) > 0) {
+                            statLabel += ' <span style="color:#00e5ff;font-size:10px;" title="xG Threat">(' + p.xG + ' xG)</span>';
+                        }
                     } else if (statType === 'corners') {
-                        statLabel = '<span style="color:#ffa600;">' + p.assists + 'A</span>';
+                        statLabel = '<span style="color:#ffa600;" title="Assists">' + (p.assists ?? 0) + 'A</span> <span style="color:#00ff85;" title="Goals">' + (p.goals ?? 0) + 'G</span>';
+                        if (p.xA && parseFloat(p.xA) > 0) {
+                            statLabel += ' <span style="color:#00e5ff;font-size:10px;" title="xA Chance Creation">(' + p.xA + ' xA)</span>';
+                        }
                     }
 
                     return '<div style="display:flex;align-items:center;gap:6px;padding:6px 0;' + border + '">'
