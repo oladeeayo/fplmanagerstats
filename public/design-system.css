@@ -1103,12 +1103,12 @@ select.input {
     .fixtures-flex-layout > div:first-child > div:first-child {
         flex-direction: column !important;
         align-items: stretch !important;
-        gap: 12px !important;
-        padding: 12px !important;
+        gap: 10px !important;
+        padding: 10px !important;
     }
     .fixtures-flex-layout > div:first-child > div:first-child > div:first-child {
         flex-direction: column !important;
-        gap: 12px !important;
+        gap: 8px !important;
         width: 100% !important;
     }
     .fixtures-flex-layout > div:first-child > div:first-child > div:first-child > div {
@@ -1128,9 +1128,27 @@ select.input {
         padding: 8px 8px !important;
         font-size: 12px !important;
     }
-    /* FDR scale - hide on mobile */
+    /* FDR scale */
     .fixtures-flex-layout > div:first-child > div:first-child > div:last-child {
-        display: none !important;
+        width: 100% !important;
+        justify-content: center !important;
+    }
+    /* Fixture table mobile */
+    .fixtures-flex-layout .table-scroll-mobile {
+        margin: 0 !important;
+    }
+    .fixtures-flex-layout .table-scroll-mobile table {
+        min-width: 100% !important;
+    }
+    .fixtures-flex-layout .table-scroll-mobile th,
+    .fixtures-flex-layout .table-scroll-mobile td {
+        padding: 4px 5px !important;
+        font-size: 10px !important;
+    }
+    .fixtures-flex-layout .table-scroll-mobile th:first-child,
+    .fixtures-flex-layout .table-scroll-mobile td:first-child {
+        min-width: 50px !important;
+        max-width: 50px !important;
     }
 }
 

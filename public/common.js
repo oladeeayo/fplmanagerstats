@@ -329,6 +329,29 @@ const FPL = {
         return this.state.teamMap[teamId]?.team_colour || '#333';
     },
 
+    getTeamLogo(shortName) {
+        const logos = {
+            'ARS': 'Arsenal%20FC.png', 'AVL': 'Aston%20Villa.png', 'BOU': 'AFC%20Bournemouth.png',
+            'BRE': 'Brentford%20FC.png', 'BHA': 'Brighton%20%26%20Hove%20Albion.png',
+            'CHE': 'Chelsea%20FC.png', 'COV': 'Coventry%20City.png', 'CRY': 'Crystal%20Palace.png',
+            'EVE': 'Everton%20FC.png', 'FUL': 'Fulham%20FC.png', 'HUL': 'Hull%20City.png',
+            'IPS': 'Ipswich%20Town.png', 'LEE': 'Leeds%20United.png', 'LIV': 'Liverpool%20FC.png',
+            'MCI': 'Manchester%20City.png', 'MUN': 'Manchester%20United.png', 'NEW': 'Newcastle%20United.png',
+            'NFO': 'Nottingham%20Forest.png', 'SUN': 'Sunderland%20AFC.png', 'TOT': 'Tottenham%20Hotspur.png',
+            'WOL': 'Wolverhampton%20Wanderers.png'
+        };
+        const file = logos[shortName];
+        if (!file) return '';
+        return 'https://raw.githubusercontent.com/luukhopman/football-logos/master/logos/England%20-%20Premier%20League/' + file;
+    },
+
+    teamBadge(shortName, size) {
+        size = size || 24;
+        const url = this.getTeamLogo(shortName);
+        if (!url) return '<span style="display:inline-block;width:' + size + 'px;height:' + size + 'px;border-radius:4px;background:#1c211e;border:1px solid #1A2E28;"></span>';
+        return '<img src="' + url + '" style="width:' + size + 'px;height:' + size + 'px;border-radius:4px;object-fit:contain;background:#1c211e;border:1px solid #1A2E28;" onerror="this.style.display=\'none\'">';
+    },
+
     getPlayerFixture(playerId, gw) {
         const player = this.state.playerMap[playerId];
         if (!player) return null;
@@ -416,18 +439,18 @@ const FPL = {
                 mostSelectedTbody.innerHTML = data.mostSelected.map((p, idx) => {
                     const barColor = idx === 0 ? '#00FF85' : idx === 1 ? '#00FF85' : idx === 2 ? '#E1E1E1' : idx === 3 ? '#FFA600' : '#FF005A';
                     return `<tr style="border-bottom:1px solid #1A2E28;transition:background 0.2s;cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'" onclick="FPL.filterPlayers('${p.pos}')">
-                        <td style="padding:8px 12px;display:flex;align-items:center;gap:10px;background:#141916;position:relative;">
+                        <td style="padding:8px 10px;display:flex;align-items:center;gap:8px;background:#141916;position:relative;">
                             <div style="width:3px;height:24px;border-radius:999px;background:${barColor};flex-shrink:0;"></div>
                             <div style="width:32px;height:32px;border-radius:50%;background:#1c211e;border:1px solid #1A2E28;overflow:hidden;flex-shrink:0;">
                                 <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || p.web_name || 'FPL Player'} photo" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
                             </div>
-                            <div style="min-width:0;">
+                            <div style="min-width:0;flex:1;">
                                 <div style="font-weight:700;color:#ffffff;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name}</div>
                                 <div class="mono" style="font-size:10px;color:#8ba396;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.team} • ${p.pos}</div>
                             </div>
                         </td>
-                        <td style="padding:8px 12px;text-align:right;font-weight:600;color:#dfe4e0;font-family:var(--font-mono);font-size:12px;white-space:nowrap;">${p.selectedBy}</td>
-                        <td style="padding:8px 12px;text-align:right;font-weight:700;color:#00ff85;font-family:var(--font-mono);font-size:13px;white-space:nowrap;">${p.ppg}</td>
+                        <td style="padding:8px 10px;text-align:right;font-weight:600;color:#dfe4e0;font-family:var(--font-mono);font-size:12px;white-space:nowrap;">${p.selectedBy}</td>
+                        <td style="padding:8px 10px;text-align:right;font-weight:700;color:#00ff85;font-family:var(--font-mono);font-size:13px;white-space:nowrap;">${p.ppg}</td>
                     </tr>`;
                 }).join('');
             }
@@ -895,6 +918,7 @@ const FPL = {
                     <div style="display:flex;align-items:center;gap:var(--space-sm);">
                         <span style="font-weight:600;">${p.name}</span>
                         ${isCaptain ? '<span style="padding:1px 6px;border-radius:var(--radius-pill);font-size:0.625rem;font-weight:700;background:var(--md-sys-color-primary);color:#000;">C</span>' : ''}
+                        ${this.teamBadge(p.teamShort, 14)}
                         <span style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">${p.teamShort}</span>
                     </div>
                 </td>
@@ -1267,12 +1291,12 @@ const FPL = {
             const btn = document.getElementById(`lookahead-${val}`);
             if (btn) {
                 if (parseInt(val) === n) {
-                    btn.style.background = 'var(--md-sys-color-secondary-container)';
-                    btn.style.color = 'var(--md-sys-color-on-secondary-container)';
+                    btn.style.background = '#00FF85';
+                    btn.style.color = '#0a0f0d';
                     btn.style.fontWeight = '700';
                 } else {
                     btn.style.background = 'transparent';
-                    btn.style.color = 'var(--md-sys-color-on-surface-variant)';
+                    btn.style.color = '#b9cbb9';
                     btn.style.fontWeight = '400';
                 }
             }
@@ -1317,8 +1341,8 @@ const FPL = {
         const headerRow = document.getElementById('fixture-grid-header-row');
         if (headerRow) {
             headerRow.style.background = '#a7cfbc';
-            headerRow.innerHTML = `<th style="padding:5px 6px;background:#a7cfbc;width:60px;max-width:60px;font-family:var(--font-mono);font-size:11px;color:#0a0f0d;font-weight:700;">TEAM</th>` +
-                targetGWs.map(gw => `<th style="padding:5px 6px;text-align:center;font-family:var(--font-mono);font-size:11px;color:#0a0f0d;font-weight:700;background:#a7cfbc;"><span style="color:#0a0f0d;font-weight:700;">GW${gw}</span></th>`).join('');
+            headerRow.innerHTML = `<th style="padding:6px 8px;background:#a7cfbc;width:60px;max-width:60px;font-family:var(--font-mono);font-size:10px;color:#0a0f0d;font-weight:700;position:sticky;left:0;z-index:2;border-right:2px solid rgba(0,0,0,0.1);">TEAM</th>` +
+                targetGWs.map(gw => `<th style="padding:4px 6px;text-align:center;font-family:var(--font-mono);font-size:10px;color:#0a0f0d;font-weight:700;background:#a7cfbc;">GW${gw}</th>`).join('');
         }
 
         // Render Table Rows for all 20 teams
@@ -1364,10 +1388,10 @@ const FPL = {
                 const teamAccentColor = fdrColors[avgFDR]?.bg || '#37DB59';
 
                 return `<tr style="border-bottom:1px solid #1A2E28;background:${isEven ? '#181d1a' : '#0f1412'};">
-                    <td style="padding:4px 6px;background:${isEven ? '#181d1a' : '#0f1412'};max-width:60px;overflow:hidden;text-overflow:ellipsis;font-family:var(--font-mono);font-size:10px;font-weight:700;color:#00ff85;">
+                    <td style="padding:4px 6px;background:${isEven ? '#181d1a' : '#0f1412'};max-width:60px;overflow:hidden;text-overflow:ellipsis;font-family:var(--font-mono);font-size:10px;font-weight:700;color:#00ff85;position:sticky;left:0;z-index:1;border-right:2px solid rgba(255,255,255,0.08);">
                         <div style="display:flex;align-items:center;gap:4px;">
-                            <div style="width:3px;height:16px;background:${teamAccentColor};border-radius:999px;flex-shrink:0;"></div>
-                            ${team.short_name}
+                            <div style="width:3px;height:14px;background:${teamAccentColor};border-radius:999px;flex-shrink:0;"></div>
+                            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${team.short_name}</span>
                         </div>
                     </td>
                     ${cellHTMLs}
@@ -1391,7 +1415,7 @@ const FPL = {
                     </div>
                     <div style="flex:1;">
                         <p style="margin:0;font-weight:700;font-size:14px;color:var(--fdr-1);line-height:1.2;">${p.web_name}</p>
-                        <p style="margin:2px 0 0 0;font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-on-surface-variant);">${team?.short_name || 'FPL'} • ${posStr}</p>
+                        <p style="margin:2px 0 0 0;font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-on-surface-variant);display:flex;align-items:center;gap:4px;">${this.teamBadge(team?.short_name, 12)} ${team?.short_name || 'FPL'} • ${posStr}</p>
                     </div>
                     <div style="text-align:right;">
                         <p style="margin:0;font-family:var(--font-mono);font-size:15px;font-weight:700;color:var(--md-sys-color-primary);">${p.form}</p>
@@ -1548,7 +1572,7 @@ const FPL = {
                                 <div style="font-weight:600;color:var(--md-sys-color-on-surface);display:flex;align-items:center;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                                     ${p.name} ${badgeIcon}
                                 </div>
-                                <div style="font-size:9px;color:var(--md-sys-color-on-surface-variant);white-space:nowrap;">${p.team} (${p.position})</div>
+                                <div style="font-size:9px;color:var(--md-sys-color-on-surface-variant);white-space:nowrap;display:flex;align-items:center;gap:3px;">${this.teamBadge(p.team, 10)} ${p.team} (${p.position})</div>
                             </div>
                         </div>
                     </td>
@@ -1777,6 +1801,7 @@ const FPL = {
                         <div style="min-width:0;">
                             <div style="font-weight:700;font-size:11px;color:#E0E0E0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
                             <div style="display:flex;align-items:center;gap:3px;font-size:9px;color:#B0B0B0;">
+                                ${this.teamBadge(p.team, 12)}
                                 <span style="font-weight:600;">${p.team}</span>
                                 <span style="color:#444;">·</span>
                                 <span style="padding:0 3px;border-radius:2px;font-weight:700;font-size:8px;background:${posColors[p.position]}20;color:${posColors[p.position]};">${p.position}</span>
@@ -2177,7 +2202,7 @@ const FPL = {
             return `<tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);">
                 <td style="padding:var(--space-sm) var(--space-md);">${i + 1}</td>
                 <td style="padding:var(--space-sm) var(--space-md);font-weight:600;">${p.web_name}</td>
-                <td style="padding:var(--space-sm) var(--space-md);">${team?.short_name || '???'}</td>
+                <td style="padding:var(--space-sm) var(--space-md);display:flex;align-items:center;gap:4px;">${this.teamBadge(team?.short_name, 16)} ${team?.short_name || '???'}</td>
                 <td style="padding:var(--space-sm) var(--space-md);text-align:center;"><span style="padding:2px 8px;border-radius:var(--radius-pill);font-size:0.6875rem;font-weight:700;background:${posColors[p.element_type]}20;color:${posColors[p.element_type]};">${posNames[p.element_type]}</span></td>
                 <td style="padding:var(--space-sm) var(--space-md);text-align:right;font-family:var(--font-mono);font-weight:700;color:var(--md-sys-color-primary);">+${this.formatNumber(p.transfers_in_event || 0)}</td>
                 <td style="padding:var(--space-sm) var(--space-md);text-align:right;font-family:var(--font-mono);">£${(p.now_cost / 10).toFixed(1)}m</td>
@@ -2209,7 +2234,7 @@ const FPL = {
             return `<tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);">
                 <td style="padding:var(--space-sm) var(--space-md);">${i + 1}</td>
                 <td style="padding:var(--space-sm) var(--space-md);font-weight:600;">${p.web_name}</td>
-                <td style="padding:var(--space-sm) var(--space-md);">${team?.short_name || '???'}</td>
+                <td style="padding:var(--space-sm) var(--space-md);display:flex;align-items:center;gap:4px;">${this.teamBadge(team?.short_name, 16)} ${team?.short_name || '???'}</td>
                 <td style="padding:var(--space-sm) var(--space-md);text-align:center;"><span style="padding:2px 8px;border-radius:var(--radius-pill);font-size:0.6875rem;font-weight:700;background:${posColors[p.element_type]}20;color:${posColors[p.element_type]};">${posNames[p.element_type]}</span></td>
                 <td style="padding:var(--space-sm) var(--space-md);text-align:right;font-family:var(--font-mono);font-weight:700;color:var(--md-sys-color-error);">-${this.formatNumber(p.transfers_out_event || 0)}</td>
                 <td style="padding:var(--space-sm) var(--space-md);text-align:right;font-family:var(--font-mono);">£${(p.now_cost / 10).toFixed(1)}m</td>
@@ -2615,9 +2640,7 @@ const FPL = {
                 // Team cell
                 html += '<td style="padding:16px 14px;min-width:140px;">'
                     + '<div style="display:flex;align-items:center;gap:10px;">'
-                    + '<div style="width:36px;height:36px;border-radius:8px;background:#1c211e;border:1px solid #1A2E28;display:flex;align-items:center;justify-content:center;">'
-                    + '<span style="font-size:11px;font-weight:700;color:#8ba396;font-family:var(--font-mono);">' + team.teamName + '</span>'
-                    + '</div>'
+                    + this.teamBadge(shortName, 36)
                     + '<div>'
                     + '<div style="font-size:14px;font-weight:700;color:#fff;">' + team.teamFull + '</div>'
                     + '</div>'
