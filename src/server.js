@@ -248,17 +248,60 @@ const POSITION_MAP = ["GKP", "DEF", "MID", "FWD"];
 const { DETAILED_POSITIONS, ZONE_MAP, ZONE_LABELS, ZONE_GROUP, POSITION_LABELS, ATTACKING_ZONES, DEFENSIVE_ZONES, MIDFIELD_ZONES, ALL_ZONES } = require('./playerPositions');
 const { buildCaptaincyModel } = require('./captaincyModel');
 
-const apiGet = url => axios.get(url, { timeout: 15000 });
+async function apiGet(url) {
+  let lastError;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await axios.get(url, { timeout: 15000 });
+    } catch (error) {
+      lastError = error;
+      const status = error.response?.status;
+      if (attempt > 0 || (status && status !== 429 && status < 500)) throw error;
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+  }
+  throw lastError;
+}
+const upstreamCache = new Map();
+
+async function getCachedApiData(url, maxAgeMs = 60 * 1000) {
+  const cached = upstreamCache.get(url);
+  if (cached?.data && Date.now() - cached.timestamp < maxAgeMs) return cached.data;
+  if (cached?.request) return cached.request;
+
+  const request = apiGet(url).then(({ data }) => {
+    upstreamCache.set(url, { data, timestamp: Date.now() });
+    return data;
+  }).catch(error => {
+    if (cached?.data) return cached.data;
+    throw error;
+  });
+
+  upstreamCache.set(url, { ...cached, request });
+  try {
+    return await request;
+  } finally {
+    const latest = upstreamCache.get(url);
+    if (latest?.request === request) {
+      const { request: pendingRequest, ...rest } = latest;
+      if (rest.data) upstreamCache.set(url, rest);
+      else upstreamCache.delete(url);
+    }
+  }
+}
+
+const BOOTSTRAP_URL = 'https://fantasy.premierleague.com/api/bootstrap-static/';
+const FIXTURES_URL = 'https://fantasy.premierleague.com/api/fixtures/';
 
 app.get('/api/health', (req, res) => res.json({ status: 'healthy' }));
 
 app.get('/api/bootstrap-static', async (req, res) => {
-  try { res.json((await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data); }
+  try { res.json(await getCachedApiData(BOOTSTRAP_URL)); }
   catch (e) { res.status(500).json({ error: 'Failed to fetch bootstrap static data' }); }
 });
 
 app.get('/api/fixtures', async (req, res) => {
-  try { res.json((await apiGet('https://fantasy.premierleague.com/api/fixtures/')).data); }
+  try { res.json(await getCachedApiData(FIXTURES_URL)); }
   catch (e) { res.status(500).json({ error: 'Failed to fetch fixtures' }); }
 });
 
@@ -2351,7 +2394,7 @@ app.get('/api/xpts-projections', async (req, res) => {
 // ---- Deadline Info ----
 app.get('/api/deadline', async (req, res) => {
   try {
-    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
+    const bs = await getCachedApiData(BOOTSTRAP_URL);
     const events = bs.events;
     const currentGW = events.find(e => e.is_current);
     const nextGW = events.find(e => e.is_next);

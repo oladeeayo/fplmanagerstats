@@ -67,15 +67,21 @@ const FPL = {
         this.hideLoading();
         this.state.playerFilter = 'all';
         try {
-            const [bootstrap, fixtures, deadline] = await Promise.all([
+            const [bootstrap, fixtures] = await Promise.all([
                 this.apiFetch(this.API.bootstrap),
-                this.apiFetch(this.API.fixtures),
-                this.apiFetch(this.API.deadline).catch(() => null)
+                this.apiFetch(this.API.fixtures)
             ]);
+
+            const currentEvent = bootstrap.events?.find(e => e.is_current);
+            const nextEvent = bootstrap.events?.find(e => e.is_next);
+            const deadline = {
+                currentGW: currentEvent?.id || nextEvent?.id || 1,
+                deadlineTime: nextEvent?.deadline_time || currentEvent?.deadline_time || null
+            };
 
             this.state.bootstrapData = bootstrap;
             this.state.fixtures = fixtures;
-            this.state.currentGW = deadline?.currentGW || bootstrap.events?.find(e => e.is_current)?.id || 1;
+            this.state.currentGW = deadline.currentGW;
             this.state.selectedGW = this.state.currentGW;
 
             // Build team and player maps
