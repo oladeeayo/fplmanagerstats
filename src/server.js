@@ -914,7 +914,7 @@ app.get('/api/zone-analysis', async (req, res) => {
         rates: player.rates, score: player.scores[category], reason
       });
       const ranked = (category, filter, reason) => scored
-        .filter(filter)
+        .filter(player => player.minutesSecurity >= 65 && filter(player))
         .sort((a, b) => b.scores[category] - a.scores[category] || b.minutesSecurity - a.minutesSecurity)
         .slice(0, 2)
         .map(player => serialize(player, category, reason(player)));

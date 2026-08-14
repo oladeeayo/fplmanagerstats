@@ -1580,8 +1580,8 @@ const FPL = {
                     <td><span class="captaincy-rank">${player.rank}</span></td>
                     <td>
                         <div class="captaincy-table-player">
-                            <div class="captaincy-table-photo">${this.playerPhotoMarkup(player, `${player.name} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}</div>
-                            <div><strong>${player.name}${labels}</strong><span>${player.team} · ${player.position}</span></div>
+                            <div class="captaincy-table-photo">${this.playerPhotoMarkup(player, `${player.name} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;', true)}</div>
+                            <div class="captaincy-table-player-info"><strong>${player.name}${labels}</strong><span>${player.team} · ${player.position}</span></div>
                         </div>
                     </td>
                     <td><div class="captaincy-fixtures">${this.captainFixtureBadges(player.fixtures)}</div></td>
@@ -1619,12 +1619,12 @@ const FPL = {
         }) || candidates.find(candidate => normalizeName(candidate.web_name) === name) || null;
     },
 
-    playerPhotoUrl(player, size = '110x140') {
-        if (this.getSetting('showPhotos') === false) return '';
+    playerPhotoUrl(player, size = '110x140', alwaysShow = false) {
+        if (!alwaysShow && this.getSetting('showPhotos') === false) return '';
         const current = this.resolvePlayer(player) || player;
         const joinedCurrentClub = current?.team_join_date ? Date.parse(current.team_join_date) : NaN;
         const legacyPortraitCutoff = Date.parse('2024-08-14');
-        if (Number.isFinite(joinedCurrentClub) && joinedCurrentClub >= legacyPortraitCutoff) return '';
+        if (!alwaysShow && Number.isFinite(joinedCurrentClub) && joinedCurrentClub >= legacyPortraitCutoff) return '';
         const rawPhoto = String(current?.photo ?? current?.photoId ?? '').replace(/^p/i, '').replace(/\.(png|jpe?g)$/i, '');
         const code = Number(current?.code || rawPhoto);
         return Number.isFinite(code) && code > 0
@@ -1655,8 +1655,8 @@ const FPL = {
             : '';
     },
 
-    playerPhotoMarkup(player, alt = 'FPL player', className = '', style = '') {
-        const src = this.playerPhotoUrl(player);
+    playerPhotoMarkup(player, alt = 'FPL player', className = '', style = '', alwaysShow = false) {
+        const src = this.playerPhotoUrl(player, '110x140', alwaysShow);
         const team = this.playerTeamShort(player);
         const initials = this.playerInitials(player);
         const shirt = this.playerTeamShirtUrl(player);
@@ -2070,9 +2070,10 @@ const FPL = {
             return `<button type="button" class="tactics-fixture-card${selected ? ' is-selected' : ''}" role="option" aria-selected="${selected}" onclick="FPL.selectTacticsFixture('${e(fixture.id)}')">
                 <span class="tactics-fixture-time">${e(this.formatTacticsKickoff(fixture.kickoff))}</span>
                 <span class="tactics-fixture-teams">
-                    <span>${e(fixture.homeTeam)}</span><strong>${e(score)}</strong><span>${e(fixture.awayTeam)}</span>
+                    <span class="tactics-fixture-team"><b>${e(fixture.homeTeam)}</b><span class="tactics-fdr-chip ${this.getFDRClass(fixture.homeFDR)}">FDR ${fixture.homeFDR}</span></span>
+                    <strong>${e(score)}</strong>
+                    <span class="tactics-fixture-team is-away"><b>${e(fixture.awayTeam)}</b><span class="tactics-fdr-chip ${this.getFDRClass(fixture.awayFDR)}">FDR ${fixture.awayFDR}</span></span>
                 </span>
-                <span class="tactics-fixture-meta"><span class="tactics-fdr-chip ${this.getFDRClass(fixture.homeFDR)}">H ${fixture.homeFDR}</span><span class="tactics-fdr-chip ${this.getFDRClass(fixture.awayFDR)}">A ${fixture.awayFDR}</span></span>
             </button>`;
         }).join('');
         this.renderSelectedTacticsMatch();
@@ -2117,12 +2118,10 @@ const FPL = {
     tacticsPlayerCard(player, accent = 'home', compact = false) {
         if (!player) return '';
         const e = value => this.escapeHTML(value);
-        const position = player.position || player.detailedPosition || player.broadPosition || '--';
-        const cost = player.cost == null ? '--' : this.formatPrice(player.cost);
-        const image = this.playerPhotoMarkup(player, e(player.name), '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;');
-        return `<div class="tactics-player-card ${accent}${compact ? ' is-compact' : ''}" title="${e(player.name)} · ${e(position)} · ${e(cost)}">
-            <div class="tactics-player-photo">${image}</div>
-            <div class="tactics-player-copy"><b>${e(player.name)}</b><span>${e(position)} · ${e(cost)}</span></div>
+        const shirt = this.playerTeamShirtUrl(player);
+        return `<div class="tactics-player-card ${accent}${compact ? ' is-compact' : ''}" title="${e(player.name)}">
+            <div class="tactics-player-shirt">${shirt ? `<img src="${shirt}" alt="" onerror="this.style.display='none'">` : ''}</div>
+            <div class="tactics-player-copy"><b>${e(player.name)}</b></div>
         </div>`;
     },
 
