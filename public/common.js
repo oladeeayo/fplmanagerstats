@@ -2093,9 +2093,9 @@ const FPL = {
             return `<button type="button" class="tactics-fixture-card${selected ? ' is-selected' : ''}" role="option" aria-selected="${selected}" onclick="FPL.selectTacticsFixture('${e(fixture.id)}')">
                 <span class="tactics-fixture-time">${e(this.formatTacticsKickoff(fixture.kickoff))}</span>
                 <span class="tactics-fixture-teams">
-                    <span class="tactics-fixture-team"><b>${e(fixture.homeTeam)}</b><span class="tactics-fdr-chip ${this.getFDRClass(fixture.homeFDR)}">FDR ${fixture.homeFDR}</span></span>
+                    <span class="tactics-fixture-team"><b>${e(fixture.homeTeam)}</b></span>
                     <strong>${e(score)}</strong>
-                    <span class="tactics-fixture-team is-away"><b>${e(fixture.awayTeam)}</b><span class="tactics-fdr-chip ${this.getFDRClass(fixture.awayFDR)}">FDR ${fixture.awayFDR}</span></span>
+                    <span class="tactics-fixture-team is-away"><b>${e(fixture.awayTeam)}</b></span>
                 </span>
             </button>`;
         }).join('');
