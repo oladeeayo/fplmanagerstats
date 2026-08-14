@@ -568,25 +568,27 @@ const FPL = {
         const overlay = document.getElementById('sidebar-overlay');
         const menuBtn = document.getElementById('mobile-menu-btn');
 
-        if (menuBtn) {
-            menuBtn.addEventListener('click', () => {
-                sidebar.classList.toggle('mobile-open');
-                overlay.classList.toggle('active');
-            });
-        }
+        if (!sidebar || !overlay || !menuBtn || menuBtn.dataset.sidebarBound === 'true') return;
+        menuBtn.dataset.sidebarBound = 'true';
 
-        if (overlay) {
-            overlay.addEventListener('click', () => {
-                sidebar.classList.remove('mobile-open');
-                overlay.classList.remove('active');
-            });
-        }
+        menuBtn.addEventListener('click', () => {
+            const isOpen = sidebar.classList.toggle('mobile-open');
+            overlay.classList.toggle('active', isOpen);
+            menuBtn.setAttribute('aria-expanded', String(isOpen));
+        });
+
+        const closeSidebar = () => {
+            sidebar.classList.remove('mobile-open');
+            overlay.classList.remove('active');
+            menuBtn.setAttribute('aria-expanded', 'false');
+        };
+
+        overlay.addEventListener('click', closeSidebar);
 
         document.querySelectorAll('.sidebar-nav-item').forEach(item => {
             item.addEventListener('click', () => {
                 if (window.innerWidth <= 1024) {
-                    sidebar.classList.remove('mobile-open');
-                    overlay.classList.remove('active');
+                    closeSidebar();
                 }
             });
         });
@@ -1009,6 +1011,28 @@ const FPL = {
         const sortKey = this.playerSortKey || 'pts';
         const sortDir = this.playerSortDir === 'asc' ? 1 : -1;
 
+        const metricValue = (player, metric) => {
+            const nineties = (player.minutes || 0) / 90;
+            let value;
+            switch (metric) {
+                case 'xg': value = parseFloat(player.expected_goals || 0); break;
+                case 'xa': value = parseFloat(player.expected_assists || 0); break;
+                case 'xgi': value = parseFloat(player.expected_goal_involvements || 0); break;
+                case 'xgi90': return parseFloat(player.expected_goal_involvements_per_90 || 0);
+                case 'gxg': value = (player.goals_scored || 0) - parseFloat(player.expected_goals || 0); break;
+                case 'form': return parseFloat(player.form || 0);
+                case 'defcon': value = parseFloat(player.defensive_contribution || 0); break;
+                case 'mins': return player.minutes || 0;
+                case 'goals': value = player.goals_scored || 0; break;
+                case 'own': return parseFloat(player.selected_by_percent || 0);
+                case 'ict': return parseFloat(player.ict_index || 0);
+                case 'pts':
+                default: value = player.total_points || 0; break;
+            }
+            if (!per90) return value;
+            return nineties > 0 ? value / nineties : 0;
+        };
+
         const sortIconIds = ['pts','mins','goals','xg','gxg','xa','xgi','xgi90','form','defcon'];
         sortIconIds.forEach(id => {
             const icon = document.getElementById('sort-icon-' + id);
@@ -1022,53 +1046,7 @@ const FPL = {
             }
         });
 
-        filtered.sort((a, b) => {
-            let aVal, bVal;
-            switch (sortKey) {
-                case 'xg':
-                    aVal = parseFloat(a.expected_goals || 0);
-                    bVal = parseFloat(b.expected_goals || 0);
-                    break;
-                case 'xa':
-                    aVal = parseFloat(a.expected_assists || 0);
-                    bVal = parseFloat(b.expected_assists || 0);
-                    break;
-                case 'xgi':
-                    aVal = parseFloat(a.expected_goal_involvements || 0);
-                    bVal = parseFloat(b.expected_goal_involvements || 0);
-                    break;
-                case 'xgi90':
-                    aVal = parseFloat(a.expected_goal_involvements_per_90 || 0);
-                    bVal = parseFloat(b.expected_goal_involvements_per_90 || 0);
-                    break;
-                case 'gxg':
-                    aVal = (a.goals_scored || 0) - parseFloat(a.expected_goals || 0);
-                    bVal = (b.goals_scored || 0) - parseFloat(b.expected_goals || 0);
-                    break;
-                case 'form':
-                    aVal = parseFloat(a.form || 0);
-                    bVal = parseFloat(b.form || 0);
-                    break;
-                case 'defcon':
-                    aVal = parseFloat(a.defensive_contribution || 0);
-                    bVal = parseFloat(b.defensive_contribution || 0);
-                    break;
-                case 'mins':
-                    aVal = a.minutes || 0;
-                    bVal = b.minutes || 0;
-                    break;
-                case 'goals':
-                    aVal = a.goals_scored || 0;
-                    bVal = b.goals_scored || 0;
-                    break;
-                case 'pts':
-                default:
-                    aVal = a.total_points || 0;
-                    bVal = b.total_points || 0;
-                    break;
-            }
-            return (bVal - aVal) * sortDir;
-        });
+        filtered.sort((a, b) => (metricValue(a, sortKey) - metricValue(b, sortKey)) * sortDir);
 
         const posNames = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
         const posColors = { 1: '#FFD700', 2: '#4FC3F7', 3: '#81C784', 4: '#E57373' };
@@ -1078,10 +1056,14 @@ const FPL = {
         const thXG = document.getElementById('th-xg');
         const thXA = document.getElementById('th-xa');
         const thXGI = document.getElementById('th-xgi');
+        const thPts = document.getElementById('th-pts');
+        const thDefcon = document.getElementById('th-defcon');
+        if (thPts) thPts.childNodes[0].textContent = per90 ? 'Pts/90 ' : 'Pts ';
         if (thGoals) thGoals.textContent = per90 ? 'Goals/90' : 'Goals';
         if (thXG) thXG.textContent = per90 ? 'xG/90' : 'xG';
         if (thXA) thXA.textContent = per90 ? 'xA/90' : 'xA';
         if (thXGI) thXGI.textContent = per90 ? 'xGI/90' : 'xGI';
+        if (thDefcon) thDefcon.childNodes[0].textContent = per90 ? 'DefCon/90 ' : 'DefCon ';
 
         tbody.innerHTML = filtered.slice(0, 50).map((p, idx) => {
             const team = teams.find(t => t.id === p.team);
@@ -1102,6 +1084,7 @@ const FPL = {
             const xG = per90 && nineties > 0 ? xGRaw / nineties : xGRaw;
             const xA = per90 && nineties > 0 ? xARaw / nineties : xARaw;
             const xGI = per90 && nineties > 0 ? xGIRaw / nineties : xGIRaw;
+            const defcon = metricValue(p, 'defcon');
             const goalsVsXG = goals - xG;
             const xgiPer90 = parseFloat(p.expected_goal_involvements_per_90 || 0);
 
@@ -1139,7 +1122,7 @@ const FPL = {
                             ${[formVal >= 5 ? 1 : 2, formVal >= 4 ? 2 : 3, formVal >= 3 ? 1 : 2, formVal >= 2 ? 3 : 4, formVal >= 1 ? 1 : 5].map(h => `<div style="width:4px;height:${h * 3}px;border-radius:2px;background:var(--fdr-${h});"></div>`).join('')}
                         </div>
                     </td>
-                    <td style="text-align:center;font-family:var(--font-mono);font-size:11px;color:#B0B0B0;">${parseFloat(p.defensive_contribution || 0).toFixed(1)}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:11px;color:#B0B0B0;">${defcon.toFixed(per90 ? 2 : 1)}</td>
                 </tr>
             `;
         }).join('');
@@ -1365,6 +1348,8 @@ const FPL = {
         }
 
         const headerRow = document.getElementById('fixture-grid-header-row');
+        const fixtureTable = document.querySelector('.fixture-grid-table');
+        if (fixtureTable) fixtureTable.style.setProperty('--fixture-columns', targetGWs.length);
         if (headerRow) {
             headerRow.style.background = '#a7cfbc';
             headerRow.innerHTML = `<th style="padding:6px 8px;background:#a7cfbc;width:60px;max-width:60px;font-family:var(--font-mono);font-size:10px;color:#0a0f0d;font-weight:700;position:sticky;left:0;z-index:2;border-right:2px solid rgba(0,0,0,0.1);">TEAM</th>` +

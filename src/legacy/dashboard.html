@@ -615,7 +615,7 @@
                             </label>
                             <div style="display:flex;align-items:center;gap:8px;background:#1E1E1E;border:1px solid #1A2E28;border-radius:8px;padding:6px 12px;">
                                 <span class="material-symbols-outlined" style="font-size:20px;color:#B0B0B0;">sort</span>
-                                <select id="player-sort" onchange="FPL.renderPlayers()" style="background:transparent;color:#E0E0E0;border:none;outline:none;font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer;">
+                                <select id="player-sort" onchange="FPL.sortByPlayerMetric(this.value)" style="background:transparent;color:#E0E0E0;border:none;outline:none;font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer;">
                                     <option value="pts">Total Points</option>
                                     <option value="xg">xG (T)</option>
                                     <option value="xa">xA (C)</option>
@@ -642,7 +642,7 @@
                                 <thead style="background:#333333;border-bottom:1px solid #1A2E28;font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.03em;">
                                     <tr>
                                         <th style="background:#333333;min-width:110px;position:sticky;left:0;z-index:2;border-right:2px solid rgba(255,255,255,0.1);">Player</th>
-                                        <th style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('pts')">Pts <span id="sort-icon-pts" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;">arrow_downward</span></th>
+                                        <th id="th-pts" style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('pts')">Pts <span id="sort-icon-pts" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;">arrow_downward</span></th>
                                         <th style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('mins')">Mins <span id="sort-icon-mins" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
                                         <th id="th-goals" style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('goals')">Goals <span id="sort-icon-goals" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
                                         <th id="th-xg" style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('xg')">xG <span id="sort-icon-xg" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
@@ -651,7 +651,7 @@
                                         <th id="th-xgi" style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('xgi')">xGI <span id="sort-icon-xgi" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
                                         <th style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('xgi90')">xGI/90 <span id="sort-icon-xgi90" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
                                         <th style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('form')">Form <span id="sort-icon-form" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
-                                        <th style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('defcon')">DefCon <span id="sort-icon-defcon" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th id="th-defcon" style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('defcon')">DefCon <span id="sort-icon-defcon" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
                                     </tr>
                                 </thead>
                                 <tbody id="players-table-body" class="divide-y divide-pitch-line">

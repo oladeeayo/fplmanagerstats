@@ -1701,6 +1701,13 @@ select.input {
 @media (max-width: 1024px) {
     .fixtures-flex-layout {
         flex-direction: column !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        overflow-x: clip;
+    }
+    .fixtures-flex-layout > div {
+        width: 100% !important;
+        min-width: 0 !important;
     }
     .fixtures-flex-layout > aside {
         width: 100% !important;
@@ -1711,6 +1718,10 @@ select.input {
         max-height: none !important;
     }
     .fixtures-controls {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        box-sizing: border-box;
         flex-direction: column !important;
         align-items: stretch !important;
         gap: 10px !important;
@@ -1745,9 +1756,13 @@ select.input {
     /* Fixture table mobile */
     .fixtures-flex-layout .table-scroll-mobile {
         margin: 0 !important;
+        overflow-x: auto !important;
+        overscroll-behavior-x: contain;
     }
     .fixtures-flex-layout .table-scroll-mobile table {
-        min-width: 0 !important;
+        width: calc(62px + (var(--fixture-columns, 5) * 76px)) !important;
+        min-width: calc(62px + (var(--fixture-columns, 5) * 76px)) !important;
+        table-layout: fixed;
     }
     .fixtures-flex-layout .table-scroll-mobile th,
     .fixtures-flex-layout .table-scroll-mobile td {
@@ -1759,6 +1774,9 @@ select.input {
         width: 62px !important;
         min-width: 62px !important;
         max-width: 62px !important;
+        position: sticky !important;
+        left: 0 !important;
+        z-index: 3 !important;
     }
     .fixture-grid-table th:not(:first-child),
     .fixture-grid-table td:not(:first-child) {
