@@ -66,6 +66,7 @@ const result = buildDecisionCentre({ bootstrap, fixtures, manager, picks, histor
 assert.equal(result.squad.length, 15);
 assert.equal(result.lineup.starters.length, 11);
 assert.equal(result.lineup.bench.length, 4);
+assert.equal(result.lineup.starters.filter(player => player.position === 'GKP').length, 1);
 assert.ok(result.lineup.starters.filter(player => player.position === 'DEF').length >= 3);
 assert.ok(result.lineup.captain && result.lineup.viceCaptain);
 assert.ok(result.transfers.plans.length > 0, 'optimizer should find upgrades for the deliberately weak squad');

@@ -1697,6 +1697,33 @@ app.get('/api/leagues-classic/:leagueId/standings', async (req, res) => {
         managers: []
       });
     }
+
+    const managers = results.map((entry) => ({
+      rank: entry.rank,
+      managerName: entry.player_name,
+      entryName: entry.entry_name,
+      eventTotal: entry.event_total || 0,
+      total: entry.total || 0,
+      rankDiff: (entry.last_rank || entry.rank) - entry.rank,
+      diffCount: Math.max(0, leaderTotal - (entry.total || 0))
+    }));
+    const eventScores = managers.map(manager => manager.eventTotal);
+
+    return res.json({
+      leagueId: parseInt(leagueId),
+      leagueName: leagueInfo.name || `League ${leagueId}`,
+      leagueType: leagueInfo.league_type === 'x' ? 'Classic League' : 'Public Global',
+      page,
+      totalPages: standingsData.has_next ? Math.min(5, page + 1) : page,
+      totalEntries: standingsData.has_next ? Math.max(page * 50 + 1, managers.length) : ((page - 1) * 50) + managers.length,
+      hasMore: Boolean(standingsData.has_next),
+      noData: false,
+      leagueAvgGW: eventScores.length ? Math.round(eventScores.reduce((sum, score) => sum + score, 0) / eventScores.length) : 0,
+      topScoreGW: eventScores.length ? Math.max(...eventScores) : 0,
+      topScorerManager: managers.find(manager => manager.eventTotal === Math.max(...eventScores))?.managerName || '',
+      topScorerTeam: managers.find(manager => manager.eventTotal === Math.max(...eventScores))?.entryName || '',
+      managers
+    });
   } catch (e) {
     console.error('League standings error:', e.message);
     res.status(500).json({ error: 'Failed to fetch league standings' });

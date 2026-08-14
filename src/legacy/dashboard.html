@@ -137,7 +137,7 @@
             <span id="main-overlay-timer" class="pixel-loader-timer" style="font-size:13px;">0.0s</span>
         </div>
     </div>
-    <div id="error-toast" class="hidden"></div>
+    <div id="error-toast" class="hidden" role="status" aria-live="polite"></div>
     <div id="sidebar-overlay" class="sidebar-overlay"></div>
 
     <div class="layout">
@@ -180,7 +180,7 @@
         <div class="layout-main">
             <header class="topbar">
                 <div class="topbar-left">
-                    <button id="mobile-menu-btn" class="mobile-menu-btn" type="button" aria-label="Open navigation menu"><span class="material-symbols-outlined" aria-hidden="true">menu</span></button>
+                    <button id="mobile-menu-btn" class="mobile-menu-btn" type="button" aria-label="Open navigation menu" aria-expanded="false" aria-controls="sidebar"><span class="material-symbols-outlined" aria-hidden="true">menu</span></button>
                     <span class="topbar-title"><span class="material-symbols-outlined filled" style="font-size:24px;">sports_soccer</span> FPL Stats</span>
                 </div>
                 <div class="topbar-right">
@@ -321,14 +321,12 @@
                                 </div>
                             </div>
 
-                            <!-- Run AI Optimization Card -->
-                            <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:24px;text-align:center;position:relative;cursor:pointer;" onclick="FPL.navigateTo('zones')">
-                                <div style="width:48px;height:48px;border-radius:50%;background:rgba(0,255,133,0.1);border:1px solid rgba(0,255,133,0.3);display:flex;align-items:center;justify-content:center;margin-bottom:12px;">
-                                    <span class="material-symbols-outlined" style="color:#00ff85;font-size:28px;">auto_awesome</span>
-                                </div>
-                                <h4 style="font-size:16px;font-weight:700;color:#ffffff;margin:0 0 4px 0;">Run AI Optimization</h4>
-                                <p style="font-size:12px;color:#8ba396;margin:0;">Analyze your squad against xG data</p>
-                            </div>
+                            <!-- Decision Lab CTA -->
+                            <button type="button" class="dashboard-decision-cta" onclick="FPL.navigateTo('decision')">
+                                <span class="material-symbols-outlined" aria-hidden="true">model_training</span>
+                                <span><strong>Open Decision Lab</strong><small>Model transfers, lineup and captaincy</small></span>
+                                <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -347,7 +345,7 @@
                             <span class="mono" style="font-size:10px;font-weight:700;color:#2c4436;text-transform:uppercase;letter-spacing:0.08em;">MANAGER ID</span>
                             <div style="display:flex;align-items:center;background:#141f18;border-radius:6px;padding:4px 6px;margin-top:12px;">
                                 <input type="text" id="manager-id-input-field" value="1234567" style="background:transparent;border:none;outline:none;color:#ffffff;font-family:var(--font-mono);font-size:14px;font-weight:700;width:100%;padding:4px 8px;">
-                                <button onclick="FPL.connectManagerFromInput()" style="background:transparent;border:none;color:#00FF85;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:4px;">
+                                <button type="button" aria-label="Analyze manager ID" onclick="FPL.connectManagerFromInput()" style="background:transparent;border:none;color:#00FF85;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:4px;">
                                     <span class="material-symbols-outlined" style="font-size:18px;">search</span>
                                 </button>
                             </div>
@@ -519,14 +517,14 @@
                             <button class="btn btn-primary" type="button" onclick="FPL.loadDecisionCentre()"><span class="material-symbols-outlined">play_arrow</span> Run model</button>
                         </div>
                     </div>
-                    <div class="decision-subnav" role="tablist">
-                        <button class="active" data-decision-view="overview" onclick="FPL.setDecisionView('overview')">Overview</button>
-                        <button data-decision-view="transfers" onclick="FPL.setDecisionView('transfers')">Transfers</button>
-                        <button data-decision-view="lineup" onclick="FPL.setDecisionView('lineup')">Lineup</button>
-                        <button data-decision-view="compare" onclick="FPL.setDecisionView('compare')">Compare</button>
-                        <button data-decision-view="rivals" onclick="FPL.setDecisionView('rivals')">Rivals</button>
-                        <button data-decision-view="chips" onclick="FPL.setDecisionView('chips')">Chips</button>
-                        <button data-decision-view="model" onclick="FPL.setDecisionView('model')">Model</button>
+                    <div class="decision-subnav" role="tablist" aria-label="Decision Lab views">
+                        <button class="active" role="tab" aria-selected="true" data-decision-view="overview" onclick="FPL.setDecisionView('overview')">Overview</button>
+                        <button role="tab" aria-selected="false" data-decision-view="transfers" onclick="FPL.setDecisionView('transfers')">Transfers</button>
+                        <button role="tab" aria-selected="false" data-decision-view="lineup" onclick="FPL.setDecisionView('lineup')">Lineup</button>
+                        <button role="tab" aria-selected="false" data-decision-view="compare" onclick="FPL.setDecisionView('compare')">Compare</button>
+                        <button role="tab" aria-selected="false" data-decision-view="rivals" onclick="FPL.setDecisionView('rivals')">Rivals</button>
+                        <button role="tab" aria-selected="false" data-decision-view="chips" onclick="FPL.setDecisionView('chips')">Chips</button>
+                        <button role="tab" aria-selected="false" data-decision-view="model" onclick="FPL.setDecisionView('model')">Model</button>
                     </div>
                     <div id="decision-empty" class="decision-empty"><span class="material-symbols-outlined">link</span><div><b>Connect an FPL ID to start</b><p>The lab uses your published squad, budget and gameweek history.</p></div><button class="btn btn-primary" onclick="FPL.showDialog('connect-dialog')">Connect ID</button></div>
                     <div id="decision-loading" class="decision-empty hidden"><span class="material-symbols-outlined decision-spin">progress_activity</span><div><b>Running decision model</b><p>Projecting every player and testing legal transfer paths.</p></div></div>
@@ -588,13 +586,13 @@
                             <div>
                                 <div style="font-size:0.6875rem;font-weight:700;color:var(--md-sys-color-on-surface-variant);letter-spacing:0.05em;font-family:var(--font-mono);margin-bottom:4px;">LEAGUE AVERAGE (GW)</div>
                                 <div style="display:flex;align-items:baseline;gap:6px;">
-                                    <div id="standings-league-avg" style="font-family:var(--font-display);font-size:2.5rem;font-weight:800;color:var(--md-sys-color-on-surface);line-height:1;">42</div>
+                                    <div id="standings-league-avg" style="font-family:var(--font-display);font-size:2.5rem;font-weight:800;color:var(--md-sys-color-on-surface);line-height:1;">--</div>
                                     <div style="font-size:0.875rem;color:var(--md-sys-color-on-surface-variant);">pts</div>
                                 </div>
                             </div>
                             <div style="margin-top:var(--space-md);display:flex;align-items:center;gap:6px;">
                                 <span class="material-symbols-outlined" style="font-size:16px;color:var(--fdr-2);">arrow_upward</span>
-                                <span id="standings-avg-comp" class="mono" style="font-size:0.75rem;font-weight:700;color:var(--fdr-2);">+12 vs Global Avg</span>
+                                <span id="standings-avg-comp" class="mono" style="font-size:0.75rem;font-weight:700;color:var(--md-sys-color-on-surface-variant);">Current page average</span>
                             </div>
                         </div>
 
@@ -603,12 +601,12 @@
                             <div>
                                 <div style="font-size:0.6875rem;font-weight:700;color:var(--md-sys-color-on-surface-variant);letter-spacing:0.05em;font-family:var(--font-mono);margin-bottom:4px;">TOP SCORE (GW)</div>
                                 <div style="display:flex;align-items:baseline;gap:6px;">
-                                    <div id="standings-top-score" style="font-family:var(--font-display);font-size:2.5rem;font-weight:800;color:var(--fdr-1);line-height:1;">89</div>
+                                    <div id="standings-top-score" style="font-family:var(--font-display);font-size:2.5rem;font-weight:800;color:var(--fdr-1);line-height:1;">--</div>
                                     <div style="font-size:0.875rem;color:var(--md-sys-color-on-surface-variant);">pts</div>
                                 </div>
                             </div>
                             <div style="margin-top:var(--space-md);font-size:0.8125rem;color:var(--md-sys-color-on-surface-variant);">
-                                by <strong id="standings-top-team" style="color:var(--md-sys-color-on-surface);">Haaland's Heroes</strong>
+                                by <strong id="standings-top-team" style="color:var(--md-sys-color-on-surface);">--</strong>
                             </div>
                         </div>
                     </div>
@@ -635,7 +633,7 @@
 
                         <!-- Table Footer Pagination -->
                         <div style="padding:var(--space-md);border-top:1px solid var(--md-sys-color-outline-variant);background:var(--md-sys-color-surface-container-low);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:var(--space-md);font-family:var(--font-mono);font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">
-                            <span id="standings-showing-count">Showing 1-50 of 250 Managers</span>
+                            <span id="standings-showing-count">Loading managers...</span>
                             <div id="standings-pagination-controls" style="display:flex;gap:6px;align-items:center;">
                                 <!-- Pagination buttons rendered dynamically -->
                             </div>

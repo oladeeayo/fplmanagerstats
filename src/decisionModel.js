@@ -30,7 +30,9 @@ function selectLineup(squad, strategy) {
   const starters = [];
   Object.entries(START_MINIMUMS).forEach(([position, count]) => starters.push(...ranked.filter(player => player.position === position).slice(0, count)));
   ranked.forEach(player => {
-    if (starters.length < 11 && !starters.some(starter => starter.id === player.id)) starters.push(player);
+    if (starters.length >= 11 || starters.some(starter => starter.id === player.id)) return;
+    if (player.position === 'GKP' && starters.some(starter => starter.position === 'GKP')) return;
+    starters.push(player);
   });
   const bench = ranked.filter(player => !starters.some(starter => starter.id === player.id));
   const captainPool = starters.filter(player => player.position !== 'GKP').sort((a, b) => b.weekly[0].xPts - a.weekly[0].xPts || b.range.high - a.range.high);
@@ -48,7 +50,7 @@ function buildTransferPlans({ squad, allPlayers, bank, freeTransfers, strategy }
 
   for (const outgoing of sales.slice(0, 10)) {
     candidates
-      .filter(incoming => incoming.position === outgoing.position && incoming.cost <= outgoing.cost + bank)
+      .filter(incoming => incoming.position === outgoing.position && incoming.cost <= (outgoing.sellingPrice ?? outgoing.cost) + bank)
       .filter(incoming => squad.filter(player => player.teamId === incoming.teamId).length + 1 <= 3)
       .sort((a, b) => adjustedScore(b, strategy) - adjustedScore(a, strategy))
       .slice(0, 8)
@@ -65,7 +67,7 @@ function buildTransferPlans({ squad, allPlayers, bank, freeTransfers, strategy }
           horizonGain,
           hitCost,
           netGain,
-          bankAfter: round(bank + outgoing.cost - incoming.cost),
+          bankAfter: round(bank + (outgoing.sellingPrice ?? outgoing.cost) - incoming.cost),
           breakEvenProbability: Math.round(Math.max(8, Math.min(92, 50 + netGain * 5 - (100 - incoming.availability) * 0.22))),
           risk: incoming.confidence === 'High' ? 'Low' : incoming.availability < 75 ? 'High' : 'Medium',
           rationale: `${incoming.name} adds ${netGain.toFixed(1)} hit-adjusted xPts over ${outgoing.name} across the next ${incoming.weekly.length} gameweeks.`,
@@ -84,7 +86,9 @@ function buildTransferPlans({ squad, allPlayers, bank, freeTransfers, strategy }
       if (new Set(ids).size !== 4) continue;
       const resulting = squad.filter(player => ![first.transfers[0].out.id, second.transfers[0].out.id].includes(player.id)).concat(first.transfers[0].in, second.transfers[0].in);
       if (!validSquad(resulting)) continue;
-      const newBank = round(bank + first.transfers[0].out.cost + second.transfers[0].out.cost - first.transfers[0].in.cost - second.transfers[0].in.cost);
+      const firstSale = first.transfers[0].out.sellingPrice ?? first.transfers[0].out.cost;
+      const secondSale = second.transfers[0].out.sellingPrice ?? second.transfers[0].out.cost;
+      const newBank = round(bank + firstSale + secondSale - first.transfers[0].in.cost - second.transfers[0].in.cost);
       if (newBank < 0) continue;
       const hitCost = Math.max(0, 2 - freeTransfers) * 4;
       const horizonGain = round(first.horizonGain + second.horizonGain);

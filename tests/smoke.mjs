@@ -40,6 +40,7 @@ try {
   });
 
   const slowContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await slowContext.route('http://localhost:8400/live.js*', (route) => route.abort());
   await slowContext.addInitScript(() => localStorage.setItem('fplManagerId', '1'));
   const slowPage = await slowContext.newPage();
   await slowPage.route('**/api/bootstrap-static', async (route) => {
@@ -68,6 +69,7 @@ try {
   ];
   for (const viewport of viewports) {
     const page = await browser.newPage({ viewport });
+    await page.route('http://localhost:8400/live.js*', (route) => route.abort());
     const consoleErrors = [];
     const failedResponses = [];
     page.on('console', (message) => {
@@ -156,6 +158,7 @@ try {
   }
 
   const redirectPage = await browser.newPage();
+  await redirectPage.route('http://localhost:8400/live.js*', (route) => route.abort());
   await redirectPage.goto(`${baseUrl}/?tab=fixtures`);
   await redirectPage.waitForURL('**/fixtures');
   await redirectPage.goto(`${baseUrl}/not-a-route`);

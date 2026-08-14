@@ -619,8 +619,34 @@ const FPL = {
 
     initDialogs() {
         document.querySelectorAll('.dialog-overlay').forEach(overlay => {
+            if (overlay.dataset.dialogBound === 'true') return;
+            overlay.dataset.dialogBound = 'true';
             overlay.addEventListener('click', (e) => {
-                if (e.target === overlay) overlay.classList.remove('active');
+                if (e.target === overlay) this.hideDialog(overlay.id);
+            });
+            overlay.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    this.hideDialog(overlay.id);
+                    return;
+                }
+                if (event.key !== 'Tab') return;
+                const focusable = [...overlay.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), [href], [tabindex]:not([tabindex="-1"])')];
+                if (!focusable.length) return;
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+                if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+            });
+        });
+
+        document.querySelectorAll('th[onclick]').forEach(header => {
+            header.tabIndex = 0;
+            header.setAttribute('role', 'button');
+            header.addEventListener('keydown', (event) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                event.preventDefault();
+                header.click();
             });
         });
     },
@@ -628,8 +654,11 @@ const FPL = {
     showDialog(id) {
         const el = document.getElementById(id);
         if (el) {
+            this.dialogTrigger = document.activeElement;
             el.classList.add('active');
             el.setAttribute('aria-hidden', 'false');
+            document.querySelector('.layout')?.setAttribute('inert', '');
+            document.querySelector('.bottom-nav')?.setAttribute('inert', '');
             if (id === 'connect-dialog') {
                 const managerInput = document.getElementById('connect-manager-id');
                 const leagueInput = document.getElementById('connect-league-id');
@@ -645,6 +674,10 @@ const FPL = {
         if (el) {
             el.classList.remove('active');
             el.setAttribute('aria-hidden', 'true');
+            document.querySelector('.layout')?.removeAttribute('inert');
+            document.querySelector('.bottom-nav')?.removeAttribute('inert');
+            this.dialogTrigger?.focus?.();
+            this.dialogTrigger = null;
         }
     },
 
@@ -2389,7 +2422,12 @@ const FPL = {
 
     setDecisionView(view) {
         this.state.decisionView = view;
-        document.querySelectorAll('.decision-subnav button').forEach(button => button.classList.toggle('active', button.dataset.decisionView === view));
+        document.querySelectorAll('.decision-subnav button').forEach(button => {
+            const active = button.dataset.decisionView === view;
+            button.classList.toggle('active', active);
+            button.setAttribute('aria-selected', String(active));
+            button.tabIndex = active ? 0 : -1;
+        });
         document.querySelectorAll('.decision-view').forEach(section => section.classList.toggle('active', section.dataset.view === view));
     },
 
