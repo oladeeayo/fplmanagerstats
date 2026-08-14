@@ -59,7 +59,7 @@ try {
   await slowPage.waitForSelector('#sidebar.mobile-open');
   await slowContext.close();
 
-  const routes = ['/', '/manager', '/league', '/players', '/tactics', '/fixtures', '/captaincy', '/ownership', '/set-pieces'];
+  const routes = ['/', '/manager', '/decision-lab', '/league', '/players', '/tactics', '/fixtures', '/captaincy', '/ownership', '/set-pieces'];
   const viewports = [
     { width: 1440, height: 900 },
     { width: 768, height: 1024 },
@@ -80,12 +80,12 @@ try {
     for (const route of routes) {
       await page.goto(`${baseUrl}${route}`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.layout');
-      const expectedTab = route === '/' ? 'general' : route === '/tactics' ? 'zones' : route === '/captaincy' ? 'captain' : route === '/set-pieces' ? 'setpieces' : route.slice(1);
+      const expectedTab = route === '/' ? 'general' : route === '/decision-lab' ? 'decision' : route === '/tactics' ? 'zones' : route === '/captaincy' ? 'captain' : route === '/set-pieces' ? 'setpieces' : route.slice(1);
       await page.waitForSelector(`#content-${expectedTab}.active`);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       const clippedElements = await page.evaluate(() => {
         const viewportWidth = document.documentElement.clientWidth;
-        const approvedScroller = (element) => element.closest('.table-scroll-mobile, .players-table-wrap, .league-table-wrap, .table-container, .tabs, .bottom-nav, .tactics-pitch, .player-position-filter');
+        const approvedScroller = (element) => element.closest('.table-scroll-mobile, .players-table-wrap, .league-table-wrap, .table-container, .tabs, .bottom-nav, .tactics-pitch, .player-position-filter, .decision-subnav');
         return [...document.querySelectorAll('body *')].flatMap((element) => {
           const style = getComputedStyle(element);
           const rect = element.getBoundingClientRect();

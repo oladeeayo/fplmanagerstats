@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const axios = require('axios');
 const { neon } = require('@neondatabase/serverless');
+const { buildDecisionCentre } = require('./decisionModel');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -293,6 +294,14 @@ async function getCachedApiData(url, maxAgeMs = 60 * 1000) {
 const BOOTSTRAP_URL = 'https://fantasy.premierleague.com/api/bootstrap-static/';
 const FIXTURES_URL = 'https://fantasy.premierleague.com/api/fixtures/';
 
+async function optionalApiGet(url, fallback = null) {
+  try { return (await apiGet(url)).data; }
+  catch (error) {
+    if ([400, 404].includes(error.response?.status)) return fallback;
+    throw error;
+  }
+}
+
 app.get('/api/health', (req, res) => res.json({ status: 'healthy' }));
 
 app.get('/api/bootstrap-static', async (req, res) => {
@@ -303,6 +312,44 @@ app.get('/api/bootstrap-static', async (req, res) => {
 app.get('/api/fixtures', async (req, res) => {
   try { res.json(await getCachedApiData(FIXTURES_URL)); }
   catch (e) { res.status(500).json({ error: 'Failed to fetch fixtures' }); }
+});
+
+app.post('/api/v1/decision-centre', async (req, res) => {
+  const managerId = parsePositiveId(req.body?.managerId);
+  if (!managerId) return res.status(400).json({ error: 'A valid managerId is required' });
+  const requestedGW = Math.max(1, Math.min(38, Number.parseInt(req.body?.targetGW, 10) || 1));
+  const horizon = Math.max(1, Math.min(8, Number.parseInt(req.body?.horizon, 10) || 5));
+  const rivalIds = [...new Set((req.body?.rivalIds || []).map(parsePositiveId).filter(Boolean))].filter(id => id !== managerId).slice(0, 5);
+
+  try {
+    const [bootstrap, fixtures, manager, history] = await Promise.all([
+      apiGet('https://fantasy.premierleague.com/api/bootstrap-static/').then(response => response.data),
+      apiGet('https://fantasy.premierleague.com/api/fixtures/').then(response => response.data),
+      apiGet(`https://fantasy.premierleague.com/api/entry/${managerId}/`).then(response => response.data),
+      apiGet(`https://fantasy.premierleague.com/api/entry/${managerId}/history/`).then(response => response.data),
+    ]);
+    const currentGW = bootstrap.events.find(event => event.is_current)?.id;
+    const nextGW = bootstrap.events.find(event => event.is_next)?.id || currentGW || requestedGW;
+    const picksGW = Math.max(1, currentGW || nextGW - 1 || 1);
+    const picks = await optionalApiGet(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${picksGW}/picks/`);
+    if (!picks?.picks?.length) return res.status(409).json({ error: 'This manager does not yet have a published squad. Try again after the first deadline.' });
+    const liveData = currentGW ? await optionalApiGet(`https://fantasy.premierleague.com/api/event/${currentGW}/live/`) : null;
+
+    const rivals = (await Promise.all(rivalIds.map(async id => {
+      const [entry, rivalPicks] = await Promise.all([
+        optionalApiGet(`https://fantasy.premierleague.com/api/entry/${id}/`),
+        optionalApiGet(`https://fantasy.premierleague.com/api/entry/${id}/event/${picksGW}/picks/`),
+      ]);
+      if (!entry || !rivalPicks?.picks) return null;
+      return { id, name: `${entry.player_first_name} ${entry.player_last_name}`.trim(), teamName: entry.name, rank: entry.summary_overall_rank, picks: rivalPicks.picks };
+    }))).filter(Boolean);
+
+    res.json(buildDecisionCentre({ bootstrap, fixtures, manager: { ...manager, id: managerId }, picks, history, rivals, liveData, options: { ...req.body, targetGW: req.body?.targetGW || nextGW, horizon } }));
+  } catch (error) {
+    console.error('Decision centre error:', error.message);
+    const status = error.response?.status === 404 ? 404 : 500;
+    res.status(status).json({ error: status === 404 ? 'Manager or rival could not be found' : 'Failed to build the decision centre' });
+  }
 });
 
 // ---- Core analysis ----

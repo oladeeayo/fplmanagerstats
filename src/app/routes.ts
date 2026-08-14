@@ -1,6 +1,7 @@
 export const appRoutes = {
   general: '/',
   manager: '/manager',
+  decision: '/decision-lab',
   league: '/league',
   players: '/players',
   zones: '/tactics',

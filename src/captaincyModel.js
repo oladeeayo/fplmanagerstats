@@ -347,7 +347,88 @@ function buildCaptaincyModel({ bootstrap, fixtures, selectedGW }) {
   };
 }
 
+function buildPlayerProjections({ bootstrap, fixtures, startGW, horizon = 5 }) {
+  const events = bootstrap.events || [];
+  const elements = bootstrap.elements || [];
+  const teams = bootstrap.teams || [];
+  const teamsById = new Map(teams.map(team => [team.id, team]));
+  const currentGW = events.find(event => event.is_current)?.id || null;
+  const nextGW = events.find(event => event.is_next)?.id || currentGW || 1;
+  const requestedGW = Number.parseInt(startGW, 10);
+  const firstGW = Number.isInteger(requestedGW) && requestedGW >= 1 && requestedGW <= 38 ? requestedGW : nextGW;
+  const safeHorizon = clamp(Number.parseInt(horizon, 10) || 5, 1, 8);
+  const gameweeks = Array.from({ length: Math.min(safeHorizon, 39 - firstGW) }, (_, index) => firstGW + index);
+  const seasonHasStarted = fixtures.some(fixture => fixture.started || fixture.finished);
+  const completedMatchesByTeam = new Map(teams.map(team => [
+    team.id,
+    fixtures.filter(fixture => fixture.finished && (fixture.team_h === team.id || fixture.team_a === team.id)).length,
+  ]));
+  const baselines = buildPositionBaselines(elements);
+
+  const projections = elements.map(player => {
+    const buildForGameweek = gameweek => {
+      const playerFixtures = fixtures
+        .filter(fixture => fixture.event === gameweek && !fixture.finished && (fixture.team_h === player.team || fixture.team_a === player.team))
+        .sort((a, b) => String(a.kickoff_time || '').localeCompare(String(b.kickoff_time || '')));
+      if (!playerFixtures.length) return null;
+      return buildCandidate({
+        player,
+        playerFixtures,
+        teamsById,
+        referenceMatches: seasonHasStarted
+          ? Math.max(completedMatchesByTeam.get(player.team) || 0, number(player.starts), 1)
+          : 38,
+        baselines,
+        useNextRoundChance: gameweek === nextGW,
+        useOfficialProjection: gameweek === nextGW,
+      });
+    };
+    const candidates = gameweeks.map(buildForGameweek);
+    const weekly = candidates.map((candidate, index) => candidate
+      ? { gameweek: gameweeks[index], xPts: candidate.xPts, xMins: candidate.xMins, fixtures: candidate.fixtures, confidence: candidate.confidence }
+      : { gameweek: gameweeks[index], xPts: 0, xMins: 0, fixtures: [], confidence: 'Blank' });
+    const firstCandidate = candidates[0];
+    const totalXpts = round(weekly.reduce((sum, week) => sum + week.xPts, 0));
+    const availability = availabilityFor(player, firstGW === nextGW);
+    const xMins = weekly[0]?.xMins || 0;
+    const uncertainty = clamp(0.18 + ((90 - Math.min(xMins, 90)) / 90 * 0.42) + ((1 - availability) * 0.35), 0.16, 0.72);
+
+    return {
+      id: player.id,
+      name: player.web_name,
+      fullName: [player.first_name, player.second_name].filter(Boolean).join(' '),
+      code: player.code,
+      teamId: player.team,
+      team: teamsById.get(player.team)?.short_name || '?',
+      position: POSITION_MAP[player.element_type - 1],
+      elementType: player.element_type,
+      cost: number(player.now_cost) / 10,
+      ownership: round(number(player.selected_by_percent)),
+      form: round(number(player.form)),
+      xGI90: firstCandidate?.xGI90 || round(number(player.expected_goal_involvements_per_90), 2),
+      roles: firstCandidate?.roles || describeRole(player),
+      availability: round(availability * 100, 0),
+      status: player.status || 'a',
+      news: player.news || '',
+      totalXpts,
+      xPtsPerMillion: round(totalXpts / Math.max(number(player.now_cost) / 10, 0.1), 2),
+      weekly,
+      range: {
+        low: round(totalXpts * (1 - uncertainty)),
+        expected: totalXpts,
+        high: round(totalXpts * (1 + uncertainty + Math.min(number(player.expected_goal_involvements_per_90), 1) * 0.12)),
+      },
+      returnProbability: round(clamp(1 - Math.exp(-Math.max(totalXpts - gameweeks.length, 0) / 4), 0.04, 0.88) * 100, 0),
+      haulProbability: round(clamp((totalXpts / Math.max(gameweeks.length, 1) - 3) * 8 + number(player.expected_goal_involvements_per_90) * 18, 2, 58), 0),
+      confidence: firstCandidate?.confidence || (availability === 0 ? 'Unavailable' : 'Low sample'),
+    };
+  }).sort((a, b) => b.totalXpts - a.totalXpts || b.xPtsPerMillion - a.xPtsPerMillion);
+
+  return { startGW: firstGW, nextGW, gameweeks, horizon: gameweeks.length, projections };
+}
+
 module.exports = {
   buildCaptaincyModel,
+  buildPlayerProjections,
   estimateExpectedMinutes,
 };

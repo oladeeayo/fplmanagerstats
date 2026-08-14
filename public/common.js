@@ -10,6 +10,8 @@ const FPL = {
         ownershipData: null,
         pricePredictions: null,
         differentials: null,
+        decisionData: null,
+        decisionView: 'overview',
         currentGW: null,
         selectedGW: null,
         selectedFixtureId: null,
@@ -43,7 +45,8 @@ const FPL = {
         xptsProjections: '/api/xpts-projections',
         deadline: '/api/deadline',
         injuryNews: '/api/injury-news',
-        priceChanges: '/api/price-changes'
+        priceChanges: '/api/price-changes',
+        decisionCentre: '/api/v1/decision-centre'
     },
 
     async apiFetch(url) {
@@ -57,6 +60,19 @@ const FPL = {
             console.error(`Fetch error for ${url}:`, err);
             if (err.name === 'AbortError') throw new Error('The FPL data request timed out. Please try again.');
             throw err;
+        } finally {
+            clearTimeout(timeout);
+        }
+    },
+
+    async apiPost(url, body) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
+        try {
+            const res = await window.fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: controller.signal });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+            return data;
         } finally {
             clearTimeout(timeout);
         }
@@ -382,7 +398,7 @@ const FPL = {
     },
 
     navigateTo(tab) {
-        const validTabs = ['general', 'manager', 'league', 'players', 'zones', 'fixtures', 'captain', 'ownership', 'setpieces'];
+        const validTabs = ['general', 'manager', 'decision', 'league', 'players', 'zones', 'fixtures', 'captain', 'ownership', 'setpieces'];
         if (!validTabs.includes(tab)) tab = 'general';
         this.state.activeTab = tab;
 
@@ -422,6 +438,7 @@ const FPL = {
             case 'ownership': this.renderOwnership(); break;
             case 'zones': this.renderZones(); break;
             case 'manager': this.renderTeamAnalysis(); break;
+            case 'decision': this.renderDecisionCentre(); break;
             case 'setpieces': this.renderSetPieces(); break;
         }
     },
@@ -2316,6 +2333,131 @@ const FPL = {
         this.renderPlayers();
     },
 
+    renderDecisionCentre() {
+        const empty = document.getElementById('decision-empty');
+        const results = document.getElementById('decision-results');
+        if (!empty || !results) return;
+        const gwInput = document.getElementById('decision-gw');
+        if (gwInput && !gwInput.dataset.ready) {
+            gwInput.value = this.state.bootstrapData?.events?.find(event => event.is_next)?.id || this.state.currentGW || 1;
+            gwInput.dataset.ready = 'true';
+        }
+        if (!this.state.managerId) {
+            empty.classList.remove('hidden');
+            results.classList.add('hidden');
+            return;
+        }
+        empty.classList.add('hidden');
+        if (this.state.decisionData) {
+            results.classList.remove('hidden');
+            this.paintDecisionCentre();
+        } else {
+            this.loadDecisionCentre();
+        }
+    },
+
+    async loadDecisionCentre() {
+        if (!this.state.managerId) return this.showDialog('connect-dialog');
+        const loading = document.getElementById('decision-loading');
+        const empty = document.getElementById('decision-empty');
+        const results = document.getElementById('decision-results');
+        loading?.classList.remove('hidden');
+        empty?.classList.add('hidden');
+        results?.classList.add('hidden');
+        try {
+            const rivals = (document.getElementById('decision-rival-ids')?.value || '').split(',').map(value => value.trim()).filter(value => /^\d+$/.test(value));
+            const bankValue = document.getElementById('decision-bank')?.value;
+            const payload = {
+                managerId: this.state.managerId,
+                targetGW: Number(document.getElementById('decision-gw')?.value) || this.state.currentGW,
+                horizon: Number(document.getElementById('decision-horizon')?.value) || 5,
+                strategy: document.getElementById('decision-strategy')?.value || 'balanced',
+                freeTransfers: Number(document.getElementById('decision-ft')?.value) || 1,
+                rivalIds: rivals,
+            };
+            if (bankValue !== '') payload.bank = Number(bankValue);
+            this.state.decisionData = await this.apiPost(this.API.decisionCentre, payload);
+            results?.classList.remove('hidden');
+            this.paintDecisionCentre();
+        } catch (error) {
+            empty?.classList.remove('hidden');
+            empty.innerHTML = `<span class="material-symbols-outlined">error</span><div><b>Decision model unavailable</b><p>${this.escapeHTML(error.message || 'Try again shortly.')}</p></div>`;
+        } finally {
+            loading?.classList.add('hidden');
+        }
+    },
+
+    setDecisionView(view) {
+        this.state.decisionView = view;
+        document.querySelectorAll('.decision-subnav button').forEach(button => button.classList.toggle('active', button.dataset.decisionView === view));
+        document.querySelectorAll('.decision-view').forEach(section => section.classList.toggle('active', section.dataset.view === view));
+    },
+
+    decisionPlayerRow(player, badge = '') {
+        return `<div class="decision-player-row"><span class="decision-player-pos">${player.position}</span><div><b>${this.escapeHTML(player.name)}</b><small>${player.team} · £${player.cost.toFixed(1)}m ${badge}</small></div><div class="decision-player-numbers"><strong>${player.weekly[0]?.xPts.toFixed(1) || '0.0'}</strong><small>xPts</small></div></div>`;
+    },
+
+    paintDecisionCentre() {
+        const data = this.state.decisionData;
+        if (!data) return;
+        const formatRank = rank => rank ? this.formatNumber(rank) : '--';
+        const summary = document.getElementById('decision-summary');
+        if (summary) summary.innerHTML = `<div class="decision-stats"><div><span>PROJECTED GW</span><strong>${data.lineup.expectedPoints.toFixed(1)}</strong><small>GW${data.meta.targetGW}</small></div><div><span>BEST MOVE</span><strong>+${(data.transfers.plans[0]?.netGain || 0).toFixed(1)}</strong><small>net xPts</small></div><div><span>RANK</span><strong>${formatRank(data.manager.rank)}</strong><small>${this.escapeHTML(data.meta.strategy)} mode</small></div><div><span>SQUAD VALUE</span><strong>£${data.manager.squadValue.toFixed(1)}</strong><small>£${data.manager.bank.toFixed(1)}m bank</small></div></div>`;
+        const stamp = document.getElementById('decision-model-stamp');
+        if (stamp) stamp.textContent = data.meta.modelVersion;
+        const actions = document.getElementById('decision-actions');
+        if (actions) actions.innerHTML = data.decisions.map((decision, index) => `<article class="decision-action"><span>${index + 1}</span><div><small>${decision.type.toUpperCase()} · ${decision.priority}</small><h3>${this.escapeHTML(decision.title)}</h3><p>${this.escapeHTML(decision.reason)}</p></div><strong>${decision.expectedGain > 0 ? '+' : ''}${decision.expectedGain.toFixed(1)}</strong></article>`).join('');
+        const alerts = document.getElementById('decision-alerts');
+        if (alerts) alerts.innerHTML = data.alerts.length ? data.alerts.map(alert => `<div class="decision-alert ${alert.severity}"><span class="material-symbols-outlined">${alert.severity === 'critical' ? 'error' : alert.severity === 'opportunity' ? 'trending_up' : 'warning'}</span><p>${this.escapeHTML(alert.message)}</p></div>`).join('') : '<div class="decision-quiet">No material squad risks detected.</div>';
+        const alertCount = document.getElementById('decision-alert-count');
+        if (alertCount) alertCount.textContent = `${data.alerts.length} signals`;
+        const live = document.getElementById('decision-live');
+        if (live) live.innerHTML = data.live?.status === 'live' ? `<div class="decision-panel decision-live-panel"><div class="decision-panel-head"><h2>Live rank pulse</h2><span>${data.live.estimatedRankDirection === 'up' ? 'RANK GAIN' : 'RANK LOSS'} · ${data.live.safetyDelta >= 0 ? '+' : ''}${data.live.safetyDelta.toFixed(1)} vs published</span></div><div class="decision-live-stats"><div><strong>${data.live.livePoints}</strong><small>live points</small></div><div><strong>${this.formatNumber(data.live.estimatedOverallPoints)}</strong><small>estimated total</small></div><div><strong>${data.live.captainDamage.toFixed(1)}</strong><small>captain damage</small></div></div><div class="decision-rival-lists"><div><b>Rank gainers</b>${data.live.gainers.map(player => `<span>${this.escapeHTML(player.name)} +${player.rankImpact.toFixed(1)}</span>`).join('') || '<span>None yet</span>'}</div><div><b>Rank threats</b>${data.live.threats.map(player => `<span>${this.escapeHTML(player.name)} ${player.rankImpact.toFixed(1)}</span>`).join('') || '<span>None yet</span>'}</div></div></div>` : `<div class="decision-quiet decision-live-wait">${this.escapeHTML(data.live?.message || 'Live analytics activate when matches begin.')}</div>`;
+
+        const transferPlans = document.getElementById('decision-transfer-plans');
+        if (transferPlans) transferPlans.innerHTML = data.transfers.plans.length ? `<div class="decision-transfer-grid">${data.transfers.plans.slice(0, 10).map((plan, index) => `<article class="decision-transfer-card"><div class="decision-plan-rank">${index + 1}</div><div class="decision-transfer-moves">${plan.transfers.map(move => `<div><span class="sell">${this.escapeHTML(move.out.name)}</span><span class="material-symbols-outlined">arrow_forward</span><span class="buy">${this.escapeHTML(move.in.name)}</span></div>`).join('')}</div><div class="decision-plan-metrics"><span><b>+${plan.netGain.toFixed(1)}</b> net xPts</span><span>${plan.breakEvenProbability}% break-even</span><span>£${plan.bankAfter.toFixed(1)}m bank</span><span>${plan.risk} risk</span></div><p>${this.escapeHTML(plan.rationale)}</p></article>`).join('')}</div>` : '<div class="decision-quiet">Rolling the transfer is the strongest modeled option.</div>';
+        const optimalMeta = document.getElementById('decision-optimal-meta');
+        if (optimalMeta) optimalMeta.textContent = `${data.transfers.optimalSquad.valid ? 'Legal squad' : 'Incomplete'} · £${data.transfers.optimalSquad.cost.toFixed(1)}m`;
+        const optimalSquad = document.getElementById('decision-optimal-squad');
+        if (optimalSquad) optimalSquad.innerHTML = `<div class="decision-player-grid">${data.transfers.optimalSquad.players.map(player => this.decisionPlayerRow(player)).join('')}</div>`;
+
+        const lineupTotal = document.getElementById('decision-lineup-total');
+        if (lineupTotal) lineupTotal.textContent = `${data.lineup.expectedPoints.toFixed(1)} xPts`;
+        const lineup = document.getElementById('decision-lineup');
+        if (lineup) lineup.innerHTML = `<div class="decision-pitch"><div class="decision-pitch-label">STARTING XI</div>${['GKP', 'DEF', 'MID', 'FWD'].map(position => `<div class="decision-pitch-line">${data.lineup.starters.filter(player => player.position === position).map(player => `<div class="decision-pitch-player"><span>${player === data.lineup.captain ? 'C' : player === data.lineup.viceCaptain ? 'V' : player.position}</span><b>${this.escapeHTML(player.name)}</b><small>${player.weekly[0].xPts.toFixed(1)} xPts</small></div>`).join('')}</div>`).join('')}</div><div class="decision-bench"><h3>Bench order</h3>${data.lineup.bench.map((player, index) => this.decisionPlayerRow(player, `· ${index + 1}`)).join('')}</div>`;
+
+        const pool = data.comparisonPool || [];
+        const selectA = document.getElementById('decision-compare-a');
+        const selectB = document.getElementById('decision-compare-b');
+        const options = pool.map(player => `<option value="${player.id}">${this.escapeHTML(player.name)} · ${player.team}</option>`).join('');
+        if (selectA && !selectA.options.length) selectA.innerHTML = options;
+        if (selectB && !selectB.options.length) { selectB.innerHTML = options; selectB.selectedIndex = Math.min(1, selectB.options.length - 1); }
+        this.renderDecisionComparison();
+
+        const rivals = document.getElementById('decision-rivals');
+        if (rivals) rivals.innerHTML = data.rivals.length ? data.rivals.map(rival => `<article class="decision-rival"><div class="decision-rival-head"><div><small>${this.escapeHTML(rival.teamName)}</small><h3>${this.escapeHTML(rival.name)}</h3></div><div><strong>${rival.projectedSwing >= 0 ? '+' : ''}${rival.projectedSwing.toFixed(1)}</strong><small>projected swing</small></div></div><div class="decision-rival-stats"><span>${rival.overlap}% overlap</span><span>${rival.projectedPoints.toFixed(1)} xPts</span><span>OR ${formatRank(rival.rank)}</span></div><div class="decision-rival-lists"><div><b>Their threats</b>${rival.threats.map(player => `<span>${this.escapeHTML(player.name)} ${player.weekly[0].xPts.toFixed(1)}</span>`).join('') || '<span>None</span>'}</div><div><b>Your edges</b>${rival.differentials.map(player => `<span>${this.escapeHTML(player.name)} ${player.weekly[0].xPts.toFixed(1)}</span>`).join('') || '<span>None</span>'}</div></div></article>`).join('') : '<div class="decision-quiet">Enter rival manager IDs above to compare squads and projected swings.</div>';
+
+        const chips = document.getElementById('decision-chips');
+        if (chips) chips.innerHTML = `<div class="decision-chip-recs">${data.chips.recommendations.map(chip => `<article><span>${chip.confidence}</span><h3>${chip.chip}</h3><strong>GW${chip.gameweek}</strong><p>${this.escapeHTML(chip.reason)} Modeled value: ${chip.expectedGain.toFixed(1)}.</p></article>`).join('')}</div><div class="table-scroll-mobile"><table class="decision-table"><thead><tr><th>GW</th><th>Bench Boost</th><th>Triple Captain</th><th>Free Hit need</th><th>Wildcard need</th><th>Top captain</th></tr></thead><tbody>${data.chips.weeks.map(week => `<tr><td>GW${week.gameweek}</td><td>${week.benchBoostGain.toFixed(1)}</td><td>${week.tripleCaptainGain.toFixed(1)}</td><td>${week.freeHitNeed.toFixed(1)}</td><td>${week.wildcardNeed.toFixed(1)}</td><td>${this.escapeHTML(week.topCaptain)}</td></tr>`).join('')}</tbody></table></div>`;
+        const backtest = document.getElementById('decision-backtest');
+        if (backtest) backtest.innerHTML = `<div class="decision-model-score"><strong>${data.backtest.mae != null ? data.backtest.mae.toFixed(1) : '--'}</strong><span>${data.backtest.mae != null ? 'baseline MAE' : 'collecting'}</span></div><p>${this.escapeHTML(data.backtest.message)}</p><small>${data.backtest.sample} completed comparisons · ${data.meta.modelVersion}</small>`;
+        const warnings = document.getElementById('decision-warnings');
+        if (warnings) warnings.innerHTML = data.meta.warnings.map(warning => `<div class="decision-assumption"><span class="material-symbols-outlined">info</span><p>${this.escapeHTML(warning)}</p></div>`).join('');
+        this.setDecisionView(this.state.decisionView || 'overview');
+    },
+
+    renderDecisionComparison() {
+        const data = this.state.decisionData;
+        const container = document.getElementById('decision-comparison');
+        if (!data || !container) return;
+        const first = data.comparisonPool.find(player => player.id === Number(document.getElementById('decision-compare-a')?.value)) || data.comparisonPool[0];
+        const second = data.comparisonPool.find(player => player.id === Number(document.getElementById('decision-compare-b')?.value)) || data.comparisonPool[1];
+        if (!first || !second) return;
+        const card = player => `<article class="decision-compare-card"><div class="decision-compare-name"><span>${player.position}</span><div><h3>${this.escapeHTML(player.name)}</h3><small>${player.team} · £${player.cost.toFixed(1)}m</small></div></div><div class="decision-range"><span style="left:${Math.min(88, player.range.low * 2)}%;width:${Math.max(6, (player.range.high - player.range.low) * 2)}%"></span><i style="left:${Math.min(96, player.range.expected * 2)}%"></i></div><div class="decision-compare-metrics"><span><b>${player.totalXpts.toFixed(1)}</b> xPts</span><span><b>${player.range.low.toFixed(1)}-${player.range.high.toFixed(1)}</b> range</span><span><b>${player.weekly[0].xMins}</b> xMins</span><span><b>${player.xGI90.toFixed(2)}</b> xGI/90</span><span><b>${player.returnProbability}%</b> return</span><span><b>${player.haulProbability}%</b> haul</span><span><b>${player.ownership.toFixed(1)}%</b> owned</span><span><b>${player.xPtsPerMillion.toFixed(2)}</b> xPts/£m</span></div></article>`;
+        const winner = first.totalXpts >= second.totalXpts ? first : second;
+        container.innerHTML = `<div class="decision-compare-grid">${card(first)}${card(second)}</div><div class="decision-verdict"><span class="material-symbols-outlined">analytics</span><p><b>${this.escapeHTML(winner.name)}</b> leads the ${data.meta.gameweeks.length}-gameweek projection by ${Math.abs(first.totalXpts - second.totalXpts).toFixed(1)} xPts. Use the range and xMins to judge whether that edge fits your risk mode.</p></div>`;
+    },
+
     // ==================== MAIN RENDER ====================
     render() {
         const s = this.state;
@@ -2342,6 +2484,7 @@ const FPL = {
             case 'ownership': this.renderOwnership(); break;
             case 'zones': this.renderZones(); break;
             case 'manager': this.renderTeamAnalysis(); break;
+            case 'decision': this.renderDecisionCentre(); break;
             case 'setpieces': this.renderSetPieces(); break;
         }
     },

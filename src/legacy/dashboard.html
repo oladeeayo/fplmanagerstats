@@ -154,6 +154,7 @@
                     <div style="font-size:0.625rem;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.1em;padding:var(--space-sm) var(--space-md);font-weight:600;">Menu</div>
                     <a href="/" class="sidebar-nav-item active" data-tab="general" onclick="event.preventDefault();FPL.navigateTo('general')"><span class="material-symbols-outlined">dashboard</span> Dashboard</a>
                     <a href="/manager" class="sidebar-nav-item" data-tab="manager" onclick="event.preventDefault();FPL.navigateTo('manager')"><span class="material-symbols-outlined">groups</span> Team Analysis</a>
+                    <a href="/decision-lab" class="sidebar-nav-item" data-tab="decision" onclick="event.preventDefault();FPL.navigateTo('decision')"><span class="material-symbols-outlined">model_training</span> Decision Lab</a>
                     <a href="/league" class="sidebar-nav-item" data-tab="league" onclick="event.preventDefault();FPL.navigateTo('league')"><span class="material-symbols-outlined">leaderboard</span> Standings</a>
                     <a href="/players" class="sidebar-nav-item" data-tab="players" onclick="event.preventDefault();FPL.navigateTo('players')"><span class="material-symbols-outlined">person_search</span> Player Stats</a>
                     <a href="/tactics" class="sidebar-nav-item" data-tab="zones" onclick="event.preventDefault();FPL.navigateTo('zones')"><span class="material-symbols-outlined">sports</span> Tactics</a>
@@ -498,6 +499,45 @@
                         <div id="underperforming-container" class="team-bento-2" style="display:grid;grid-template-columns:repeat(2, 1fr);gap:24px;">
                             <div style="grid-column:span 2;text-align:center;padding:32px;color:#8ba396;font-size:13px;">Connect your FPL ID to see underperforming player analysis</div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- DECISION LAB -->
+                <div id="content-decision" class="tab-content">
+                    <div class="decision-header">
+                        <div>
+                            <div class="decision-kicker">PERSONALIZED ANALYTICS</div>
+                            <h1 class="page-title">Decision <span>Lab</span></h1>
+                            <p class="page-subtitle">Optimize transfers, lineup, captaincy, chips and rival strategy from one model.</p>
+                        </div>
+                        <div class="decision-controls">
+                            <label>GW <input id="decision-gw" type="number" min="1" max="38" value="1"></label>
+                            <label>Horizon <select id="decision-horizon"><option value="3">3 GWs</option><option value="5" selected>5 GWs</option><option value="8">8 GWs</option></select></label>
+                            <label>Mode <select id="decision-strategy"><option value="balanced">Balanced</option><option value="protect">Protect rank</option><option value="chase">Chase rank</option></select></label>
+                            <label>FT <input id="decision-ft" type="number" min="1" max="5" value="1"></label>
+                            <label>Bank <input id="decision-bank" type="number" min="0" max="20" step="0.1" placeholder="Auto"></label>
+                            <button class="btn btn-primary" type="button" onclick="FPL.loadDecisionCentre()"><span class="material-symbols-outlined">play_arrow</span> Run model</button>
+                        </div>
+                    </div>
+                    <div class="decision-subnav" role="tablist">
+                        <button class="active" data-decision-view="overview" onclick="FPL.setDecisionView('overview')">Overview</button>
+                        <button data-decision-view="transfers" onclick="FPL.setDecisionView('transfers')">Transfers</button>
+                        <button data-decision-view="lineup" onclick="FPL.setDecisionView('lineup')">Lineup</button>
+                        <button data-decision-view="compare" onclick="FPL.setDecisionView('compare')">Compare</button>
+                        <button data-decision-view="rivals" onclick="FPL.setDecisionView('rivals')">Rivals</button>
+                        <button data-decision-view="chips" onclick="FPL.setDecisionView('chips')">Chips</button>
+                        <button data-decision-view="model" onclick="FPL.setDecisionView('model')">Model</button>
+                    </div>
+                    <div id="decision-empty" class="decision-empty"><span class="material-symbols-outlined">link</span><div><b>Connect an FPL ID to start</b><p>The lab uses your published squad, budget and gameweek history.</p></div><button class="btn btn-primary" onclick="FPL.showDialog('connect-dialog')">Connect ID</button></div>
+                    <div id="decision-loading" class="decision-empty hidden"><span class="material-symbols-outlined decision-spin">progress_activity</span><div><b>Running decision model</b><p>Projecting every player and testing legal transfer paths.</p></div></div>
+                    <div id="decision-results" class="hidden">
+                        <section class="decision-view active" data-view="overview"><div id="decision-summary"></div><div class="decision-grid"><div class="decision-panel"><div class="decision-panel-head"><h2>Priority actions</h2><span id="decision-model-stamp"></span></div><div id="decision-actions"></div></div><div class="decision-panel"><div class="decision-panel-head"><h2>Risk monitor</h2><span id="decision-alert-count"></span></div><div id="decision-alerts"></div></div></div><div id="decision-live"></div></section>
+                        <section class="decision-view" data-view="transfers"><div class="decision-section-head"><div><h2>Transfer optimizer</h2><p>Legal moves ranked by hit-adjusted expected gain.</p></div></div><div id="decision-transfer-plans"></div><div class="decision-panel decision-optimal"><div class="decision-panel-head"><h2>Wildcard benchmark</h2><span id="decision-optimal-meta"></span></div><div id="decision-optimal-squad"></div></div></section>
+                        <section class="decision-view" data-view="lineup"><div class="decision-section-head"><div><h2>Starting XI</h2><p>Formation-constrained lineup with captain and vice-captain.</p></div><strong id="decision-lineup-total"></strong></div><div id="decision-lineup"></div></section>
+                        <section class="decision-view" data-view="compare"><div class="decision-section-head"><div><h2>Player comparison</h2><p>Compare projected return, range, minutes and value.</p></div><div class="decision-compare-controls"><select id="decision-compare-a" onchange="FPL.renderDecisionComparison()"></select><select id="decision-compare-b" onchange="FPL.renderDecisionComparison()"></select></div></div><div id="decision-comparison"></div></section>
+                        <section class="decision-view" data-view="rivals"><div class="decision-section-head"><div><h2>Rival intelligence</h2><p>Add up to five manager IDs, separated by commas.</p></div><div class="decision-rival-input"><input id="decision-rival-ids" placeholder="12345, 67890"><button class="btn btn-primary btn-sm" onclick="FPL.loadDecisionCentre()">Analyze</button></div></div><div id="decision-rivals"></div></section>
+                        <section class="decision-view" data-view="chips"><div class="decision-section-head"><div><h2>Chip calendar</h2><p>Incremental value based on your squad, not generic fixture counts.</p></div></div><div id="decision-chips"></div></section>
+                        <section class="decision-view" data-view="model"><div class="decision-grid"><div class="decision-panel"><div class="decision-panel-head"><h2>Model confidence</h2></div><div id="decision-backtest"></div></div><div class="decision-panel"><div class="decision-panel-head"><h2>Assumptions</h2></div><div id="decision-warnings"></div></div></div></section>
                     </div>
                 </div>
 

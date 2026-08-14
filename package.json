@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "check": "node --check src/server.js && node --check public/common.js && tsc -b",
-    "test": "node tests/captaincy-model.mjs",
+    "test": "node tests/captaincy-model.mjs && node tests/decision-model.mjs",
     "test:smoke": "node tests/smoke.mjs"
   },
   "dependencies": {
