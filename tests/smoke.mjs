@@ -3,12 +3,14 @@ import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 
-const port = 3100;
-const baseUrl = `http://127.0.0.1:${port}`;
-const server = spawn(process.execPath, ['src/server.js'], {
+const port = 32000 + Math.floor(Math.random() * 10000);
+const baseUrl = process.env.SMOKE_BASE_URL?.replace(/\/$/, '') ?? `http://127.0.0.1:${port}`;
+const server = process.env.SMOKE_BASE_URL ? null : spawn(process.execPath, ['src/server.js'], {
   env: { ...process.env, PORT: String(port) },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
+let serverError = '';
+server?.stderr.on('data', (chunk) => { serverError += chunk.toString(); });
 
 async function waitForServer() {
   for (let attempt = 0; attempt < 30; attempt += 1) {
@@ -18,7 +20,7 @@ async function waitForServer() {
     } catch {}
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  throw new Error('Production server did not start');
+  throw new Error(`Production server did not start${serverError ? `:\n${serverError}` : ''}`);
 }
 
 try {
@@ -80,8 +82,8 @@ try {
       await page.waitForSelector('#content-players.active');
     }
 
-    const localFailures = failedResponses.filter((entry) => entry.includes(baseUrl));
-    assert.deepEqual(localFailures, [], `Failed application requests at ${viewport.width}px:\n${localFailures.join('\n')}`);
+    const appFailures = failedResponses.filter((entry) => entry.includes(baseUrl));
+    assert.deepEqual(appFailures, [], `Failed application requests at ${viewport.width}px:\n${appFailures.join('\n')}`);
     const actionableConsoleErrors = consoleErrors.filter((entry) => !entry.startsWith('Failed to load resource:'));
     assert.deepEqual(actionableConsoleErrors, [], `Browser console errors at ${viewport.width}px:\n${actionableConsoleErrors.join('\n')}\nFailed responses:\n${failedResponses.join('\n')}`);
     await page.close();
@@ -95,5 +97,5 @@ try {
   await redirectPage.close();
   await browser.close();
 } finally {
-  server.kill();
+  server?.kill();
 }
