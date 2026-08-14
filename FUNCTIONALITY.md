@@ -131,22 +131,12 @@ Upcoming fixture analysis for transfer planning.
 Data-driven captain recommendations.
 
 #### Features:
-- **xPts Model** - Expected points calculation using:
-  ```
-  xPts = ((xGI × 6) + (Form × 2.5) + (PPG × 1.5) + (ICT/100 × 2)) × Fixture Modifier × Home Advantage
-  ```
-  - Fixture Modifier: FDR 1=1.4x, 2=1.2x, 3=1.0x, 4=0.8x, 5=0.6x
-  - Home Advantage: 1.1x multiplier
-- **Top 15 Captain Picks** - Ranked by xPts with:
-  - Player photo, name, team, position
-  - xPts score
-  - Form rating
-  - xGI (expected goal involvements)
-  - Fixture opponent
-  - FDR rating
-  - Ownership percentage
-  - Total points
-- **Quick Stats** - Top pick, best xPts, best fixture, top form
+- **Captaincy xPts Model** - Projects appearance, goal, assist, clean-sheet, save, bonus, card and set-piece points, then blends the result with recent form, season PPG and the official next-GW projection.
+- **Expected Minutes** - Estimates xMins from starts, appearances, average start length, availability status and chance of playing.
+- **Fixture Adjustment** - Uses the correct home/away FDR, venue and every fixture in blank or double gameweeks.
+- **Top 5 Captain Picks** - A focused ranking with player, fixture, form, xMins, xGI/90, ownership and xPts.
+- **Best Captain** - The highest overall projection with a fixture-specific explanation.
+- **Differential Captain** - The strongest secure-minutes MID/FWD below 10% ownership, relaxed to 15% only when no qualifying pick exists, with the projection gap and risk explained.
 
 ---
 

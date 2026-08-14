@@ -27,6 +27,7 @@
     .login-btn { width: 100%; padding: 12px; background: #00ff85; color: #000; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 16px; transition: opacity 0.2s; }
     .login-btn:hover { opacity: 0.9; }
     .login-error { color: #ff4d4d; font-size: 12px; margin-top: 12px; display: none; }
+    .dashboard-error { display: none; margin-bottom: 16px; padding: 12px 16px; border: 1px solid #ff4d4d66; border-radius: 8px; background: #ff4d4d12; color: #ff8a8a; font: 12px 'JetBrains Mono', monospace; }
 
     /* Dashboard */
     #dashboard { display: none; padding: 24px; max-width: 1400px; margin: 0 auto; }
@@ -50,10 +51,11 @@
 
     /* Chart Grid */
     .chart-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px; }
-    .chart-card { background: #141916; border: 1px solid #1A2E28; border-radius: 12px; padding: 20px; }
+    .chart-card { min-width: 0; overflow: hidden; background: #141916; border: 1px solid #1A2E28; border-radius: 12px; padding: 20px; }
     .chart-card h3 { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
     .chart-card h3 .material-symbols-outlined { font-size: 18px; color: #00ff85; }
-    .chart-container { position: relative; height: 260px; }
+    .chart-container { position: relative; width: 100%; min-width: 0; height: 260px; }
+    .chart-container canvas { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
 
     /* Full width chart */
     .chart-full { grid-column: 1 / -1; }
@@ -68,7 +70,10 @@
     th { padding: 10px 16px; text-align: left; font-size: 11px; color: #8ba396; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; font-weight: 600; letter-spacing: 0.04em; border-bottom: 1px solid #1A2E28; white-space: nowrap; }
     td { padding: 10px 16px; font-size: 13px; border-bottom: 1px solid #111; white-space: nowrap; }
     tr:hover td { background: rgba(255,255,255,0.02); }
-    .table-scroll { overflow-x: auto; }
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .table-scroll table { min-width: 620px; }
+    .table-scroll th:first-child, .table-scroll td:first-child { position: sticky; left: 0; z-index: 2; background: #141916; box-shadow: 2px 0 rgba(255,255,255,0.08); }
+    .table-scroll th:first-child { z-index: 3; background: #171c19; }
     .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
     .badge-desktop { background: rgba(0,255,133,0.12); color: #00ff85; }
     .badge-mobile { background: rgba(255,166,0,0.12); color: #ffa600; }
@@ -93,12 +98,30 @@
     /* Responsive */
     @media (max-width: 1024px) {
       .stat-grid { grid-template-columns: repeat(2, 1fr); }
-      .chart-grid { grid-template-columns: 1fr; }
+      .chart-grid { display: block; width: 100%; min-width: 0; overflow: hidden; }
+      .chart-card { width: 100%; max-width: 100%; }
+      .chart-card + .chart-card { margin-top: 16px; }
     }
     @media (max-width: 640px) {
       .stat-grid { grid-template-columns: 1fr; }
-      #dashboard { padding: 16px; }
+      #dashboard { width: 100%; min-width: 0; padding: 16px; overflow-x: hidden; }
       .dash-header { flex-direction: column; gap: 12px; align-items: flex-start; }
+      .dash-header-right { width: 100%; flex-wrap: wrap; }
+      .dash-header-right > div { max-width: 100%; overflow-x: auto; }
+      .period-btn, .logout-btn, .page-btn { min-height: 40px; }
+      .chart-card { padding: 14px; }
+      .chart-container { height: 220px; }
+      .table-header { padding: 14px; }
+      .pagination { overflow-x: auto; justify-content: flex-start; }
+    }
+    @media (max-width: 380px) {
+      #dashboard { padding: 10px; }
+      .login-card { padding: 28px 20px; }
+      .dash-header-right { align-items: stretch; }
+      .dash-header-right > div { width: 100%; }
+      .period-btn { flex: 1 0 56px; }
+      .logout-btn { width: 100%; }
+      .chart-container { height: 190px; }
     }
   </style>
 </head>
@@ -117,6 +140,7 @@
 
   <!-- Dashboard -->
   <div id="dashboard">
+    <div id="dashboard-error" class="dashboard-error" role="alert"></div>
     <div class="dash-header">
       <h1><span class="material-symbols-outlined">analytics</span> Admin Analytics</h1>
       <div class="dash-header-right">

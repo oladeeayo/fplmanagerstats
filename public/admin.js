@@ -37,9 +37,17 @@ const Admin = (() => {
   const COLORS = ['#00ff85', '#37db59', '#ffa600', '#ff4d4d', '#6496ff', '#c084fc', '#f472b6', '#34d399', '#fbbf24', '#60a5fa'];
 
   async function api(path) {
-    const sep = path.includes('?') ? '&' : '?';
-    const res = await fetch(`${path}${sep}key=${adminKey}`);
-    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    const res = await fetch(path, {
+      headers: { 'x-admin-key': adminKey }
+    });
+    if (!res.ok) {
+      let message = `API error: ${res.status}`;
+      try {
+        const body = await res.json();
+        if (body.error) message = body.error;
+      } catch (_) { /* keep the status fallback */ }
+      throw new Error(message);
+    }
     return res.json();
   }
 
@@ -242,6 +250,11 @@ const Admin = (() => {
       ]);
     } catch (e) {
       console.error('Dashboard load error:', e);
+      const error = document.getElementById('dashboard-error');
+      if (error) {
+        error.textContent = e.message || 'Failed to load analytics';
+        error.style.display = 'block';
+      }
     }
   }
 
@@ -249,6 +262,7 @@ const Admin = (() => {
     const input = document.getElementById('admin-key-input');
     adminKey = input.value.trim();
     if (!adminKey) return;
+    document.getElementById('dashboard-error').style.display = 'none';
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
     loadAll();

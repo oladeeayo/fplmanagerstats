@@ -99,7 +99,7 @@ initDatabase();
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-key, x-session-id');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
@@ -174,6 +174,20 @@ function generateSessionId() {
   return crypto.randomBytes(16).toString('hex');
 }
 
+function getSessionId(req, res) {
+  const cookies = String(req.headers.cookie || '').split(';').reduce((all, part) => {
+    const separator = part.indexOf('=');
+    if (separator > 0) all[part.slice(0, separator).trim()] = part.slice(separator + 1).trim();
+    return all;
+  }, {});
+  const existing = cookies.fpl_analytics_session;
+  const sessionId = /^[a-f0-9]{32}$/.test(existing || '') ? existing : generateSessionId();
+  if (!existing) {
+    res.setHeader('Set-Cookie', `fpl_analytics_session=${sessionId}; Max-Age=31536000; Path=/; SameSite=Lax`);
+  }
+  return sessionId;
+}
+
 // Tracking middleware
 app.use(async (req, res, next) => {
   if (!sql) return next();
@@ -196,7 +210,7 @@ app.use(async (req, res, next) => {
         const ip = forwarded ? forwarded.split(',')[0].trim() : (req.socket?.remoteAddress || '');
         const ua = req.headers['user-agent'] || '';
         const referrer = req.headers['referer'] || req.headers['referrer'] || '';
-        const sessionId = req.headers['x-session-id'] || generateSessionId();
+         const sessionId = req.headers['x-session-id'] || getSessionId(req, res);
 
         const { deviceType, browser, os, osVersion } = parseUserAgent(ua);
         const geo = await lookupGeo(ip);
@@ -232,6 +246,7 @@ app.use(async (req, res, next) => {
 
 const POSITION_MAP = ["GKP", "DEF", "MID", "FWD"];
 const { DETAILED_POSITIONS, ZONE_MAP, ZONE_LABELS, ZONE_GROUP, POSITION_LABELS, ATTACKING_ZONES, DEFENSIVE_ZONES, MIDFIELD_ZONES, ALL_ZONES } = require('./playerPositions');
+const { buildCaptaincyModel } = require('./captaincyModel');
 
 const apiGet = url => axios.get(url, { timeout: 15000 });
 
@@ -622,7 +637,7 @@ app.get('/api/zone-analysis', async (req, res) => {
       return {
         id: p.id, name: p.web_name, secondName: p.second_name, team: p.team,
         teamName: getTeam(p.team).short_name, broadPosition: broadPos,
-        detailedPosition: detailedPos, zone: detailedPos ? (ZONE_MAP[detailedPos] || null) : null,
+        detailedPosition: detailedPos || broadPos, zone: detailedPos ? (ZONE_MAP[detailedPos] || null) : null,
         goals: p.goals_scored || 0, assists: p.assists || 0,
         expectedGoals: parseFloat(p.expected_goals) || 0,
         expectedAssists: parseFloat(p.expected_assists) || 0,
@@ -633,6 +648,11 @@ app.get('/api/zone-analysis', async (req, res) => {
         form: parseFloat(p.form) || 0, minutes: p.minutes || 0,
         cleanSheets: p.clean_sheets || 0, goalsConceded: p.goals_conceded || 0,
         saves: p.saves || 0, bonus: p.bonus || 0, bps: p.bps || 0,
+        defensiveContribution: p.defensive_contribution || 0,
+        clearancesBlocksInterceptions: p.clearances_blocks_interceptions || 0,
+        recoveries: p.recoveries || 0, tackles: p.tackles || 0,
+        starts: p.starts || 0, chanceOfPlaying: p.chance_of_playing_next_round,
+        status: p.status || 'a', valueSeason: parseFloat(p.value_season) || 0,
         yellowCards: p.yellow_cards || 0, redCards: p.red_cards || 0,
         nowCost: p.now_cost || 0, selectedByPercent: parseFloat(p.selected_by_percent) || 0,
         totalPoints: p.total_points || 0, code: p.code,
@@ -723,24 +743,38 @@ app.get('/api/zone-analysis', async (req, res) => {
           name: p.name, position: p.detailedPosition, broadPos: p.broadPosition, zone: p.zone,
           goals: p.goals, assists: p.assists, xG: p.expectedGoals, xA: p.expectedAssists,
           xGI: p.expectedGoalInvolvements, threat: p.threat, creativity: p.creativity,
-          influence: p.influence, ict: p.ictIndex, form: p.form, cost: p.nowCost,
-          totalPoints: p.totalPoints, minutes: p.minutes, bonus: p.bonus,
-          selectedBy: p.selectedByPercent, id: p.id, code: p.code,
-          pointsPerGame: p.pointsPerGame, goalsConceded: p.goalsConceded,
-          cleanSheets: p.cleanSheets, xGC: p.expectedGoalsConceded, saves: p.saves,
-          yellowCards: p.yellowCards
-        });
+           influence: p.influence, ict: p.ictIndex, form: p.form, cost: p.nowCost,
+           totalPoints: p.totalPoints, minutes: p.minutes, bonus: p.bonus,
+           selectedBy: p.selectedByPercent, id: p.id, code: p.code,
+           pointsPerGame: p.pointsPerGame, goalsConceded: p.goalsConceded,
+           cleanSheets: p.cleanSheets, xGC: p.expectedGoalsConceded, saves: p.saves,
+           yellowCards: p.yellowCards, defensiveContribution: p.defensiveContribution,
+           clearancesBlocksInterceptions: p.clearancesBlocksInterceptions,
+           recoveries: p.recoveries, tackles: p.tackles, starts: p.starts,
+           status: p.status, chanceOfPlaying: p.chanceOfPlaying,
+           valueSeason: p.valueSeason, team: p.teamName
+         });
       });
-
-      const defPlayers = active.filter(p => p.broadPosition === 'DEF' || p.broadPosition === 'GKP');
-      const teamCS = defPlayers.reduce((s, p) => s + p.cleanSheets, 0);
-      const teamGC = active.reduce((s, p) => s + p.goalsConceded, 0);
-      const defCount = defPlayers.length || 1;
-      const defcon = ((teamCS * 20) - teamGC) / defCount;
-      const defconNorm = Math.max(0, Math.min(100, ((defcon + 20) / 60) * 100));
 
       const gk = starters.find(p => p.broadPosition === 'GKP');
       const defenders = starters.filter(p => p.broadPosition === 'DEF');
+      const defensiveReference = gk || [...defenders].sort((a, b) => b.minutes - a.minutes)[0];
+      const teamCS = defensiveReference?.cleanSheets || 0;
+      const teamGC = defensiveReference?.goalsConceded || 0;
+      const referenceStarts = Math.max(defensiveReference?.starts || Math.round((defensiveReference?.minutes || 0) / 90), 1);
+      const cleanSheetRate = teamCS / referenceStarts;
+      const xgcPer90 = defensiveReference?.minutes > 0
+        ? (defensiveReference.expectedGoalsConceded * 90) / defensiveReference.minutes
+        : 1.5;
+      const defensiveContributors = starters.filter(p => p.broadPosition === 'DEF' || p.broadPosition === 'MID');
+      const avgDefconPer90 = defensiveContributors.length
+        ? defensiveContributors.reduce((sum, p) => sum + ((p.defensiveContribution * 90) / Math.max(p.minutes, 90)), 0) / defensiveContributors.length
+        : 0;
+      const defconNorm = Math.max(0, Math.min(100,
+        (cleanSheetRate * 55) +
+        (Math.max(0, 1 - (xgcPer90 / 2)) * 30) +
+        (Math.min(avgDefconPer90 / 12, 1) * 15)
+      ));
 
       let strongestAttack = 'st';
       let maxAtk = 0;
@@ -749,10 +783,16 @@ app.get('/api/zone-analysis', async (req, res) => {
         if (score > maxAtk) { maxAtk = score; strongestAttack = z; }
       });
 
-      let weakestDefence = 'cb';
-      let maxGC = 0;
+      let weakestDefence = 'lcb';
+      let maxWeakness = -Infinity;
       DEFENSIVE_ZONES.forEach(z => {
-        if ((zoneStats[z]?.goalsConceded || 0) > maxGC) { maxGC = zoneStats[z].goalsConceded; weakestDefence = z; }
+        const zonePlayer = zoneStats[z]?.players?.[0];
+        if (!zonePlayer) return;
+        const zoneMinutes = Math.max(zonePlayer.minutes, 90);
+        const weakness = ((zonePlayer.xGC * 90) / zoneMinutes) -
+          (((zonePlayer.defensiveContribution || 0) * 90) / zoneMinutes / 20) -
+          (((zonePlayer.tackles || 0) * 90) / zoneMinutes / 10);
+        if (weakness > maxWeakness) { maxWeakness = weakness; weakestDefence = z; }
       });
 
       const topDef = [...defenders].sort((a, b) => b.influence - a.influence)[0];
@@ -770,7 +810,7 @@ app.get('/api/zone-analysis', async (req, res) => {
         strongestAttack, strongestAttackZone: ZONE_LABELS[strongestAttack],
         weakestDefence, weakestDefenceZone: ZONE_LABELS[weakestDefence],
         defcon: Math.round(defconNorm),
-        defconLabel: defconNorm > 66 ? 'Strong' : defconNorm > 33 ? 'Average' : 'Weak',
+        defconLabel: defconNorm >= 58 ? 'Strong' : defconNorm >= 38 ? 'Average' : 'Weak',
         topDefender: topDef ? { name: topDef.name, position: topDef.detailedPosition, influence: topDef.influence, cs: topDef.cleanSheets, cost: topDef.nowCost, code: topDef.code, form: topDef.form } : null,
         teamCS
       };
@@ -779,6 +819,139 @@ app.get('/api/zone-analysis', async (req, res) => {
     // Build all team analyses
     const teamAnalysisMap = {};
     teams.forEach(t => { teamAnalysisMap[t.id] = buildTeamAnalysis(t.id); });
+
+    const fixtureModifier = difficulty => ({ 1: 1.2, 2: 1.1, 3: 1, 4: 0.9, 5: 0.78 }[difficulty] || 1);
+    const attackTargetsWeakness = (attackZone, weakZone) => ({
+      lw: ['rb'],
+      rw: ['lb'],
+      cam: ['lcb', 'rcb'],
+      st: ['lcb', 'rcb']
+    }[attackZone] || []).includes(weakZone);
+    const clampScore = value => Math.round(Math.max(0, Math.min(99, value)));
+    const per90 = (value, minutes) => (Number(value || 0) * 90) / Math.max(Number(minutes || 0), 90);
+
+    const buildTargetGroups = (teamId, team, opponent, difficulty, isHome) => {
+      const candidates = playersWithZones.filter(p =>
+        p.team === teamId &&
+        p.minutes > 0 &&
+        p.status !== 'u' &&
+        p.status !== 'n' &&
+        p.chanceOfPlaying !== 0
+      );
+      if (!candidates.length) return [];
+
+      const maxMinutes = Math.max(...candidates.map(p => p.minutes), 1);
+      const maxStarts = Math.max(...candidates.map(p => p.starts), Math.round(maxMinutes / 90), 1);
+      const opponentAttackPerMatch = (opponent.totalXG + opponent.totalXA) / maxStarts;
+      const difficultyMod = fixtureModifier(difficulty) * (isHome ? 1.04 : 1);
+      const directZoneMatch = attackTargetsWeakness(team.strongestAttack, opponent.weakestDefence);
+
+      const scored = candidates.map(player => {
+        const minutesShare = Math.min(player.minutes / maxMinutes, 1);
+        const startShare = Math.min(player.starts / maxStarts, 1);
+        const minutesSecurity = (minutesShare * 0.35) + (startShare * 0.65);
+        const availability = player.chanceOfPlaying == null ? 1 : player.chanceOfPlaying / 100;
+        const readiness = (0.55 + (minutesSecurity * 0.45)) * availability;
+        const goalRate = per90(player.goals, player.minutes);
+        const assistRate = per90(player.assists, player.minutes);
+        const xg90 = per90(player.expectedGoals, player.minutes);
+        const xa90 = per90(player.expectedAssists, player.minutes);
+        const threat90 = per90(player.threat, player.minutes);
+        const creativity90 = per90(player.creativity, player.minutes);
+        const saves90 = per90(player.saves, player.minutes);
+        const defcon90 = per90(player.defensiveContribution, player.minutes);
+        const tackles90 = per90(player.tackles, player.minutes);
+        const cbi90 = per90(player.clearancesBlocksInterceptions, player.minutes);
+        const recoveries90 = per90(player.recoveries, player.minutes);
+        const bonusPerStart = player.bonus / Math.max(player.starts, 1);
+        const cleanSheetRate = player.cleanSheets / Math.max(player.starts, 1);
+        const zoneBoost = directZoneMatch && player.zone === team.strongestAttack ? 1.12 : 1;
+
+        const goalScore = clampScore((
+          (xg90 * 60) + (goalRate * 32) + (threat90 / 14) +
+          (player.form * 1.8) + (player.pointsPerGame * 1.4)
+        ) * difficultyMod * zoneBoost * readiness);
+        const assistScore = clampScore((
+          (xa90 * 72) + (assistRate * 30) + (creativity90 / 18) +
+          (player.form * 1.6) + player.pointsPerGame
+        ) * difficultyMod * zoneBoost * readiness);
+        const cleanSheetScore = clampScore((
+          (team.defcon * 0.58) + (cleanSheetRate * 28) +
+          (Math.max(0, 1.8 - opponentAttackPerMatch) * 10)
+        ) * difficultyMod * readiness);
+        const saveScore = clampScore((
+          (saves90 * 12) + (bonusPerStart * 8) +
+          (Math.min(opponentAttackPerMatch, 2.5) * 9) + (minutesSecurity * 12)
+        ) * (0.85 + (difficulty * 0.05)) * availability);
+        const defconScore = clampScore((
+          (defcon90 * 4.5) + (tackles90 * 3) + (cbi90 * 0.65) +
+          (recoveries90 * 0.25) + (bonusPerStart * 5) + (minutesSecurity * 12)
+        ) * readiness);
+        const baseReturnScore = Math.max(goalScore, assistScore, cleanSheetScore, saveScore, defconScore);
+        const valueScore = clampScore(((baseReturnScore / Math.max(player.nowCost / 10, 4)) * 7) + (minutesSecurity * 24));
+
+        return {
+          ...player,
+          minutesSecurity: clampScore(minutesSecurity * 100),
+          rates: {
+            xG90: Number(xg90.toFixed(2)), xA90: Number(xa90.toFixed(2)),
+            saves90: Number(saves90.toFixed(1)), defcon90: Number(defcon90.toFixed(1))
+          },
+          scores: { goals: goalScore, assists: assistScore, cleanSheet: cleanSheetScore, saves: saveScore, defcon: defconScore, value: valueScore }
+        };
+      });
+
+      const serialize = (player, category, reason) => ({
+        id: player.id, name: player.name, code: player.code, team: player.teamName,
+        position: player.detailedPosition, broadPosition: player.broadPosition,
+        zone: player.zone, cost: player.nowCost, form: player.form,
+        pointsPerGame: player.pointsPerGame, totalPoints: player.totalPoints,
+        goals: player.goals, assists: player.assists, xG: player.expectedGoals,
+        xA: player.expectedAssists, cleanSheets: player.cleanSheets,
+        saves: player.saves, defensiveContribution: player.defensiveContribution,
+        bonus: player.bonus, minutes: player.minutes, starts: player.starts,
+        ownership: player.selectedByPercent, minutesSecurity: player.minutesSecurity,
+        rates: player.rates, score: player.scores[category], reason
+      });
+      const ranked = (category, filter, reason) => scored
+        .filter(filter)
+        .sort((a, b) => b.scores[category] - a.scores[category] || b.minutesSecurity - a.minutesSecurity)
+        .slice(0, 2)
+        .map(player => serialize(player, category, reason(player)));
+
+      return [
+        {
+          key: 'goals', label: 'Goal threat', icon: 'sports_soccer',
+          picks: ranked('goals', p => p.broadPosition !== 'GKP', p =>
+            `${p.rates.xG90} xG/90 into ${opponent.weakestDefenceZone}${directZoneMatch && p.zone === team.strongestAttack ? ' with a direct zone edge' : ''}.`)
+        },
+        {
+          key: 'assists', label: 'Assist route', icon: 'conversion_path',
+          picks: ranked('assists', p => p.broadPosition !== 'GKP', p =>
+            `${p.rates.xA90} xA/90 and ${p.assists} assists; creativity is the main return route.`)
+        },
+        {
+          key: 'cleanSheet', label: 'Clean sheet', icon: 'shield',
+          picks: ranked('cleanSheet', p => p.broadPosition === 'GKP' || p.broadPosition === 'DEF', () =>
+            `${team.defcon}/100 team DEFCON against an attack averaging ${opponentAttackPerMatch.toFixed(2)} xGI per start.`)
+        },
+        {
+          key: 'saves', label: 'Save potential', icon: 'front_hand',
+          picks: ranked('saves', p => p.broadPosition === 'GKP', p =>
+            `${p.rates.saves90} saves/90 offers a second route to points if the clean sheet goes.`)
+        },
+        {
+          key: 'defcon', label: 'DEFCON + bonus', icon: 'security',
+          picks: ranked('defcon', p => p.broadPosition === 'DEF' || p.broadPosition === 'MID', p =>
+            `${p.rates.defcon90} defensive contributions/90 with ${p.bonus} bonus points.`)
+        },
+        {
+          key: 'value', label: 'Minutes + value', icon: 'savings',
+          picks: ranked('value', () => true, p =>
+            `${p.minutesSecurity}% minutes security at £${(p.nowCost / 10).toFixed(1)}m.`)
+        }
+      ].filter(group => group.picks.length > 0);
+    };
 
     // Get fixtures for selected GW
     const gwFixtures = fixtures.filter(f => f.event === selectedGW);
@@ -791,7 +964,8 @@ app.get('/api/zone-analysis', async (req, res) => {
       const away = teamAnalysisMap[fixture.team_a];
       if (!home || !away) return null;
 
-      const homeFDR = fixture.difficulty || 3;
+       const homeFDR = fixture.team_h_difficulty || 3;
+       const awayFDR = fixture.team_a_difficulty || 3;
 
       // Determine danger zones for each side
       const homeDangerZone = home.strongestAttack;
@@ -810,20 +984,20 @@ app.get('/api/zone-analysis', async (req, res) => {
         .sort((a, b) => (b.xG + b.xA) - (a.xG + a.xA))
         .slice(0, 5)
         .map(p => ({
-          ...p, reason: `Strongest zone: ${ZONE_LABELS[homeDangerZone]}`,
-          zoneTarget: ZONE_LABELS[awayVulnZone],
-          zoneMatch: homeDangerZone.replace('attack', 'defence') === awayVulnZone
-        }));
+           ...p, reason: `Strongest zone: ${ZONE_LABELS[homeDangerZone]}`,
+           zoneTarget: ZONE_LABELS[awayVulnZone],
+           zoneMatch: homeDangerZone === awayVulnZone
+         }));
 
       // Best attacking picks from away team (vs home weakness)
       const awayAttackPicks = awayDangerPlayers
         .sort((a, b) => (b.xG + b.xA) - (a.xG + a.xA))
         .slice(0, 5)
         .map(p => ({
-          ...p, reason: `Strongest zone: ${ZONE_LABELS[awayDangerZone]}`,
-          zoneTarget: ZONE_LABELS[homeVulnZone],
-          zoneMatch: awayDangerZone.replace('attack', 'defence') === homeVulnZone
-        }));
+           ...p, reason: `Strongest zone: ${ZONE_LABELS[awayDangerZone]}`,
+           zoneTarget: ZONE_LABELS[homeVulnZone],
+           zoneMatch: awayDangerZone === homeVulnZone
+         }));
 
       // Best defensive picks from home team (if away attack is weak)
       const awayAttackTotal = away.totalXG + away.totalXA;
@@ -863,36 +1037,43 @@ app.get('/api/zone-analysis', async (req, res) => {
         .slice(0, 3)
         .map(p => ({ name: p.name, position: p.broadPosition, form: p.form, cost: p.nowCost, code: p.code, xGI: p.expectedGoalInvolvements, pts: p.totalPoints }));
 
+      const homeTargets = buildTargetGroups(fixture.team_h, home, away, homeFDR, true);
+      const awayTargets = buildTargetGroups(fixture.team_a, away, home, awayFDR, false);
+
       return {
         fixture: {
+          id: fixture.id,
           gw: selectedGW, homeTeam: home.teamName, awayTeam: away.teamName,
           homeTeamFull: home.teamFullName, awayTeamFull: away.teamFullName,
-          homeFDR, difficulty: homeFDR,
+          homeFDR, awayFDR, difficulty: homeFDR,
           kickoff: fixture.kickoff_time || null,
           team_h: fixture.team_h, team_a: fixture.team_a,
-          team_h_score: fixture.team_h_score, team_a_score: fixture.team_a_score
-        },
-        home: {
-          zoneStats: home.zoneStats,
-          strongestAttack: home.strongestAttack, strongestAttackZone: home.strongestAttackZone,
-          weakestDefence: home.weakestDefence, weakestDefenceZone: home.weakestDefenceZone,
-          gk: home.gk, totalXG: home.totalXG, totalXA: home.totalXA,
-          totalGoals: home.totalGoals, totalGC: home.totalGC,
+          team_h_score: fixture.team_h_score, team_a_score: fixture.team_a_score,
+          finished: fixture.finished || false
+         },
+         home: {
+           teamName: home.teamName, teamFullName: home.teamFullName,
+           zoneStats: home.zoneStats,
+           strongestAttack: home.strongestAttack, strongestAttackZone: home.strongestAttackZone,
+           weakestDefence: home.weakestDefence, weakestDefenceZone: home.weakestDefenceZone,
+           gk: home.gk, totalXG: home.totalXG, totalXA: home.totalXA,
+           totalGoals: home.totalGoals, totalAssists: home.totalAssists, totalGC: home.totalGC,
           defcon: home.defcon, defconLabel: home.defconLabel,
-          teamCS: home.teamCS, topDefender: home.topDefender,
-          attackPicks: homeAttackPicks, defPicks: homeDefPicks,
-          topByForm: homeTopByForm
-        },
-        away: {
-          zoneStats: away.zoneStats,
-          strongestAttack: away.strongestAttack, strongestAttackZone: away.strongestAttackZone,
-          weakestDefence: away.weakestDefence, weakestDefenceZone: away.weakestDefenceZone,
-          gk: away.gk, totalXG: away.totalXG, totalXA: away.totalXA,
-          totalGoals: away.totalGoals, totalGC: away.totalGC,
+           teamCS: home.teamCS, topDefender: home.topDefender,
+           attackPicks: homeAttackPicks, defPicks: homeDefPicks,
+           topByForm: homeTopByForm, targetGroups: homeTargets
+         },
+         away: {
+           teamName: away.teamName, teamFullName: away.teamFullName,
+           zoneStats: away.zoneStats,
+           strongestAttack: away.strongestAttack, strongestAttackZone: away.strongestAttackZone,
+           weakestDefence: away.weakestDefence, weakestDefenceZone: away.weakestDefenceZone,
+           gk: away.gk, totalXG: away.totalXG, totalXA: away.totalXA,
+           totalGoals: away.totalGoals, totalAssists: away.totalAssists, totalGC: away.totalGC,
           defcon: away.defcon, defconLabel: away.defconLabel,
-          teamCS: away.teamCS, topDefender: away.topDefender,
-          attackPicks: awayAttackPicks, defPicks: awayDefPicks,
-          topByForm: awayTopByForm
+           teamCS: away.teamCS, topDefender: away.topDefender,
+           attackPicks: awayAttackPicks, defPicks: awayDefPicks,
+           topByForm: awayTopByForm, targetGroups: awayTargets
         },
         homeDefconAdvantage,
         prediction: homeAttackTotal > awayAttackTotal ? home.teamName :
@@ -918,7 +1099,7 @@ app.get('/api/zone-analysis', async (req, res) => {
         const awayAtkPlayers = away.zoneStats[away.strongestAttack]?.players || [];
 
         if (homeAtkPlayers.length > 0) {
-          const zoneMatch = home.strongestAttack.replace('attack', 'defence') === away.weakestDefence;
+           const zoneMatch = home.strongestAttack === away.weakestDefence;
           allRecommendations.push({
             gw, attackingTeam: home.teamName, defendingTeam: away.teamName,
             isHome: true, type: 'attack',
@@ -928,7 +1109,7 @@ app.get('/api/zone-analysis', async (req, res) => {
           });
         }
         if (awayAtkPlayers.length > 0) {
-          const zoneMatch = away.strongestAttack.replace('attack', 'defence') === home.weakestDefence;
+           const zoneMatch = away.strongestAttack === home.weakestDefence;
           allRecommendations.push({
             gw, attackingTeam: away.teamName, defendingTeam: home.teamName,
             isHome: false, type: 'attack',
@@ -1058,82 +1239,18 @@ app.get('/api/fixtures-detail', async (req, res) => {
   }
 });
 
-// ---- Captain Picks (xPts model) ----
+// ---- Captain Picks ----
 app.get('/api/captain-picks', async (req, res) => {
   try {
-    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
-    const fixtures = (await apiGet('https://fantasy.premierleague.com/api/fixtures/')).data;
-    const teams = bs.teams;
-    const elements = bs.elements;
-    const currentGW = bs.events.find(e => e.is_current)?.id || 1;
-    const selectedGW = parseInt(req.query.gw) || currentGW;
-    const getTeam = id => teams.find(t => t.id === id) || { short_name: '?', name: 'Unknown' };
-
-    // Get next fixture for each team in the selected GW
-    const getOpponent = (teamId) => {
-      const fx = fixtures.find(f => f.event === selectedGW && (f.team_h === teamId || f.team_a === teamId));
-      if (!fx) return null;
-      const isHome = fx.team_h === teamId;
-      const oppId = isHome ? fx.team_a : fx.team_h;
-      return { opponent: getTeam(oppId).short_name, isHome, difficulty: fx.difficulty || 3 };
-    };
-
-    // Calculate xPts for each player
-    const captainCandidates = elements
-      .filter(p => p.minutes > 0 && (p.element_type === 4 || p.element_type === 3)) // FWD or MID only
-      .map(p => {
-        const xGI = parseFloat(p.expected_goal_involvements) || 0;
-        const form = parseFloat(p.form) || 0;
-        const ppg = parseFloat(p.points_per_game) || 0;
-        const ict = parseFloat(p.ict_index) || 0;
-        const goals = p.goals_scored || 0;
-        const assists = p.assists || 0;
-        const totalPts = p.total_points || 0;
-        const cost = p.now_cost || 0;
-        const team = getTeam(p.team);
-        const fixture = getOpponent(p.team);
-
-        // xPts formula: weighted combination of xGI, form, PPG, fixture
-        const xGI_component = xGI * 6; // xGI weighted heavily
-        const form_component = form * 2.5;
-        const ppg_component = ppg * 1.5;
-        const ict_component = (ict / 100) * 2;
-
-        // Fixture modifier: lower difficulty = higher bonus
-        let fixtureMod = 1.0;
-        if (fixture) {
-          if (fixture.difficulty === 1) fixtureMod = 1.4;
-          else if (fixture.difficulty === 2) fixtureMod = 1.2;
-          else if (fixture.difficulty === 3) fixtureMod = 1.0;
-          else if (fixture.difficulty === 4) fixtureMod = 0.8;
-          else if (fixture.difficulty === 5) fixtureMod = 0.6;
-
-          // Home advantage
-          if (fixture.isHome) fixtureMod *= 1.1;
-        }
-
-        // Raw xPts before fixture adjustment
-        const rawXpts = xGI_component + form_component + ppg_component + ict_component;
-        const xpts = Math.round(rawXpts * fixtureMod * 10) / 10;
-
-        return {
-          id: p.id, name: p.web_name, secondName: p.second_name,
-          team: team.name, teamShort: team.short_name,
-          position: POSITION_MAP[p.element_type - 1],
-          form, ppg, xGI, goals, assists, totalPts, cost, ict,
-          fixture: fixture ? fixture.opponent : '—',
-          isHome: fixture ? fixture.isHome : false,
-          fdr: fixture ? fixture.difficulty : 3,
-          selectedBy: parseFloat(p.selected_by_percent) || 0,
-          code: p.code, xpts, rawXpts,
-          bonus: p.bonus || 0,
-          minutes: p.minutes || 0
-        };
-      })
-      .sort((a, b) => b.xpts - a.xpts)
-      .slice(0, 15);
-
-    res.json({ currentGW, selectedGW, captainPicks: captainCandidates });
+    const [bootstrapResponse, fixturesResponse] = await Promise.all([
+      apiGet('https://fantasy.premierleague.com/api/bootstrap-static/'),
+      apiGet('https://fantasy.premierleague.com/api/fixtures/')
+    ]);
+    res.json(buildCaptaincyModel({
+      bootstrap: bootstrapResponse.data,
+      fixtures: fixturesResponse.data,
+      selectedGW: req.query.gw
+    }));
   } catch (e) {
     console.error('Captain picks error:', e.message);
     res.status(500).json({ error: 'Failed to calculate captain picks' });
@@ -1448,111 +1565,6 @@ app.get('/api/price-predictions', async (req, res) => {
   } catch (e) {
     console.error('Price predictions error:', e.message);
     res.status(500).json({ error: 'Failed to calculate predictions' });
-  }
-});
-
-// ---- Captaincy Matrix ----
-app.get('/api/captaincy/matrix', async (req, res) => {
-  try {
-    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
-    const fixtures = (await apiGet('https://fantasy.premierleague.com/api/fixtures/')).data;
-    const elements = bs.elements;
-    const teams = bs.teams;
-    const currentGW = bs.events.find(e => e.is_current)?.id || 1;
-    const getTeam = id => teams.find(t => t.id === id);
-
-    const getNextFixture = (teamId) => {
-      const fx = fixtures.find(f => f.event === currentGW && (f.team_h === teamId || f.team_a === teamId));
-      if (!fx) return { opp: 'TBD', oppFull: 'TBD', isHome: true, fdr: 3 };
-      const isHome = fx.team_h === teamId;
-      const oppId = isHome ? fx.team_a : fx.team_h;
-      const oppTeam = getTeam(oppId);
-      const fdr = isHome ? fx.team_h_difficulty || 3 : fx.team_a_difficulty || 3;
-      return {
-        opp: `${oppTeam?.short_name || 'TBD'} (${isHome ? 'H' : 'A'})`,
-        oppFull: oppTeam?.name || 'Opponent',
-        isHome,
-        fdr
-      };
-    };
-
-    const candidates = elements
-      .filter(p => p.status !== 'u' && p.status !== 'i' && (p.element_type === 3 || p.element_type === 4))
-      .map(p => {
-        const form = parseFloat(p.form) || 0;
-        const xGI = parseFloat(p.expected_goal_involvements_per_90) || parseFloat(p.expected_goal_involvements) || 0;
-        const ownership = parseFloat(p.selected_by_percent) || 0;
-        const fixture = getNextFixture(p.team);
-        
-        const fdrMultiplier = fixture.fdr === 1 ? 1.3 : fixture.fdr === 2 ? 1.15 : fixture.fdr === 3 ? 1.0 : fixture.fdr === 4 ? 0.85 : 0.7;
-        const homeMultiplier = fixture.isHome ? 1.1 : 0.95;
-        const rawXpts = (form * 0.4 + xGI * 3.5 + (p.total_points / Math.max(currentGW, 1)) * 0.4) * fdrMultiplier * homeMultiplier;
-        const xPts = Math.min(12.5, Math.max(3.0, Math.round(rawXpts * 10) / 10));
-
-        return {
-          id: p.id,
-          name: p.web_name,
-          fullName: `${p.first_name} ${p.second_name}`,
-          code: p.code,
-          team: getTeam(p.team)?.short_name || '',
-          position: POSITION_MAP[p.element_type - 1],
-          costStr: '£' + (p.now_cost / 10).toFixed(1) + 'm',
-          form: form.toFixed(1),
-          xGI: xGI.toFixed(2),
-          xPTS: xPts,
-          ownership,
-          opp: fixture.opp,
-          oppFull: fixture.oppFull,
-          fdr: fixture.fdr,
-          points: p.total_points || 0
-        };
-      })
-      .sort((a, b) => b.xPTS - a.xPTS);
-
-    const modelPick = candidates[0] || null;
-    const differential = candidates.find(p => p.ownership < 10) || candidates[4] || null;
-    const warningPlayer = candidates.find(p => p.ownership > 15 && parseFloat(p.form) < 4.0) || 
-                          candidates.find(p => p.ownership > 20) || candidates[7] || null;
-
-    const topPicks = candidates.slice(0, 15).map((p, idx) => {
-      let badge = null;
-      if (differential && p.id === differential.id) badge = 'differential';
-      else if (warningPlayer && p.id === warningPlayer.id) badge = 'warning';
-
-      let borderTier = 'fdr-1';
-      if (idx >= 1 && idx <= 2) borderTier = 'fdr-2';
-      else if (idx >= 3 && idx <= 4) borderTier = 'fdr-3';
-      else if (idx >= 5 && idx <= 6) borderTier = 'fdr-4';
-      else if (idx >= 7) borderTier = 'fdr-5';
-
-      return {
-        rk: idx + 1,
-        ...p,
-        badge,
-        borderTier
-      };
-    });
-
-    res.json({
-      gameweek: currentGW,
-      modelUpdated: `GW${currentGW} - Updated Daily`,
-      modelPick: modelPick ? {
-        ...modelPick,
-        description: `Unprecedented underlying stats against a vulnerable defense. High captaincy ownership expected.`
-      } : null,
-      differentialPick: differential ? {
-        ...differential,
-        label: `DIFFERENTIAL PICK (< 10%)`
-      } : null,
-      formWarning: warningPlayer ? {
-        ...warningPlayer,
-        reason: 'xG Underperf.'
-      } : null,
-      topPicks
-    });
-  } catch (e) {
-    console.error('Captaincy matrix error:', e.message);
-    res.status(500).json({ error: 'Failed to calculate captaincy matrix' });
   }
 });
 
@@ -2049,9 +2061,8 @@ const SET_PIECE_DATA = {
 // Fuzzy name matcher: matches FPL list name to bootstrap web_name
 function findPlayer(listName, elements, teamId) {
   const ln = listName.toLowerCase().replace(/[^a-z]/g, '');
-  // Try exact team match first, then global
+  // Set-piece ownership is team-specific; never attach a player from another club.
   const teamEls = teamId ? elements.filter(e => e.team === teamId) : elements;
-  const allEls = elements;
 
   const tryMatch = (pool) => {
     // Exact web_name
@@ -2080,7 +2091,7 @@ function findPlayer(listName, elements, teamId) {
     return m || null;
   };
 
-  return tryMatch(teamEls) || tryMatch(allEls);
+  return tryMatch(teamEls);
 }
 
 app.get('/api/set-pieces', async (req, res) => {

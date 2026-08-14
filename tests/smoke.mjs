@@ -60,7 +60,13 @@ try {
   await slowContext.close();
 
   const routes = ['/', '/manager', '/league', '/players', '/tactics', '/fixtures', '/captaincy', '/ownership', '/set-pieces'];
-  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+  const viewports = [
+    { width: 1440, height: 900 },
+    { width: 768, height: 1024 },
+    { width: 390, height: 844 },
+    { width: 320, height: 568 },
+  ];
+  for (const viewport of viewports) {
     const page = await browser.newPage({ viewport });
     const consoleErrors = [];
     const failedResponses = [];
@@ -77,8 +83,48 @@ try {
       const expectedTab = route === '/' ? 'general' : route === '/tactics' ? 'zones' : route === '/captaincy' ? 'captain' : route === '/set-pieces' ? 'setpieces' : route.slice(1);
       await page.waitForSelector(`#content-${expectedTab}.active`);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-      assert.ok(overflow <= 1, `${route} overflows viewport by ${overflow}px at ${viewport.width}px`);
+      const clippedElements = await page.evaluate(() => {
+        const viewportWidth = document.documentElement.clientWidth;
+        const approvedScroller = (element) => element.closest('.table-scroll-mobile, .players-table-wrap, .league-table-wrap, .table-container, .tabs, .bottom-nav, .tactics-pitch, .player-position-filter');
+        return [...document.querySelectorAll('body *')].flatMap((element) => {
+          const style = getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          if (style.display === 'none' || style.visibility === 'hidden' || style.pointerEvents === 'none' || rect.width === 0 || rect.height === 0) return [];
+          if ([...element.parentElement?.children || []].some((sibling) => sibling.contains(element) && getComputedStyle(sibling).pointerEvents === 'none')) return [];
+          if (approvedScroller(element) || element.closest('.layout-sidebar:not(.mobile-open)')) return [];
+          if (rect.right <= viewportWidth + 1 && rect.left >= -1) return [];
+          const label = element.getAttribute('aria-label') || element.textContent?.trim().slice(0, 30) || '';
+          const parent = element.parentElement;
+          return [`${element.tagName.toLowerCase()}${element.id ? `#${element.id}` : ''}${element.classList.length ? `.${[...element.classList].join('.')}` : ''} "${label}" in ${parent?.tagName.toLowerCase() || 'unknown'}${parent?.id ? `#${parent.id}` : ''} [${Math.round(rect.left)}, ${Math.round(rect.right)}]`];
+        }).slice(0, 12);
+      });
+      assert.ok(overflow <= 1, `${route} overflows viewport by ${overflow}px at ${viewport.width}px:\n${clippedElements.join('\n')}`);
+      assert.deepEqual(clippedElements, [], `${route} has clipped visible elements at ${viewport.width}px:\n${clippedElements.join('\n')}`);
+
+      const brokenTables = await page.evaluate(() => [...document.querySelectorAll(`#content-${document.querySelector('.tab-content.active')?.id?.replace('content-', '')} table`)].flatMap((table) => {
+        const wrapper = table.closest('.table-scroll-mobile, .players-table-wrap, .league-table-wrap, .table-container');
+        if (table.scrollWidth <= document.documentElement.clientWidth + 1 || wrapper) return [];
+        return [table.id || table.className || table.parentElement?.className || 'unwrapped table'];
+      }));
+      assert.deepEqual(brokenTables, [], `${route} has wide tables without a scroll wrapper at ${viewport.width}px:\n${brokenTables.join('\n')}`);
     }
+
+    await page.goto(`${baseUrl}/admin.html`, { waitUntil: 'domcontentloaded' });
+    await page.evaluate(() => {
+      document.querySelector('#login-screen').style.display = 'none';
+      document.querySelector('#dashboard').style.display = 'block';
+    });
+    const adminOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    const adminClipped = await page.evaluate(() => [...document.querySelectorAll('#dashboard *')].flatMap((element) => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      if (style.display === 'none' || rect.width === 0 || element.closest('.table-scroll')) return [];
+      if (rect.left >= -1 && rect.right <= document.documentElement.clientWidth + 1) return [];
+      return [`${element.tagName.toLowerCase()}.${[...element.classList].join('.')} "${element.textContent?.trim().slice(0, 24)}" [${Math.round(rect.left)}, ${Math.round(rect.right)}]`];
+    }).slice(0, 10));
+    assert.ok(adminOverflow <= 1, `/admin.html overflows viewport by ${adminOverflow}px at ${viewport.width}px:\n${adminClipped.join('\n')}`);
+    const adminTables = await page.evaluate(() => [...document.querySelectorAll('#dashboard table')].filter((table) => !table.closest('.table-scroll')).length);
+    assert.equal(adminTables, 0, `/admin.html has tables without mobile scroll wrappers at ${viewport.width}px`);
 
     if (viewport.width < 1024) {
       await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });

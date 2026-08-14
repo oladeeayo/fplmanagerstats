@@ -225,8 +225,8 @@
                                     <h3 style="font-size:15px;font-weight:600;color:#ffffff;margin:0;">Most Selected Players</h3>
                                     <button style="color:#00ff85;font-size:12px;font-weight:700;background:none;border:none;cursor:pointer;" onclick="FPL.navigateTo('players')">View All</button>
                                 </div>
-                                <div class="table-scroll-mobile" style="padding:0;">
-                                    <table style="width:100%;border-collapse:separate;border-spacing:0;">
+                                <div class="table-scroll-mobile table-compact" style="padding:0;">
+                                    <table class="dashboard-selection-table" style="width:100%;border-collapse:separate;border-spacing:0;">
                                         <thead>
                                             <tr style="border-bottom:1px solid #1A2E28;font-size:10px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);">
                                                 <th style="padding:8px 10px;text-align:left;background:#1c211e;width:55%;">Player</th>
@@ -250,7 +250,7 @@
                                     </h3>
                                     <button style="background:#1c211e;border:1px solid #1A2E28;color:#8ba396;font-family:var(--font-mono);font-size:11px;padding:6px 12px;border-radius:4px;cursor:pointer;" onclick="FPL.navigateTo('fixtures')">Sort by FDR</button>
                                 </div>
-                                <div class="table-scroll-mobile">
+                                <div class="table-scroll-mobile sticky-first-column">
                                     <table style="width:100%;border-collapse:separate;border-spacing:0;text-align:center;min-width:500px;">
                                         <thead>
                                             <tr id="dash-fdr-header-row" style="border-bottom:1px solid #1A2E28;font-size:10px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);">
@@ -471,8 +471,8 @@
                     <div style="margin-bottom:24px;">
                         <h2 style="font-size:18px;font-weight:700;color:#ffffff;margin:0 0 16px 0;font-family:var(--font-display);">Squad Performance</h2>
                         <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;overflow:clip;">
-                            <div class="table-scroll-mobile">
-                                <table style="width:100%;border-collapse:collapse;text-align:left;">
+                            <div class="table-scroll-mobile sticky-first-column">
+                                <table class="squad-performance-table" style="width:100%;border-collapse:collapse;text-align:left;">
                                     <thead>
                                         <tr style="background:#1c211e;border-bottom:1px solid #1A2E28;font-family:var(--font-mono);font-size:11px;color:#8ba396;text-transform:uppercase;">
                                             <th style="padding:12px 20px;">PLAYER</th>
@@ -575,7 +575,7 @@
 
                     <!-- Data Table (Standings) -->
                     <div style="background:#022B1E;border:1px solid #333333;border-radius:12px;overflow:clip;display:flex;flex-direction:column;">
-                        <div class="league-table-wrap">
+                        <div class="league-table-wrap sticky-rank-player">
                             <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:13px;white-space:nowrap;min-width:700px;">
                                 <thead>
                                     <tr style="border-bottom:1px solid #333333;background:rgba(255,255,255,0.03);color:#E0E0E0;font-size:11px;font-family:var(--font-mono);">
@@ -625,7 +625,7 @@
                                     <option value="ict">ICT Index</option>
                                 </select>
                             </div>
-                            <div style="display:flex;gap:8px;background:#1E1E1E;border:1px solid #1A2E28;border-radius:8px;padding:4px;">
+                            <div class="player-position-filter" style="display:flex;gap:8px;background:#1E1E1E;border:1px solid #1A2E28;border-radius:8px;padding:4px;">
                                 <button style="padding:6px 16px;border-radius:4px;font-family:var(--font-mono);font-size:12px;font-weight:700;border:none;cursor:pointer;background:rgba(0,255,133,0.16);color:#00FF85;" onclick="FPL.filterPlayers('all',this)">All</button>
                                 <button style="padding:6px 16px;border-radius:4px;font-family:var(--font-mono);font-size:12px;font-weight:700;border:none;cursor:pointer;background:transparent;color:#B0B0B0;" onclick="FPL.filterPlayers('GKP',this)">GKP</button>
                                 <button style="padding:6px 16px;border-radius:4px;font-family:var(--font-mono);font-size:12px;font-weight:700;border:none;cursor:pointer;background:transparent;color:#B0B0B0;" onclick="FPL.filterPlayers('DEF',this)">DEF</button>
@@ -637,8 +637,8 @@
 
                     <!-- Data Table Container -->
                     <div style="background:#1E1E1E;border:1px solid #1A2E28;border-radius:12px;overflow:clip;">
-                        <div class="players-table-wrap">
-                            <table style="width:100%;border-collapse:separate;border-spacing:0;white-space:nowrap;">
+                        <div class="players-table-wrap sticky-first-column">
+                            <table class="players-data-table" style="width:100%;border-collapse:separate;border-spacing:0;white-space:nowrap;">
                                 <thead style="background:#333333;border-bottom:1px solid #1A2E28;font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.03em;">
                                     <tr>
                                         <th style="background:#333333;min-width:110px;position:sticky;left:0;z-index:2;border-right:2px solid rgba(255,255,255,0.1);">Player</th>
@@ -663,65 +663,59 @@
                 </div>
 
                 <!-- TACTICS/ZONES -->
-                <!-- TACTICAL ZONES -->
                 <div id="content-zones" class="tab-content">
-                    <!-- Header Section -->
-                    <div style="margin-bottom:24px;display:flex;flex-direction:column;gap:16px;">
+                    <div class="tactics-page-header">
                         <div>
-                            <h1 style="font-size:28px;font-weight:700;color:#ffffff;margin:0 0 4px 0;font-family:var(--font-display);">Match Analysis</h1>
-                            <p style="font-size:14px;color:#8ba396;">Select a fixture to analyze team formations, danger zones, and best picks.</p>
+                            <div class="tactics-kicker">FPL TACTICS DESK</div>
+                            <h1>Fixture dissection</h1>
+                            <p>Scan the gameweek slate, open a match, and see where the fantasy points are most likely to come from.</p>
                         </div>
-                        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-                            <div style="background:#141916;border:1px solid #1A2E28;padding:8px 16px;border-radius:8px;display:flex;align-items:center;gap:10px;">
-                                <span style="font-family:var(--font-mono);font-size:11px;color:#8ba396;font-weight:700;letter-spacing:0.05em;">GW</span>
-                                <select id="zones-gw-select" onchange="FPL.loadMatchFixtures()" style="background:transparent;color:#ffffff;font-family:var(--font-mono);font-size:14px;font-weight:700;border:none;outline:none;cursor:pointer;">
-                                    <option value="1">GW 1</option><option value="2">GW 2</option><option value="3">GW 3</option><option value="4">GW 4</option><option value="5">GW 5</option><option value="6">GW 6</option><option value="7">GW 7</option><option value="8">GW 8</option><option value="9">GW 9</option><option value="10">GW 10</option><option value="11">GW 11</option><option value="12">GW 12</option><option value="13">GW 13</option><option value="14">GW 14</option><option value="15">GW 15</option><option value="16">GW 16</option><option value="17">GW 17</option><option value="18">GW 18</option><option value="19">GW 19</option><option value="20">GW 20</option><option value="21">GW 21</option><option value="22">GW 22</option><option value="23">GW 23</option><option value="24">GW 24</option><option value="25">GW 25</option><option value="26">GW 26</option><option value="27">GW 27</option><option value="28">GW 28</option><option value="29">GW 29</option><option value="30">GW 30</option><option value="31">GW 31</option><option value="32">GW 32</option><option value="33">GW 33</option><option value="34">GW 34</option><option value="35">GW 35</option><option value="36">GW 36</option><option value="37">GW 37</option><option value="38">GW 38</option>
-                                </select>
-                            </div>
-                            <div style="background:#141916;border:1px solid #1A2E28;padding:8px 16px;border-radius:8px;display:flex;align-items:center;gap:10px;">
-                                <span style="font-family:var(--font-mono);font-size:11px;color:#8ba396;font-weight:700;letter-spacing:0.05em;">HOME</span>
-                                <select id="zones-home-team" onchange="FPL.loadMatchAnalysis()" style="background:transparent;color:#ffffff;font-family:var(--font-mono);font-size:14px;font-weight:700;border:none;outline:none;cursor:pointer;min-width:80px;">
-                                    <option value="">Select</option>
-                                </select>
-                            </div>
-                            <span style="font-size:20px;font-weight:700;color:#8ba396;">VS</span>
-                            <div style="background:#141916;border:1px solid #1A2E28;padding:8px 16px;border-radius:8px;display:flex;align-items:center;gap:10px;">
-                                <span style="font-family:var(--font-mono);font-size:11px;color:#8ba396;font-weight:700;letter-spacing:0.05em;">AWAY</span>
-                                <select id="zones-away-team" onchange="FPL.loadMatchAnalysis()" style="background:transparent;color:#ffffff;font-family:var(--font-mono);font-size:14px;font-weight:700;border:none;outline:none;cursor:pointer;min-width:80px;">
-                                    <option value="">Select</option>
-                                </select>
-                            </div>
-                        </div>
+                        <label class="tactics-gw-control">
+                            <span>GAMEWEEK</span>
+                            <select id="zones-gw-select" onchange="FPL.loadMatchFixtures()" aria-label="Select gameweek"></select>
+                        </label>
                     </div>
 
-                    <!-- Match Analysis Content -->
-                    <div id="match-analysis-content" style="display:none;">
-                        <!-- 3 Column Layout -->
-                        <div class="tactical-layout" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-bottom:24px;">
-                            <!-- Home Team Formation -->
-                            <div id="home-formation-panel" style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;">
+                    <section class="tactics-fixture-section" aria-labelledby="tactics-fixtures-title">
+                        <div class="tactics-section-heading">
+                            <div>
+                                <span class="tactics-kicker">MATCH CENTRE</span>
+                                <h2 id="tactics-fixtures-title">GW fixtures</h2>
                             </div>
+                            <span id="zones-fixture-count" class="tactics-muted-label"></span>
+                        </div>
+                        <div id="zones-fixture-list" class="tactics-fixture-list" role="listbox" aria-label="Fixtures in selected gameweek"></div>
+                    </section>
 
-                            <!-- Match Analysis Center -->
-                            <div id="match-center-panel" style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:16px;">
-                            </div>
+                    <div id="zones-analysis-status" class="tactics-status" role="status" aria-live="polite"></div>
 
-                            <!-- Away Team Formation -->
-                            <div id="away-formation-panel" style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;">
-                            </div>
+                    <div id="match-analysis-content" class="tactics-analysis" style="display:none;">
+                        <section id="zones-match-hero" class="tactics-match-hero"></section>
+
+                        <div class="tactical-layout">
+                            <section id="home-formation-panel" class="tactics-team-panel"></section>
+                            <section id="match-center-panel" class="tactics-center-panel"></section>
+                            <section id="away-formation-panel" class="tactics-team-panel"></section>
                         </div>
 
-                        <!-- Best Picks Row -->
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-                            <div id="home-picks-panel" style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;"></div>
-                            <div id="away-picks-panel" style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;"></div>
-                        </div>
+                        <section class="tactics-target-section" aria-labelledby="tactics-target-title">
+                            <div class="tactics-section-heading">
+                                <div>
+                                    <span class="tactics-kicker">TRANSFER BOARD</span>
+                                    <h2 id="tactics-target-title">Players to buy or target</h2>
+                                </div>
+                                <span class="tactics-muted-label">Fixture-adjusted signals</span>
+                            </div>
+                            <div class="tactics-target-grid">
+                                <section id="home-picks-panel" class="tactics-target-team"></section>
+                                <section id="away-picks-panel" class="tactics-target-team"></section>
+                            </div>
+                        </section>
                     </div>
 
-                    <!-- Empty State -->
-                    <div id="match-empty-state" style="text-align:center;padding:80px 20px;">
-                        <span class="material-symbols-outlined" style="font-size:64px;color:#1A2E28;">sports_soccer</span>
-                        <p style="font-size:16px;color:#8ba396;margin-top:16px;">Select a home and away team to analyze the fixture</p>
+                    <div id="match-empty-state" class="tactics-empty-state">
+                        <span class="material-symbols-outlined" aria-hidden="true">sports_soccer</span>
+                        <p>Choose a gameweek to load its fixtures.</p>
                     </div>
                 </div>
 
@@ -732,16 +726,16 @@
                         <!-- Center Data Grid (Fixtures) -->
                         <div style="flex:1;display:flex;flex-direction:column;gap:24px;">
                             <!-- Filters & Controls Bar -->
-                            <div style="background:#a7cfbc;border:1px solid #1A2E28;border-radius:12px;padding:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;color:#103729;">
-                                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;min-width:0;">
-                                    <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
+                            <div class="fixtures-controls" style="background:#a7cfbc;border:1px solid #1A2E28;border-radius:12px;padding:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;color:#103729;">
+                                <div class="fixtures-control-groups" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;min-width:0;">
+                                    <div class="fixtures-start-control" style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
                                         <span style="font-family:var(--font-mono);font-size:11px;color:#103729;font-weight:700;white-space:nowrap;">START GW:</span>
                                         <select id="fixture-gw-select" onchange="FPL.setFixtureStartGW(this.value)" style="background:#1c211e;border:1px solid #1A2E28;border-radius:6px;padding:6px 10px;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#ffffff;cursor:pointer;outline:none;">
                                         </select>
                                     </div>
-                                    <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
+                                    <div class="fixtures-lookahead-control" style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
                                         <span style="font-family:var(--font-mono);font-size:11px;color:#103729;font-weight:700;white-space:nowrap;">LOOKAHEAD:</span>
-                                        <div style="display:flex;background:#1c211e;border:1px solid #1A2E28;border-radius:6px;overflow:hidden;flex:1;min-width:0;">
+                                        <div class="fixtures-lookahead-buttons" style="display:flex;background:#1c211e;border:1px solid #1A2E28;border-radius:6px;overflow:hidden;flex:1;min-width:0;">
                                             <button id="lookahead-3" onclick="FPL.setFixtureLookahead(3)" style="padding:6px 8px;font-family:var(--font-mono);font-size:12px;border:none;background:transparent;color:#b9cbb9;cursor:pointer;flex:1;transition:all 0.2s;">3 GW</button>
                                             <button id="lookahead-5" onclick="FPL.setFixtureLookahead(5)" style="padding:6px 8px;font-family:var(--font-mono);font-size:12px;border:none;background:#00FF85;color:#0a0f0d;cursor:pointer;border-left:1px solid #1A2E28;border-right:1px solid #1A2E28;font-weight:700;flex:1;transition:all 0.2s;">5 GW</button>
                                             <button id="lookahead-10" onclick="FPL.setFixtureLookahead(10)" style="padding:6px 8px;font-family:var(--font-mono);font-size:12px;border:none;background:transparent;color:#b9cbb9;cursor:pointer;flex:1;transition:all 0.2s;">10 GW</button>
@@ -749,7 +743,7 @@
                                     </div>
                                 </div>
                                 <!-- FDR Scale Color Blocks -->
-                                <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                                <div class="fixtures-fdr-legend" style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
                                     <div style="display:flex;align-items:center;gap:3px;"><div style="width:12px;height:12px;border-radius:2px;background:#00FF85;"></div><span style="font-size:9px;color:#103729;font-family:var(--font-mono);">1</span></div>
                                     <div style="display:flex;align-items:center;gap:3px;"><div style="width:12px;height:12px;border-radius:2px;background:#37DB59;"></div><span style="font-size:9px;color:#103729;font-family:var(--font-mono);">2</span></div>
                                     <div style="display:flex;align-items:center;gap:3px;"><div style="width:12px;height:12px;border-radius:2px;background:#E1E1E1;"></div><span style="font-size:9px;color:#103729;font-family:var(--font-mono);">3</span></div>
@@ -760,8 +754,8 @@
 
                             <!-- Fixture Grid Container -->
                             <div style="background:#1c211e;border:1px solid #1A2E28;border-radius:12px;overflow:clip;">
-                        <div class="table-scroll-mobile">
-                            <table style="width:100%;border-collapse:separate;border-spacing:0;white-space:nowrap;">
+                        <div class="table-scroll-mobile sticky-first-column fixture-table-wrap">
+                            <table class="fixture-grid-table" style="width:100%;border-collapse:separate;border-spacing:0;white-space:nowrap;">
                                         <thead>
                                             <tr id="fixture-grid-header-row" style="background:#a7cfbc;border-bottom:1px solid #1A2E28;">
                                                 <th style="background:#a7cfbc;width:60px;max-width:60px;font-family:var(--font-mono);font-size:11px;color:#0a0f0d;font-weight:700;position:sticky;left:0;z-index:2;border-right:2px solid rgba(0,0,0,0.1);">TEAM</th>
@@ -798,139 +792,57 @@
 
                 <!-- CAPTAINCY MATRIX -->
                 <div id="content-captain" class="tab-content">
-                    <!-- Page Header -->
-                    <div class="page-header" style="flex-wrap:wrap;gap:var(--space-md);">
+                    <div class="page-header captaincy-header">
                         <div>
-                            <h1 class="page-title" style="margin:0;">Captaincy <span style="color:var(--fdr-1);">Matrix</span></h1>
-                            <p class="page-subtitle" style="margin-top:4px;">Expected Points (xPts) driven recommendation engine. Data updated daily based on underlying performance metrics, opponent FDR, and implied goalscorer odds.</p>
+                            <div class="captaincy-kicker">DECISION DESK</div>
+                            <h1 class="page-title">Captaincy <span>Model</span></h1>
+                            <p class="page-subtitle">Five fixture-adjusted picks ranked by xPts, expected minutes, form, underlying numbers and role.</p>
                         </div>
-                        <div id="cap-model-updated" style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:8px;font-size:0.75rem;font-weight:600;background:rgba(255,255,255,0.05);border:1px solid var(--md-sys-color-outline-variant);color:var(--md-sys-color-on-surface);font-family:var(--font-mono);white-space:nowrap;">
-                            <span class="material-symbols-outlined" style="font-size:16px;color:var(--fdr-1);">update</span>
-                            <span>Model Updated: GW12 - Friday 09:00 AM</span>
-                        </div>
-                    </div>
-
-                    <!-- Bento Grid Highlights -->
-                    <div class="captain-bento-grid" style="display:grid;grid-template-columns:repeat(12, 1fr);gap:16px;margin-bottom:24px;">
-                        <!-- Model Favorite Hero Card (8 cols) -->
-                        <div style="grid-column: span 8; background:var(--md-sys-color-surface-container); border:1px solid var(--md-sys-color-outline-variant); border-radius:var(--radius-lg); padding:var(--space-lg); position:relative; overflow:hidden;">
-                            <!-- Subtle background watermark icon -->
-                            <div style="position:absolute;right:-40px;top:-40px;opacity:0.04;pointer-events:none;">
-                                <span class="material-symbols-outlined" style="font-size:240px;">star</span>
-                            </div>
-
-                            <div style="display:flex;gap:var(--space-lg);align-items:center;position:relative;z-index:1;flex-wrap:wrap;">
-                                <!-- Player Avatar with MODEL PICK Badge -->
-                                <div style="position:relative;display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
-                                    <div style="width:110px;height:110px;border-radius:50%;overflow:hidden;border:4px solid var(--fdr-1);background:var(--md-sys-color-surface);box-shadow:0 0 20px rgba(0,255,133,0.25);">
-                                        <img id="cap-hero-img" src="https://resources.premierleague.com/premierleague/photos/players/110x140/p110711.png" alt="FPL Captain pick - recommended player photo" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
-                                    </div>
-                                    <div style="margin-top:-12px;background:var(--fdr-1);color:#00210c;font-size:0.625rem;font-weight:800;letter-spacing:0.08em;padding:2px 10px;border-radius:4px;box-shadow:0 4px 10px rgba(0,255,133,0.3);white-space:nowrap;font-family:var(--font-mono);">
-                                        MODEL PICK
-                                    </div>
-                                </div>
-
-                                <!-- Player Info & Metrics -->
-                                <div style="flex:1;min-width:240px;">
-                                    <div style="display:flex;align-items:center;gap:var(--space-sm);margin-bottom:var(--space-xs);">
-                                        <h2 id="cap-hero-name" style="font-family:var(--font-display);font-size:1.75rem;font-weight:800;margin:0;color:var(--md-sys-color-on-surface);">E. Haaland</h2>
-                                        <span id="cap-hero-team-pos" style="font-size:0.75rem;font-weight:700;padding:2px 8px;border-radius:4px;background:var(--md-sys-color-surface-container-high);color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);">MCI (FWD)</span>
-                                    </div>
-                                    <p id="cap-hero-desc" style="font-size:0.875rem;color:var(--md-sys-color-on-surface-variant);margin:0 0 var(--space-md) 0;line-height:1.4;">Unprecedented underlying stats against a vulnerable defense. High captaincy ownership expected.</p>
-
-                                    <!-- Bottom 3 Metrics -->
-                                    <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:var(--space-md);padding-top:var(--space-md);border-top:1px solid var(--md-sys-color-outline-variant);">
-                                        <div>
-                                            <div style="font-size:0.6875rem;font-weight:700;color:var(--md-sys-color-on-surface-variant);letter-spacing:0.05em;font-family:var(--font-mono);margin-bottom:2px;">PROJ xPTS</div>
-                                            <div id="cap-hero-xpts" class="mono" style="font-size:1.5rem;font-weight:800;color:var(--fdr-1);">9.8</div>
-                                        </div>
-                                        <div>
-                                            <div style="font-size:0.6875rem;font-weight:700;color:var(--md-sys-color-on-surface-variant);letter-spacing:0.05em;font-family:var(--font-mono);margin-bottom:2px;">OPPONENT</div>
-                                            <div style="display:flex;align-items:center;gap:6px;">
-                                                <span id="cap-hero-opp" class="mono" style="font-size:1rem;font-weight:700;color:var(--md-sys-color-on-surface);">SHU (H)</span>
-                                                <span id="cap-hero-fdr" style="width:10px;height:10px;border-radius:2px;background:var(--fdr-2);display:inline-block;"></span>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <div style="font-size:0.6875rem;font-weight:700;color:var(--md-sys-color-on-surface-variant);letter-spacing:0.05em;font-family:var(--font-mono);margin-bottom:2px;">xGI / 90</div>
-                                            <div id="cap-hero-xgi" class="mono" style="font-size:1.5rem;font-weight:800;color:#00D1FF;">1.12</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Secondary Insight Cards (4 cols) -->
-                        <div style="grid-column: span 4; display:flex; flex-direction:column; gap:var(--space-md);">
-                            <!-- Card 2a: Differential Pick -->
-                            <div style="background:var(--md-sys-color-surface-container); border:1px solid var(--md-sys-color-outline-variant); border-radius:var(--radius-lg); padding:var(--space-md); flex:1; display:flex; flex-direction:column; justify-content:space-between;">
-                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-xs);">
-                                    <span style="font-size:0.6875rem;font-weight:700;color:var(--md-sys-color-on-surface-variant);letter-spacing:0.05em;font-family:var(--font-mono);">DIFFERENTIAL PICK (&lt; 10%)</span>
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFA600" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
-                                </div>
-                                <div>
-                                    <div id="cap-diff-name" style="font-family:var(--font-display);font-size:1.25rem;font-weight:700;color:var(--md-sys-color-on-surface);">B. Mbeumo</div>
-                                    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;">
-                                        <span id="cap-diff-team" class="mono" style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">BRE (MID)</span>
-                                        <span id="cap-diff-xpts" class="mono" style="font-size:0.75rem;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(0,255,133,0.12);color:var(--fdr-1);border:1px solid rgba(0,255,133,0.3);">7.4 xPts</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Card 2b: Form Warning -->
-                            <div style="background:var(--md-sys-color-surface-container); border:1px solid var(--md-sys-color-outline-variant); border-radius:var(--radius-lg); padding:var(--space-md); flex:1; display:flex; flex-direction:column; justify-content:space-between;">
-                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-xs);">
-                                    <span style="font-size:0.6875rem;font-weight:700;color:var(--md-sys-color-on-surface-variant);letter-spacing:0.05em;font-family:var(--font-mono);">FORM WARNING</span>
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF005A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                                </div>
-                                <div>
-                                    <div id="cap-warn-name" style="font-family:var(--font-display);font-size:1.25rem;font-weight:700;color:var(--md-sys-color-on-surface);">M. Rashford</div>
-                                    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;">
-                                        <span id="cap-warn-team" class="mono" style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">MUN (MID)</span>
-                                        <span id="cap-warn-reason" class="mono" style="font-size:0.75rem;font-weight:700;color:#FF005A;">xG Underperf.</span>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="captaincy-controls">
+                            <label for="captain-gw-select">GAMEWEEK</label>
+                            <select id="captain-gw-select" onchange="FPL.setCaptainGameweek(this.value)" aria-label="Select captaincy gameweek"></select>
+                            <div id="cap-model-updated" class="captaincy-model-status">Model loading</div>
                         </div>
                     </div>
 
-                    <!-- Main Data Table Container -->
-                    <div style="background:#1E1E1E;border:1px solid #333333;border-radius:12px;overflow:clip;">
-                        <!-- Header -->
-                        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid #333333;background:rgba(255,255,255,0.02);">
-                            <h2 id="cap-table-title" style="font-family:var(--font-display);font-size:18px;font-weight:700;margin:0;">Top 15 Captain Picks</h2>
-                            <button class="btn btn-ghost btn-sm" onclick="FPL.renderCaptaincy()" style="gap:6px;font-size:0.75rem;padding:4px 12px;border:1px solid var(--md-sys-color-outline-variant);">
-                                <span class="material-symbols-outlined" style="font-size:16px;">filter_list</span> Filter
-                            </button>
-                        </div>
+                    <div class="captaincy-spotlights">
+                        <article id="cap-best-card" class="captaincy-spotlight captaincy-spotlight-best">
+                            <div class="captaincy-loading">Calculating the best captain...</div>
+                        </article>
+                        <article id="cap-differential-card" class="captaincy-spotlight captaincy-spotlight-differential">
+                            <div class="captaincy-loading">Finding the differential...</div>
+                        </article>
+                    </div>
 
-                        <!-- Table -->
-                        <div class="table-scroll-mobile">
-                            <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:12px;white-space:nowrap;">
+                    <section class="captaincy-rankings" aria-labelledby="cap-table-title">
+                        <div class="captaincy-rankings-header">
+                            <div>
+                                <div class="captaincy-kicker">SHORTLIST</div>
+                                <h2 id="cap-table-title">Top 5 Captain Picks</h2>
+                            </div>
+                            <div id="cap-model-inputs" class="captaincy-model-inputs"></div>
+                        </div>
+                        <div class="table-scroll-mobile sticky-rank-player">
+                            <table class="captaincy-table">
                                 <thead>
-                                    <tr style="border-bottom:1px solid #333333;background:rgba(255,255,255,0.03);color:#B0B0B0;font-size:11px;font-family:var(--font-mono);">
-                                        <th style="text-align:center;width:40px;background:#1E1E1E;position:sticky;left:0;z-index:2;border-right:2px solid rgba(255,255,255,0.1);">RK</th>
-                                        <th style="text-align:left;">PLAYER</th>
-                                        <th style="padding:8px 12px;text-align:center;">OPP</th>
-                                        <th style="padding:8px 12px;text-align:center;">FDR</th>
-                                        <th style="padding:8px 12px;text-align:center;">FORM</th>
-                                        <th style="padding:8px 12px;text-align:center;">xGI</th>
-                                        <th style="padding:8px 12px;text-align:center;">xPTS <span class="material-symbols-outlined" style="font-size:14px;color:#1A9F39;vertical-align:middle;">arrow_drop_down</span></th>
+                                    <tr>
+                                        <th>RK</th>
+                                        <th>PLAYER</th>
+                                        <th>FIXTURE</th>
+                                        <th>FORM</th>
+                                        <th>xMINS</th>
+                                        <th>xGI/90</th>
+                                        <th>OWN</th>
+                                        <th>xPTS</th>
                                     </tr>
                                 </thead>
                                 <tbody id="captain-picks-body">
-                                    <tr><td colspan="7" style="text-align:center;padding:var(--space-xl);"><div style="display:flex;justify-content:center;padding:16px;"><div class="pixel-loader-container"><span class="pixel-grid" aria-hidden="true"><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span></span><span class="pixel-loader-label">Loading captaincy matrix data...</span></div></div></td></tr>
+                                    <tr><td colspan="8" class="captaincy-loading">Loading captaincy model...</td></tr>
                                 </tbody>
                             </table>
                         </div>
-
-                        <!-- Table Footer -->
-                        <div style="padding:16px;border-top:1px solid #333333;text-align:center;background:rgba(255,255,255,0.02);">
-                            <button onclick="FPL.renderCaptaincy()" style="background:transparent;border:none;color:#B0B0B0;font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:0.05em;cursor:pointer;transition:color 0.2s;" onmouseover="this.style.color='#00FF85'" onmouseout="this.style.color='#B0B0B0'">
-                                LOAD FULL TOP 15 RANKINGS
-                            </button>
-                        </div>
-                    </div>
+                        <p class="captaincy-disclaimer">xPts is a decision aid, not a guarantee. Confirm team news before the deadline; expected minutes are estimated from starts, appearances and availability.</p>
+                    </section>
                 </div>
 
                 <!-- OWNERSHIP TRENDS -->
@@ -998,10 +910,10 @@
                     <!-- Main Table Section -->
                     <div style="background:#1E1E1E;border:1px solid #333333;border-radius:12px;overflow:clip;">
                         <!-- Toolbar -->
-                        <div style="padding:16px 24px;border-bottom:1px solid #333333;">
-                            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+                        <div class="ownership-toolbar" style="padding:16px 24px;border-bottom:1px solid #333333;">
+                            <div class="ownership-toolbar-heading" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
                                 <h2 style="font-family:var(--font-display);font-size:18px;font-weight:700;margin:0;">Player Ownership Analysis</h2>
-                                <div style="display:inline-flex;gap:4px;padding:3px;background:rgba(255,255,255,0.06);border-radius:8px;border:1px solid rgba(255,255,255,0.1);">
+                                <div class="ownership-position-filter" style="display:inline-flex;gap:4px;padding:3px;background:rgba(255,255,255,0.06);border-radius:8px;border:1px solid rgba(255,255,255,0.1);">
                                     <button class="own-pos-btn active" onclick="FPL.filterOwnershipPos('all', this)">All</button>
                                     <button class="own-pos-btn" onclick="FPL.filterOwnershipPos('GKP', this)">GKP</button>
                                     <button class="own-pos-btn" onclick="FPL.filterOwnershipPos('DEF', this)">DEF</button>
@@ -1009,7 +921,7 @@
                                     <button class="own-pos-btn" onclick="FPL.filterOwnershipPos('FWD', this)">FWD</button>
                                 </div>
                             </div>
-                            <div style="display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap;">
+                            <div class="ownership-search-row" style="display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap;">
                                 <input type="text" id="own-search" placeholder="Search player..." style="flex:1;min-width:180px;max-width:280px;height:36px;font-size:13px;background-color:#2A2A2A;color:#E0E0E0;border:1px solid #444444;border-radius:8px;padding:4px 12px;outline:none;font-family:var(--font-mono);" oninput="FPL.renderOwnershipTable()">
                                 <select id="own-sort" style="width:180px;height:36px;font-size:13px;background-color:#2A2A2A;color:#E0E0E0;border:1px solid #444444;border-radius:8px;padding:4px 32px 4px 12px;appearance:none;background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22%23B0B0B0%22%3E%3Cpath d=%22M7 10l5 5 5-5z%22/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 10px center;font-family:var(--font-mono);" onchange="FPL.renderOwnershipTable()">
                                     <option value="ownership">Sort by: Own %</option>
@@ -1023,8 +935,8 @@
                         </div>
 
                         <!-- Table -->
-                        <div class="table-scroll-mobile">
-                            <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:12px;white-space:nowrap;">
+                        <div class="table-scroll-mobile sticky-rank-player">
+                            <table class="ownership-data-table" style="width:100%;border-collapse:separate;border-spacing:0;font-size:12px;white-space:nowrap;">
                                 <thead>
                                     <tr style="border-bottom:2px solid #333333;background:#2A2A2A;color:#B0B0B0;font-size:11px;">
                                         <th style="text-align:center;width:40px;background:#2A2A2A;position:sticky;left:0;z-index:2;border-right:2px solid rgba(255,255,255,0.1);">#</th>
@@ -1053,8 +965,8 @@
                         <p style="font-size:13px;color:#8ba396;margin-top:6px;">Penalty takers, free kick specialists, and corner takers for every Premier League team.</p>
                     </div>
                     <div id="setpieces-table-container" style="background:#141916;border:1px solid #1A2E28;border-radius:12px;overflow:clip;">
-                        <div class="table-scroll-mobile">
-                            <table style="width:100%;border-collapse:separate;border-spacing:0;min-width:700px;">
+                        <div class="table-scroll-mobile sticky-first-column">
+                            <table class="setpieces-data-table" style="width:100%;border-collapse:separate;border-spacing:0;min-width:920px;">
                                 <thead>
                                     <tr style="background:#1c211e;border-bottom:1px solid #1A2E28;font-size:10px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);letter-spacing:0.03em;">
                                         <th style="padding:10px 12px;text-align:left;background:#1c211e;position:sticky;left:0;z-index:2;border-right:2px solid rgba(255,255,255,0.1);">Team</th>

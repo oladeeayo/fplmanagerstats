@@ -12,6 +12,7 @@ const FPL = {
         differentials: null,
         currentGW: null,
         selectedGW: null,
+        selectedFixtureId: null,
         teamMap: {},
         playerMap: {},
         positionMap: { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' },
@@ -449,8 +450,8 @@ const FPL = {
                     return `<tr style="border-bottom:1px solid #1A2E28;transition:background 0.2s;cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'" onclick="FPL.openPlayersByPosition('${p.pos}')">
                         <td style="padding:8px 10px;display:flex;align-items:center;gap:8px;background:#141916;position:relative;">
                             <div style="width:3px;height:24px;border-radius:999px;background:${barColor};flex-shrink:0;"></div>
-                            <div style="width:32px;height:32px;border-radius:50%;background:#1c211e;border:1px solid #1A2E28;overflow:hidden;flex-shrink:0;">
-                                <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || p.web_name || 'FPL Player'} photo" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
+                            <div class="player-photo-shell" style="width:32px;height:32px;border-radius:50%;border:1px solid #1A2E28;">
+                                ${this.playerPhotoMarkup(p, `${p.name || p.web_name || 'FPL Player'} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}
                             </div>
                             <div style="min-width:0;flex:1;">
                                 <div style="font-weight:700;color:#ffffff;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name}</div>
@@ -491,8 +492,8 @@ const FPL = {
             if (transfersInContainer && data.topTransfersIn) {
                 transfersInContainer.innerHTML = data.topTransfersIn.map(p => `
                     <div style="display:flex;align-items:center;gap:10px;padding:4px 0;">
-                        <div style="width:32px;height:32px;border-radius:50%;background:#1c211e;border:1px solid #1A2E28;overflow:hidden;flex-shrink:0;">
-                            <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || p.web_name || 'FPL Player'} photo" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
+                        <div class="player-photo-shell" style="width:32px;height:32px;border-radius:50%;border:1px solid #1A2E28;">
+                            ${this.playerPhotoMarkup(p, `${p.name || p.web_name || 'FPL Player'} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}
                         </div>
                         <div style="flex:1;min-width:0;">
                             <div style="font-size:13px;font-weight:700;color:#ffffff;">${p.name}</div>
@@ -792,7 +793,7 @@ const FPL = {
                 if (pts >= posStats[pos].topPts) {
                     posStats[pos].topPts = pts;
                     posStats[pos].topName = p.webName || p.name || 'Player';
-                    posStats[pos].topCode = p.code;
+                    posStats[pos].topCode = p.code || p.photoId;
                 }
             });
 
@@ -800,28 +801,28 @@ const FPL = {
             if (document.getElementById('pos-gkp-top')) document.getElementById('pos-gkp-top').textContent = posStats.GKP.topName ? `Top: ${posStats.GKP.topName} (${posStats.GKP.topPts})` : 'No data';
             if (posStats.GKP.topCode) {
                 const imgEl = document.getElementById('pos-gkp-img');
-                if (imgEl) imgEl.innerHTML = `<img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${posStats.GKP.topCode}.png" alt="${posStats.GKP.topName || 'Goalkeeper'} - top scoring goalkeeper" onerror="this.parentElement.innerHTML='<span class=\\'material-symbols-outlined\\' style=\\'color:#444;font-size:28px;\\'>person</span>'" style="width:100%;height:100%;object-fit:cover;">`;
+                if (imgEl) imgEl.innerHTML = this.playerPhotoMarkup({ code: posStats.GKP.topCode, name: posStats.GKP.topName }, `${posStats.GKP.topName || 'Goalkeeper'} - top scoring goalkeeper`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;');
             }
 
             if (document.getElementById('pos-def-pts')) document.getElementById('pos-def-pts').textContent = posStats.DEF.pts || '0';
             if (document.getElementById('pos-def-top')) document.getElementById('pos-def-top').textContent = posStats.DEF.topName ? `Top: ${posStats.DEF.topName} (${posStats.DEF.topPts})` : 'No data';
             if (posStats.DEF.topCode) {
                 const imgEl = document.getElementById('pos-def-img');
-                if (imgEl) imgEl.innerHTML = `<img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${posStats.DEF.topCode}.png" alt="${posStats.DEF.topName || 'Defender'} - top scoring defender" onerror="this.parentElement.innerHTML='<span class=\\'material-symbols-outlined\\' style=\\'color:#444;font-size:28px;\\'>person</span>'" style="width:100%;height:100%;object-fit:cover;">`;
+                if (imgEl) imgEl.innerHTML = this.playerPhotoMarkup({ code: posStats.DEF.topCode, name: posStats.DEF.topName }, `${posStats.DEF.topName || 'Defender'} - top scoring defender`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;');
             }
 
             if (document.getElementById('pos-mid-pts')) document.getElementById('pos-mid-pts').textContent = posStats.MID.pts || '0';
             if (document.getElementById('pos-mid-top')) document.getElementById('pos-mid-top').textContent = posStats.MID.topName ? `Top: ${posStats.MID.topName} (${posStats.MID.topPts})` : 'No data';
             if (posStats.MID.topCode) {
                 const imgEl = document.getElementById('pos-mid-img');
-                if (imgEl) imgEl.innerHTML = `<img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${posStats.MID.topCode}.png" alt="${posStats.MID.topName || 'Midfielder'} - top scoring midfielder" onerror="this.parentElement.innerHTML='<span class=\\'material-symbols-outlined\\' style=\\'color:#444;font-size:28px;\\'>person</span>'" style="width:100%;height:100%;object-fit:cover;">`;
+                if (imgEl) imgEl.innerHTML = this.playerPhotoMarkup({ code: posStats.MID.topCode, name: posStats.MID.topName }, `${posStats.MID.topName || 'Midfielder'} - top scoring midfielder`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;');
             }
 
             if (document.getElementById('pos-fwd-pts')) document.getElementById('pos-fwd-pts').textContent = posStats.FWD.pts || '0';
             if (document.getElementById('pos-fwd-top')) document.getElementById('pos-fwd-top').textContent = posStats.FWD.topName ? `Top: ${posStats.FWD.topName} (${posStats.FWD.topPts})` : 'No data';
             if (posStats.FWD.topCode) {
                 const imgEl = document.getElementById('pos-fwd-img');
-                if (imgEl) imgEl.innerHTML = `<img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${posStats.FWD.topCode}.png" alt="${posStats.FWD.topName || 'Forward'} - top scoring forward" onerror="this.parentElement.innerHTML='<span class=\\'material-symbols-outlined\\' style=\\'color:#444;font-size:28px;\\'>person</span>'" style="width:100%;height:100%;object-fit:cover;">`;
+                if (imgEl) imgEl.innerHTML = this.playerPhotoMarkup({ code: posStats.FWD.topCode, name: posStats.FWD.topName }, `${posStats.FWD.topName || 'Forward'} - top scoring forward`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;');
             }
         }
 
@@ -837,7 +838,7 @@ const FPL = {
             squadTbody.innerHTML = playersToRender.map(p => `
                 <tr style="border-bottom:1px solid #16251e;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
                     <td style="padding:4px 6px;background:#141916;max-width:120px;overflow:hidden;display:flex;align-items:center;gap:6px;">
-                        <div style="width:24px;height:24px;border-radius:50%;background:#1c2720;border:1px solid #28392e;flex-shrink:0;"></div>
+                        <div class="player-photo-shell" style="width:24px;height:24px;border-radius:50%;border:1px solid #28392e;">${this.playerPhotoMarkup(p, `${p.webName || p.name} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}</div>
                         <span style="font-weight:700;color:#ffffff;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.webName || p.name}</span>
                     </td>
                     <td style="text-align:center;color:#ffffff;font-family:var(--font-mono);font-size:11px;">${p.totalPoints || p.points || 0}</td>
@@ -1111,8 +1112,8 @@ const FPL = {
                 <tr style="border-bottom:1px solid #1A2E28;transition:background 0.2s;${isEven ? 'background:rgba(49,54,51,0.15);' : ''}" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='${isEven ? 'rgba(49,54,51,0.15)' : 'transparent'}'">
                     <td style="padding:4px 6px;background:${isEven ? '#1E1E1E' : '#1A1A1A'};max-width:110px;overflow:hidden;">
                         <div style="display:flex;align-items:center;gap:6px;">
-                            <div style="width:28px;height:28px;border-radius:50%;overflow:hidden;background:#2A2A2A;border:1px solid #333;flex-shrink:0;">
-                                <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || p.web_name || 'FPL Player'} photo" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
+                            <div class="player-photo-shell" style="width:28px;height:28px;border-radius:50%;border:1px solid #333;">
+                                ${this.playerPhotoMarkup(p, `${p.name || p.web_name || 'FPL Player'} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}
                             </div>
                             <div style="min-width:0;overflow:hidden;">
                                 <div style="font-weight:700;font-size:11px;color:#E0E0E0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.web_name}</div>
@@ -1434,8 +1435,8 @@ const FPL = {
                 const posStr = posNames[p.element_type] || 'MID';
 
                 return `<div class="flex items-center gap-3 p-3 rounded-lg bg-surface border border-pitch-line hover:border-fdr-1 transition-colors cursor-pointer group" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;background:var(--md-sys-color-surface);border:1px solid var(--pitch-line);" onclick="FPL.navigateTo('players')">
-                    <div style="width:40px;height:40px;border-radius:50%;overflow:hidden;background:var(--md-sys-color-surface-variant);border:1px solid var(--pitch-line);position:relative;flex-shrink:0;">
-                        <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || p.web_name || 'FPL Player'} photo" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
+                    <div class="player-photo-shell" style="width:40px;height:40px;border-radius:50%;border:1px solid var(--pitch-line);">
+                        ${this.playerPhotoMarkup(p, `${p.name || p.web_name || 'FPL Player'} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}
                         <div style="position:absolute;bottom:0;right:0;width:10px;height:10px;background:var(--fdr-1);border-radius:50%;border:1px solid var(--md-sys-color-surface);"></div>
                     </div>
                     <div style="flex:1;">
@@ -1495,128 +1496,195 @@ const FPL = {
         container.innerHTML = upcoming.join('') || '<div class="empty-state"><p>No upcoming fixtures</p></div>';
     },
 
-    // ==================== RENDER: CAPTAINCY MATRIX ====================
+    // ==================== RENDER: CAPTAINCY MODEL ====================
+    setCaptainGameweek(gw) {
+        const gameweek = parseInt(gw, 10);
+        if (!Number.isInteger(gameweek)) return;
+        this.state.captainGW = gameweek;
+        this.renderCaptaincy();
+    },
+
+    captainFixtureBadges(fixtures) {
+        return (fixtures || []).map(fixture => `
+            <span class="captaincy-fixture-badge">
+                <span>${fixture.label}</span>
+                <span class="captaincy-fdr captaincy-fdr-${fixture.fdr}">${fixture.fdr}</span>
+            </span>
+        `).join('');
+    },
+
+    renderCaptainSpotlight(player, type) {
+        if (!player) return '<div class="captaincy-empty">No eligible pick for this gameweek.</div>';
+        const isBest = type === 'best';
+        const label = isBest ? 'BEST CAPTAIN' : `DIFFERENTIAL < ${player.threshold}%`;
+        const icon = isBest ? 'stars' : 'trending_up';
+        const rank = !isBest && player.overallRank ? `<span class="captaincy-overall-rank">#${player.overallRank} overall</span>` : '';
+        return `
+            <div class="captaincy-spotlight-topline">
+                <span class="captaincy-pick-label"><span class="material-symbols-outlined">${icon}</span>${label}</span>
+                ${rank}
+            </div>
+            <div class="captaincy-player-lead">
+                <div class="captaincy-player-photo">
+                    ${this.playerPhotoMarkup(player, `${player.name} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}
+                </div>
+                <div class="captaincy-player-heading">
+                    <div class="captaincy-player-meta">${this.teamBadge(player.team, 18)} ${player.team} · ${player.position} · £${player.cost.toFixed(1)}m</div>
+                    <h2>${player.name}</h2>
+                    <div class="captaincy-fixtures">${this.captainFixtureBadges(player.fixtures)}</div>
+                </div>
+                <div class="captaincy-xpts-block"><strong>${player.xPts.toFixed(1)}</strong><span>xPts</span></div>
+            </div>
+            <p class="captaincy-explanation">${player.explanation}</p>
+            <div class="captaincy-metrics">
+                <div><span>xMins</span><strong>${player.xMins}</strong></div>
+                <div><span>${player.formSource === 'form' ? 'Form' : 'PPG base'}</span><strong>${player.formUsed.toFixed(1)}</strong></div>
+                <div><span>xGI / 90</span><strong>${player.xGI90.toFixed(2)}</strong></div>
+                <div><span>Ownership</span><strong>${player.ownership.toFixed(1)}%</strong></div>
+                <div><span>Minutes confidence</span><strong>${player.confidence}</strong></div>
+            </div>
+        `;
+    },
+
     async renderCaptaincy() {
+        const tbody = document.getElementById('captain-picks-body');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="captaincy-loading">Recalculating captaincy picks...</td></tr>';
         try {
-            const data = await this.apiFetch('/api/captaincy/matrix');
-            
-            // Header model update badge
-            const modelUpdatedEl = document.getElementById('cap-model-updated');
-            if (modelUpdatedEl && data.modelUpdated) {
-                modelUpdatedEl.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;color:var(--fdr-1);">update</span> <span>Model Updated: ${data.modelUpdated}</span>`;
+            const requestedGW = this.state.captainGW || '';
+            const data = await this.apiFetch(this.API.captainPicks(requestedGW));
+            this.state.captainPicks = data;
+            this.state.captainGW = data.gameweek;
+
+            const gwSelect = document.getElementById('captain-gw-select');
+            if (gwSelect) {
+                const gameweeks = data.availableGameweeks?.length ? data.availableGameweeks : Array.from({ length: 38 }, (_, index) => index + 1);
+                gwSelect.innerHTML = gameweeks.map(gw => `<option value="${gw}"${gw === data.gameweek ? ' selected' : ''}>GW ${gw}</option>`).join('');
             }
 
-            // Hero Model Pick Card
-            if (data.modelPick) {
-                const mp = data.modelPick;
-                const heroImg = document.getElementById('cap-hero-img');
-                if (heroImg) heroImg.src = `https://resources.premierleague.com/premierleague/photos/players/110x140/p${mp.code}.png`;
-                
-                const heroName = document.getElementById('cap-hero-name');
-                if (heroName) heroName.textContent = mp.name;
-
-                const heroTeamPos = document.getElementById('cap-hero-team-pos');
-                if (heroTeamPos) heroTeamPos.textContent = `${mp.team} (${mp.position})`;
-
-                const heroDesc = document.getElementById('cap-hero-desc');
-                if (heroDesc) heroDesc.textContent = mp.description || 'Unprecedented underlying stats against a vulnerable defense. High captaincy ownership expected.';
-
-                const heroXpts = document.getElementById('cap-hero-xpts');
-                if (heroXpts) heroXpts.textContent = mp.xPTS;
-
-                const heroOpp = document.getElementById('cap-hero-opp');
-                if (heroOpp) heroOpp.textContent = mp.opp;
-
-                const heroFdr = document.getElementById('cap-hero-fdr');
-                if (heroFdr) heroFdr.style.background = `var(--fdr-${mp.fdr})`;
-
-                const heroXgi = document.getElementById('cap-hero-xgi');
-                if (heroXgi) heroXgi.textContent = mp.xGI;
+            const status = document.getElementById('cap-model-updated');
+            if (status) {
+                const updated = new Date(data.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                status.textContent = `${data.modelVersion} · updated ${updated}`;
             }
 
-            // Differential Card
-            if (data.differentialPick) {
-                const diff = data.differentialPick;
-                const diffName = document.getElementById('cap-diff-name');
-                if (diffName) diffName.textContent = diff.name;
+            const title = document.getElementById('cap-table-title');
+            if (title) title.textContent = `Top 5 Captain Picks · GW${data.gameweek}`;
 
-                const diffTeam = document.getElementById('cap-diff-team');
-                if (diffTeam) diffTeam.textContent = `${diff.team} (${diff.position})`;
+            const inputs = document.getElementById('cap-model-inputs');
+            if (inputs) inputs.innerHTML = (data.modelInputs || []).map(input => `<span>${input}</span>`).join('');
 
-                const diffXpts = document.getElementById('cap-diff-xpts');
-                if (diffXpts) diffXpts.textContent = `${diff.xPTS} xPts`;
-            }
+            const bestCard = document.getElementById('cap-best-card');
+            if (bestCard) bestCard.innerHTML = this.renderCaptainSpotlight(data.bestPick, 'best');
+            const differentialCard = document.getElementById('cap-differential-card');
+            if (differentialCard) differentialCard.innerHTML = this.renderCaptainSpotlight(data.differentialPick, 'differential');
 
-            // Form Warning Card
-            if (data.formWarning) {
-                const warn = data.formWarning;
-                const warnName = document.getElementById('cap-warn-name');
-                if (warnName) warnName.textContent = warn.name;
-
-                const warnTeam = document.getElementById('cap-warn-team');
-                if (warnTeam) warnTeam.textContent = `${warn.team} (${warn.position})`;
-
-                const warnReason = document.getElementById('cap-warn-reason');
-                if (warnReason) warnReason.textContent = warn.reason || 'xG Underperf.';
-            }
-
-            // Table Title
-            const tableTitle = document.getElementById('cap-table-title');
-            if (tableTitle && data.gameweek) {
-                tableTitle.textContent = `Top 15 Captain Picks (GW${data.gameweek})`;
-            }
-
-            // Table Rows
-            const tbody = document.getElementById('captain-picks-body');
             if (!tbody) return;
-
             const picks = data.topPicks || [];
-            if (picks.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:var(--space-lg);">No captain picks available.</td></tr>`;
+            if (!picks.length) {
+                tbody.innerHTML = '<tr><td colspan="8" class="captaincy-empty">No eligible players have a fixture in this gameweek.</td></tr>';
                 return;
             }
 
-            tbody.innerHTML = picks.map((p) => {
-                const badgeIcon = p.badge === 'differential' 
-                    ? `<span class="material-symbols-outlined text-fdr-4" style="font-size:14px;color:#FFA600;margin-left:4px;" title="Differential Pick">trending_up</span>`
-                    : p.badge === 'warning'
-                    ? `<span class="material-symbols-outlined text-fdr-5" style="font-size:14px;color:#FF005A;margin-left:4px;" title="Form Warning">warning</span>`
-                    : '';
-
-                const rowBg = p.badge === 'differential' ? 'background:rgba(255,255,255,0.03);' : p.badge === 'warning' ? 'opacity:0.85;' : '';
-                const rankColor = p.rk === 1 ? 'color:var(--fdr-1);font-size:1.125rem;' : p.rk <= 3 ? 'color:var(--md-sys-color-primary);font-size:1rem;' : 'color:var(--md-sys-color-on-surface);';
-
-                return `<tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);transition:background 0.2s;${rowBg}" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='${rowBg ? 'rgba(255,255,255,0.03)' : 'transparent'}'">
-                    <td style="padding:4px 6px;text-align:center;background:#1E1E1E;border-left:3px solid var(--${p.borderTier});font-weight:700;font-size:11px;">${p.rk}</td>
-                    <td style="padding:4px 6px;">
-                        <div style="display:flex;align-items:center;gap:6px;">
-                            <div style="width:28px;height:28px;border-radius:50%;overflow:hidden;background:var(--md-sys-color-surface);flex-shrink:0;border:1px solid var(--md-sys-color-outline-variant);">
-                                <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || p.web_name || 'FPL Player'} photo" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
-                            </div>
-                            <div style="min-width:0;">
-                                <div style="font-weight:600;color:var(--md-sys-color-on-surface);display:flex;align-items:center;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                                    ${p.name} ${badgeIcon}
-                                </div>
-                                <div style="font-size:9px;color:var(--md-sys-color-on-surface-variant);white-space:nowrap;display:flex;align-items:center;gap:3px;">${this.teamBadge(p.team, 10)} ${p.team} (${p.position})</div>
-                            </div>
+            tbody.innerHTML = picks.map(player => {
+                const isDifferential = data.differentialPick?.id === player.id;
+                const labels = [
+                    player.rank === 1 ? '<span class="captaincy-row-label captaincy-row-label-best">BEST</span>' : '',
+                    isDifferential ? '<span class="captaincy-row-label captaincy-row-label-diff">DIFF</span>' : ''
+                ].join('');
+                return `<tr class="${player.rank === 1 ? 'captaincy-row-best' : ''}">
+                    <td><span class="captaincy-rank">${player.rank}</span></td>
+                    <td>
+                        <div class="captaincy-table-player">
+                            <div class="captaincy-table-photo">${this.playerPhotoMarkup(player, `${player.name} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}</div>
+                            <div><strong>${player.name}${labels}</strong><span>${player.team} · ${player.position}</span></div>
                         </div>
                     </td>
-                    <td style="padding:4px 6px;text-align:center;font-weight:500;font-size:11px;">${p.opp}</td>
-                    <td style="padding:4px 6px;text-align:center;">
-                        <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:3px;background:var(--fdr-${p.fdr});color:#0a0f0d;font-size:10px;font-weight:800;">${p.fdr}</span>
-                    </td>
-                    <td style="padding:4px 6px;text-align:center;font-weight:600;color:var(--fdr-1);font-size:11px;">${p.form}</td>
-                    <td style="padding:4px 6px;text-align:center;font-weight:600;color:#00D1FF;font-size:11px;">${p.xGI}</td>
-                    <td style="padding:4px 6px;text-align:center;font-weight:800;font-size:11px;${rankColor}">${p.xPTS}</td>
+                    <td><div class="captaincy-fixtures">${this.captainFixtureBadges(player.fixtures)}</div></td>
+                    <td class="mono">${player.formUsed.toFixed(1)}</td>
+                    <td class="mono">${player.xMins}</td>
+                    <td class="mono">${player.xGI90.toFixed(2)}</td>
+                    <td class="mono">${player.ownership.toFixed(1)}%</td>
+                    <td class="captaincy-table-xpts mono">${player.xPts.toFixed(1)}</td>
                 </tr>`;
             }).join('');
         } catch (err) {
-            console.error('Captaincy matrix render error:', err);
-            const tbody = document.getElementById('captain-picks-body');
-            if (tbody) {
-                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:var(--space-lg);color:var(--md-sys-color-error);">Failed to load captaincy matrix: ${err.message}</td></tr>`;
-            }
+            console.error('Captaincy model render error:', err);
+            if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="captaincy-error">Failed to load captaincy picks: ${err.message}</td></tr>`;
         }
+    },
+
+    resolvePlayer(player) {
+        if (!player) return null;
+        const candidates = this.state.bootstrapData?.elements || [];
+        const rawPhoto = String(player.photo ?? player.photoId ?? '').replace(/^p/i, '').replace(/\.(png|jpe?g)$/i, '');
+        const code = Number(player.code || rawPhoto);
+        if (Number.isFinite(code) && code > 0) {
+            const byCode = candidates.find(candidate => Number(candidate.code) === code);
+            if (byCode) return byCode;
+        }
+        const elementId = Number(player.id || player.elementId || player.element);
+        if (Number.isFinite(elementId) && this.state.playerMap[elementId]) return this.state.playerMap[elementId];
+        const normalizeName = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const name = normalizeName(player.web_name || player.webName || player.name);
+        if (!name) return null;
+        const team = String(player.teamShort || player.team || '').toUpperCase();
+        return candidates.find(candidate => {
+            const candidateName = normalizeName(candidate.web_name);
+            return candidateName === name && (!team || candidate.teamShort === team || String(candidate.team) === team);
+        }) || candidates.find(candidate => normalizeName(candidate.web_name) === name) || null;
+    },
+
+    playerPhotoUrl(player, size = '110x140') {
+        if (this.getSetting('showPhotos') === false) return '';
+        const current = this.resolvePlayer(player) || player;
+        const joinedCurrentClub = current?.team_join_date ? Date.parse(current.team_join_date) : NaN;
+        const legacyPortraitCutoff = Date.parse('2024-08-14');
+        if (Number.isFinite(joinedCurrentClub) && joinedCurrentClub >= legacyPortraitCutoff) return '';
+        const rawPhoto = String(current?.photo ?? current?.photoId ?? '').replace(/^p/i, '').replace(/\.(png|jpe?g)$/i, '');
+        const code = Number(current?.code || rawPhoto);
+        return Number.isFinite(code) && code > 0
+            ? `https://resources.premierleague.com/premierleague/photos/players/${size}/p${code}.png`
+            : '';
+    },
+
+    playerInitials(player) {
+        const current = this.resolvePlayer(player) || player || {};
+        const name = String(current.web_name || current.webName || current.name || 'FPL');
+        const parts = name.split(/[\s.-]+/).filter(Boolean);
+        return (parts.length > 1 ? parts.map(part => part[0]).join('') : name.slice(0, 2)).slice(0, 2).toUpperCase();
+    },
+
+    playerTeamShort(player) {
+        const current = this.resolvePlayer(player);
+        if (current) return current.teamShort || this.state.teamMap[current.team]?.short_name || 'FPL';
+        return String(player?.teamShort || player?.team || 'FPL').slice(0, 4).toUpperCase();
+    },
+
+    playerTeamShirtUrl(player) {
+        const current = this.resolvePlayer(player);
+        const teamId = current?.team || Number(player?.teamId);
+        const team = this.state.teamMap[teamId];
+        const teamCode = Number(team?.code || current?.team_code);
+        return Number.isFinite(teamCode) && teamCode > 0
+            ? `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${teamCode}-110.webp`
+            : '';
+    },
+
+    playerPhotoMarkup(player, alt = 'FPL player', className = '', style = '') {
+        const src = this.playerPhotoUrl(player);
+        const team = this.playerTeamShort(player);
+        const initials = this.playerInitials(player);
+        const shirt = this.playerTeamShirtUrl(player);
+        const image = src ? `<img${className ? ` class="${className}"` : ''} src="${src}" alt="${this.escapeHTML(alt)}" onerror="FPL.handlePlayerPhotoError(this)" style="${style}">` : '';
+        const shirtImage = shirt ? `<img class="player-current-shirt" src="${shirt}" alt="" onerror="this.style.display='none'">` : '';
+        return `${image}<span class="player-photo-fallback" data-player-fallback aria-hidden="true">${shirtImage}<strong>${this.escapeHTML(initials)}</strong><small>${this.escapeHTML(team)}</small></span>`;
+    },
+
+    handlePlayerPhotoError(image) {
+        image.onerror = null;
+        image.style.display = 'none';
+        const fallback = image.parentElement?.querySelector('[data-player-fallback]');
+        if (fallback) fallback.style.display = 'flex';
     },
 
     // ==================== RENDER: OWNERSHIP ====================
@@ -1667,7 +1735,7 @@ const FPL = {
 
             inContainer.innerHTML = `
                 <div style="display:flex;align-items:center;gap:var(--space-md);">
-                    <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || 'FPL Player'} - top transferred in" onerror="this.src='football.ico'" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--fdr-1);background:var(--md-sys-color-surface-container-high);">
+                    <span class="player-photo-shell" style="width:44px;height:44px;border-radius:50%;border:2px solid var(--fdr-1);">${this.playerPhotoMarkup(p, `${p.name || 'FPL Player'} - top transferred in`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}</span>
                     <div>
                         <div style="font-weight:700;font-size:0.9375rem;display:flex;align-items:center;gap:6px;">
                             ${p.name}
@@ -1693,7 +1761,7 @@ const FPL = {
 
             outContainer.innerHTML = `
                 <div style="display:flex;align-items:center;gap:var(--space-md);">
-                    <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || 'FPL Player'} - top transferred out" onerror="this.src='football.ico'" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--fdr-5);background:var(--md-sys-color-surface-container-high);">
+                    <span class="player-photo-shell" style="width:44px;height:44px;border-radius:50%;border:2px solid var(--fdr-5);">${this.playerPhotoMarkup(p, `${p.name || 'FPL Player'} - top transferred out`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}</span>
                     <div>
                         <div style="font-weight:700;font-size:0.9375rem;display:flex;align-items:center;gap:6px;">
                             ${p.name}
@@ -1718,7 +1786,7 @@ const FPL = {
 
             velContainer.innerHTML = `
                 <div style="display:flex;align-items:center;gap:var(--space-md);">
-                    <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || 'FPL Player'} - price change" onerror="this.src='football.ico'" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--fdr-4);background:var(--md-sys-color-surface-container-high);">
+                    <span class="player-photo-shell" style="width:44px;height:44px;border-radius:50%;border:2px solid var(--fdr-4);">${this.playerPhotoMarkup(p, `${p.name || 'FPL Player'} - price change`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}</span>
                     <div>
                         <div style="font-weight:700;font-size:0.9375rem;display:flex;align-items:center;gap:6px;">
                             ${p.name}
@@ -1822,7 +1890,7 @@ const FPL = {
                 <td style="padding:4px 6px;text-align:center;color:#B0B0B0;font-family:var(--font-mono);font-size:10px;background:#1E1E1E;">${i + 1}</td>
                 <td style="padding:4px 6px;text-align:left;">
                     <div style="display:flex;align-items:center;gap:6px;">
-                        <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || 'FPL Player'}" onerror="this.src='football.ico'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;background:#2A2A2A;border:1px solid #444444;flex-shrink:0;">
+                        <span class="player-photo-shell" style="width:28px;height:28px;border-radius:50%;border:1px solid #444444;">${this.playerPhotoMarkup(p, p.name || 'FPL Player', '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}</span>
                         <div style="min-width:0;">
                             <div style="font-weight:700;font-size:11px;color:#E0E0E0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
                             <div style="display:flex;align-items:center;gap:3px;font-size:9px;color:#B0B0B0;">
@@ -1923,240 +1991,210 @@ const FPL = {
     },
 
     // ==================== RENDER: MATCH ANALYSIS (TACTICS) ====================
+    escapeHTML(value) {
+        return String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
+    },
+
+    formatTacticsKickoff(kickoff) {
+        if (!kickoff) return 'Date TBC';
+        const date = new Date(kickoff);
+        if (Number.isNaN(date.getTime())) return 'Date TBC';
+        return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' +
+            date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    },
+
+    setTacticsStatus(message, type = '') {
+        const el = document.getElementById('zones-analysis-status');
+        if (!el) return;
+        el.textContent = message || '';
+        el.className = `tactics-status${type ? ` is-${type}` : ''}`;
+    },
+
     async renderZones() {
-        // Load teams into dropdowns
-        const bootstrap = this.state.bootstrapData;
-        if (!bootstrap) return;
-
-        const teams = bootstrap.teams;
-        const homeSelect = document.getElementById('zones-home-team');
-        const awaySelect = document.getElementById('zones-away-team');
-
-        if (homeSelect && homeSelect.options.length <= 1) {
-            teams.forEach(t => {
-                homeSelect.add(new Option(t.short_name, t.id));
-                awaySelect.add(new Option(t.short_name, t.id));
-            });
-        }
-
-        // Set default GW
         const gwSelect = document.getElementById('zones-gw-select');
-        if (gwSelect && this.state.currentGW) {
-            gwSelect.value = this.state.currentGW;
+        if (!gwSelect) return;
+        if (gwSelect.options.length !== 38) {
+            gwSelect.innerHTML = Array.from({ length: 38 }, (_, index) => `<option value="${index + 1}">GW ${index + 1}</option>`).join('');
         }
+        const selectedGW = this.state.selectedGW || this.state.currentGW || 1;
+        gwSelect.value = String(selectedGW);
+        if (this.state.zoneData?.selectedGW === selectedGW) {
+            this.renderTacticsFixtures(this.state.zoneData);
+            return;
+        }
+        await this.loadMatchFixtures();
     },
 
-    loadMatchFixtures() {
+    async loadMatchFixtures() {
         const gwSelect = document.getElementById('zones-gw-select');
-        const selectedGW = parseInt(gwSelect?.value) || this.state.currentGW;
-        const fixtures = this.state.fixtures;
-        const bootstrap = this.state.bootstrapData;
-        if (!fixtures || !bootstrap) return;
+        const selectedGW = parseInt(gwSelect?.value, 10) || this.state.currentGW || 1;
+        this.state.selectedGW = selectedGW;
+        const token = (this._zoneRequestToken || 0) + 1;
+        this._zoneRequestToken = token;
+        this.setTacticsStatus(`Loading GW ${selectedGW} fixture intelligence...`, 'loading');
 
-        const teams = bootstrap.teams || [];
-        const gwFixtures = fixtures.filter(f => f.event === selectedGW);
-
-        // Build list of fixture pairs for this GW
-        const fixturePairs = gwFixtures.map(f => {
-            const homeTeam = teams.find(t => t.id === f.team_h);
-            const awayTeam = teams.find(t => t.id === f.team_a);
-            return {
-                homeId: f.team_h,
-                awayId: f.team_a,
-                homeName: homeTeam?.short_name || '?',
-                awayName: awayTeam?.short_name || '?',
-                homeFullName: homeTeam?.name || '?',
-                awayFullName: awayTeam?.name || '?'
-            };
-        });
-
-        // Show fixture cards below selectors
-        const homeSelect = document.getElementById('zones-home-team');
-        const awaySelect = document.getElementById('zones-away-team');
-
-        // Auto-select first fixture if none selected
-        if (fixturePairs.length > 0 && homeSelect && awaySelect) {
-            // Clear and repopulate with GW fixtures
-            homeSelect.innerHTML = '<option value="">Select Home</option>';
-            awaySelect.innerHTML = '<option value="">Select Away</option>';
-
-            fixturePairs.forEach(fp => {
-                homeSelect.add(new Option(`${fp.homeName} (${fp.homeFullName})`, fp.homeId));
-                awaySelect.add(new Option(`${fp.awayName} (${fp.awayFullName})`, fp.awayId));
+        if (!this._zoneLoads) this._zoneLoads = new Map();
+        let request = this._zoneLoads.get(selectedGW);
+        if (!request) {
+            request = this.apiFetch(this.API.zoneAnalysis(selectedGW)).finally(() => {
+                if (this._zoneLoads.get(selectedGW) === request) this._zoneLoads.delete(selectedGW);
             });
-
-            // Auto-select first fixture
-            const firstFx = fixturePairs[0];
-            homeSelect.value = firstFx.homeId;
-            awaySelect.value = firstFx.awayId;
+            this._zoneLoads.set(selectedGW, request);
         }
-
-        // Reset analysis view
-        document.getElementById('match-analysis-content').style.display = 'none';
-        document.getElementById('match-empty-state').style.display = 'block';
-    },
-
-    async loadMatchAnalysis() {
-        const homeId = document.getElementById('zones-home-team')?.value;
-        const awayId = document.getElementById('zones-away-team')?.value;
-        if (!homeId || !awayId) return;
-        if (homeId === awayId) return;
 
         try {
-            const data = await this.apiFetch(`/api/match-analysis?team_h=${homeId}&team_a=${awayId}`);
-            this.renderMatchAnalysis(data);
-        } catch (err) {
-            console.error('Match analysis error:', err);
+            const data = await request;
+            if (token !== this._zoneRequestToken) return data;
+            this.state.zoneData = data;
+            this.state.selectedGW = data.selectedGW || selectedGW;
+            this.renderTacticsFixtures(data);
+            this.setTacticsStatus('Select a fixture to open the full match dissection.');
+            return data;
+        } catch (error) {
+            if (token !== this._zoneRequestToken) return null;
+            console.error('Tactics fixture load error:', error);
+            this.setTacticsStatus('Fixture analysis could not be loaded. Try the gameweek again.', 'error');
+            const list = document.getElementById('zones-fixture-list');
+            if (list) list.innerHTML = '<div class="tactics-inline-empty">No fixture data available.</div>';
+            document.getElementById('match-analysis-content')?.style.setProperty('display', 'none');
+            document.getElementById('match-empty-state')?.style.setProperty('display', 'block');
+            return null;
         }
     },
 
-    renderMatchAnalysis(data) {
-        const { home, away, dangerZones, vulnZones, predictedDanger, homeStrength, awayStrength } = data;
+    renderTacticsFixtures(data) {
+        const fixtures = data?.matchBreakdowns || [];
+        const list = document.getElementById('zones-fixture-list');
+        const count = document.getElementById('zones-fixture-count');
+        if (!list) return;
+        if (count) count.textContent = `${fixtures.length} fixtures`;
+        if (!fixtures.length) {
+            list.innerHTML = '<div class="tactics-inline-empty">No fixtures are scheduled for this gameweek.</div>';
+            document.getElementById('match-analysis-content')?.style.setProperty('display', 'none');
+            document.getElementById('match-empty-state')?.style.setProperty('display', 'block');
+            return;
+        }
 
-        document.getElementById('match-empty-state').style.display = 'none';
-        document.getElementById('match-analysis-content').style.display = 'block';
+        const selectedExists = fixtures.some(match => String(match.fixture.id) === String(this.state.selectedFixtureId));
+        if (!selectedExists) this.state.selectedFixtureId = fixtures[0].fixture.id;
+        const e = value => this.escapeHTML(value);
+        list.innerHTML = fixtures.map(match => {
+            const fixture = match.fixture;
+            const selected = String(fixture.id) === String(this.state.selectedFixtureId);
+            const score = fixture.finished ? `${fixture.team_h_score ?? '-'} - ${fixture.team_a_score ?? '-'}` : 'vs';
+            return `<button type="button" class="tactics-fixture-card${selected ? ' is-selected' : ''}" role="option" aria-selected="${selected}" onclick="FPL.selectTacticsFixture('${e(fixture.id)}')">
+                <span class="tactics-fixture-time">${e(this.formatTacticsKickoff(fixture.kickoff))}</span>
+                <span class="tactics-fixture-teams">
+                    <span>${e(fixture.homeTeam)}</span><strong>${e(score)}</strong><span>${e(fixture.awayTeam)}</span>
+                </span>
+                <span class="tactics-fixture-meta"><span class="tactics-fdr-chip ${this.getFDRClass(fixture.homeFDR)}">H ${fixture.homeFDR}</span><span class="tactics-fdr-chip ${this.getFDRClass(fixture.awayFDR)}">A ${fixture.awayFDR}</span></span>
+            </button>`;
+        }).join('');
+        this.renderSelectedTacticsMatch();
+    },
 
-        // Render formation panel (reusable for both sides)
-        const renderFormationPanel = (teamData, isHome) => {
-            const posOrder = ['GK', 'DEF', 'MID', 'FWD'];
-            const posColors = { GK: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
+    selectTacticsFixture(fixtureId) {
+        this.state.selectedFixtureId = fixtureId;
+        if (this.state.zoneData) this.renderTacticsFixtures(this.state.zoneData);
+    },
 
-            // Build formation string from player counts
-            const formationStr = posOrder.slice(1).map(pos => (teamData.posGroups[pos] || []).length).join('-');
+    renderSelectedTacticsMatch() {
+        const matches = this.state.zoneData?.matchBreakdowns || [];
+        const match = matches.find(item => String(item.fixture.id) === String(this.state.selectedFixtureId)) || matches[0];
+        if (!match) return;
+        this.state.selectedFixtureId = match.fixture.id;
+        document.getElementById('match-analysis-content')?.style.setProperty('display', 'block');
+        document.getElementById('match-empty-state')?.style.setProperty('display', 'none');
+        this.renderTacticsMatchHero(match);
+        this.renderTacticsFormation(match.home, true);
+        this.renderTacticsFormation(match.away, false);
+        this.renderTacticsDissection(match);
+        this.renderTacticsTargets(match.home, true);
+        this.renderTacticsTargets(match.away, false);
+    },
 
-            let rows = '';
-            posOrder.forEach(pos => {
-                const players = teamData.posGroups[pos] || [];
-                if (players.length === 0) return;
-                rows += `<div style="display:flex;justify-content:center;gap:8px;margin-bottom:8px;">`;
-                players.forEach(p => {
-                    const isTop = p.xGI >= 10;
-                    const bgColor = pos === 'GK' ? 'rgba(255,215,0,0.15)' :
-                                   pos === 'DEF' ? 'rgba(79,195,247,0.15)' :
-                                   pos === 'MID' ? 'rgba(129,199,132,0.15)' :
-                                   'rgba(229,115,115,0.15)';
-                    const borderColor = posColors[pos];
-                    rows += `<div style="background:${bgColor};border:1px solid ${borderColor}40;border-radius:8px;padding:8px 12px;min-width:80px;text-align:center;">
-                        <div style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:${borderColor};">${pos}</div>
-                        <div style="font-size:12px;font-weight:700;color:#fff;margin-top:2px;">${p.xGI.toFixed(1)} xGI</div>
-                        <div style="font-size:10px;color:#8ba396;margin-top:1px;">${p.name}</div>
-                    </div>`;
-                });
-                rows += `</div>`;
-            });
+    renderTacticsMatchHero(match) {
+        const fixture = match.fixture;
+        const homeLogo = this.getTeamLogo(fixture.homeTeam);
+        const awayLogo = this.getTeamLogo(fixture.awayTeam);
+        const e = value => this.escapeHTML(value);
+        const score = fixture.finished ? `${fixture.team_h_score ?? '-'} - ${fixture.team_a_score ?? '-'}` : '—';
+        const hero = document.getElementById('zones-match-hero');
+        if (!hero) return;
+        hero.innerHTML = `<div class="tactics-match-kicker">GW ${fixture.gw} MATCH BRIEF · ${e(this.formatTacticsKickoff(fixture.kickoff))}</div>
+            <div class="tactics-match-teams">
+                <div class="tactics-match-team tactics-match-home">${homeLogo ? `<img src="${homeLogo}" alt="${e(fixture.homeTeam)} crest">` : ''}<strong>${e(fixture.homeTeam)}</strong><span>HOME</span></div>
+                <div class="tactics-match-score"><b>${e(score)}</b><span>${e(match.prediction === 'Even' ? 'Balanced matchup' : `${match.prediction} edge`)}</span></div>
+                <div class="tactics-match-team tactics-match-away"><strong>${e(fixture.awayTeam)}</strong><span>AWAY</span>${awayLogo ? `<img src="${awayLogo}" alt="${e(fixture.awayTeam)} crest">` : ''}</div>
+            </div>`;
+    },
 
-            return `
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-                    <h3 style="font-size:18px;font-weight:700;color:#fff;margin:0;">${teamData.teamName}</h3>
-                    <span style="font-family:var(--font-mono);font-size:13px;color:#8ba396;background:#1c211e;padding:4px 8px;border-radius:4px;">${formationStr}</span>
-                </div>
-                <div style="background:#0d1210;border-radius:8px;padding:16px;margin-bottom:16px;">
-                    ${rows}
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-family:var(--font-mono);font-size:12px;">
-                    <div style="padding:8px;background:#1c211e;border-radius:6px;text-align:center;">
-                        <div style="color:#8ba396;font-size:10px;">Total xGI</div>
-                        <div style="color:#00FF85;font-size:16px;font-weight:700;">${teamData.totalXGI}</div>
-                    </div>
-                    <div style="padding:8px;background:#1c211e;border-radius:6px;text-align:center;">
-                        <div style="color:#8ba396;font-size:10px;">Goals Scored</div>
-                        <div style="color:#fff;font-size:16px;font-weight:700;">${teamData.totalGoals}</div>
-                    </div>
-                    <div style="padding:8px;background:#1c211e;border-radius:6px;text-align:center;">
-                        <div style="color:#8ba396;font-size:10px;">DEFCON</div>
-                        <div style="color:${parseFloat(teamData.defcon) <= 2.5 ? '#00FF85' : parseFloat(teamData.defcon) <= 3.5 ? '#FFA600' : '#FF005A'};font-size:16px;font-weight:700;">${parseFloat(teamData.defcon) <= 2.5 ? 'Strong' : parseFloat(teamData.defcon) <= 3.5 ? 'Average' : 'Weak'}</div>
-                    </div>
-                    <div style="padding:8px;background:#1c211e;border-radius:6px;text-align:center;">
-                        <div style="color:#8ba396;font-size:10px;">GK: ${teamData.bestPicks.find(p => p.position === 'GK')?.name || '--'}</div>
-                        <div style="color:#fff;font-size:11px;">${teamData.totalCS} CS · ${teamData.totalGC} GC</div>
-                    </div>
-                </div>
-            `;
-        };
+    tacticsPlayerCard(player, accent = 'home', compact = false) {
+        if (!player) return '';
+        const e = value => this.escapeHTML(value);
+        const position = player.position || player.detailedPosition || player.broadPosition || '--';
+        const cost = player.cost == null ? '--' : this.formatPrice(player.cost);
+        const image = this.playerPhotoMarkup(player, e(player.name), '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;');
+        return `<div class="tactics-player-card ${accent}${compact ? ' is-compact' : ''}" title="${e(player.name)} · ${e(position)} · ${e(cost)}">
+            <div class="tactics-player-photo">${image}</div>
+            <div class="tactics-player-copy"><b>${e(player.name)}</b><span>${e(position)} · ${e(cost)}</span></div>
+        </div>`;
+    },
 
-        document.getElementById('home-formation-panel').innerHTML = renderFormationPanel(home, true);
-        document.getElementById('away-formation-panel').innerHTML = renderFormationPanel(away, false);
-
-        // Render center panel
-        const dangerHTML = dangerZones.length > 0 ? dangerZones.map(dz =>
-            `<div style="padding:8px 12px;background:rgba(255,0,90,0.1);border:1px solid rgba(255,0,90,0.2);border-radius:6px;font-size:13px;">
-                <span style="font-weight:700;color:#FF005A;">${dz.team}</span>: <span style="color:#fff;">${dz.zone}</span>
-            </div>`
-        ).join('') : '<div style="color:#8ba396;font-size:13px;">No significant danger zones</div>';
-
-        const vulnHTML = vulnZones.length > 0 ? vulnZones.map(vz =>
-            `<div style="padding:8px 12px;background:rgba(255,166,0,0.1);border:1px solid rgba(255,166,0,0.2);border-radius:6px;font-size:13px;">
-                <span style="font-weight:700;color:#FFA600;">${vz.team}</span>: <span style="color:#fff;">${vz.zone}</span>
-            </div>`
-        ).join('') : '<div style="color:#8ba396;font-size:13px;">No significant vulnerabilities</div>';
-
-        const predColor = predictedDanger.includes(home.teamShort) ? '#00FF85' :
-                         predictedDanger.includes(away.teamShort) ? '#FF005A' : '#FFA600';
-
-        document.getElementById('match-center-panel').innerHTML = `
-            <h3 style="font-size:16px;font-weight:700;color:#fff;margin:0;text-align:center;">Match Analysis</h3>
-
-            <div style="background:rgba(255,0,90,0.08);border:1px solid rgba(255,0,90,0.2);border-radius:8px;padding:12px;">
-                <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-                    <span class="material-symbols-outlined" style="color:#FF005A;font-size:16px;">warning</span>
-                    <span style="font-size:12px;font-weight:700;color:#FF005A;text-transform:uppercase;font-family:var(--font-mono);">Danger Zones</span>
-                </div>
-                <div style="display:flex;flex-direction:column;gap:6px;">${dangerHTML}</div>
+    renderTacticsFormation(teamData, isHome) {
+        const e = value => this.escapeHTML(value);
+        const accent = isHome ? 'home' : 'away';
+        const positions = ['gk', 'lb', 'lcb', 'rcb', 'rb', 'ldm', 'rdm', 'lw', 'cam', 'rw', 'st'];
+        const rows = [['gk'], ['lb', 'lcb', 'rcb', 'rb'], ['ldm', 'rdm'], ['lw', 'cam', 'rw'], ['st']].map(zones =>
+            `<div class="tactics-pitch-row">${zones.map(zone => this.tacticsPlayerCard(teamData.zoneStats?.[zone]?.players?.[0], accent)).join('')}</div>`
+        ).join('');
+        const defconClass = teamData.defcon >= 58 ? 'strong' : teamData.defcon >= 38 ? 'average' : 'weak';
+        const panel = document.getElementById(isHome ? 'home-formation-panel' : 'away-formation-panel');
+        if (!panel) return;
+        panel.innerHTML = `<div class="tactics-team-heading"><div><span class="tactics-kicker">${isHome ? 'HOME XI' : 'AWAY XI'}</span><h2>${e(teamData.teamName)}</h2></div><span class="tactics-defcon-pill ${defconClass}">${teamData.defcon}/100 DEFCON</span></div>
+            <div class="tactics-pitch" aria-label="${e(teamData.teamName)} player cards by detailed position">${rows}</div>
+            <div class="tactics-team-stats">
+                <div><span>ATTACK xGI</span><b>${Number(teamData.totalXG + teamData.totalXA).toFixed(1)}</b></div>
+                <div><span>GOALS</span><b>${teamData.totalGoals}</b></div>
+                <div><span>ASSISTS</span><b>${teamData.totalAssists ?? '--'}</b></div>
+                <div><span>CLEAN SHEETS</span><b>${teamData.teamCS}</b></div>
             </div>
+            <div class="tactics-edge-list">
+                <div class="tactics-edge is-positive"><span>STRONG SIDE</span><b>${e(teamData.strongestAttackZone || '--')}</b></div>
+                <div class="tactics-edge is-negative"><span>DEFENSIVE FLAW</span><b>${e(teamData.weakestDefenceZone || '--')}</b></div>
+            </div>`;
+    },
 
-            <div style="background:rgba(255,166,0,0.08);border:1px solid rgba(255,166,0,0.2);border-radius:8px;padding:12px;">
-                <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-                    <span class="material-symbols-outlined" style="color:#FFA600;font-size:16px;">shield</span>
-                    <span style="font-size:12px;font-weight:700;color:#FFA600;text-transform:uppercase;font-family:var(--font-mono);">Vulnerability Zones</span>
-                </div>
-                <div style="display:flex;flex-direction:column;gap:6px;">${vulnHTML}</div>
-            </div>
+    renderTacticsDissection(match) {
+        const { home, away, fixture } = match;
+        const homeBar = Math.max(5, Math.min(95, (home.defcon / Math.max(home.defcon + away.defcon, 1)) * 100));
+        const awayBar = 100 - homeBar;
+        const e = value => this.escapeHTML(value);
+        const center = document.getElementById('match-center-panel');
+        if (!center) return;
+        center.innerHTML = `<div class="tactics-center-heading"><span class="tactics-kicker">MATCH READ</span><h2>Where this game is won</h2></div>
+            <div class="tactics-read-block is-danger"><span class="material-symbols-outlined">bolt</span><div><span class="tactics-read-label">${e(home.teamName)} attacking route</span><b>${e(home.strongestAttackZone || '--')} into ${e(away.weakestDefenceZone || '--')}</b><p>${e(home.teamName)}'s strongest side meets the opponent's most exposed defensive channel.</p></div></div>
+            <div class="tactics-read-block is-warning"><span class="material-symbols-outlined">warning</span><div><span class="tactics-read-label">${e(away.teamName)} attacking route</span><b>${e(away.strongestAttackZone || '--')} into ${e(home.weakestDefenceZone || '--')}</b><p>Use the away route for differentials where the zone and player role line up.</p></div></div>
+            <div class="tactics-defcon-compare"><div class="tactics-compare-label"><span>${e(home.teamName)} <b>${home.defcon}</b></span><span>DEFCON</span><span><b>${away.defcon}</b> ${e(away.teamName)}</span></div><div class="tactics-compare-bar"><i style="width:${homeBar}%"></i><i style="width:${awayBar}%"></i></div><small>${home.defcon >= away.defcon ? e(home.teamName) : e(away.teamName)} has the cleaner defensive profile for this fixture.</small></div>
+            <div class="tactics-verdict"><span class="tactics-kicker">FPL VERDICT</span><b>${e(match.prediction === 'Even' ? 'No clear favourite' : `${match.prediction} is the stronger fantasy side`)}</b><p>Home FDR ${fixture.homeFDR} · Away FDR ${fixture.awayFDR}. Balance attacking upside against clean-sheet and minutes security.</p></div>`;
+    },
 
-            <div style="background:#1c211e;border-radius:8px;padding:12px;">
-                <div style="text-align:center;margin-bottom:8px;font-size:11px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);">Defensive Strength</div>
-                <div style="display:flex;align-items:center;justify-content:space-between;">
-                    <span style="font-size:20px;font-weight:700;color:#fff;">${home.defcon}</span>
-                    <span style="font-size:10px;color:#8ba396;font-family:var(--font-mono);">DEFCON</span>
-                    <span style="font-size:20px;font-weight:700;color:#fff;">${away.defcon}</span>
-                </div>
-                <div style="height:6px;background:#0d1210;border-radius:3px;margin-top:8px;overflow:hidden;display:flex;">
-                    <div style="height:100%;width:${homeStrength}%;background:#4FC3F7;border-radius:3px 0 0 3px;"></div>
-                    <div style="height:100%;width:${awayStrength}%;background:#FF005A;border-radius:0 3px 3px 0;"></div>
-                </div>
-            </div>
-
-            <div style="background:#1c211e;border-radius:8px;padding:12px;text-align:center;">
-                <div style="font-size:10px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);margin-bottom:4px;">Predicted Danger</div>
-                <div style="font-size:16px;font-weight:700;color:${predColor};">${predictedDanger}</div>
-            </div>
-        `;
-
-        // Render best picks
-        const renderPicks = (teamData, isHome) => {
-            return `
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
-                    <span class="material-symbols-outlined" style="color:${isHome ? '#00FF85' : '#FF005A'};font-size:18px;">star</span>
-                    <h3 style="font-size:16px;font-weight:700;color:#fff;margin:0;">Best ${teamData.teamShort} Picks</h3>
-                </div>
-                ${teamData.bestPicks.slice(0, 3).map((p, i) => `
-                    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;${i < 2 ? 'border-bottom:1px solid #1A2E28;' : ''}">
-                        <div style="width:40px;height:40px;border-radius:50%;overflow:hidden;background:#2A2A2A;border:1px solid #333;flex-shrink:0;">
-                            <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${p.name || p.web_name || 'FPL Player'} photo" onerror="this.src='football.ico'" style="width:100%;height:100%;object-fit:cover;">
-                        </div>
-                        <div style="flex:1;min-width:0;">
-                            <div style="font-weight:700;font-size:14px;color:#fff;">${p.name}</div>
-                            <div style="font-size:11px;color:#8ba396;font-family:var(--font-mono);">${p.position} · £${p.cost}m · F: ${p.form}</div>
-                        </div>
-                        <div style="text-align:right;">
-                            <div style="font-size:14px;font-weight:700;color:#00FF85;font-family:var(--font-mono);">${p.xGI.toFixed(1)} xGI</div>
-                        </div>
-                    </div>
-                `).join('')}
-            `;
-        };
-
-        document.getElementById('home-picks-panel').innerHTML = renderPicks(home, true);
-        document.getElementById('away-picks-panel').innerHTML = renderPicks(away, false);
+    renderTacticsTargets(teamData, isHome) {
+        const e = value => this.escapeHTML(value);
+        const accent = isHome ? 'home' : 'away';
+        const panel = document.getElementById(isHome ? 'home-picks-panel' : 'away-picks-panel');
+        if (!panel) return;
+        const groups = teamData.targetGroups || [];
+        const keyMetric = (player, category) => ({
+            goals: `${Number(player.xG || 0).toFixed(1)} xG`,
+            assists: `${Number(player.xA || 0).toFixed(1)} xA`,
+            cleanSheet: `${player.cleanSheets || 0} CS`,
+            saves: `${player.saves || 0} saves`,
+            defcon: `${player.defensiveContribution || 0} DEFCON`,
+            value: `${player.minutesSecurity || 0}% secure`
+        }[category] || `${player.score || 0} score`);
+        panel.innerHTML = `<div class="tactics-target-heading"><div><span class="tactics-kicker">${isHome ? 'HOME TARGETS' : 'AWAY TARGETS'}</span><h2>${e(teamData.teamName)} picks</h2></div><span class="tactics-muted-label">${groups.length} signals</span></div>
+            <div class="tactics-target-groups">${groups.map(group => `<section class="tactics-target-group"><div class="tactics-group-heading"><span class="material-symbols-outlined">${e(group.icon)}</span><b>${e(group.label)}</b></div>${group.picks.map(player => `<article class="tactics-target-player ${accent}"><div class="tactics-target-main">${this.tacticsPlayerCard(player, accent, true)}<strong>${player.score || 0}</strong></div><p>${e(player.reason)}</p><div class="tactics-target-metrics"><span class="is-primary">${e(keyMetric(player, group.key))}</span><span>F ${Number(player.form || 0).toFixed(1)}</span><span>PPG ${Number(player.pointsPerGame || 0).toFixed(1)}</span><span>£${(Number(player.cost || 0) / 10).toFixed(1)}m</span><span>G ${player.goals || 0}</span><span>A ${player.assists || 0}</span><span>B ${player.bonus || 0}</span><span>MIN ${player.minutesSecurity || 0}%</span></div></article>`).join('')}</section>`).join('')}</div>`;
     },
 
     changeGW(delta) {
@@ -2518,7 +2556,7 @@ const FPL = {
                     </div>
                     <div class="input-group mb-md">
                         <label class="input-label">FPL Manager ID</label>
-                        <div style="display:flex;gap:8px;">
+                        <div class="settings-save-row" style="display:flex;gap:8px;">
                             <input type="number" class="input" id="settings-manager-id" placeholder="e.g. 123456" value="${this.state.managerId || ''}" style="flex:1;">
                             <button class="btn btn-primary" onclick="FPL.updateManagerId()">Save</button>
                         </div>
@@ -2526,7 +2564,7 @@ const FPL = {
                     </div>
                     <div class="input-group">
                         <label class="input-label">League ID (optional)</label>
-                        <div style="display:flex;gap:8px;">
+                        <div class="settings-save-row" style="display:flex;gap:8px;">
                             <input type="number" class="input" id="settings-league-id" placeholder="e.g. 314" value="${this.state.leagueId || ''}" style="flex:1;">
                             <button class="btn btn-primary" onclick="FPL.updateLeagueId()">Save</button>
                         </div>
@@ -2660,13 +2698,11 @@ const FPL = {
                 const isPrimary = idx === 0;
                 const bg = isPrimary ? 'rgba(0,255,133,0.06)' : 'transparent';
                 const borderL = isPrimary ? 'border-left:2px solid #00ff85;' : 'border-left:2px solid transparent;';
-                const rank = idx + 1;
-                const imgUrl = p.code ? ('https://resources.premierleague.com/premierleague/photos/players/250x250/p' + p.code + '.png') : '';
                 const posColor = posColors[p.position] || '#8ba396';
 
                 return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:' + bg + ';' + borderL + 'border-radius:6px;margin-bottom:2px;">'
-                    + '<div style="width:34px;height:34px;border-radius:50%;background:#1c211e;border:1px solid #1A2E28;overflow:hidden;flex-shrink:0;">'
-                    + (imgUrl ? '<img src="' + imgUrl + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display=\'none\'">' : '')
+                    + '<div class="player-photo-shell" style="width:34px;height:34px;border-radius:50%;border:1px solid #1A2E28;">'
+                    + this.playerPhotoMarkup(p, p.name, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')
                     + '</div>'
                     + '<div style="flex:1;min-width:0;">'
                     + '<div style="font-size:13px;font-weight:' + (isPrimary ? '700' : '500') + ';color:' + (isPrimary ? '#fff' : '#ccc') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + p.name + '</div>'
