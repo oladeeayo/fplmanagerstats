@@ -44,8 +44,12 @@ export function App() {
   }, [activeTab, navigate]);
 
   useEffect(() => {
-    if (!ready) return;
     window.FPL.state.activeTab = activeTab;
+    void window.FPL.loadTabData(activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (!ready || !['players', 'fixtures', 'zones', 'manager'].includes(activeTab)) return;
     void window.FPL.loadTabData(activeTab);
   }, [activeTab, ready]);
 

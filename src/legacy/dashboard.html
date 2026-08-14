@@ -120,7 +120,7 @@
     </style>
 </head>
 <body>
-    <div id="loading-overlay">
+    <div id="loading-overlay" class="hidden" aria-live="polite">
         <div class="pixel-loader-container" style="padding:14px 24px;">
             <span class="pixel-grid" style="grid-template-columns:repeat(3, 7px);gap:4px;" aria-hidden="true">
                 <span class="pixel-dot" style="width:7px;height:7px;"></span>
@@ -655,7 +655,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="players-table-body" class="divide-y divide-pitch-line">
-                                    <!-- Dynamic Player Rows -->
+                                    <tr><td colspan="11" style="text-align:center;padding:32px;color:#8ba396;">Loading player data...</td></tr>
                                 </tbody>
                             </table>
                         </div>

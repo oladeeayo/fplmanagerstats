@@ -62,7 +62,8 @@ const FPL = {
     },
 
     async init() {
-        this.showLoading();
+        // The application shell is usable while base data hydrates in the background.
+        this.hideLoading();
         this.state.playerFilter = 'all';
         try {
             const [bootstrap, fixtures, deadline] = await Promise.all([
@@ -113,7 +114,9 @@ const FPL = {
 
             // Load manager data if connected
             if (this.state.managerId) {
-                await this.loadManagerData(this.state.managerId);
+                void this.loadManagerData(this.state.managerId).then(() => {
+                    if (this.state.activeTab === 'manager') this.renderTeamAnalysis();
+                });
             }
 
         } catch (err) {
@@ -973,7 +976,11 @@ const FPL = {
 
     renderPlayers() {
         const bootstrap = this.state.bootstrapData;
-        if (!bootstrap) return;
+        if (!bootstrap) {
+            const tbody = document.getElementById('players-table-body');
+            if (tbody) tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:32px;color:#8ba396;">Loading player data...</td></tr>';
+            return;
+        }
 
         const players = bootstrap.elements;
         const teams = bootstrap.teams;

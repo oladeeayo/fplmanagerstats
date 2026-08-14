@@ -1,9 +1,9 @@
-const CACHE_NAME = 'fpl-stats-react-v1';
+const CACHE_NAME = 'fpl-stats-react-v2';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
-    '/common.js',
-    '/design-system.css',
+    '/common.js?v=react-2',
+    '/design-system.css?v=react-2',
     '/football.ico',
     '/icon-192.png',
     '/icon-512.png',
@@ -53,18 +53,14 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // JS/CSS/Assets: cache first, then network update
+    // Static assets: network first so deployments never run stale JavaScript.
     event.respondWith(
-        caches.match(event.request).then((cached) => {
-            const fetched = fetch(event.request).then((response) => {
-                if (response && response.status === 200) {
-                    const clone = response.clone();
-                    caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-                }
-                return response;
-            }).catch(() => cached);
-
-            return cached || fetched;
-        })
+        fetch(event.request).then((response) => {
+            if (response && response.status === 200) {
+                const clone = response.clone();
+                caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+            }
+            return response;
+        }).catch(() => caches.match(event.request))
     );
 });

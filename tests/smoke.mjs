@@ -39,6 +39,26 @@ try {
     headless: true,
   });
 
+  const slowContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await slowContext.addInitScript(() => localStorage.setItem('fplManagerId', '1'));
+  const slowPage = await slowContext.newPage();
+  await slowPage.route('**/api/bootstrap-static', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 10000));
+    await route.abort();
+  });
+  await slowPage.route('**/api/analyze-manager/*', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+    await route.fulfill({ json: { managerInfo: { name: 'Test Manager' }, playerStats: [], currentTeam: [] } });
+  });
+  const shellStartedAt = Date.now();
+  await slowPage.goto(`${baseUrl}/players`, { waitUntil: 'domcontentloaded' });
+  await slowPage.waitForSelector('#content-players.active');
+  await slowPage.waitForSelector('#loading-overlay', { state: 'hidden' });
+  assert.ok(Date.now() - shellStartedAt < 8000, 'Application shell was blocked by initial data requests');
+  await slowPage.locator('#mobile-menu-btn').click();
+  await slowPage.waitForSelector('#sidebar.mobile-open');
+  await slowContext.close();
+
   const routes = ['/', '/manager', '/league', '/players', '/tactics', '/fixtures', '/captaincy', '/ownership', '/set-pieces'];
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     const page = await browser.newPage({ viewport });
