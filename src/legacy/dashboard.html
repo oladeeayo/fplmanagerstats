@@ -1022,41 +1022,41 @@
                 <div id="content-aiteam" class="tab-content">
                     <div class="aiteam-page">
                         <!-- Hero Header -->
-                        <div class="aiteam-hero">
-                            <div class="aiteam-hero-badge">
+                        <div class="aiteam-hero" style="text-align:center;">
+                            <div class="aiteam-hero-badge" style="justify-content:center;">
                                 <span class="material-symbols-outlined">smart_toy</span>
                                 <span>AI ENGINE</span>
                             </div>
-                            <h1 class="aiteam-hero-title">AI Team</h1>
-                            <p class="aiteam-hero-sub">The optimal squad selected by the model for the full season. Budget-aware, fixture-smart, chip-optimised.</p>
+                            <h1 class="aiteam-hero-title" style="text-align:center;">AI Team</h1>
+                            <p class="aiteam-hero-sub" style="text-align:center;">Fully autonomous squad management. The AI picks the team, makes transfers, and plays chips \u2014 all without hits unless absolutely necessary.</p>
                         </div>
 
                         <!-- Controls -->
-                        <div class="aiteam-controls">
-                            <div class="aiteam-control-group">
-                                <label>BUDGET (£m)</label>
-                                <input type="number" id="aiteam-budget" value="100" min="80" max="120" step="0.5" onchange="FPL.loadAITeam()">
-                            </div>
-                            <div class="aiteam-control-group">
-                                <label>HORIZON (GWs)</label>
-                                <select id="aiteam-horizon" onchange="FPL.loadAITeam()">
-                                    <option value="3">3 GWs</option>
-                                    <option value="5" selected>5 GWs</option>
-                                    <option value="8">8 GWs</option>
-                                    <option value="38">Full Season</option>
-                                </select>
-                            </div>
-                            <div class="aiteam-control-group">
-                                <label>STRATEGY</label>
-                                <select id="aiteam-strategy" onchange="FPL.loadAITeam()">
-                                    <option value="balanced" selected>Balanced</option>
-                                    <option value="protect">Protect Rank</option>
-                                    <option value="chase">Chase Glory</option>
-                                </select>
-                            </div>
-                            <button class="aiteam-refresh-btn" onclick="FPL.loadAITeam()" title="Refresh AI Team">
-                                <span class="material-symbols-outlined">refresh</span>
+                        <div class="aiteam-controls" style="justify-content:center;">
+                            <button class="aiteam-refresh-btn" onclick="FPL.loadAITeam()" title="Refresh AI Team" style="margin:0 auto;">
+                                <span class="material-symbols-outlined">refresh</span> Rebuild Squad
                             </button>
+                            <details class="aiteam-advanced-toggle" style="margin:0 auto;">
+                                <summary style="cursor:pointer;color:#8ba396;font-size:11px;font-family:var(--font-mono);text-align:center;padding:6px 0;">Advanced Options</summary>
+                                <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;padding:8px 0;">
+                                    <div class="aiteam-control-group">
+                                        <label>HORIZON</label>
+                                        <select id="aiteam-horizon" onchange="FPL.loadAITeam()">
+                                            <option value="5" selected>5 GWs</option>
+                                            <option value="8">8 GWs</option>
+                                            <option value="38">Full Season</option>
+                                        </select>
+                                    </div>
+                                    <div class="aiteam-control-group">
+                                        <label>STRATEGY</label>
+                                        <select id="aiteam-strategy" onchange="FPL.loadAITeam()">
+                                            <option value="balanced" selected>Balanced</option>
+                                            <option value="protect">Protect Rank</option>
+                                            <option value="chase">Chase Glory</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </details>
                         </div>
 
                         <!-- Loading -->

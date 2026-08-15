@@ -515,7 +515,7 @@ app.delete('/api/ai-team', async (req, res) => {
 
 // ---- Core AI Team Builder ----
 app.post('/api/ai-team', async (req, res) => {
-  const budget = Math.max(80, Math.min(120, Number(req.body?.budget) || 100));
+  const budget = 100;
   const horizon = Math.max(3, Math.min(38, Number(req.body?.horizon) || 5));
   const strategy = ['balanced', 'protect', 'chase'].includes(req.body?.strategy) ? req.body.strategy : 'balanced';
 
@@ -681,7 +681,7 @@ app.post('/api/ai-team', async (req, res) => {
           const candidates = availablePlayers
             .filter(p => p.position === position && !selected.some(s => s.id === p.id))
             .filter(p => (teamCounts[p.teamId] || 0) < MAX_PER_TEAM)
-            .filter(p => spent + (p.cost || p.enhancedCost) + remainingMinimum <= budget + 0.5);
+            .filter(p => spent + (p.cost || p.enhancedCost) + remainingMinimum <= budget + 0.01);
 
           const scored = candidates.map(p => ({
             ...p,
@@ -720,7 +720,7 @@ app.post('/api/ai-team', async (req, res) => {
             .sort((a, b) => adjustedScore(b, strategy) - adjustedScore(a, strategy))[0];
           if (upgrade) {
             const costDiff = upgrade.cost - cheap.cost;
-            if (bestCost + costDiff <= budget + 0.3) {
+            if (bestCost + costDiff <= budget + 0.01) {
               const idx = bestSquad.findIndex(s => s.id === cheap.id);
               bestSquad[idx] = upgrade;
               bestCost += costDiff;

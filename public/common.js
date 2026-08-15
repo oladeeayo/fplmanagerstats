@@ -495,10 +495,9 @@ const FPL = {
             } catch (e) { /* no saved team */ }
 
             if (!data) {
-                const budget = Number(document.getElementById('aiteam-budget')?.value) || 100;
                 const horizon = Number(document.getElementById('aiteam-horizon')?.value) || 5;
                 const strategy = document.getElementById('aiteam-strategy')?.value || 'balanced';
-                data = await this.apiPost(this.API.aiTeam, { budget, horizon, strategy });
+                data = await this.apiPost(this.API.aiTeam, { horizon, strategy });
             }
 
             this.state.aiTeamData = data;
@@ -623,11 +622,12 @@ const FPL = {
                 const runLen = player.consecutiveGoodFixtures || 0;
                 const runBadge = runLen >= 4 ? `<span style="font-size:8px;padding:1px 4px;border-radius:3px;background:rgba(0,255,133,0.15);color:#00FF85;font-weight:700;position:absolute;top:2px;right:2px;" title="${runLen} consecutive easy fixtures">${runLen} RUN</span>` : '';
 
-                const shirtImg = shirt ? `<img src="${shirt}" alt="${player.team || ''}" crossorigin="anonymous" style="width:100%;height:100%;object-fit:contain;">` : `<span style="font-size:28px;font-weight:800;color:rgba(255,255,255,0.15);">${(player.teamShort || player.team || '?').substring(0,3)}</span>`;
+                const shirtImg = shirt ? `<img src="${shirt}" alt="${player.team || ''}" style="width:100%;height:100%;object-fit:contain;">` : `<span style="font-size:28px;font-weight:800;color:rgba(255,255,255,0.15);">${(player.teamShort || player.team || '?').substring(0,3)}</span>`;
 
-                return `<div class="tactics-player-card home" style="${borderStyle}min-width:88px;max-width:96px;position:relative;" title="${player.name}${badge} - ${gwXPts} xPts\n${fixtureStr ? `Next: ${fixtureStr} (FDR ${fixture?.fdr})` : ''}${runLen >= 4 ? `\n${runLen} consecutive easy fixtures!` : ''}">
+                return `<div class="tactics-player-card home" style="${borderStyle}min-width:88px;max-width:96px;position:relative;" title="${player.name}${badge} - \u00A3${(player.cost || 0).toFixed(1)}m - ${gwXPts} xPts\n${fixtureStr ? `Next: ${fixtureStr} (FDR ${fixture?.fdr})` : ''}${runLen >= 4 ? `\n${runLen} consecutive easy fixtures!` : ''}">
                     <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;">${shirtImg}</div>
                     <div class="tactics-player-copy" style="text-align:center;"><b style="${cap ? 'color:#FFD700;' : ''}">${player.name}${badge}</b></div>
+                    <div style="font:700 10px var(--font-mono);color:#B0B0B0;text-align:center;">\u00A3${(player.cost || 0).toFixed(1)}m</div>
                     <div style="font:700 10px var(--font-mono);color:#00FF85;text-align:center;">${gwXPts} xPts</div>
                     ${fixtureBadge}
                     ${runBadge}

@@ -2684,7 +2684,7 @@ select option {
 
 .aiteam-controls {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: center;
     gap: 12px;
     flex-wrap: wrap;
