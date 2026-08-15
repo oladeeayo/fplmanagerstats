@@ -45,7 +45,7 @@ const DETAILED_POSITIONS = {
   "Dunk": "RCB", "Igor": "CB", "Costinha": "CB", "Svoboda": "CB",
   "Coppola": "CB", "Struijk": "LCB", "Vuskovic": "RCB",
   "Mitoma": "LW", "Minteh": "RW", "Hinshelwood": "CM",
-  "Groß": "CM", "Georginio": "ST", "O'Riley": "CM",
+  "Grobb": "CM", "Georginio": "ST", "O'Riley": "CM",
   "Gomez": "CM", "Buonanotte": "CAM", "Ayari": "CM",
   "Wieffer": "CDM", "Baleba": "CDM",
   "Welbeck": "ST", "Tzimas": "ST", "Ferguson": "ST", "Kostoulas": "ST",
