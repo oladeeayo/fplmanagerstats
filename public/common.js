@@ -68,7 +68,6 @@ const FPL = {
         priceChanges: '/api/price-changes',
         decisionCentre: '/api/v1/decision-centre',
         aiTeam: '/api/ai-team',
-        aiTeamLock: '/api/ai-team/lock',
     },
 
     async apiFetch(url) {
@@ -514,14 +513,6 @@ const FPL = {
         }
     },
 
-    async lockAITeam() {
-        try {
-            await this.apiPost(this.API.aiTeamLock, {});
-            if (this.state.aiTeamData) this.state.aiTeamData.isLocked = true;
-            this.paintAITeam(this.state.aiTeamData);
-        } catch (e) { console.error('Lock error:', e); }
-    },
-
     async resetAITeam() {
         try {
             await fetch(this.API.aiTeam, { method: 'DELETE' });
@@ -531,13 +522,14 @@ const FPL = {
     },
 
     paintAITeam(data) {
-        const { squad, lineup, meta, chips, teamCost, teamXpts, formation, isLocked } = data;
+        const { squad, lineup, meta, chips, transfers, teamCost, teamXpts, formation, isLocked } = data;
 
         // --- Summary Cards ---
         const summaryEl = document.getElementById('aiteam-summary');
         if (summaryEl) {
             const nextGWxPts = lineup.starters.reduce((s, p) => s + (p.weekly?.[0]?.xPts || 0), 0) + (lineup.captain?.weekly?.[0]?.xPts || 0);
             const remaining = Math.round((100 - teamCost) * 10) / 10;
+            const autoLocked = meta?.isAutoLocked;
             summaryEl.innerHTML = `
                 <div class="aiteam-card">
                     <div class="aiteam-card-icon" style="background:rgba(0,255,133,0.12);color:#00FF85;"><span class="material-symbols-outlined">payments</span></div>
@@ -552,12 +544,12 @@ const FPL = {
                     <div class="aiteam-card-data"><span class="aiteam-card-value">${teamXpts.toFixed(1)}</span><span class="aiteam-card-label">Horizon xPts</span></div>
                 </div>
                 <div class="aiteam-card">
-                    <div class="aiteam-card-icon" style="background:${isLocked ? 'rgba(255,167,38,0.12)' : 'rgba(0,255,133,0.12)'};color:${isLocked ? '#FFA726' : '#00FF85'};"><span class="material-symbols-outlined">${isLocked ? 'lock' : 'lock_open'}</span></div>
-                    <div class="aiteam-card-data"><span class="aiteam-card-value" style="font-size:16px;">${isLocked ? 'LOCKED IN' : 'UNLOCKED'}</span><span class="aiteam-card-label">${isLocked ? 'Squad is locked for GWs' : 'Use WC/FH to change'}</span></div>
+                    <div class="aiteam-card-icon" style="background:rgba(255,167,38,0.12);color:#FFA726;"><span class="material-symbols-outlined">${autoLocked ? 'lock' : 'smart_toy'}</span></div>
+                    <div class="aiteam-card-data"><span class="aiteam-card-value" style="font-size:14px;">${autoLocked ? 'AUTO-LOCKED' : 'AI MANAGED'}</span><span class="aiteam-card-label">${autoLocked ? 'Locked before GW1 deadline' : 'AI handles all decisions'}</span></div>
                 </div>`;
         }
 
-        // --- Lock/Reset Controls ---
+        // --- Auto-lock indicator (no manual buttons needed) ---
         const controlsEl = document.querySelector('.aiteam-controls');
         if (controlsEl && !controlsEl.querySelector('.aiteam-lock-btns')) {
             const lockDiv = document.createElement('div');
@@ -567,14 +559,10 @@ const FPL = {
         }
         const lockBtns = controlsEl?.querySelector('.aiteam-lock-btns');
         if (lockBtns) {
-            if (isLocked) {
-                lockBtns.innerHTML = `
-                    <span style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:rgba(255,167,38,0.1);border:1px solid rgba(255,167,38,0.3);border-radius:8px;color:#FFA726;font:700 12px var(--font-mono);"><span class="material-symbols-outlined" style="font-size:16px;">lock</span> LOCKED</span>
-                    <button onclick="FPL.resetAITeam()" style="padding:8px 16px;background:rgba(255,77,77,0.1);border:1px solid rgba(255,77,77,0.3);border-radius:8px;color:#ff4d4d;font:700 12px var(--font-mono);cursor:pointer;display:inline-flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">refresh</span> RESET (WC/FH)</button>`;
-            } else {
-                lockBtns.innerHTML = `
-                    <button onclick="FPL.lockAITeam()" style="padding:8px 16px;background:rgba(0,255,133,0.1);border:1px solid rgba(0,255,133,0.3);border-radius:8px;color:#00FF85;font:700 12px var(--font-mono);cursor:pointer;display:inline-flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">lock</span> LOCK IN</button>`;
-            }
+            const autoLocked = meta?.isAutoLocked;
+            lockBtns.innerHTML = `
+                <span style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:rgba(255,167,38,0.1);border:1px solid rgba(255,167,38,0.3);border-radius:8px;color:#FFA726;font:700 12px var(--font-mono);"><span class="material-symbols-outlined" style="font-size:16px;">${autoLocked ? 'lock' : 'smart_toy'}</span> ${autoLocked ? 'AUTO-LOCKED' : 'AI MANAGED'}</span>
+                <button onclick="FPL.resetAITeam()" style="padding:8px 16px;background:rgba(255,77,77,0.1);border:1px solid rgba(255,77,77,0.3);border-radius:8px;color:#ff4d4d;font:700 12px var(--font-mono);cursor:pointer;display:inline-flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">refresh</span> RESET (WC)</button>`;
         }
 
         // --- Formation Label ---
@@ -624,10 +612,23 @@ const FPL = {
                 const gwXPts = (player.weekly?.[0]?.xPts || 0).toFixed(1);
                 const badge = cap ? ' (C)' : vice ? ' (V)' : '';
                 const borderStyle = cap ? 'border:2px solid #FFD700;box-shadow:0 0 12px rgba(255,215,0,0.4);' : vice ? 'border:2px solid rgba(255,255,255,0.5);' : 'border:1px solid rgba(255,255,255,0.28);';
-                return `<div class="tactics-player-card home" style="${borderStyle}min-width:80px;max-width:90px;" title="${player.name}${badge} - ${gwXPts} xPts">
+
+                // Opponent fixture
+                const fixture = player.upcomingFixtures?.[0];
+                const fixtureStr = fixture ? `${fixture.home ? '' : '@'}${fixture.opponent}` : '';
+                const fdrColor = fixture ? (fixture.fdr <= 2 ? '#00FF85' : fixture.fdr <= 3 ? '#FFA726' : '#ff4d4d') : '#8ba396';
+                const fixtureBadge = fixture ? `<span style="font-size:9px;padding:1px 4px;border-radius:3px;background:${fdrColor}22;color:${fdrColor};font-weight:700;">${fixtureStr}</span>` : '';
+
+                // Consecutive good fixture run indicator
+                const runLen = player.consecutiveGoodFixtures || 0;
+                const runBadge = runLen >= 4 ? `<span style="font-size:8px;padding:1px 4px;border-radius:3px;background:rgba(0,255,133,0.15);color:#00FF85;font-weight:700;position:absolute;top:2px;right:2px;" title="${runLen} consecutive easy fixtures">${runLen} RUN</span>` : '';
+
+                return `<div class="tactics-player-card home" style="${borderStyle}min-width:80px;max-width:90px;position:relative;" title="${player.name}${badge} - ${gwXPts} xPts\n${fixtureStr ? `Next: ${fixtureStr} (FDR ${fixture?.fdr})` : ''}${runLen >= 4 ? `\n${runLen} consecutive easy fixtures!` : ''}">
                     <div class="tactics-player-shirt">${shirt ? `<img src="${shirt}" alt="" onerror="this.style.display='none'">` : ''}</div>
                     <div class="tactics-player-copy"><b style="${cap ? 'color:#FFD700;' : ''}">${player.name}${badge}</b></div>
                     <div style="font:700 10px var(--font-mono);color:#00FF85;">${gwXPts} xPts</div>
+                    ${fixtureBadge}
+                    ${runBadge}
                 </div>`;
             }
 
@@ -672,6 +673,14 @@ const FPL = {
                 const role = isCap(p) ? '<span style="color:#FFD700;font-weight:700;">Captain</span>' : isVice(p) ? '<span style="color:#C0C0C0;font-weight:600;">Vice-Captain</span>' : (i >= 11 ? '<span style="color:#8ba396;">Bench</span>' : '<span style="color:#00FF85;">Starter</span>');
                 const clubName = p.teamFull || p.team;
                 const news = p.news ? `<span style="color:#FFA726;font-size:10px;margin-left:4px;" title="${this.escapeHTML(p.news)}">\u26A0</span>` : '';
+                // Upcoming fixtures preview (next 4 GWs)
+                const fixtures = (p.upcomingFixtures || []).slice(0, 4);
+                const fixtureDots = fixtures.map(f => {
+                    const color = f.fdr <= 2 ? '#00FF85' : f.fdr <= 3 ? '#FFA726' : '#ff4d4d';
+                    return `<span style="display:inline-block;width:22px;height:18px;line-height:18px;text-align:center;font-size:8px;font-weight:700;border-radius:3px;background:${color}22;color:${color};" title="GW${f.gw}: ${f.home ? '' : '@'}${f.opponent} (FDR ${f.fdr})">${f.opponent}</span>`;
+                }).join('');
+                const runLen = p.consecutiveGoodFixtures || 0;
+                const runBadge = runLen >= 4 ? `<span style="color:#00FF85;font-size:9px;font-weight:700;margin-left:4px;" title="${runLen} consecutive easy fixtures">\u25B2${runLen}</span>` : '';
                 return `<tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
                     <td style="text-align:center;color:#8ba396;font-family:var(--font-mono);font-size:12px;">${i + 1}</td>
                     <td style="text-align:left;"><div style="display:flex;align-items:center;gap:10px;">${this.teamBadge(p.team, 24)}<div><span style="font-weight:600;color:#fff;font-size:13px;">${p.name}</span>${news}<div style="font-size:11px;color:#8ba396;">${clubName}</div></div></div></td>
@@ -680,6 +689,7 @@ const FPL = {
                     <td style="text-align:center;font-family:var(--font-mono);font-size:12px;color:#B0B0B0;">${p.form?.toFixed(1) || '-'}</td>
                     <td style="text-align:center;font-family:var(--font-mono);font-size:13px;font-weight:700;color:#00FF85;">${gwXPts}</td>
                     <td style="text-align:center;font-family:var(--font-mono);font-size:13px;font-weight:700;color:#4FC3F7;">${p.totalXpts?.toFixed(1) || '-'}</td>
+                    <td style="text-align:center;font-size:11px;padding:4px 2px;"><div style="display:flex;gap:2px;justify-content:center;">${fixtureDots}</div>${runBadge}</td>
                     <td style="text-align:center;font-size:12px;">${role}</td>
                     <td style="text-align:center;"><span class="material-symbols-outlined" style="font-size:16px;color:${s.color};" title="${s.label}">${s.icon}</span></td>
                 </tr>`;
@@ -697,7 +707,7 @@ const FPL = {
             }).join('');
         }
 
-        // --- GW Breakdown ---
+        // --- GW Breakdown (with opponent fixtures per GW) ---
         const gwHeader = document.getElementById('aiteam-gw-header');
         const gwBody = document.getElementById('aiteam-gw-tbody');
         if (gwHeader && gwBody && lineup.starters[0]?.weekly) {
@@ -709,9 +719,22 @@ const FPL = {
                 const isB = i >= lineup.starters.length;
                 const rowStyle = isB ? 'background:rgba(255,255,255,0.02);' : '';
                 const clubName = p.teamFull || p.team;
+                const runLen = p.consecutiveGoodFixtures || 0;
+                const runIcon = runLen >= 4 ? `<span style="color:#00FF85;font-size:9px;font-weight:700;margin-left:4px;" title="${runLen} consecutive easy fixtures">\u25B2${runLen}</span>` : '';
                 return `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);${rowStyle}">
-                    <td style="text-align:left;"><span style="display:inline-flex;align-items:center;gap:6px;"><span style="color:${posColors[p.position]};font-size:10px;font-weight:700;">${p.position}</span> ${p.name} <span style="color:#8ba396;font-size:10px;">${clubName}</span>${isB ? ' <span style="color:#8ba396;font-size:10px;">(B)</span>' : ''}</span></td>
-                    ${p.weekly.map(w => `<td style="text-align:center;font-family:var(--font-mono);font-size:12px;color:${w.xPts >= 5 ? '#00FF85' : w.xPts >= 3 ? '#fff' : '#8ba396'};">${w.xPts.toFixed(1)}</td>`).join('')}
+                    <td style="text-align:left;"><span style="display:inline-flex;align-items:center;gap:6px;"><span style="color:${posColors[p.position]};font-size:10px;font-weight:700;">${p.position}</span> ${p.name} <span style="color:#8ba396;font-size:10px;">${clubName}</span>${runIcon}${isB ? ' <span style="color:#8ba396;font-size:10px;">(B)</span>' : ''}</span></td>
+                    ${p.weekly.map(w => {
+                        // Show opponent fixture + xPts for each GW
+                        const fx = p.upcomingFixtures?.find(f => f.gw === w.gameweek);
+                        const fxStr = fx ? `${fx.home ? '' : '@'}${fx.opponent}` : '';
+                        const fdr = fx?.fdr || 3;
+                        const fdrBg = fdr <= 2 ? 'rgba(0,255,133,0.08)' : fdr <= 3 ? 'rgba(255,167,38,0.08)' : 'rgba(255,77,77,0.08)';
+                        const fxColor = fdr <= 2 ? '#00FF85' : fdr <= 3 ? '#FFA726' : '#ff4d4d';
+                        return `<td style="text-align:center;font-family:var(--font-mono);font-size:12px;color:${w.xPts >= 5 ? '#00FF85' : w.xPts >= 3 ? '#fff' : '#8ba396'};background:${fdrBg};padding:4px 2px;">
+                            <div style="font-size:9px;color:${fxColor};margin-bottom:1px;">${fxStr}</div>
+                            <div>${w.xPts.toFixed(1)}</div>
+                        </td>`;
+                    }).join('')}
                     <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#00FF85;background:rgba(0,255,133,0.05);">${p.totalXpts?.toFixed(1) || '0.0'}</td>
                 </tr>`;
             }).join('');
@@ -719,23 +742,75 @@ const FPL = {
 
         // --- Chip Strategy ---
         const chipsEl = document.getElementById('aiteam-chips-section');
-        if (chipsEl && chips?.recommendations?.length) {
-            chipsEl.innerHTML = `
-                <div class="aiteam-section-header">
-                    <div>
-                        <span class="aiteam-kicker">CHIP STRATEGY</span>
-                        <h2>Optimal Chip Timing</h2>
+        if (chipsEl) {
+            const chipList = chips?.schedule || chips?.recommendations || [];
+            if (chipList.length) {
+                chipsEl.innerHTML = `
+                    <div class="aiteam-section-header">
+                        <div>
+                            <span class="aiteam-kicker">CHIP STRATEGY</span>
+                            <h2>Optimal Chip Timing</h2>
+                        </div>
                     </div>
-                </div>
-                <div class="aiteam-chips-grid">${chips.recommendations.map(c => `
-                    <div class="aiteam-chip-card">
-                        <div class="aiteam-chip-icon"><span class="material-symbols-outlined">${c.chip === 'Bench Boost' ? 'event_seat' : c.chip === 'Triple Captain' ? 'star' : c.chip === 'Free Hit' ? 'flash_on' : 'auto_fix_high'}</span></div>
-                        <div style="font-weight:700;color:#fff;font-size:14px;">${c.chip}</div>
-                        <div style="color:#00FF85;font-weight:600;font-size:13px;">GW${c.gameweek}</div>
-                        <div style="color:#8ba396;font-size:12px;margin-top:4px;">+${c.expectedGain?.toFixed(1) || '0.0'} xPts gain</div>
-                        <div class="aiteam-chip-confidence" style="color:${c.confidence === 'High' ? '#00FF85' : c.confidence === 'Medium' ? '#FFA726' : '#8ba396'};">${c.confidence} confidence</div>
+                    <div class="aiteam-chips-grid">${chipList.map(c => {
+                        const chipIcons = { BB: 'event_seat', TC: 'star', FH: 'flash_on', WC: 'auto_fix_high', 'Bench Boost': 'event_seat', 'Triple Captain': 'star', 'Free Hit': 'flash_on', 'Wildcard': 'auto_fix_high' };
+                        const chipNames = { BB: 'Bench Boost', TC: 'Triple Captain', FH: 'Free Hit', WC: 'Wild Card' };
+                        const chipName = chipNames[c.chip] || c.chip;
+                        const gain = c.expectedGain || c.expectedGain || 0;
+                        return `
+                        <div class="aiteam-chip-card">
+                            <div class="aiteam-chip-icon"><span class="material-symbols-outlined">${chipIcons[c.chip] || 'auto_awesome'}</span></div>
+                            <div style="font-weight:700;color:#fff;font-size:14px;">${chipName}</div>
+                            <div style="color:#00FF85;font-weight:600;font-size:13px;">GW${c.gameweek}</div>
+                            <div style="color:#8ba396;font-size:12px;margin-top:4px;">${c.reason || (gain > 0 ? '+' + gain.toFixed(1) + ' xPts' : '')}</div>
+                            <div class="aiteam-chip-confidence" style="color:${c.confidence === 'High' ? '#00FF85' : c.confidence === 'Medium' ? '#FFA726' : '#8ba396'};">${c.confidence || 'Scheduled'}</div>
+                        </div>`;
+                    }).join('')}</div>`;
+            } else {
+                chipsEl.innerHTML = '';
+            }
+        }
+
+        // --- Transfer Plan ---
+        const transfersEl = document.getElementById('aiteam-transfers-section');
+        if (transfersEl) {
+            const plan = transfers?.plan || [];
+            const activeTransfers = plan.filter(t => t.transfer && !t.rolled);
+            if (activeTransfers.length) {
+                transfersEl.innerHTML = `
+                    <div class="aiteam-section-header">
+                        <div>
+                            <span class="aiteam-kicker">TRANSFER PLAN</span>
+                            <h2>Autonomous Decisions</h2>
+                        </div>
                     </div>
-                `).join('')}</div>`;
+                    <div class="aiteam-chips-grid">${activeTransfers.map(t => {
+                        const out = t.transfer.out;
+                        const inP = t.transfer.in;
+                        const hitText = t.hit > 0 ? `<span style="color:#ff4d4d;font-weight:700;">-${t.hit} hit</span>` : '<span style="color:#00FF85;">Free</span>';
+                        const gain = t.transfer.gain;
+                        return `
+                        <div class="aiteam-chip-card">
+                            <div class="aiteam-chip-icon"><span class="material-symbols-outlined">swap_horiz</span></div>
+                            <div style="font-weight:700;color:#fff;font-size:13px;">GW${t.gw}</div>
+                            <div style="margin:6px 0;">
+                                <div style="color:#ff4d4d;font-size:12px;text-decoration:line-through;">${out.name}</div>
+                                <div style="color:#8ba396;font-size:10px;">${out.teamFull || out.team}</div>
+                            </div>
+                            <div style="font-size:16px;color:#4FC3F7;">\u2193</div>
+                            <div style="margin:6px 0;">
+                                <div style="color:#00FF85;font-size:12px;font-weight:700;">${inP.name}</div>
+                                <div style="color:#8ba396;font-size:10px;">${inP.teamFull || inP.team}</div>
+                            </div>
+                            <div style="display:flex;gap:8px;align-items:center;">
+                                ${hitText}
+                                <span style="color:#4FC3F7;font-size:11px;">+${gain.toFixed(1)} xPts</span>
+                            </div>
+                        </div>`;
+                    }).join('')}</div>`;
+            } else {
+                transfersEl.innerHTML = '';
+            }
         }
     },
 
