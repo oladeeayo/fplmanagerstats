@@ -38,7 +38,7 @@ try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     const failedPlayerImages = [];
     page.on('response', response => {
-      if (response.request().resourceType() === 'image' && response.url().includes('/photos/players/') && response.status() >= 400) {
+      if (response.request().resourceType() === 'image' && response.url().includes('/playerimages/') && response.status() >= 400) {
         failedPlayerImages.push(`${response.status()} ${response.url()}`);
       }
     });
@@ -47,11 +47,13 @@ try {
     await page.waitForSelector('#content-players.active');
     await page.waitForFunction(() => document.querySelectorAll('#players-table-body tr').length > 5);
     const playerPhotoState = await page.evaluate(() => ({
-      images: document.querySelectorAll('#players-table-body img[src*="/photos/players/"]').length,
+      images: document.querySelectorAll('#players-table-body img[src*="/playerimages/"]').length,
       fallbacks: document.querySelectorAll('#players-table-body [data-player-fallback]').length,
       footballFallbacks: document.querySelectorAll('img[src*="football.ico"]').length,
+      mappedPlayers: Object.keys(window.FPL.state.fotmobPlayerIds).length,
     }));
-    assert.ok(playerPhotoState.images > 0, 'current player photos should render');
+    assert.ok(playerPhotoState.images > 0, 'FotMob player photos should render');
+    assert.ok(playerPhotoState.mappedPlayers > 300, 'Reep FotMob mappings should load');
     assert.ok(playerPhotoState.fallbacks > 0, 'every player photo should have a current-team fallback');
     assert.equal(playerPhotoState.footballFallbacks, 0, 'football icon must not be used as a player image');
 
@@ -60,15 +62,10 @@ try {
     const captainPhotoState = await page.evaluate(() => ({
       cards: document.querySelectorAll('#content-captain [data-player-fallback]').length,
       visibleFallbacks: [...document.querySelectorAll('#content-captain [data-player-fallback]')].filter(element => getComputedStyle(element).display !== 'none').length,
-      staleTransferPhotos: [...document.querySelectorAll('#content-captain img[src*="/photos/players/"]')].filter(image => {
-        const code = image.src.match(/p(\d+)\.png/)?.[1];
-        const player = window.FPL.state.bootstrapData?.elements?.find(candidate => String(candidate.code) === code);
-        return player?.team_join_date && Date.parse(player.team_join_date) >= Date.parse('2024-08-14');
-      }).length,
+      fotmobPhotos: document.querySelectorAll('#content-captain img[src*="/playerimages/"]').length,
     }));
     assert.ok(captainPhotoState.cards >= 7, 'captain cards and rows should all have fallbacks');
-    assert.ok(captainPhotoState.visibleFallbacks > 0, 'recent transfers should use current-team shirts');
-    assert.equal(captainPhotoState.staleTransferPhotos, 0, 'recent transfers must not use stale CDN portraits');
+    assert.ok(captainPhotoState.fotmobPhotos > 0, 'captain picks should use FotMob photos');
     assert.deepEqual(failedPlayerImages, []);
     await page.close();
   } finally {

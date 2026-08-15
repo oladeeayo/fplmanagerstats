@@ -17,6 +17,7 @@ const FPL = {
         selectedFixtureId: null,
         teamMap: {},
         playerMap: {},
+        fotmobPlayerIds: {},
         positionMap: { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' },
         isLoading: false,
         error: null,
@@ -104,10 +105,13 @@ const FPL = {
         this.hideLoading();
         this.state.playerFilter = 'all';
         try {
-            const [bootstrap, fixtures] = await Promise.all([
+            const [bootstrap, fixtures, fotmobData] = await Promise.all([
                 this.apiFetch(this.API.bootstrap),
-                this.apiFetch(this.API.fixtures)
+                this.apiFetch(this.API.fixtures),
+                this.apiFetch('/fotmob-player-ids.json').catch(() => null)
             ]);
+
+            this.state.fotmobPlayerIds = fotmobData?.byOptaId || {};
 
             const currentEvent = bootstrap.events?.find(e => e.is_current);
             const nextEvent = bootstrap.events?.find(e => e.is_next);
@@ -125,6 +129,7 @@ const FPL = {
             bootstrap.teams.forEach(t => { this.state.teamMap[t.id] = t; });
             bootstrap.elements.forEach(p => {
                 this.state.playerMap[p.id] = p;
+                p.fotmobId = this.state.fotmobPlayerIds[String(p.code)] || null;
                 p.teamName = this.state.teamMap[p.team]?.name || '';
                 p.teamShort = this.state.teamMap[p.team]?.short_name || '';
                 p.positionName = this.state.positionMap[p.element_type] || '';
@@ -2071,13 +2076,11 @@ const FPL = {
     playerPhotoUrl(player, size = '110x140', alwaysShow = false) {
         if (!alwaysShow && this.getSetting('showPhotos') === false) return '';
         const current = this.resolvePlayer(player) || player;
-        const joinedCurrentClub = current?.team_join_date ? Date.parse(current.team_join_date) : NaN;
-        const legacyPortraitCutoff = Date.parse('2024-08-14');
-        if (!alwaysShow && Number.isFinite(joinedCurrentClub) && joinedCurrentClub >= legacyPortraitCutoff) return '';
         const rawPhoto = String(current?.photo ?? current?.photoId ?? '').replace(/^p/i, '').replace(/\.(png|jpe?g)$/i, '');
         const code = Number(current?.code || rawPhoto);
-        return Number.isFinite(code) && code > 0
-            ? `https://resources.premierleague.com/premierleague/photos/players/${size}/p${code}.png`
+        const fotmobId = Number(current?.fotmobId || this.state.fotmobPlayerIds[String(code)]);
+        return Number.isFinite(fotmobId) && fotmobId > 0
+            ? `https://images.fotmob.com/image_resources/playerimages/${fotmobId}.png`
             : '';
     },
 
