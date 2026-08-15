@@ -124,8 +124,19 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.static(clientDistPath));
-app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.static(clientDistPath, {
+  maxAge: '1y',
+  immutable: true,
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+  }
+}));
+app.use(express.static(path.join(__dirname, '../public'), {
+  maxAge: '7d',
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+  }
+}));
 app.use(express.json());
 
 function requireDatabase(req, res) {
@@ -373,7 +384,7 @@ const BOOTSTRAP_URL = 'https://fantasy.premierleague.com/api/bootstrap-static/';
 const FIXTURES_URL = 'https://fantasy.premierleague.com/api/fixtures/';
 
 async function optionalApiGet(url, fallback = null) {
-  try { return (await apiGet(url)).data; }
+  try { return await getCachedApiData(url); }
   catch (error) {
     if ([400, 404].includes(error.response?.status)) return fallback;
     throw error;
@@ -383,13 +394,17 @@ async function optionalApiGet(url, fallback = null) {
 app.get('/api/health', (req, res) => res.json({ status: 'healthy' }));
 
 app.get('/api/bootstrap-static', async (req, res) => {
-  try { res.json(await getCachedApiData(BOOTSTRAP_URL)); }
-  catch (e) { res.status(500).json({ error: 'Failed to fetch bootstrap static data' }); }
+  try {
+    res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=600');
+    res.json(await getCachedApiData(BOOTSTRAP_URL, 5 * 60 * 1000));
+  } catch (e) { res.status(500).json({ error: 'Failed to fetch bootstrap static data' }); }
 });
 
 app.get('/api/fixtures', async (req, res) => {
-  try { res.json(await getCachedApiData(FIXTURES_URL)); }
-  catch (e) { res.status(500).json({ error: 'Failed to fetch fixtures' }); }
+  try {
+    res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=600');
+    res.json(await getCachedApiData(FIXTURES_URL, 5 * 60 * 1000));
+  } catch (e) { res.status(500).json({ error: 'Failed to fetch fixtures' }); }
 });
 
 app.post('/api/v1/decision-centre', async (req, res) => {
@@ -403,8 +418,8 @@ app.post('/api/v1/decision-centre', async (req, res) => {
     const [bootstrap, fixtures, manager, history] = await Promise.all([
       getCachedApiData(BOOTSTRAP_URL),
       getCachedApiData(FIXTURES_URL),
-      apiGet(`https://fantasy.premierleague.com/api/entry/${managerId}/`).then(response => response.data),
-      apiGet(`https://fantasy.premierleague.com/api/entry/${managerId}/history/`).then(response => response.data),
+      getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/`),
+      getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/history/`),
     ]);
     const currentGW = bootstrap.events.find(event => event.is_current)?.id;
     const nextGW = bootstrap.events.find(event => event.is_next)?.id || currentGW || requestedGW;
@@ -432,15 +447,11 @@ app.post('/api/v1/decision-centre', async (req, res) => {
 
 // ---- Core analysis ----
 async function analyzeManager(managerId, playerData, leagueId = 314) {
-  const [managerEntryResponse, historyResponse, leagueResponse] = await Promise.all([
-    apiGet(`https://fantasy.premierleague.com/api/entry/${managerId}/`),
-    apiGet(`https://fantasy.premierleague.com/api/entry/${managerId}/history/`),
-    apiGet(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/`)
+  const [managerEntryData, historyData, leagueData] = await Promise.all([
+    getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/`),
+    getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/history/`),
+    getCachedApiData(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/`)
   ]);
-
-  const managerEntryData = managerEntryResponse.data;
-  const historyData = historyResponse.data;
-  const leagueData = leagueResponse.data;
   const currentGameweek = playerData.events.find(event => event.is_current).id;
   const topManagerPoints = leagueData.standings.results[0].total;
 
@@ -455,8 +466,8 @@ async function analyzeManager(managerId, playerData, leagueId = 314) {
   let highestRank = Infinity, highestRankGW = 0, lowestRank = 0, lowestRankGW = 0;
 
   const currentTeam = [];
-  const currentPicksResponse = await apiGet(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${currentGameweek}/picks/`);
-  const currentPicks = currentPicksResponse.data.picks;
+  const currentPicksData = await getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${currentGameweek}/picks/`);
+  const currentPicks = currentPicksData.picks;
 
   for (const pick of currentPicks) {
     const player = playerData.elements.find(p => p.id === pick.element);
@@ -482,15 +493,18 @@ async function analyzeManager(managerId, playerData, leagueId = 314) {
     });
   }
 
-  // Fetch all GW picks in parallel batches to avoid N+1 sequential requests
+  // Fetch all GW picks in parallel batches, using cache
   const GW_BATCH_SIZE = 5;
   const gwPickResults = new Array(currentGameweek);
   for (let i = 0; i < currentGameweek; i += GW_BATCH_SIZE) {
     const batch = [];
     for (let j = i; j < Math.min(i + GW_BATCH_SIZE, currentGameweek); j++) {
       batch.push(
-        apiGet(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${j + 1}/picks/`)
-          .then(pr => { gwPickResults[j] = pr.data; })
+        getCachedApiData(
+          `https://fantasy.premierleague.com/api/entry/${managerId}/event/${j + 1}/picks/`,
+          j + 1 < currentGameweek ? 24 * 60 * 60 * 1000 : 60 * 1000
+        )
+          .then(data => { gwPickResults[j] = data; })
           .catch(() => { gwPickResults[j] = null; })
       );
     }
@@ -723,14 +737,14 @@ app.get('/api/league-standings/:leagueId', async (req, res) => {
     const leagueId = requestedLeagueId;
     const [bs, p1] = await Promise.all([
       getCachedApiData(BOOTSTRAP_URL),
-      apiGet(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/?page_standings=1&phase=1`)
+      getCachedApiData(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/?page_standings=1&phase=1`)
     ]);
     const playerData = bs;
-    let standings = p1.data.standings.results || [];
+    let standings = p1.standings.results || [];
     // Fetch page 2 for top 50
     try {
-      const p2 = await apiGet(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/?page_standings=2&phase=1`);
-      standings = standings.concat(p2.data.standings.results || []);
+      const p2 = await getCachedApiData(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/?page_standings=2&phase=1`);
+      standings = standings.concat(p2.standings.results || []);
     } catch(e) { /* page 2 may not exist */ }
     standings = standings.slice(0, 50);
     const currentGW = playerData.events.find(e => e.is_current)?.id || 1;
@@ -742,11 +756,11 @@ app.get('/api/league-standings/:leagueId', async (req, res) => {
     for (let i = 0; i < entries.length; i += batchSize) {
       const batch = entries.slice(i, i + batchSize);
       const results = await Promise.allSettled(batch.map(async e => {
-        const [histRes, entryRes] = await Promise.all([
-          apiGet(`https://fantasy.premierleague.com/api/entry/${e.entry}/history/`).catch(() => null),
-          apiGet(`https://fantasy.premierleague.com/api/entry/${e.entry}/`).catch(() => null)
+        const [histData, entryData] = await Promise.all([
+          getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/history/`).catch(() => null),
+          getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/`).catch(() => null)
         ]);
-        return { history: histRes?.data, entry: entryRes?.data };
+        return { history: histData, entry: entryData };
       }));
       results.forEach((res, idx) => {
         const entry = batch[idx];
@@ -1834,8 +1848,7 @@ app.get('/api/leagues-classic/:leagueId/standings', async (req, res) => {
     const { leagueId } = req.params;
     const page = Math.min(5, Math.max(1, parseInt(req.query.page) || 1));
     
-    const fplRes = await apiGet(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/?page_standings=${page}`);
-    const data = fplRes.data;
+    const data = await getCachedApiData(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/?page_standings=${page}`);
 
     const leagueInfo = data.league || {};
     const standingsData = data.standings || {};
@@ -1846,8 +1859,8 @@ app.get('/api/leagues-classic/:leagueId/standings', async (req, res) => {
       leaderTotal = results[0].total || 0;
     } else {
       try {
-        const page1Res = await apiGet(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/?page_standings=1`);
-        leaderTotal = page1Res.data?.standings?.results?.[0]?.total || 0;
+        const page1Data = await getCachedApiData(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/?page_standings=1`);
+        leaderTotal = page1Data?.standings?.results?.[0]?.total || 0;
       } catch (e) {
         leaderTotal = results[0]?.total || 0;
       }
@@ -2715,9 +2728,9 @@ app.get('/api/match-analysis', async (req, res) => {
     const { team_h, team_a } = req.query;
     if (!team_h || !team_a) return res.status(400).json({ error: 'team_h and team_a required' });
 
-    const bootstrapRes = await axios.get('https://fantasy.premierleague.com/api/bootstrap-static/');
-    const elements = bootstrapRes.data.elements;
-    const teams = bootstrapRes.data.teams;
+    const bootstrapData = await getCachedApiData('https://fantasy.premierleague.com/api/bootstrap-static/');
+    const elements = bootstrapData.elements;
+    const teams = bootstrapData.teams;
 
     const getTeam = id => teams.find(t => t.id === parseInt(id));
     const getPosStr = type => {

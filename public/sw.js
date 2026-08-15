@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fpl-stats-react-v4';
+const CACHE_NAME = 'fpl-stats-react-v5';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -53,7 +53,21 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Static assets: network first so deployments never run stale JavaScript.
+    // Hashed Vite assets and local fonts are immutable; cache them for instant repeat loads.
+    if (event.request.method === 'GET' && (url.pathname.startsWith('/assets/') || /\.(?:css|js|ico|png|svg|woff2?)$/i.test(url.pathname))) {
+        event.respondWith(
+            caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
+                if (response && response.status === 200) {
+                    const clone = response.clone();
+                    caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+                }
+                return response;
+            }))
+        );
+        return;
+    }
+
+    // Other requests use network first so deployments never run stale dynamic content.
     event.respondWith(
         fetch(event.request).then((response) => {
             if (response && response.status === 200) {

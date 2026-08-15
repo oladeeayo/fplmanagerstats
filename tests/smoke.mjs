@@ -43,6 +43,12 @@ try {
   await slowContext.route('http://localhost:8400/live.js*', (route) => route.abort());
   await slowContext.addInitScript(() => localStorage.setItem('fplManagerId', '1'));
   const slowPage = await slowContext.newPage();
+  const slowPageErrors = [];
+  const slowFailedResponses = [];
+  slowPage.on('pageerror', (error) => slowPageErrors.push(error.message));
+  slowPage.on('response', (response) => {
+    if (response.status() >= 400) slowFailedResponses.push(`${response.status()} ${response.url()}`);
+  });
   await slowPage.route('**/api/bootstrap-static', async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 10000));
     await route.abort();
@@ -53,8 +59,22 @@ try {
   });
   const shellStartedAt = Date.now();
   await slowPage.goto(`${baseUrl}/players`, { waitUntil: 'domcontentloaded' });
-  await slowPage.waitForSelector('#content-players.active');
+  try {
+    await slowPage.waitForSelector('#content-players.active');
+  } catch (error) {
+    const shellState = await slowPage.evaluate(() => ({
+      path: window.location.pathname,
+      activeTab: window.FPL?.state.activeTab,
+      activeContent: document.querySelector('.tab-content.active')?.id,
+      rootText: document.querySelector('#root')?.textContent?.trim().slice(0, 80),
+      scripts: [...document.scripts].map((script) => script.src).filter(Boolean),
+    }));
+    throw new Error(`Players route did not activate: ${JSON.stringify({ shellState, slowPageErrors, slowFailedResponses })}`, { cause: error });
+  }
   await slowPage.waitForSelector('#loading-overlay', { state: 'hidden' });
+  await slowPage.evaluate(() => document.fonts.ready);
+  const iconFont = await slowPage.locator('.sidebar-nav-item .material-symbols-outlined').first().evaluate((element) => getComputedStyle(element).fontFamily);
+  assert.match(iconFont, /Material Symbols Outlined/, 'Navigation icons did not load the bundled icon font');
   assert.ok(Date.now() - shellStartedAt < 8000, 'Application shell was blocked by initial data requests');
   await slowPage.locator('#mobile-menu-btn').click();
   await slowPage.waitForSelector('#sidebar.mobile-open');

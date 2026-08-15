@@ -148,11 +148,10 @@ const Admin = (() => {
       tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#8ba396;padding:20px;">No referrer data</td></tr>';
       return;
     }
-    const icons = { Direct: 'link', Google: 'search', Facebook: 'facebook', Twitter: 'tag', Reddit: 'forum', Instagram: 'photo_camera', YouTube: 'play_circle', Internal: 'home' };
     tbody.innerHTML = d.referrers.map(r => {
       const pct = total > 0 ? ((parseInt(r.views) / total) * 100).toFixed(1) : '0';
       return `<tr>
-        <td><span class="material-symbols-outlined" style="font-size:14px;color:#00ff85;margin-right:6px;">${icons[r.source] || 'language'}</span>${r.source}</td>
+        <td>${r.source}</td>
         <td style="font-family:'JetBrains Mono',monospace;">${formatNum(parseInt(r.views))}</td>
         <td style="font-family:'JetBrains Mono',monospace;">${formatNum(parseInt(r.unique_visitors))}</td>
         <td style="font-family:'JetBrains Mono',monospace;color:#00ff85;">${pct}%</td>

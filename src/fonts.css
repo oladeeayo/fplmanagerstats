@@ -1,0 +1,31 @@
+@font-face {
+  font-family: 'Hanken Grotesk Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/hanken-grotesk/files/hanken-grotesk-latin-wght-normal.woff2') format('woff2-variations');
+}
+
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/inter/files/inter-latin-wght-normal.woff2') format('woff2-variations');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url('@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2') format('woff2-variations');
+}
+
+@font-face {
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-display: block;
+  font-weight: 400;
+  src: url('@fontsource/material-symbols-outlined/files/material-symbols-outlined-latin-400-normal.woff2') format('woff2');
+}
