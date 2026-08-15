@@ -1,5 +1,5 @@
 const Admin = (() => {
-  let adminKey = '';
+  let isLoggedIn = false;
   let currentPeriod = 7;
   let visitorsPage = 1;
   let charts = {};
@@ -14,9 +14,7 @@ const Admin = (() => {
   };
 
   function getFlag(code) { return COUNTRY_FLAGS[code] || '\u{1F30D}'; }
-
   function formatNum(n) { return n == null ? '--' : n.toLocaleString(); }
-  function formatMs(ms) { return ms == null ? '--' : ms + 'ms'; }
   function timeAgo(date) {
     const s = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
     if (s < 60) return s + 's ago';
@@ -29,23 +27,19 @@ const Admin = (() => {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { position: 'right', labels: { color: '#8ba396', font: { family: "'JetBrains Mono'", size: 11 }, padding: 12, usePointStyle: true, pointStyleWidth: 8 } },
-      tooltip: { backgroundColor: '#1a2e28', titleColor: '#fff', bodyColor: '#ccc', borderColor: '#1A2E28', borderWidth: 1, padding: 10, titleFont: { family: "'JetBrains Mono'" }, bodyFont: { family: "'JetBrains Mono'" } }
+      legend: { position: 'right', labels: { color: '#8ba396', font: { family: "'JetBrains Mono'", size: 10 }, padding: 10, usePointStyle: true, pointStyleWidth: 8 } },
+      tooltip: { backgroundColor: '#1a2e28', titleColor: '#fff', bodyColor: '#ccc', borderColor: '#1A2E28', borderWidth: 1, padding: 8, titleFont: { family: "'JetBrains Mono'" }, bodyFont: { family: "'JetBrains Mono'" } }
     }
   };
 
   const COLORS = ['#00ff85', '#37db59', '#ffa600', '#ff4d4d', '#6496ff', '#c084fc', '#f472b6', '#34d399', '#fbbf24', '#60a5fa'];
 
   async function api(path) {
-    const res = await fetch(path, {
-      headers: { 'x-admin-key': adminKey }
-    });
+    const res = await fetch(path, { credentials: 'same-origin' });
     if (!res.ok) {
+      if (res.status === 401) { logout(); throw new Error('Session expired. Please login again.'); }
       let message = `API error: ${res.status}`;
-      try {
-        const body = await res.json();
-        if (body.error) message = body.error;
-      } catch (_) { /* keep the status fallback */ }
+      try { const body = await res.json(); if (body.error) message = body.error; } catch (_) {}
       throw new Error(message);
     }
     return res.json();
@@ -58,6 +52,13 @@ const Admin = (() => {
     charts[canvasId] = new Chart(ctx, { type, data, options: { ...chartDefaults, ...options } });
   }
 
+  function renderList(containerId, items) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    if (!items.length) { el.innerHTML = '<div class="device-item"><span style="color:#5a7a66">No data</span></div>'; return; }
+    el.innerHTML = items.map(i => `<div class="device-item"><span>${i.label}</span><span>${formatNum(parseInt(i.count))}</span></div>`).join('');
+  }
+
   async function loadStats() {
     const d = await api('/api/admin/stats');
     document.getElementById('pv-today').textContent = formatNum(d.pageViews.today);
@@ -65,21 +66,26 @@ const Admin = (() => {
     document.getElementById('uv-today').textContent = formatNum(d.uniqueVisitors.today);
     document.getElementById('uv-week').textContent = formatNum(d.uniqueVisitors.week) + ' this week';
     document.getElementById('uv-all').textContent = formatNum(d.uniqueVisitors.allTime);
-    document.getElementById('pv-all').textContent = formatNum(d.pageViews.allTime) + ' total page views';
+    document.getElementById('pv-all').textContent = formatNum(d.pageViews.allTime) + ' page views';
     document.getElementById('avg-response').textContent = d.avgResponseTimeMs ? d.avgResponseTimeMs + 'ms' : '--';
 
+    // Recent visitors with referrer
     const tbody = document.getElementById('visitors-body');
     if (d.recentVisitors.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#8ba396;padding:24px;">No visitors yet</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#8ba396;padding:20px;">No visitors yet</td></tr>';
     } else {
-      tbody.innerHTML = d.recentVisitors.map(v => `<tr>
-        <td style="color:#8ba396">${timeAgo(v.created_at)}</td>
-        <td><div class="country-cell"><span class="country-flag">${getFlag(v.country)}</span><span class="country-code">${v.country || 'XX'}</span></div></td>
-        <td><span class="badge badge-${(v.device_type || '').toLowerCase()}">${v.device_type || '?'}</span></td>
-        <td>${v.browser || '?'}</td>
-        <td>${v.os || '?'}</td>
-        <td style="color:#8ba396;max-width:200px;overflow:hidden;text-overflow:ellipsis;">${v.path || '/'}</td>
-      </tr>`).join('');
+      tbody.innerHTML = d.recentVisitors.map(v => {
+        const refDisplay = v.referrer ? (() => { try { return new URL(v.referrer).hostname.replace('www.', ''); } catch(e) { return 'Direct'; } })() : 'Direct';
+        return `<tr>
+          <td style="color:#8ba396">${timeAgo(v.created_at)}</td>
+          <td><div class="country-cell"><span class="country-flag">${getFlag(v.country)}</span>${v.country || 'XX'}</div></td>
+          <td><span class="badge badge-${(v.device_type || '').toLowerCase()}">${v.device_type || '?'}</span></td>
+          <td>${v.browser || '?'}</td>
+          <td style="text-align:center;">1x</td>
+          <td style="text-align:center;color:#00ff85;">1d</td>
+          <td style="color:#5a7a66;max-width:120px;overflow:hidden;text-overflow:ellipsis;" title="${v.referrer || ''}">${refDisplay}</td>
+        </tr>`;
+      }).join('');
     }
   }
 
@@ -89,18 +95,18 @@ const Admin = (() => {
       renderChart('chart-countries', 'doughnut', { labels: ['No data'], datasets: [{ data: [1], backgroundColor: ['#1A2E28'] }] });
       return;
     }
-    const labels = d.countries.slice(0, 10).map(c => `${getFlag(c.country)} ${c.country}`);
-    const values = d.countries.slice(0, 10).map(c => parseInt(c.views));
+    const labels = d.countries.slice(0, 8).map(c => `${getFlag(c.country)} ${c.country}`);
+    const values = d.countries.slice(0, 8).map(c => parseInt(c.views));
     renderChart('chart-countries', 'doughnut', {
       labels,
       datasets: [{ data: values, backgroundColor: COLORS.slice(0, values.length), borderWidth: 0 }]
-    }, { plugins: { ...chartDefaults.plugins, legend: { ...chartDefaults.plugins.legend, position: 'right' } } });
+    });
   }
 
   async function loadDevices() {
     const d = await api(`/api/admin/devices?days=${currentPeriod}`);
 
-    // Device type pie
+    // Device type chart
     const devLabels = d.devices.map(x => x.device_type);
     const devValues = d.devices.map(x => parseInt(x.count));
     renderChart('chart-devices', 'doughnut', {
@@ -108,40 +114,14 @@ const Admin = (() => {
       datasets: [{ data: devValues, backgroundColor: ['#00ff85', '#ffa600', '#6496ff'], borderWidth: 0 }]
     });
 
-    // Browser pie
-    const brLabels = d.browsers.slice(0, 8).map(x => x.browser);
-    const brValues = d.browsers.slice(0, 8).map(x => parseInt(x.count));
-    renderChart('chart-browsers', 'doughnut', {
-      labels: brLabels,
-      datasets: [{ data: brValues, backgroundColor: COLORS.slice(0, brValues.length), borderWidth: 0 }]
-    });
-
-    // OS pie
-    const osLabels = d.osList.slice(0, 8).map(x => x.os);
-    const osValues = d.osList.slice(0, 8).map(x => parseInt(x.count));
-    renderChart('chart-os', 'doughnut', {
-      labels: osLabels,
-      datasets: [{ data: osValues, backgroundColor: COLORS.slice(0, osValues.length), borderWidth: 0 }]
-    });
+    // Device details lists
+    renderList('device-type-list', d.devices.map(x => ({ label: x.device_type, count: x.count })));
+    renderList('browser-list', d.browsers.slice(0, 6).map(x => ({ label: x.browser, count: x.count })));
+    renderList('os-list', d.osList.slice(0, 6).map(x => ({ label: x.os, count: x.count })));
   }
 
-  async function loadHourly() {
+  async function loadDaily() {
     const d = await api(`/api/admin/hourly?days=${currentPeriod}`);
-
-    // Hourly bar chart
-    const hourData = new Array(24).fill(0);
-    d.hourly.forEach(h => { hourData[h.hour] = parseInt(h.views); });
-    const hourLabels = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
-    renderChart('chart-hourly', 'bar', {
-      labels: hourLabels,
-      datasets: [{ label: 'Page Views', data: hourData, backgroundColor: '#00ff8533', borderColor: '#00ff85', borderWidth: 1, borderRadius: 4 }]
-    }, {
-      plugins: { ...chartDefaults.plugins, legend: { display: false } },
-      scales: {
-        x: { ticks: { color: '#8ba396', font: { family: "'JetBrains Mono'", size: 10 }, maxRotation: 0 }, grid: { color: '#1A2E2811' } },
-        y: { ticks: { color: '#8ba396', font: { family: "'JetBrains Mono'", size: 10 } }, grid: { color: '#1A2E2833' } }
-      }
-    });
 
     // Daily line chart
     const dayLabels = d.daily.map(x => new Date(x.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }));
@@ -166,37 +146,17 @@ const Admin = (() => {
     const total = d.referrers.reduce((s, r) => s + parseInt(r.views), 0);
     const tbody = document.getElementById('referrers-body');
     if (d.referrers.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#8ba396;padding:24px;">No referrer data</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#8ba396;padding:20px;">No referrer data</td></tr>';
       return;
     }
+    const icons = { Direct: 'link', Google: 'search', Facebook: 'facebook', Twitter: 'tag', Reddit: 'forum', Instagram: 'photo_camera', YouTube: 'play_circle', Internal: 'home' };
     tbody.innerHTML = d.referrers.map(r => {
       const pct = total > 0 ? ((parseInt(r.views) / total) * 100).toFixed(1) : '0';
-      const icons = { Direct: 'link', Google: 'search', Facebook: 'facebook', Twitter: 'tag', Reddit: 'forum', Instagram: 'photo_camera', YouTube: 'play_circle', Internal: 'home' };
       return `<tr>
-        <td><span class="material-symbols-outlined" style="font-size:16px;color:#00ff85;margin-right:8px;">${icons[r.source] || 'language'}</span>${r.source}</td>
+        <td><span class="material-symbols-outlined" style="font-size:14px;color:#00ff85;margin-right:6px;">${icons[r.source] || 'language'}</span>${r.source}</td>
         <td style="font-family:'JetBrains Mono',monospace;">${formatNum(parseInt(r.views))}</td>
         <td style="font-family:'JetBrains Mono',monospace;">${formatNum(parseInt(r.unique_visitors))}</td>
         <td style="font-family:'JetBrains Mono',monospace;color:#00ff85;">${pct}%</td>
-      </tr>`;
-    }).join('');
-  }
-
-  async function loadFeatures() {
-    const d = await api(`/api/admin/feature-usage?days=${currentPeriod}`);
-    const total = d.features.reduce((s, f) => s + parseInt(f.hits), 0);
-    const tbody = document.getElementById('features-body');
-    if (d.features.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#8ba396;padding:24px;">No feature data</td></tr>';
-      return;
-    }
-    tbody.innerHTML = d.features.map(f => {
-      const pct = total > 0 ? ((parseInt(f.hits) / total) * 100).toFixed(1) : '0';
-      return `<tr>
-        <td style="font-weight:600;">${f.feature}</td>
-        <td style="font-family:'JetBrains Mono',monospace;">${formatNum(parseInt(f.hits))}</td>
-        <td style="font-family:'JetBrains Mono',monospace;">${formatNum(parseInt(f.unique_users))}</td>
-        <td style="font-family:'JetBrains Mono',monospace;color:#00ff85;">${pct}%</td>
-        <td style="font-family:'JetBrains Mono',monospace;">--</td>
       </tr>`;
     }).join('');
   }
@@ -205,11 +165,11 @@ const Admin = (() => {
     const d = await api(`/api/admin/pages?days=${currentPeriod}`);
     const tbody = document.getElementById('pages-body');
     if (d.pages.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#8ba396;padding:24px;">No page data</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#8ba396;padding:20px;">No page data</td></tr>';
       return;
     }
-    tbody.innerHTML = d.pages.slice(0, 30).map(p => `<tr>
-      <td style="font-family:'JetBrains Mono',monospace;max-width:350px;overflow:hidden;text-overflow:ellipsis;" title="${p.path}">${p.path}</td>
+    tbody.innerHTML = d.pages.slice(0, 20).map(p => `<tr>
+      <td style="font-family:'JetBrains Mono',monospace;max-width:300px;overflow:hidden;text-overflow:ellipsis;" title="${p.path}">${p.path}</td>
       <td style="font-family:'JetBrains Mono',monospace;">${formatNum(parseInt(p.views))}</td>
       <td style="font-family:'JetBrains Mono',monospace;">${formatNum(parseInt(p.unique_visitors))}</td>
       <td style="font-family:'JetBrains Mono',monospace;">${p.avg_response_ms || '--'}ms</td>
@@ -220,18 +180,23 @@ const Admin = (() => {
     const d = await api(`/api/admin/visitors?days=${currentPeriod}&page=${visitorsPage}&limit=50`);
     const tbody = document.getElementById('visitors-body');
     if (d.visitors.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#8ba396;padding:24px;">No visitors yet</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#8ba396;padding:20px;">No visitors yet</td></tr>';
       document.getElementById('visitors-pagination').innerHTML = '';
       return;
     }
-    tbody.innerHTML = d.visitors.map(v => `<tr>
-      <td style="color:#8ba396">${timeAgo(v.created_at)}</td>
-      <td><div class="country-cell"><span class="country-flag">${getFlag(v.country)}</span><span class="country-code">${v.country || 'XX'}</span><span style="color:#5a7a66;font-size:11px;">${v.city || ''}</span></div></td>
-      <td><span class="badge badge-${(v.device_type || '').toLowerCase()}">${v.device_type || '?'}</span></td>
-      <td>${v.browser || '?'}</td>
-      <td>${v.os || '?'}</td>
-      <td style="color:#8ba396;">${v.page_count} page${v.page_count !== 1 ? 's' : ''}</td>
-    </tr>`).join('');
+    tbody.innerHTML = d.visitors.map(v => {
+      const refDisplay = v.last_referrer ? (() => { try { return new URL(v.last_referrer).hostname.replace('www.', ''); } catch(e) { return 'Direct'; } })() : 'Direct';
+      const visitBadge = v.visit_count > 1 ? `<span style="color:#ffa600;font-weight:700;">${v.visit_count}x</span>` : '1x';
+      return `<tr>
+        <td style="color:#8ba396">${timeAgo(v.last_active_at || v.created_at)}</td>
+        <td><div class="country-cell"><span class="country-flag">${getFlag(v.country)}</span>${v.country || 'XX'}</div></td>
+        <td><span class="badge badge-${(v.device_type || '').toLowerCase()}">${v.device_type || '?'}</span></td>
+        <td>${v.browser || '?'}</td>
+        <td style="text-align:center;">${visitBadge}</td>
+        <td style="text-align:center;color:#00ff85;">${v.unique_visit_days || 1}d</td>
+        <td style="color:#5a7a66;max-width:120px;overflow:hidden;text-overflow:ellipsis;" title="${v.last_referrer || ''}">${refDisplay}</td>
+      </tr>`;
+    }).join('');
 
     const pag = document.getElementById('visitors-pagination');
     if (d.totalPages <= 1) { pag.innerHTML = ''; return; }
@@ -245,31 +210,49 @@ const Admin = (() => {
   async function loadAll() {
     try {
       await Promise.all([
-        loadStats(), loadCountries(), loadDevices(), loadHourly(),
-        loadReferrers(), loadFeatures(), loadPages(), loadVisitors()
+        loadStats(), loadCountries(), loadDevices(), loadDaily(),
+        loadReferrers(), loadPages(), loadVisitors()
       ]);
     } catch (e) {
       console.error('Dashboard load error:', e);
       const error = document.getElementById('dashboard-error');
-      if (error) {
-        error.textContent = e.message || 'Failed to load analytics';
-        error.style.display = 'block';
-      }
+      if (error) { error.textContent = e.message || 'Failed to load analytics'; error.style.display = 'block'; }
     }
   }
 
-  function login() {
-    const input = document.getElementById('admin-key-input');
-    adminKey = input.value.trim();
-    if (!adminKey) return;
-    document.getElementById('dashboard-error').style.display = 'none';
+  function showDashboard() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
+    isLoggedIn = true;
     loadAll();
   }
 
-  function logout() {
-    adminKey = '';
+  async function login() {
+    const input = document.getElementById('admin-key-input');
+    const key = input.value.trim();
+    if (!key) return;
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key }),
+        credentials: 'same-origin'
+      });
+      if (!res.ok) {
+        document.getElementById('login-error').style.display = 'block';
+        return;
+      }
+      document.getElementById('login-error').style.display = 'none';
+      showDashboard();
+    } catch (e) {
+      document.getElementById('login-error').textContent = 'Connection error. Try again.';
+      document.getElementById('login-error').style.display = 'block';
+    }
+  }
+
+  async function logout() {
+    try { await fetch('/api/admin/logout', { method: 'POST', credentials: 'same-origin' }); } catch (_) {}
+    isLoggedIn = false;
     document.getElementById('dashboard').style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('admin-key-input').value = '';
@@ -284,6 +267,15 @@ const Admin = (() => {
   }
 
   function goPage(p) { visitorsPage = p; loadVisitors(); }
+
+  // Auto-login: try loading dashboard — if session cookie is valid, it will work
+  (async function tryAutoLogin() {
+    try {
+      const res = await fetch('/api/admin/stats', { credentials: 'same-origin' });
+      if (res.ok) { showDashboard(); return; }
+    } catch (_) {}
+    // Not logged in — show login screen
+  })();
 
   // Enter key login
   document.addEventListener('keydown', e => {

@@ -15,7 +15,7 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Inter', sans-serif; background: #0a0a0a; color: #e0e0e0; min-height: 100vh; }
-    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+    .material-symbols-outlined { font-family: 'Material Symbols Outlined'; font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
 
     /* Login Screen */
     #login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #0a0a0a; }
@@ -30,98 +30,86 @@
     .dashboard-error { display: none; margin-bottom: 16px; padding: 12px 16px; border: 1px solid #ff4d4d66; border-radius: 8px; background: #ff4d4d12; color: #ff8a8a; font: 12px 'JetBrains Mono', monospace; }
 
     /* Dashboard */
-    #dashboard { display: none; padding: 24px; max-width: 1400px; margin: 0 auto; }
+    #dashboard { display: none; padding: 24px; max-width: 1200px; margin: 0 auto; }
     .dash-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-    .dash-header h1 { font-size: 24px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 10px; }
-    .dash-header h1 .material-symbols-outlined { color: #00ff85; font-size: 28px; }
-    .dash-header-right { display: flex; gap: 12px; align-items: center; }
-    .period-btn { padding: 6px 14px; border-radius: 6px; border: 1px solid #1A2E28; background: transparent; color: #8ba396; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'JetBrains Mono', monospace; transition: all 0.15s; }
+    .dash-header h1 { font-size: 22px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 10px; }
+    .dash-header h1 .material-symbols-outlined { color: #00ff85; font-size: 26px; }
+    .dash-header-right { display: flex; gap: 10px; align-items: center; }
+    .period-btn { padding: 6px 12px; border-radius: 6px; border: 1px solid #1A2E28; background: transparent; color: #8ba396; font-size: 11px; font-weight: 600; cursor: pointer; font-family: 'JetBrains Mono', monospace; transition: all 0.15s; }
     .period-btn.active { background: rgba(0,255,133,0.12); color: #00ff85; border-color: rgba(0,255,133,0.4); }
     .period-btn:hover { color: #fff; background: rgba(255,255,255,0.05); }
-    .logout-btn { padding: 6px 14px; border-radius: 6px; border: 1px solid #ff4d4d33; background: transparent; color: #ff4d4d; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'JetBrains Mono', monospace; transition: all 0.15s; }
+    .logout-btn { padding: 6px 12px; border-radius: 6px; border: 1px solid #ff4d4d33; background: transparent; color: #ff4d4d; font-size: 11px; font-weight: 600; cursor: pointer; font-family: 'JetBrains Mono', monospace; transition: all 0.15s; }
     .logout-btn:hover { background: rgba(255,77,77,0.12); border-color: #ff4d4d; }
 
     /* Stat Cards */
-    .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
-    .stat-card { background: #141916; border: 1px solid #1A2E28; border-radius: 12px; padding: 20px; text-align: center; }
-    .stat-label { font-size: 11px; color: #8ba396; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; font-weight: 600; letter-spacing: 0.06em; }
-    .stat-value { font-size: 32px; font-weight: 800; color: #fff; margin-top: 6px; font-family: 'JetBrains Mono', monospace; }
-    .stat-sub { font-size: 12px; color: #5a7a66; margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
+    .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+    .stat-card { background: #141916; border: 1px solid #1A2E28; border-radius: 10px; padding: 16px; text-align: center; }
+    .stat-label { font-size: 10px; color: #8ba396; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; font-weight: 600; letter-spacing: 0.06em; }
+    .stat-value { font-size: 28px; font-weight: 800; color: #fff; margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
+    .stat-sub { font-size: 11px; color: #5a7a66; margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
     .stat-value.green { color: #00ff85; }
 
-    /* Chart Grid */
-    .chart-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px; }
-    .chart-card { min-width: 0; overflow: hidden; background: #141916; border: 1px solid #1A2E28; border-radius: 12px; padding: 20px; }
-    .chart-card h3 { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
-    .chart-card h3 .material-symbols-outlined { font-size: 18px; color: #00ff85; }
-    .chart-container { position: relative; width: 100%; min-width: 0; height: 260px; }
+    /* Two-column layout */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+    .chart-card { min-width: 0; overflow: hidden; background: #141916; border: 1px solid #1A2E28; border-radius: 10px; padding: 16px; }
+    .chart-card h3 { font-size: 13px; font-weight: 600; color: #fff; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .chart-card h3 .material-symbols-outlined { font-size: 16px; color: #00ff85; }
+    .chart-container { position: relative; width: 100%; min-width: 0; height: 220px; }
     .chart-container canvas { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
-
-    /* Full width chart */
     .chart-full { grid-column: 1 / -1; }
 
     /* Tables */
-    .table-card { background: #141916; border: 1px solid #1A2E28; border-radius: 12px; overflow: hidden; margin-bottom: 24px; }
-    .table-header { padding: 16px 20px; border-bottom: 1px solid #1A2E28; display: flex; justify-content: space-between; align-items: center; }
-    .table-header h3 { font-size: 14px; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 8px; }
-    .table-header h3 .material-symbols-outlined { font-size: 18px; color: #00ff85; }
+    .table-card { background: #141916; border: 1px solid #1A2E28; border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
+    .table-header { padding: 12px 16px; border-bottom: 1px solid #1A2E28; display: flex; justify-content: space-between; align-items: center; }
+    .table-header h3 { font-size: 13px; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 8px; }
+    .table-header h3 .material-symbols-outlined { font-size: 16px; color: #00ff85; }
     table { width: 100%; border-collapse: collapse; }
     thead { background: rgba(255,255,255,0.02); }
-    th { padding: 10px 16px; text-align: left; font-size: 11px; color: #8ba396; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; font-weight: 600; letter-spacing: 0.04em; border-bottom: 1px solid #1A2E28; white-space: nowrap; }
-    td { padding: 10px 16px; font-size: 13px; border-bottom: 1px solid #111; white-space: nowrap; }
+    th { padding: 8px 14px; text-align: left; font-size: 10px; color: #8ba396; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; font-weight: 600; letter-spacing: 0.04em; border-bottom: 1px solid #1A2E28; white-space: nowrap; }
+    td { padding: 8px 14px; font-size: 12px; border-bottom: 1px solid #111; white-space: nowrap; }
     tr:hover td { background: rgba(255,255,255,0.02); }
     .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .table-scroll table { min-width: 620px; }
-    .table-scroll th:first-child, .table-scroll td:first-child { position: sticky; left: 0; z-index: 2; background: #141916; box-shadow: 2px 0 rgba(255,255,255,0.08); }
-    .table-scroll th:first-child { z-index: 3; background: #171c19; }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+    .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
     .badge-desktop { background: rgba(0,255,133,0.12); color: #00ff85; }
     .badge-mobile { background: rgba(255,166,0,0.12); color: #ffa600; }
     .badge-tablet { background: rgba(100,150,255,0.12); color: #6496ff; }
 
     /* Country Flag */
-    .country-cell { display: flex; align-items: center; gap: 8px; }
-    .country-flag { font-size: 18px; line-height: 1; }
-    .country-code { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+    .country-cell { display: flex; align-items: center; gap: 6px; }
+    .country-flag { font-size: 16px; line-height: 1; }
+
+    /* Device cards */
+    .device-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+    .device-card { background: #141916; border: 1px solid #1A2E28; border-radius: 10px; padding: 14px; }
+    .device-card h4 { font-size: 11px; font-weight: 600; color: #8ba396; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; margin-bottom: 8px; }
+    .device-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 12px; }
+    .device-item span:last-child { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: #fff; }
 
     /* Pagination */
-    .pagination { display: flex; justify-content: center; gap: 8px; padding: 16px; }
-    .page-btn { padding: 6px 12px; border-radius: 6px; border: 1px solid #1A2E28; background: transparent; color: #8ba396; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'JetBrains Mono', monospace; }
+    .pagination { display: flex; justify-content: center; gap: 6px; padding: 12px; }
+    .page-btn { padding: 5px 10px; border-radius: 6px; border: 1px solid #1A2E28; background: transparent; color: #8ba396; font-size: 11px; font-weight: 600; cursor: pointer; font-family: 'JetBrains Mono', monospace; }
     .page-btn.active { background: rgba(0,255,133,0.12); color: #00ff85; border-color: rgba(0,255,133,0.4); }
     .page-btn:hover:not(.active) { color: #fff; }
 
     /* Loading */
-    .loading-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #1A2E28; border-top-color: #00ff85; border-radius: 50%; animation: spin 0.6s linear infinite; }
+    .loading-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #1A2E28; border-top-color: #00ff85; border-radius: 50%; animation: spin 0.6s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .loading-overlay { display: flex; align-items: center; justify-content: center; padding: 40px; color: #8ba396; font-size: 13px; gap: 10px; }
+    .loading-overlay { display: flex; align-items: center; justify-content: center; padding: 30px; color: #8ba396; font-size: 12px; gap: 8px; }
 
     /* Responsive */
     @media (max-width: 1024px) {
       .stat-grid { grid-template-columns: repeat(2, 1fr); }
-      .chart-grid { display: block; width: 100%; min-width: 0; overflow: hidden; }
-      .chart-card { width: 100%; max-width: 100%; }
-      .chart-card + .chart-card { margin-top: 16px; }
+      .two-col { grid-template-columns: 1fr; }
+      .device-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 640px) {
-      .stat-grid { grid-template-columns: 1fr; }
-      #dashboard { width: 100%; min-width: 0; padding: 16px; overflow-x: hidden; }
-      .dash-header { flex-direction: column; gap: 12px; align-items: flex-start; }
+      .stat-grid { grid-template-columns: 1fr 1fr; }
+      #dashboard { padding: 14px; overflow-x: hidden; }
+      .dash-header { flex-direction: column; gap: 10px; align-items: flex-start; }
       .dash-header-right { width: 100%; flex-wrap: wrap; }
-      .dash-header-right > div { max-width: 100%; overflow-x: auto; }
-      .period-btn, .logout-btn, .page-btn { min-height: 40px; }
-      .chart-card { padding: 14px; }
-      .chart-container { height: 220px; }
-      .table-header { padding: 14px; }
-      .pagination { overflow-x: auto; justify-content: flex-start; }
-    }
-    @media (max-width: 380px) {
-      #dashboard { padding: 10px; }
-      .login-card { padding: 28px 20px; }
-      .dash-header-right { align-items: stretch; }
-      .dash-header-right > div { width: 100%; }
-      .period-btn { flex: 1 0 56px; }
-      .logout-btn { width: 100%; }
-      .chart-container { height: 190px; }
+      .period-btn, .logout-btn { min-height: 36px; }
+      .chart-card { padding: 12px; }
+      .chart-container { height: 180px; }
     }
   </style>
 </head>
@@ -157,52 +145,56 @@
     <!-- Stat Cards -->
     <div class="stat-grid">
       <div class="stat-card">
-        <div class="stat-label">Page Views Today</div>
+        <div class="stat-label">Page Views</div>
         <div class="stat-value green" id="pv-today">--</div>
         <div class="stat-sub" id="pv-week">-- this week</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Unique Visitors Today</div>
+        <div class="stat-label">Unique Visitors</div>
         <div class="stat-value" id="uv-today">--</div>
         <div class="stat-sub" id="uv-week">-- this week</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Total Visitors (All Time)</div>
+        <div class="stat-label">Total All Time</div>
         <div class="stat-value" id="uv-all">--</div>
-        <div class="stat-sub" id="pv-all">-- total page views</div>
+        <div class="stat-sub" id="pv-all">-- page views</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Avg Response Time</div>
+        <div class="stat-label">Avg Response</div>
         <div class="stat-value" id="avg-response">--</div>
-        <div class="stat-sub">milliseconds (7d avg)</div>
+        <div class="stat-sub">ms (7d avg)</div>
       </div>
     </div>
 
-    <!-- Charts Row 1 -->
-    <div class="chart-grid">
+    <!-- Charts Row -->
+    <div class="two-col">
       <div class="chart-card">
         <h3><span class="material-symbols-outlined">public</span> Visitors by Country</h3>
         <div class="chart-container"><canvas id="chart-countries"></canvas></div>
       </div>
       <div class="chart-card">
-        <h3><span class="material-symbols-outlined">devices</span> Device Type</h3>
+        <h3><span class="material-symbols-outlined">devices</span> Devices & Browsers</h3>
         <div class="chart-container"><canvas id="chart-devices"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <h3><span class="material-symbols-outlined">language</span> Browser</h3>
-        <div class="chart-container"><canvas id="chart-browsers"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <h3><span class="material-symbols-outlined">computer</span> Operating System</h3>
-        <div class="chart-container"><canvas id="chart-os"></canvas></div>
-      </div>
-      <div class="chart-card chart-full">
-        <h3><span class="material-symbols-outlined">schedule</span> Traffic by Hour (UTC)</h3>
-        <div class="chart-container"><canvas id="chart-hourly"></canvas></div>
       </div>
       <div class="chart-card chart-full">
         <h3><span class="material-symbols-outlined">trending_up</span> Daily Visitors</h3>
         <div class="chart-container"><canvas id="chart-daily"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Device Details -->
+    <div class="device-grid">
+      <div class="device-card">
+        <h4>By Device</h4>
+        <div id="device-type-list"></div>
+      </div>
+      <div class="device-card">
+        <h4>By Browser</h4>
+        <div id="browser-list"></div>
+      </div>
+      <div class="device-card">
+        <h4>By OS</h4>
+        <div id="os-list"></div>
       </div>
     </div>
 
@@ -213,21 +205,8 @@
       </div>
       <div class="table-scroll">
         <table>
-          <thead><tr><th>Source</th><th>Page Views</th><th>Unique Visitors</th><th>% of Total</th></tr></thead>
+          <thead><tr><th>Source</th><th>Views</th><th>Visitors</th><th>%</th></tr></thead>
           <tbody id="referrers-body"><tr><td colspan="4" class="loading-overlay"><div class="loading-spinner"></div> Loading...</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Feature Usage -->
-    <div class="table-card">
-      <div class="table-header">
-        <h3><span class="material-symbols-outlined">widget_features</span> Feature Usage</h3>
-      </div>
-      <div class="table-scroll">
-        <table>
-          <thead><tr><th>Feature</th><th>Hits</th><th>Unique Users</th><th>% of Total</th><th>Avg Response</th></tr></thead>
-          <tbody id="features-body"><tr><td colspan="5" class="loading-overlay"><div class="loading-spinner"></div> Loading...</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -239,7 +218,7 @@
       </div>
       <div class="table-scroll">
         <table>
-          <thead><tr><th>Path</th><th>Views</th><th>Unique Visitors</th><th>Avg Response (ms)</th></tr></thead>
+          <thead><tr><th>Path</th><th>Views</th><th>Visitors</th><th>Avg ms</th></tr></thead>
           <tbody id="pages-body"><tr><td colspan="4" class="loading-overlay"><div class="loading-spinner"></div> Loading...</td></tr></tbody>
         </table>
       </div>
@@ -252,8 +231,8 @@
       </div>
       <div class="table-scroll">
         <table>
-          <thead><tr><th>Time</th><th>Country</th><th>Device</th><th>Browser</th><th>OS</th><th>Page</th></tr></thead>
-          <tbody id="visitors-body"><tr><td colspan="6" class="loading-overlay"><div class="loading-spinner"></div> Loading...</td></tr></tbody>
+          <thead><tr><th>Time</th><th>Country</th><th>Device</th><th>Browser</th><th>Visits</th><th>Days</th><th>Referrer</th></tr></thead>
+          <tbody id="visitors-body"><tr><td colspan="7" class="loading-overlay"><div class="loading-spinner"></div> Loading...</td></tr></tbody>
         </table>
       </div>
       <div class="pagination" id="visitors-pagination"></div>

@@ -90,6 +90,12 @@ async function initDatabase() {
     await sql`CREATE INDEX IF NOT EXISTS idx_vs_created ON admin_visitor_sessions(created_at)`;
     await sql`CREATE INDEX IF NOT EXISTS idx_vs_country ON admin_visitor_sessions(country)`;
 
+    // Migration: add new columns if missing
+    await sql`ALTER TABLE admin_visitor_sessions ADD COLUMN IF NOT EXISTS last_referrer VARCHAR(1024)`;
+    await sql`ALTER TABLE admin_visitor_sessions ADD COLUMN IF NOT EXISTS device_fingerprint VARCHAR(64)`;
+    await sql`ALTER TABLE admin_visitor_sessions ADD COLUMN IF NOT EXISTS visit_count INT DEFAULT 1`;
+    await sql`ALTER TABLE admin_visitor_sessions ADD COLUMN IF NOT EXISTS unique_visit_days INT DEFAULT 1`;
+
     await sql`
       CREATE TABLE IF NOT EXISTS admin_daily_stats (
         id SERIAL PRIMARY KEY,
@@ -231,23 +237,37 @@ app.use(async (req, res, next) => {
         const geo = await lookupGeo(ip);
         const ipHash = hashIP(ip);
 
+        // Device fingerprint: hash of UA + screen width hint (sent via header or just UA-based)
+        const deviceFP = crypto.createHash('sha256').update(`${ua}|${ipHash}`).digest('hex').slice(0, 16);
+
         await sql`
           INSERT INTO admin_page_views (session_id, path, referrer, ip_hash, country, city, continent, device_type, browser, os, os_version, status_code, response_time_ms)
           VALUES (${sessionId}, ${path.slice(0, 512)}, ${referrer.slice(0, 1024)}, ${ipHash}, ${geo.country}, ${geo.city.slice(0, 128)}, ${geo.continent}, ${deviceType}, ${browser}, ${os}, ${osVersion}, ${res.statusCode}, ${Math.min(responseTime, 99999)})
         `;
 
-        // Upsert session
-        const existing = await sql`SELECT session_id, page_count FROM admin_visitor_sessions WHERE session_id = ${sessionId}`;
+        // Upsert session with visit tracking
+        const existing = await sql`SELECT session_id, page_count, visit_count, unique_visit_days, created_at::date as first_day, last_active_at FROM admin_visitor_sessions WHERE session_id = ${sessionId}`;
         if (existing.length > 0) {
+          const today = new Date().toISOString().slice(0, 10);
+          const firstDay = existing[0].first_day;
+          const daysDiff = Math.floor((new Date(today) - new Date(firstDay)) / 86400000);
+          const lastActive = existing[0].last_active_at;
+          const isNewDay = !lastActive || new Date(lastActive).toISOString().slice(0, 10) !== today;
           await sql`
             UPDATE admin_visitor_sessions
-            SET page_count = page_count + 1, last_page = ${path.slice(0, 512)}, last_active_at = NOW()
+            SET page_count = page_count + 1,
+                last_page = ${path.slice(0, 512)},
+                last_active_at = NOW(),
+                last_referrer = ${referrer.slice(0, 1024)},
+                device_fingerprint = ${deviceFP},
+                visit_count = visit_count + ${isNewDay ? 1 : 0},
+                unique_visit_days = GREATEST(1, ${daysDiff + 1})
             WHERE session_id = ${sessionId}
           `;
         } else {
           await sql`
-            INSERT INTO admin_visitor_sessions (session_id, ip_hash, country, city, continent, device_type, browser, os, os_version, first_page, last_page, page_count, is_returning)
-            VALUES (${sessionId}, ${ipHash}, ${geo.country}, ${geo.city.slice(0, 128)}, ${geo.continent}, ${deviceType}, ${browser}, ${os}, ${osVersion}, ${path.slice(0, 512)}, ${path.slice(0, 512)}, 1, FALSE)
+            INSERT INTO admin_visitor_sessions (session_id, ip_hash, country, city, continent, device_type, browser, os, os_version, first_page, last_page, page_count, is_returning, last_referrer, device_fingerprint, visit_count, unique_visit_days)
+            VALUES (${sessionId}, ${ipHash}, ${geo.country}, ${geo.city.slice(0, 128)}, ${geo.continent}, ${deviceType}, ${browser}, ${os}, ${osVersion}, ${path.slice(0, 512)}, ${path.slice(0, 512)}, 1, FALSE, ${referrer.slice(0, 1024)}, ${deviceFP}, 1, 1)
           `;
         }
       } catch (e) { /* tracking error — don't break the app */ }
@@ -2861,12 +2881,41 @@ app.get('/api/match-analysis', async (req, res) => {
 // ---- Admin Analytics API ----
 const ADMIN_KEY = process.env.ADMIN_KEY;
 
+// Admin session store (in-memory, survives server restarts clear)
+const adminSessions = new Map(); // token -> { createdAt, expiresAt }
+const ADMIN_SESSION_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+function createAdminSession() {
+  const token = crypto.randomBytes(32).toString('hex');
+  adminSessions.set(token, { createdAt: Date.now(), expiresAt: Date.now() + ADMIN_SESSION_TTL });
+  return token;
+}
+
+function isValidAdminSession(token) {
+  if (!token) return false;
+  const session = adminSessions.get(token);
+  if (!session) return false;
+  if (Date.now() > session.expiresAt) { adminSessions.delete(token); return false; }
+  return true;
+}
+
 function requireAdmin(req, res) {
   if (!ADMIN_KEY) {
     res.status(503).json({ error: 'Admin analytics are not configured' });
     return false;
   }
   if (!sql) return requireDatabase(req, res);
+
+  // Check session token first (from cookie)
+  const cookies = String(req.headers.cookie || '').split(';').reduce((all, part) => {
+    const separator = part.indexOf('=');
+    if (separator > 0) all[part.slice(0, separator).trim()] = part.slice(separator + 1).trim();
+    return all;
+  }, {});
+  const sessionToken = cookies.fpl_admin_session;
+  if (isValidAdminSession(sessionToken)) return true;
+
+  // Fallback: check x-admin-key header
   const key = req.headers['x-admin-key'];
   const supplied = typeof key === 'string' ? Buffer.from(key) : Buffer.alloc(0);
   const expected = Buffer.from(ADMIN_KEY);
@@ -2876,6 +2925,33 @@ function requireAdmin(req, res) {
   }
   return true;
 }
+
+// Admin login endpoint
+app.post('/api/admin/login', (req, res) => {
+  if (!ADMIN_KEY) return res.status(503).json({ error: 'Admin not configured' });
+  const { key } = req.body || {};
+  const supplied = typeof key === 'string' ? Buffer.from(key) : Buffer.alloc(0);
+  const expected = Buffer.from(ADMIN_KEY);
+  if (supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) {
+    return res.status(401).json({ error: 'Invalid key' });
+  }
+  const token = createAdminSession();
+  res.setHeader('Set-Cookie', `fpl_admin_session=${token}; Max-Age=${Math.floor(ADMIN_SESSION_TTL / 1000)}; Path=/; SameSite=Lax; HttpOnly`);
+  res.json({ ok: true });
+});
+
+// Admin logout endpoint
+app.post('/api/admin/logout', (req, res) => {
+  const cookies = String(req.headers.cookie || '').split(';').reduce((all, part) => {
+    const separator = part.indexOf('=');
+    if (separator > 0) all[part.slice(0, separator).trim()] = part.slice(separator + 1).trim();
+    return all;
+  }, {});
+  const sessionToken = cookies.fpl_admin_session;
+  if (sessionToken) adminSessions.delete(sessionToken);
+  res.setHeader('Set-Cookie', 'fpl_admin_session=; Max-Age=0; Path=/; SameSite=Lax; HttpOnly');
+  res.json({ ok: true });
+});
 
 app.get('/api/admin/stats', async (req, res) => {
   if (!requireAdmin(req, res)) return;
@@ -3132,7 +3208,8 @@ app.get('/api/admin/visitors', async (req, res) => {
 
     const [visitors, countResult] = await Promise.all([
       sql`
-        SELECT session_id, country, city, device_type, browser, os, first_page, last_page, page_count, is_returning, created_at, last_active_at
+        SELECT session_id, country, city, device_type, browser, os, first_page, last_page, page_count, is_returning, created_at, last_active_at,
+               last_referrer, device_fingerprint, visit_count, unique_visit_days
         FROM admin_visitor_sessions
         WHERE created_at >= ${since}
         ORDER BY created_at DESC
@@ -3151,6 +3228,58 @@ app.get('/api/admin/visitors', async (req, res) => {
   } catch (e) {
     console.error('Admin visitors error:', e.message);
     res.status(500).json({ error: 'Failed to fetch visitors' });
+  }
+});
+
+// Device visit summary endpoint
+app.get('/api/admin/device-visits', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const days = Math.min(parseInt(req.query.days) || 30, 365);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+    const [topVisitors, deviceStats, returnRate] = await Promise.all([
+      sql`
+        SELECT device_fingerprint, country, device_type, browser, os,
+               SUM(visit_count) as total_visits,
+               MAX(unique_visit_days) as active_days,
+               MAX(page_count) as total_pages,
+               MAX(last_active_at) as last_seen,
+               MIN(created_at) as first_seen
+        FROM admin_visitor_sessions
+        WHERE created_at >= ${since} AND device_fingerprint IS NOT NULL
+        GROUP BY device_fingerprint, country, device_type, browser, os
+        ORDER BY total_visits DESC
+        LIMIT 50
+      `,
+      sql`
+        SELECT device_type,
+               COUNT(DISTINCT device_fingerprint) as unique_devices,
+               SUM(visit_count) as total_visits,
+               AVG(unique_visit_days)::int as avg_days
+        FROM admin_visitor_sessions
+        WHERE created_at >= ${since} AND device_fingerprint IS NOT NULL
+        GROUP BY device_type
+        ORDER BY total_visits DESC
+      `,
+      sql`
+        SELECT
+          COUNT(*) FILTER (WHERE visit_count > 1) as returning,
+          COUNT(*) as total
+        FROM admin_visitor_sessions
+        WHERE created_at >= ${since}
+      `
+    ]);
+
+    res.json({
+      topVisitors,
+      deviceStats,
+      returnRate: returnRate[0],
+      days
+    });
+  } catch (e) {
+    console.error('Admin device-visits error:', e.message);
+    res.status(500).json({ error: 'Failed to fetch device visits' });
   }
 });
 
