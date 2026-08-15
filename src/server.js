@@ -4,6 +4,20 @@ const axios = require('axios');
 const { neon } = require('@neondatabase/serverless');
 const { buildDecisionCentre } = require('./decisionModel');
 
+// Upstash Redis (optional — falls back to in-memory Map if not configured)
+let redis = null;
+const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
+const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+if (UPSTASH_URL && UPSTASH_TOKEN) {
+  try {
+    const { Redis } = require('@upstash/redis');
+    redis = new Redis({ url: UPSTASH_URL, token: UPSTASH_TOKEN });
+    console.log('Upstash Redis connected');
+  } catch (e) {
+    console.warn('Upstash Redis unavailable, falling back to in-memory cache:', e.message);
+  }
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const clientDistPath = path.join(__dirname, '../dist');
@@ -263,27 +277,60 @@ async function apiGet(url) {
   }
   throw lastError;
 }
-const upstreamCache = new Map();
+const upstreamCache = new Map(); // fallback in-memory cache
+const globalPlayerHistoryCache = new Map(); // fallback in-memory player history
 
-// Global player history cache (persists across requests within same function instance)
-const globalPlayerHistoryCache = new Map();
-const PLAYER_HISTORY_TTL = 5 * 60 * 1000; // 5 minutes
+// Global player history cache
+const PLAYER_HISTORY_TTL = 5 * 60; // 5 minutes (Redis uses seconds)
 
 async function getGlobalPlayerHistory(playerId) {
+  const cacheKey = `ph:${playerId}`;
+
+  // Try Redis first
+  if (redis) {
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) return cached;
+    } catch (e) { /* fall back to in-memory */ }
+  }
+
+  // Fall back to in-memory
   const cached = globalPlayerHistoryCache.get(playerId);
-  if (cached && Date.now() - cached.timestamp < PLAYER_HISTORY_TTL) return cached.data;
+  if (cached && Date.now() - cached.timestamp < PLAYER_HISTORY_TTL * 1000) return cached.data;
+
   const data = (await apiGet(`https://fantasy.premierleague.com/api/element-summary/${playerId}/`)).data;
+
+  // Write to both caches
   globalPlayerHistoryCache.set(playerId, { data, timestamp: Date.now() });
+  if (redis) {
+    try { await redis.setex(cacheKey, PLAYER_HISTORY_TTL, data); } catch (e) { /* ignore */ }
+  }
   return data;
 }
 
 async function getCachedApiData(url, maxAgeMs = 60 * 1000) {
+  const cacheKey = `api:${url}`;
+  const ttlSeconds = Math.ceil(maxAgeMs / 1000);
+
+  // Try Redis first
+  if (redis) {
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) return cached;
+    } catch (e) { /* fall back to in-memory */ }
+  }
+
+  // In-memory fast path
   const cached = upstreamCache.get(url);
   if (cached?.data && Date.now() - cached.timestamp < maxAgeMs) return cached.data;
   if (cached?.request) return cached.request;
 
-  const request = apiGet(url).then(({ data }) => {
+  const request = apiGet(url).then(async ({ data }) => {
     upstreamCache.set(url, { data, timestamp: Date.now() });
+    // Write to Redis in background (fire-and-forget)
+    if (redis) {
+      try { await redis.setex(cacheKey, ttlSeconds, data); } catch (e) { /* ignore */ }
+    }
     return data;
   }).catch(error => {
     if (cached?.data) return cached.data;
@@ -431,12 +478,15 @@ async function analyzeManager(managerId, playerData, leagueId = 314) {
     await Promise.all(batch);
   }
 
-  // Pre-fetch player histories in parallel for all unique players across all GWs
-  const allPlayerIds = new Set();
-  for (const picksData of gwPickResults) {
-    if (picksData?.picks) picksData.picks.forEach(p => allPlayerIds.add(p.element));
+  // Pre-fetch player histories in controlled batches to avoid FPL API rate limits
+  const allPlayerIds = [...new Set(
+    gwPickResults.filter(Boolean).flatMap(picksData => picksData.picks.map(p => p.element))
+  )];
+  const PH_BATCH = 4;
+  for (let i = 0; i < allPlayerIds.length; i += PH_BATCH) {
+    const batch = allPlayerIds.slice(i, i + PH_BATCH);
+    await Promise.all(batch.map(pid => getGlobalPlayerHistory(pid).catch(() => null)));
   }
-  await Promise.all([...allPlayerIds].map(pid => getGlobalPlayerHistory(pid).catch(() => null)));
 
   for (let gw = 1; gw <= currentGameweek; gw++) {
     const picksData = gwPickResults[gw - 1];
@@ -736,8 +786,7 @@ app.get('/api/league-standings/:leagueId', async (req, res) => {
 });
 
 // ---- Zone Analysis (Per-GW Match Breakdowns) ----
-const zoneAnalysisCache = new Map();
-const ZONE_ANALYSIS_TTL = 2 * 60 * 1000; // 2 minutes
+const ZONE_ANALYSIS_TTL = 120; // 2 minutes in seconds
 
 app.get('/api/zone-analysis', async (req, res) => {
   try {
@@ -751,10 +800,14 @@ app.get('/api/zone-analysis', async (req, res) => {
     const currentGW = bs.events.find(e => e.is_current)?.id || 1;
     const selectedGW = parseInt(req.query.gw) || currentGW;
 
-    const cacheKey = `zone-${selectedGW}`;
-    const cached = zoneAnalysisCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < ZONE_ANALYSIS_TTL) {
-      return res.json(cached.data);
+    const cacheKey = `zone:${selectedGW}`;
+
+    // Try Redis first
+    if (redis) {
+      try {
+        const cached = await redis.get(cacheKey);
+        if (cached) return res.json(cached);
+      } catch (e) { /* fall through */ }
     }
 
     // Helper: get team by id
@@ -1284,7 +1337,10 @@ app.get('/api/zone-analysis', async (req, res) => {
       teamAnalysis: Object.values(teamAnalysisMap).sort((a, b) => b.totalXG - a.totalXG),
       zoneLabels: ZONE_LABELS
     };
-    zoneAnalysisCache.set(cacheKey, { data: responseData, timestamp: Date.now() });
+    // Cache in Redis
+    if (redis) {
+      try { await redis.setex(cacheKey, ZONE_ANALYSIS_TTL, responseData); } catch (e) { /* ignore */ }
+    }
     res.json(responseData);
   } catch (e) {
     console.error('Zone analysis error:', e.message);

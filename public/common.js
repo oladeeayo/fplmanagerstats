@@ -1752,12 +1752,10 @@ const FPL = {
 
     playerPhotoMarkup(player, alt = 'FPL player', className = '', style = '', alwaysShow = false) {
         const src = this.playerPhotoUrl(player, '110x140', alwaysShow);
-        const team = this.playerTeamShort(player);
-        const initials = this.playerInitials(player);
         const shirt = this.playerTeamShirtUrl(player);
         const image = src ? `<img${className ? ` class="${className}"` : ''} src="${src}" alt="${this.escapeHTML(alt)}" onerror="FPL.handlePlayerPhotoError(this)" style="${style}">` : '';
-        const shirtImage = shirt ? `<img class="player-current-shirt" src="${shirt}" alt="" onerror="this.style.display='none'">` : '';
-        return `${image}<span class="player-photo-fallback" data-player-fallback aria-hidden="true">${shirtImage}<strong>${this.escapeHTML(initials)}</strong><small>${this.escapeHTML(team)}</small></span>`;
+        const shirtImage = shirt ? `<img class="player-current-shirt" src="${shirt}" alt="" onerror="this.style.display='none'" style="width:80%;height:80%;object-fit:contain;">` : '';
+        return `${image}<span class="player-photo-fallback" data-player-fallback aria-hidden="true">${shirtImage}</span>`;
     },
 
     handlePlayerPhotoError(image) {
@@ -2162,17 +2160,21 @@ const FPL = {
         const selectedExists = fixtures.some(match => String(match.fixture.id) === String(this.state.selectedFixtureId));
         if (!selectedExists) this.state.selectedFixtureId = fixtures[0].fixture.id;
         const e = value => this.escapeHTML(value);
+        const fdrColor = fdr => fdr <= 2 ? '#00ff85' : fdr <= 3 ? '#f9d243' : '#ff5c72';
         list.innerHTML = fixtures.map(match => {
             const fixture = match.fixture;
             const selected = String(fixture.id) === String(this.state.selectedFixtureId);
             const score = fixture.finished ? `${fixture.team_h_score ?? '-'} - ${fixture.team_a_score ?? '-'}` : 'vs';
+            const homeLogo = this.getTeamLogo(fixture.homeTeam);
+            const awayLogo = this.getTeamLogo(fixture.awayTeam);
             return `<button type="button" class="tactics-fixture-card${selected ? ' is-selected' : ''}" role="option" aria-selected="${selected}" onclick="FPL.selectTacticsFixture('${e(fixture.id)}')">
                 <span class="tactics-fixture-time">${e(this.formatTacticsKickoff(fixture.kickoff))}</span>
                 <span class="tactics-fixture-teams">
-                    <span class="tactics-fixture-team"><b>${e(fixture.homeTeam)}</b></span>
+                    <span class="tactics-fixture-team">${homeLogo ? `<img src="${homeLogo}" style="width:18px;height:18px;object-fit:contain;">` : ''}<b>${e(fixture.homeTeam)}</b></span>
                     <strong>${e(score)}</strong>
-                    <span class="tactics-fixture-team is-away"><b>${e(fixture.awayTeam)}</b></span>
+                    <span class="tactics-fixture-team is-away"><b>${e(fixture.awayTeam)}</b>${awayLogo ? `<img src="${awayLogo}" style="width:18px;height:18px;object-fit:contain;">` : ''}</span>
                 </span>
+                <span class="tactics-fixture-fdr"><span style="color:${fdrColor(fixture.homeFDR)}">${fixture.homeFDR}</span> · <span style="color:${fdrColor(fixture.awayFDR)}">${fixture.awayFDR}</span></span>
             </button>`;
         }).join('');
         this.renderSelectedTacticsMatch();
