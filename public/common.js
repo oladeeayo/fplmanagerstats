@@ -26,6 +26,26 @@ const FPL = {
         theme: 'dark'
     },
 
+    // Client-side tab data cache (avoids re-fetching when switching tabs)
+    _tabCache: new Map(),
+    _tabCacheTTL: 2 * 60 * 1000, // 2 minutes
+
+    getCachedTabData(key) {
+        const cached = this._tabCache.get(key);
+        if (cached && Date.now() - cached.ts < this._tabCacheTTL) return cached.data;
+        this._tabCache.delete(key);
+        return null;
+    },
+
+    setCachedTabData(key, data) {
+        this._tabCache.set(key, { data, ts: Date.now() });
+    },
+
+    invalidateTabCache(key) {
+        if (key) this._tabCache.delete(key);
+        else this._tabCache.clear();
+    },
+
     API: {
         bootstrap: '/api/bootstrap-static',
         fixtures: '/api/fixtures',
@@ -152,7 +172,12 @@ const FPL = {
 
     async loadManagerData(managerId) {
         try {
-            const data = await this.apiFetch(this.API.analyzeManager(managerId));
+            const cacheKey = `manager-${managerId}`;
+            let data = this.getCachedTabData(cacheKey);
+            if (!data) {
+                data = await this.apiFetch(this.API.analyzeManager(managerId));
+                this.setCachedTabData(cacheKey, data);
+            }
             this.state.managerData = data;
             this.state.managerId = managerId;
             localStorage.setItem('fplManagerId', managerId);
@@ -446,7 +471,11 @@ const FPL = {
     // ==================== RENDER: DASHBOARD (GENERAL) ====================
     async renderGeneral() {
         try {
-            const data = await this.apiFetch('/api/dashboard/overview');
+            let data = this.getCachedTabData('dashboard');
+            if (!data) {
+                data = await this.apiFetch('/api/dashboard/overview');
+                this.setCachedTabData('dashboard', data);
+            }
             this.state.dashboardData = data;
 
             const gwNumEl = document.getElementById('dash-gw-num');
@@ -1193,7 +1222,12 @@ const FPL = {
         if (!tbody) return;
 
         try {
-            const data = await this.apiFetch(`/api/leagues-classic/${leagueId}/standings?page=${page}`);
+            const cacheKey = `league-${leagueId}-${page}`;
+            let data = this.getCachedTabData(cacheKey);
+            if (!data) {
+                data = await this.apiFetch(`/api/leagues-classic/${leagueId}/standings?page=${page}`);
+                this.setCachedTabData(cacheKey, data);
+            }
             this.state.standingsData = data;
 
             // Bento Grid Card 1: League Name & ID
@@ -1592,7 +1626,12 @@ const FPL = {
         if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="captaincy-loading">Recalculating captaincy picks...</td></tr>';
         try {
             const requestedGW = this.state.captainGW || '';
-            const data = await this.apiFetch(this.API.captainPicks(requestedGW));
+            const cacheKey = `captain-${requestedGW}`;
+            let data = this.getCachedTabData(cacheKey);
+            if (!data) {
+                data = await this.apiFetch(this.API.captainPicks(requestedGW));
+                this.setCachedTabData(cacheKey, data);
+            }
             this.state.captainPicks = data;
             this.state.captainGW = data.gameweek;
 
@@ -1732,7 +1771,11 @@ const FPL = {
     // ==================== RENDER: OWNERSHIP TRENDS ====================
     async renderOwnership() {
         try {
-            const data = await this.apiFetch(this.API.ownershipTrends);
+            let data = this.getCachedTabData('ownership');
+            if (!data) {
+                data = await this.apiFetch(this.API.ownershipTrends);
+                this.setCachedTabData('ownership', data);
+            }
             this.state.ownershipTrends = data;
 
             // Render Bento Grid Cards
@@ -2241,6 +2284,7 @@ const FPL = {
         const newGW = (this.state.selectedGW || this.state.currentGW) + delta;
         if (newGW >= 1 && newGW <= 38) {
             this.state.selectedGW = newGW;
+            this.invalidateTabCache(); // Invalidate all tab caches on GW change
             document.querySelectorAll('#current-gw, #fixture-gw-display, #captain-gw-display, #zones-gw-display').forEach(el => {
                 if (el) el.textContent = newGW;
             });
@@ -2854,7 +2898,11 @@ const FPL = {
         if (!tbody) return;
 
         try {
-            const data = await this.apiFetch('/api/set-pieces');
+            let data = this.getCachedTabData('setpieces');
+            if (!data) {
+                data = await this.apiFetch('/api/set-pieces');
+                this.setCachedTabData('setpieces', data);
+            }
             if (!data || !data.setPieces) return;
             const sp = data.setPieces;
 
@@ -2876,13 +2924,13 @@ const FPL = {
                     + this.playerPhotoMarkup(p, p.name, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')
                     + '</div>'
                     + '<div style="flex:1;min-width:0;">'
-                    + '<div style="font-size:13px;font-weight:' + (isPrimary ? '700' : '500') + ';color:' + (isPrimary ? '#fff' : '#ccc') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + p.name + '</div>'
+                    + '<div style="font-size:14px;font-weight:' + (isPrimary ? '700' : '500') + ';color:' + (isPrimary ? '#fff' : '#ccc') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + p.name + '</div>'
                     + '<div style="display:flex;align-items:center;gap:6px;margin-top:2px;">'
-                    + '<span style="font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;background:' + posColor + '22;color:' + posColor + ';">' + p.position + '</span>'
-                    + '<span style="font-size:11px;color:#00ff85;font-family:var(--font-mono);font-weight:600;">' + p.costStr + '</span>'
+                    + '<span style="font-size:11px;font-weight:700;padding:1px 5px;border-radius:3px;background:' + posColor + '22;color:' + posColor + ';">' + p.position + '</span>'
+                    + '<span style="font-size:12px;color:#00ff85;font-family:var(--font-mono);font-weight:600;">' + p.costStr + '</span>'
                     + '</div>'
                     + '</div>'
-                    + '<div style="text-align:right;font-family:var(--font-mono);font-size:11px;white-space:nowrap;">'
+                    + '<div style="text-align:right;font-family:var(--font-mono);font-size:12px;white-space:nowrap;">'
                     + '<div style="color:#fff;font-weight:600;">' + p.goals + '<span style="color:#5a7a66;">G</span> ' + p.assists + '<span style="color:#5a7a66;">A</span></div>'
                     + '<div style="color:#5a7a66;margin-top:1px;">' + p.totalPoints + ' pts</div>'
                     + '</div>'

@@ -265,6 +265,18 @@ async function apiGet(url) {
 }
 const upstreamCache = new Map();
 
+// Global player history cache (persists across requests within same function instance)
+const globalPlayerHistoryCache = new Map();
+const PLAYER_HISTORY_TTL = 5 * 60 * 1000; // 5 minutes
+
+async function getGlobalPlayerHistory(playerId) {
+  const cached = globalPlayerHistoryCache.get(playerId);
+  if (cached && Date.now() - cached.timestamp < PLAYER_HISTORY_TTL) return cached.data;
+  const data = (await apiGet(`https://fantasy.premierleague.com/api/element-summary/${playerId}/`)).data;
+  globalPlayerHistoryCache.set(playerId, { data, timestamp: Date.now() });
+  return data;
+}
+
 async function getCachedApiData(url, maxAgeMs = 60 * 1000) {
   const cached = upstreamCache.get(url);
   if (cached?.data && Date.now() - cached.timestamp < maxAgeMs) return cached.data;
@@ -323,8 +335,8 @@ app.post('/api/v1/decision-centre', async (req, res) => {
 
   try {
     const [bootstrap, fixtures, manager, history] = await Promise.all([
-      apiGet('https://fantasy.premierleague.com/api/bootstrap-static/').then(response => response.data),
-      apiGet('https://fantasy.premierleague.com/api/fixtures/').then(response => response.data),
+      getCachedApiData(BOOTSTRAP_URL),
+      getCachedApiData(FIXTURES_URL),
       apiGet(`https://fantasy.premierleague.com/api/entry/${managerId}/`).then(response => response.data),
       apiGet(`https://fantasy.premierleague.com/api/entry/${managerId}/history/`).then(response => response.data),
     ]);
@@ -380,16 +392,10 @@ async function analyzeManager(managerId, playerData, leagueId = 314) {
   const currentPicksResponse = await apiGet(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${currentGameweek}/picks/`);
   const currentPicks = currentPicksResponse.data.picks;
 
-  const playerHistoryCache = {};
-  const getPlayerHistory = async pid => {
-    if (!playerHistoryCache[pid]) playerHistoryCache[pid] = (await apiGet(`https://fantasy.premierleague.com/api/element-summary/${pid}/`)).data;
-    return playerHistoryCache[pid];
-  };
-
   for (const pick of currentPicks) {
     const player = playerData.elements.find(p => p.id === pick.element);
     if (!player) continue;
-    const ph = await getPlayerHistory(player.id);
+    const ph = await getGlobalPlayerHistory(player.id);
     const nextFixtures = (ph.fixtures || []).slice(0, 5).map(f => {
       const isHome = f.is_home;
       const opp = playerData.teams.find(t => t.id === (isHome ? f.team_a : f.team_h));
@@ -410,16 +416,39 @@ async function analyzeManager(managerId, playerData, leagueId = 314) {
     });
   }
 
+  // Fetch all GW picks in parallel batches to avoid N+1 sequential requests
+  const GW_BATCH_SIZE = 5;
+  const gwPickResults = new Array(currentGameweek);
+  for (let i = 0; i < currentGameweek; i += GW_BATCH_SIZE) {
+    const batch = [];
+    for (let j = i; j < Math.min(i + GW_BATCH_SIZE, currentGameweek); j++) {
+      batch.push(
+        apiGet(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${j + 1}/picks/`)
+          .then(pr => { gwPickResults[j] = pr.data; })
+          .catch(() => { gwPickResults[j] = null; })
+      );
+    }
+    await Promise.all(batch);
+  }
+
+  // Pre-fetch player histories in parallel for all unique players across all GWs
+  const allPlayerIds = new Set();
+  for (const picksData of gwPickResults) {
+    if (picksData?.picks) picksData.picks.forEach(p => allPlayerIds.add(p.element));
+  }
+  await Promise.all([...allPlayerIds].map(pid => getGlobalPlayerHistory(pid).catch(() => null)));
+
   for (let gw = 1; gw <= currentGameweek; gw++) {
-    const pr = await apiGet(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${gw}/picks/`);
-    const picksData = pr.data, picks = picksData.picks;
+    const picksData = gwPickResults[gw - 1];
+    if (!picksData) continue;
+    const picks = picksData.picks;
     const isBenchBoost = picksData.active_chip === "bboost", isTripleCaptain = picksData.active_chip === "3xc";
     let gwPoints = 0, gwBenchPoints = 0, captainPick = null, bestPick = null;
 
     for (const pick of picks) {
       const playerId = pick.element, player = playerData.elements.find(p => p.id == playerId);
       if (!player) continue;
-      const ph = await getPlayerHistory(playerId);
+      const ph = await getGlobalPlayerHistory(playerId);
       const gwHistory = (ph.history || []).find(h => h.round === gw);
       const pts = gwHistory ? gwHistory.total_points : 0;
 
@@ -445,7 +474,7 @@ async function analyzeManager(managerId, playerData, leagueId = 314) {
           expectedAssists: player.expected_assists,
           expectedGoalsTotal: player.expected_goals,
           elementId: player.id, code: player.code,
-          nextFixtures: (await getPlayerHistory(playerId)).fixtures?.slice(0, 5).map(f => {
+          nextFixtures: (await getGlobalPlayerHistory(playerId)).fixtures?.slice(0, 5).map(f => {
             const ih = f.is_home;
             const op = playerData.teams.find(t => t.id === (ih ? f.team_a : f.team_h));
             return { opponent: op ? op.short_name : '?', isHome: ih, difficulty: f.difficulty };
@@ -590,7 +619,7 @@ app.get('/api/analyze-manager/:managerId', async (req, res) => {
   const managerId = parsePositiveId(req.params.managerId);
   if (!managerId) return res.status(400).json({ error: 'Invalid manager ID' });
   try {
-    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
+    const bs = await getCachedApiData(BOOTSTRAP_URL);
     const result = await analyzeManager(managerId, bs, 314);
     managerCache[managerId] = result;
     res.json(result);
@@ -602,7 +631,7 @@ app.get('/api/compare-managers/:id1/:id2', async (req, res) => {
   const id2 = parsePositiveId(req.params.id2);
   if (!id1 || !id2) return res.status(400).json({ error: 'Invalid manager ID' });
   try {
-    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
+    const bs = await getCachedApiData(BOOTSTRAP_URL);
     const [m1, m2] = await Promise.all([analyzeManager(id1, bs, 314), analyzeManager(id2, bs, 314)]);
     res.json({ manager1: m1, manager2: m2 });
   } catch (e) { res.status(500).json({ error: 'Failed to compare' }); }
@@ -610,7 +639,7 @@ app.get('/api/compare-managers/:id1/:id2', async (req, res) => {
 
 app.get('/api/price-changes', async (req, res) => {
   try {
-    const r = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
+    const r = await getCachedApiData(BOOTSTRAP_URL);
     const map = p => ({ name: p.web_name, team: (r.teams.find(t=>t.id===p.team)||{}).name, photoId: p.code, change: p.cost_change_event, newCost: p.now_cost, selectedBy: p.selected_by_percent, form: p.form, totalPoints: p.total_points });
     const risers = r.elements.filter(p => p.cost_change_event > 0).sort((a,b) => b.cost_change_event-a.cost_change_event).slice(0,15).map(map);
     const fallers = r.elements.filter(p => p.cost_change_event < 0).sort((a,b) => a.cost_change_event-b.cost_change_event).slice(0,15).map(map);
@@ -624,10 +653,10 @@ app.get('/api/league-standings/:leagueId', async (req, res) => {
   try {
     const leagueId = requestedLeagueId;
     const [bs, p1] = await Promise.all([
-      apiGet('https://fantasy.premierleague.com/api/bootstrap-static/'),
+      getCachedApiData(BOOTSTRAP_URL),
       apiGet(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/?page_standings=1&phase=1`)
     ]);
-    const playerData = bs.data;
+    const playerData = bs;
     let standings = p1.data.standings.results || [];
     // Fetch page 2 for top 50
     try {
@@ -707,15 +736,26 @@ app.get('/api/league-standings/:leagueId', async (req, res) => {
 });
 
 // ---- Zone Analysis (Per-GW Match Breakdowns) ----
+const zoneAnalysisCache = new Map();
+const ZONE_ANALYSIS_TTL = 2 * 60 * 1000; // 2 minutes
+
 app.get('/api/zone-analysis', async (req, res) => {
   try {
-    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
-    const fixtures = (await apiGet('https://fantasy.premierleague.com/api/fixtures/')).data;
+    const [bs, fixtures] = await Promise.all([
+      getCachedApiData(BOOTSTRAP_URL),
+      getCachedApiData(FIXTURES_URL)
+    ]);
 
     const teams = bs.teams;
     const elements = bs.elements;
     const currentGW = bs.events.find(e => e.is_current)?.id || 1;
     const selectedGW = parseInt(req.query.gw) || currentGW;
+
+    const cacheKey = `zone-${selectedGW}`;
+    const cached = zoneAnalysisCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < ZONE_ANALYSIS_TTL) {
+      return res.json(cached.data);
+    }
 
     // Helper: get team by id
     const getTeam = id => teams.find(t => t.id === id) || { short_name: '?', name: 'Unknown' };
@@ -1237,13 +1277,15 @@ app.get('/api/zone-analysis', async (req, res) => {
 
     allRecommendations.sort((a, b) => b.strength - a.strength);
 
-    res.json({
+    const responseData = {
       currentGW, selectedGW, nextGWs,
       matchBreakdowns,
       recommendations: allRecommendations.slice(0, 50),
       teamAnalysis: Object.values(teamAnalysisMap).sort((a, b) => b.totalXG - a.totalXG),
       zoneLabels: ZONE_LABELS
-    });
+    };
+    zoneAnalysisCache.set(cacheKey, { data: responseData, timestamp: Date.now() });
+    res.json(responseData);
   } catch (e) {
     console.error('Zone analysis error:', e.message);
     res.status(500).json({ error: 'Failed to perform zone analysis' });
@@ -1253,8 +1295,10 @@ app.get('/api/zone-analysis', async (req, res) => {
 // ---- Fixtures Detail (Next 5 GWs for all teams) ----
 app.get('/api/fixtures-detail', async (req, res) => {
   try {
-    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
-    const fixtures = (await apiGet('https://fantasy.premierleague.com/api/fixtures/')).data;
+    const [bs, fixtures] = await Promise.all([
+      getCachedApiData(BOOTSTRAP_URL),
+      getCachedApiData(FIXTURES_URL)
+    ]);
 
     const teams = bs.teams;
     const elements = bs.elements;
@@ -1332,15 +1376,11 @@ app.get('/api/fixtures-detail', async (req, res) => {
 // ---- Captain Picks ----
 app.get('/api/captain-picks', async (req, res) => {
   try {
-    const [bootstrapResponse, fixturesResponse] = await Promise.all([
-      apiGet('https://fantasy.premierleague.com/api/bootstrap-static/'),
-      apiGet('https://fantasy.premierleague.com/api/fixtures/')
+    const [bootstrap, fixtures] = await Promise.all([
+      getCachedApiData(BOOTSTRAP_URL),
+      getCachedApiData(FIXTURES_URL)
     ]);
-    res.json(buildCaptaincyModel({
-      bootstrap: bootstrapResponse.data,
-      fixtures: fixturesResponse.data,
-      selectedGW: req.query.gw
-    }));
+    res.json(buildCaptaincyModel({ bootstrap, fixtures, selectedGW: req.query.gw }));
   } catch (e) {
     console.error('Captain picks error:', e.message);
     res.status(500).json({ error: 'Failed to calculate captain picks' });
@@ -1408,7 +1448,7 @@ app.post('/api/ownership/snapshot', async (req, res) => {
       });
     }
 
-    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
+    const bs = await getCachedApiData(BOOTSTRAP_URL);
     const players = {};
     bs.elements
       .sort((a, b) => parseFloat(b.selected_by_percent) - parseFloat(a.selected_by_percent))
@@ -1450,7 +1490,7 @@ app.post('/api/ownership/snapshot', async (req, res) => {
 // ---- Ownership Trends Detailed API ----
 app.get('/api/ownership/trends', async (req, res) => {
   try {
-    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
+    const bs = await getCachedApiData(BOOTSTRAP_URL);
     let snapshots = [];
     try {
       snapshots = await sql`SELECT timestamp, players FROM ownership_snapshots ORDER BY timestamp ASC`;
@@ -1598,7 +1638,7 @@ app.get('/api/ownership/trends', async (req, res) => {
 // ---- Price Change Predictor ----
 app.get('/api/price-predictions', async (req, res) => {
   try {
-    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
+    const bs = await getCachedApiData(BOOTSTRAP_URL);
     const elements = bs.elements;
     const teams = bs.teams;
     const getTeam = id => teams.find(t => t.id === id);
@@ -1733,8 +1773,8 @@ app.get('/api/leagues-classic/:leagueId/standings', async (req, res) => {
 // ---- Dashboard Overview ----
 app.get('/api/dashboard/overview', async (req, res) => {
   try {
-    const { data: bs } = await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/');
-    const { data: fixtures } = await apiGet('https://fantasy.premierleague.com/api/fixtures/');
+    const bs = await getCachedApiData(BOOTSTRAP_URL);
+    const fixtures = await getCachedApiData(FIXTURES_URL);
 
     const elements = bs.elements || [];
     const teams = bs.teams || [];
@@ -1913,8 +1953,8 @@ app.get('/api/dashboard/overview', async (req, res) => {
 app.get('/api/tactics/zones', async (req, res) => {
   try {
     const formation = req.query.formation || '4231';
-    const { data: bs } = await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/');
-    const { data: fixtures } = await apiGet('https://fantasy.premierleague.com/api/fixtures/');
+    const bs = await getCachedApiData(BOOTSTRAP_URL);
+    const fixtures = await getCachedApiData(FIXTURES_URL);
     
     const elements = bs.elements || [];
     const teams = bs.teams || [];
@@ -2087,8 +2127,7 @@ app.get('/api/tactics/zones', async (req, res) => {
 // ---- Differential Finder ----
 app.get('/api/differentials', async (req, res) => {
   try {
-    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
-    const fixtures = (await apiGet('https://fantasy.premierleague.com/api/fixtures/')).data;
+    const [bs, fixtures] = await Promise.all([getCachedApiData(BOOTSTRAP_URL), getCachedApiData(FIXTURES_URL)]);
     const elements = bs.elements;
     const teams = bs.teams;
     const currentGW = bs.events.find(e => e.is_current)?.id || 1;
@@ -2156,7 +2195,7 @@ const SET_PIECE_DATA = {
   'AVL': { penalties: ['Buend\u00eda','Watkins'], freeKicks: ['Buend\u00eda'], corners: ['Cash','McGinn'] },
   'BOU': { penalties: ['Kroupi','Kluivert','Tavernier'], freeKicks: ['Tavernier','Kluivert','Brooks','Scott','\u00dcnal'], corners: ['Tavernier','Scott','Kluivert','Brooks','Cook','Christie'] },
   'BRE': { penalties: ['Thiago','Schade','Jensen'], freeKicks: ['Lewis-Potter','Jensen','Damsgaard'], corners: ['Jensen','Damsgaard','Janelt','Dango'] },
-  'BHA': { penalties: ['Gr\u00f8s','O\'Riley'], freeKicks: ['Ayari','Dunk','De Cuyper','Gomez'], corners: ['Gr\u00f8s','Kad\u0131o\u011flu','Minteh','De Cuyper','Ayari'] },
+  'BHA': { penalties: ['Grobb','O\'Riley'], freeKicks: ['Ayari','Dunk','De Cuyper','Gomez'], corners: ['Grobb','Kad\u0131o\u011flu','Minteh','De Cuyper','Ayari'] },
   'CHE': { penalties: ['Palmer','Enzo','Est\u00eav\u00e3o','Delap'], freeKicks: ['James','Enzo','Palmer','Neto'], corners: ['James','Enzo','Neto','Est\u00eav\u00e3o'] },
   'COV': { penalties: ['Wright','Torp','Grimes','Thomas-Asante'], freeKicks: ['Rudoni','Torp'], corners: ['Grimes','Torp','Rudoni'] },
   'CRY': { penalties: ['Mateta','Sarr','Devenny'], freeKicks: ['Yeremy','Devenny'], corners: ['Wharton','Yeremy','Hughes','Kamada'] },
@@ -2213,7 +2252,7 @@ function findPlayer(listName, elements, teamId) {
 
 app.get('/api/set-pieces', async (req, res) => {
   try {
-    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
+    const bs = await getCachedApiData(BOOTSTRAP_URL);
     const elements = bs.elements;
     const teams = bs.teams;
     const getTeam = id => teams.find(t => t.id === id);
@@ -2259,7 +2298,7 @@ app.get('/api/set-pieces', async (req, res) => {
 // ---- Manager ROI ----
 app.get('/api/manager-roi/:managerId', async (req, res) => {
   try {
-    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
+    const bs = await getCachedApiData(BOOTSTRAP_URL);
     const managerData = await analyzeManager(req.params.managerId, bs, 314);
     
     const players = managerData.playerStats || [];
@@ -2307,8 +2346,7 @@ app.get('/api/manager-roi/:managerId', async (req, res) => {
 // ---- Chip Strategy ----
 app.get('/api/chip-strategy', async (req, res) => {
   try {
-    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
-    const fixtures = (await apiGet('https://fantasy.premierleague.com/api/fixtures/')).data;
+    const [bs, fixtures] = await Promise.all([getCachedApiData(BOOTSTRAP_URL), getCachedApiData(FIXTURES_URL)]);
     const elements = bs.elements;
     const teams = bs.teams;
     const currentGW = bs.events.find(e => e.is_current)?.id || 1;
@@ -2384,8 +2422,7 @@ app.get('/api/chip-strategy', async (req, res) => {
 // ---- Expected Points Projections ----
 app.get('/api/xpts-projections', async (req, res) => {
   try {
-    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
-    const fixtures = (await apiGet('https://fantasy.premierleague.com/api/fixtures/')).data;
+    const [bs, fixtures] = await Promise.all([getCachedApiData(BOOTSTRAP_URL), getCachedApiData(FIXTURES_URL)]);
     const elements = bs.elements;
     const teams = bs.teams;
     const currentGW = bs.events.find(e => e.is_current)?.id || 1;
@@ -2494,7 +2531,7 @@ app.get('/api/deadline', async (req, res) => {
 // ---- Injury News ----
 app.get('/api/injury-news', async (req, res) => {
   try {
-    const bs = (await apiGet('https://fantasy.premierleague.com/api/bootstrap-static/')).data;
+    const bs = await getCachedApiData(BOOTSTRAP_URL);
     const elements = bs.elements;
     const teams = bs.teams;
     const getTeam = id => teams.find(t => t.id === id);
