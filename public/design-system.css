@@ -2643,6 +2643,7 @@ select option {
     border: 1px solid #1A3A28;
     border-radius: 12px;
     overflow: hidden;
+    text-align: center;
 }
 .aiteam-hero::before {
     content: "";
@@ -2668,18 +2669,20 @@ select option {
 }
 .aiteam-hero-badge .material-symbols-outlined { font-size: 16px; }
 .aiteam-hero-title {
-    margin: 0;
+    margin: 0 0 8px;
     font: 800 28px var(--font-display);
     color: #fff;
     letter-spacing: -0.02em;
+    text-align: center;
 }
 .aiteam-hero-title span { color: var(--fpl-accent); }
 .aiteam-hero-sub {
-    margin: 6px 0 0;
+    margin: 6px auto 0;
     font-size: 13px;
     color: #8ba396;
     line-height: 1.45;
     max-width: 540px;
+    text-align: center;
 }
 
 .aiteam-controls {
@@ -2719,17 +2722,22 @@ select option {
 }
 .aiteam-control-group input { width: 80px; }
 .aiteam-refresh-btn {
-    display: grid;
-    place-items: center;
-    width: 40px; height: 40px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
     border: 1px solid #294138;
     border-radius: 8px;
     background: #0E1A14;
     color: var(--fpl-accent);
+    font: 700 12px var(--font-mono);
     cursor: pointer;
-    transition: background 0.2s;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
-.aiteam-refresh-btn:hover { background: #1A2E28; }
+.aiteam-refresh-btn:hover { background: #1A2E28; border-color: var(--fpl-accent); }
+.aiteam-refresh-btn .material-symbols-outlined { font-size: 18px; }
 
 .aiteam-loading {
     display: flex;
@@ -2750,9 +2758,11 @@ select option {
 }
 .aiteam-card {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 14px;
-    padding: 16px 18px;
+    text-align: center;
+    gap: 10px;
+    padding: 18px 14px;
     background: #141916;
     border: 1px solid #1A2E28;
     border-radius: 10px;
@@ -2765,7 +2775,7 @@ select option {
     flex-shrink: 0;
 }
 .aiteam-card-icon .material-symbols-outlined { font-size: 22px; }
-.aiteam-card-data { display: flex; flex-direction: column; }
+.aiteam-card-data { display: flex; flex-direction: column; align-items: center; text-align: center; }
 .aiteam-card-value {
     font: 800 20px var(--font-mono);
     color: #fff;
@@ -2777,6 +2787,7 @@ select option {
     color: #8ba396;
     text-transform: uppercase;
     letter-spacing: 0.04em;
+    text-align: center;
 }
 
 /* Section Headers */
