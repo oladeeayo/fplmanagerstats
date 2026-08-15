@@ -1753,8 +1753,8 @@ const FPL = {
     playerPhotoMarkup(player, alt = 'FPL player', className = '', style = '', alwaysShow = false) {
         const src = this.playerPhotoUrl(player, '110x140', alwaysShow);
         const shirt = this.playerTeamShirtUrl(player);
-        const image = src ? `<img${className ? ` class="${className}"` : ''} src="${src}" alt="${this.escapeHTML(alt)}" onerror="FPL.handlePlayerPhotoError(this)" style="${style}">` : '';
-        const shirtImage = shirt ? `<img class="player-current-shirt" src="${shirt}" alt="" onerror="this.style.display='none'" style="width:80%;height:80%;object-fit:contain;">` : '';
+        const image = src ? `<img${className ? ` class="${className}"` : ''} src="${src}" alt="${this.escapeHTML(alt)}" loading="lazy" decoding="async" onerror="FPL.handlePlayerPhotoError(this)" style="${style}">` : '';
+        const shirtImage = shirt ? `<img class="player-current-shirt" src="${shirt}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'" style="width:80%;height:80%;object-fit:contain;">` : '';
         return `${image}<span class="player-photo-fallback" data-player-fallback aria-hidden="true">${shirtImage}</span>`;
     },
 

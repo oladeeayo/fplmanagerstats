@@ -1,5 +1,5 @@
 const Admin = (() => {
-  let isLoggedIn = false;
+  let adminKey = '';
   let currentPeriod = 7;
   let visitorsPage = 1;
   let charts = {};
@@ -35,9 +35,8 @@ const Admin = (() => {
   const COLORS = ['#00ff85', '#37db59', '#ffa600', '#ff4d4d', '#6496ff', '#c084fc', '#f472b6', '#34d399', '#fbbf24', '#60a5fa'];
 
   async function api(path) {
-    const res = await fetch(path, { credentials: 'same-origin' });
+    const res = await fetch(path, { headers: adminKey ? { 'x-admin-key': adminKey } : {} });
     if (!res.ok) {
-      if (res.status === 401) { logout(); throw new Error('Session expired. Please login again.'); }
       let message = `API error: ${res.status}`;
       try { const body = await res.json(); if (body.error) message = body.error; } catch (_) {}
       throw new Error(message);
@@ -223,7 +222,6 @@ const Admin = (() => {
   function showDashboard() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
-    isLoggedIn = true;
     loadAll();
   }
 
@@ -231,28 +229,15 @@ const Admin = (() => {
     const input = document.getElementById('admin-key-input');
     const key = input.value.trim();
     if (!key) return;
-    try {
-      const res = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key }),
-        credentials: 'same-origin'
-      });
-      if (!res.ok) {
-        document.getElementById('login-error').style.display = 'block';
-        return;
-      }
-      document.getElementById('login-error').style.display = 'none';
-      showDashboard();
-    } catch (e) {
-      document.getElementById('login-error').textContent = 'Connection error. Try again.';
-      document.getElementById('login-error').style.display = 'block';
-    }
+    adminKey = key;
+    localStorage.setItem('fpl_admin_key', key);
+    document.getElementById('login-error').style.display = 'none';
+    showDashboard();
   }
 
-  async function logout() {
-    try { await fetch('/api/admin/logout', { method: 'POST', credentials: 'same-origin' }); } catch (_) {}
-    isLoggedIn = false;
+  function logout() {
+    adminKey = '';
+    localStorage.removeItem('fpl_admin_key');
     document.getElementById('dashboard').style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('admin-key-input').value = '';
@@ -268,14 +253,11 @@ const Admin = (() => {
 
   function goPage(p) { visitorsPage = p; loadVisitors(); }
 
-  // Auto-login: try loading dashboard — if session cookie is valid, it will work
-  (async function tryAutoLogin() {
-    try {
-      const res = await fetch('/api/admin/stats', { credentials: 'same-origin' });
-      if (res.ok) { showDashboard(); return; }
-    } catch (_) {}
-    // Not logged in — show login screen
-  })();
+  // Auto-login if key is stored
+  adminKey = localStorage.getItem('fpl_admin_key') || '';
+  if (adminKey) {
+    showDashboard();
+  }
 
   // Enter key login
   document.addEventListener('keydown', e => {

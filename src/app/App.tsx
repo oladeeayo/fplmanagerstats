@@ -47,6 +47,13 @@ export function App() {
     window.FPL.state.activeTab = activeTab;
     if (!ready) return;
     void window.FPL.loadTabData(activeTab);
+
+    document.querySelectorAll<HTMLElement>('.sidebar-nav-item').forEach(el => {
+      el.classList.toggle('active', el.dataset.tab === activeTab);
+    });
+    document.querySelectorAll<HTMLElement>('.bottom-nav-item').forEach(el => {
+      el.classList.toggle('active', el.dataset.tab === activeTab);
+    });
   }, [activeTab, ready]);
 
   return <LegacyDashboard activeTab={activeTab} />;

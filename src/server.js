@@ -33,82 +33,81 @@ async function initDatabase() {
     return;
   }
   try {
-    await sql`
-      CREATE TABLE IF NOT EXISTS ownership_snapshots (
-        id SERIAL PRIMARY KEY,
-        timestamp BIGINT NOT NULL,
-        players JSONB NOT NULL,
-        created_at TIMESTAMP DEFAULT NOW()
-      )
-    `;
-    await sql`CREATE INDEX IF NOT EXISTS idx_ownership_timestamp ON ownership_snapshots(timestamp)`;
+    await Promise.all([
+      sql`
+        CREATE TABLE IF NOT EXISTS ownership_snapshots (
+          id SERIAL PRIMARY KEY,
+          timestamp BIGINT NOT NULL,
+          players JSONB NOT NULL,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `.then(() => sql`CREATE INDEX IF NOT EXISTS idx_ownership_timestamp ON ownership_snapshots(timestamp)`),
 
-    // Analytics tables
-    await sql`
-      CREATE TABLE IF NOT EXISTS admin_page_views (
-        id SERIAL PRIMARY KEY,
-        session_id VARCHAR(64) NOT NULL,
-        path VARCHAR(512) NOT NULL,
-        referrer VARCHAR(1024),
-        ip_hash VARCHAR(128),
-        country VARCHAR(8),
-        city VARCHAR(128),
-        continent VARCHAR(32),
-        device_type VARCHAR(16),
-        browser VARCHAR(64),
-        os VARCHAR(64),
-        os_version VARCHAR(64),
-        status_code INT,
-        response_time_ms INT,
-        created_at TIMESTAMP DEFAULT NOW()
-      )
-    `;
-    await sql`CREATE INDEX IF NOT EXISTS idx_pv_created ON admin_page_views(created_at)`;
-    await sql`CREATE INDEX IF NOT EXISTS idx_pv_session ON admin_page_views(session_id)`;
-    await sql`CREATE INDEX IF NOT EXISTS idx_pv_country ON admin_page_views(country)`;
+      sql`
+        CREATE TABLE IF NOT EXISTS admin_page_views (
+          id SERIAL PRIMARY KEY,
+          session_id VARCHAR(64) NOT NULL,
+          path VARCHAR(512) NOT NULL,
+          referrer VARCHAR(1024),
+          ip_hash VARCHAR(128),
+          country VARCHAR(8),
+          city VARCHAR(128),
+          continent VARCHAR(32),
+          device_type VARCHAR(16),
+          browser VARCHAR(64),
+          os VARCHAR(64),
+          os_version VARCHAR(64),
+          status_code INT,
+          response_time_ms INT,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `.then(() => Promise.all([
+        sql`CREATE INDEX IF NOT EXISTS idx_pv_created ON admin_page_views(created_at)`,
+        sql`CREATE INDEX IF NOT EXISTS idx_pv_session ON admin_page_views(session_id)`,
+        sql`CREATE INDEX IF NOT EXISTS idx_pv_country ON admin_page_views(country)`
+      ])),
 
-    await sql`
-      CREATE TABLE IF NOT EXISTS admin_visitor_sessions (
-        id SERIAL PRIMARY KEY,
-        session_id VARCHAR(64) UNIQUE NOT NULL,
-        ip_hash VARCHAR(128),
-        country VARCHAR(8),
-        city VARCHAR(128),
-        continent VARCHAR(32),
-        device_type VARCHAR(16),
-        browser VARCHAR(64),
-        os VARCHAR(64),
-        os_version VARCHAR(64),
-        first_page VARCHAR(512),
-        last_page VARCHAR(512),
-        page_count INT DEFAULT 1,
-        is_returning BOOLEAN DEFAULT FALSE,
-        created_at TIMESTAMP DEFAULT NOW(),
-        last_active_at TIMESTAMP DEFAULT NOW()
-      )
-    `;
-    await sql`CREATE INDEX IF NOT EXISTS idx_vs_created ON admin_visitor_sessions(created_at)`;
-    await sql`CREATE INDEX IF NOT EXISTS idx_vs_country ON admin_visitor_sessions(country)`;
+      sql`
+        CREATE TABLE IF NOT EXISTS admin_visitor_sessions (
+          id SERIAL PRIMARY KEY,
+          session_id VARCHAR(64) UNIQUE NOT NULL,
+          ip_hash VARCHAR(128),
+          country VARCHAR(8),
+          city VARCHAR(128),
+          continent VARCHAR(32),
+          device_type VARCHAR(16),
+          browser VARCHAR(64),
+          os VARCHAR(64),
+          os_version VARCHAR(64),
+          first_page VARCHAR(512),
+          last_page VARCHAR(512),
+          page_count INT DEFAULT 1,
+          is_returning BOOLEAN DEFAULT FALSE,
+          created_at TIMESTAMP DEFAULT NOW(),
+          last_active_at TIMESTAMP DEFAULT NOW()
+        )
+      `.then(() => Promise.all([
+        sql`CREATE INDEX IF NOT EXISTS idx_vs_created ON admin_visitor_sessions(created_at)`,
+        sql`CREATE INDEX IF NOT EXISTS idx_vs_country ON admin_visitor_sessions(country)`,
+        sql`ALTER TABLE admin_visitor_sessions ADD COLUMN IF NOT EXISTS last_referrer VARCHAR(1024)`,
+        sql`ALTER TABLE admin_visitor_sessions ADD COLUMN IF NOT EXISTS device_fingerprint VARCHAR(64)`,
+        sql`ALTER TABLE admin_visitor_sessions ADD COLUMN IF NOT EXISTS visit_count INT DEFAULT 1`,
+        sql`ALTER TABLE admin_visitor_sessions ADD COLUMN IF NOT EXISTS unique_visit_days INT DEFAULT 1`
+      ])),
 
-    // Migration: add new columns if missing
-    await sql`ALTER TABLE admin_visitor_sessions ADD COLUMN IF NOT EXISTS last_referrer VARCHAR(1024)`;
-    await sql`ALTER TABLE admin_visitor_sessions ADD COLUMN IF NOT EXISTS device_fingerprint VARCHAR(64)`;
-    await sql`ALTER TABLE admin_visitor_sessions ADD COLUMN IF NOT EXISTS visit_count INT DEFAULT 1`;
-    await sql`ALTER TABLE admin_visitor_sessions ADD COLUMN IF NOT EXISTS unique_visit_days INT DEFAULT 1`;
-
-    await sql`
-      CREATE TABLE IF NOT EXISTS admin_daily_stats (
-        id SERIAL PRIMARY KEY,
-        date DATE UNIQUE NOT NULL,
-        unique_visitors INT DEFAULT 0,
-        page_views INT DEFAULT 0,
-        top_country VARCHAR(8),
-        top_page VARCHAR(512),
-        avg_response_time_ms INT DEFAULT 0,
-        created_at TIMESTAMP DEFAULT NOW()
-      )
-    `;
-    await sql`CREATE INDEX IF NOT EXISTS idx_ds_date ON admin_daily_stats(date)`;
+      sql`
+        CREATE TABLE IF NOT EXISTS admin_daily_stats (
+          id SERIAL PRIMARY KEY,
+          date DATE UNIQUE NOT NULL,
+          unique_visitors INT DEFAULT 0,
+          page_views INT DEFAULT 0,
+          top_country VARCHAR(8),
+          top_page VARCHAR(512),
+          avg_response_time_ms INT DEFAULT 0,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `.then(() => sql`CREATE INDEX IF NOT EXISTS idx_ds_date ON admin_daily_stats(date)`)
+    ]);
 
     console.log('Database initialized successfully');
   } catch (e) {
@@ -2881,41 +2880,12 @@ app.get('/api/match-analysis', async (req, res) => {
 // ---- Admin Analytics API ----
 const ADMIN_KEY = process.env.ADMIN_KEY;
 
-// Admin session store (in-memory, survives server restarts clear)
-const adminSessions = new Map(); // token -> { createdAt, expiresAt }
-const ADMIN_SESSION_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
-
-function createAdminSession() {
-  const token = crypto.randomBytes(32).toString('hex');
-  adminSessions.set(token, { createdAt: Date.now(), expiresAt: Date.now() + ADMIN_SESSION_TTL });
-  return token;
-}
-
-function isValidAdminSession(token) {
-  if (!token) return false;
-  const session = adminSessions.get(token);
-  if (!session) return false;
-  if (Date.now() > session.expiresAt) { adminSessions.delete(token); return false; }
-  return true;
-}
-
 function requireAdmin(req, res) {
   if (!ADMIN_KEY) {
     res.status(503).json({ error: 'Admin analytics are not configured' });
     return false;
   }
   if (!sql) return requireDatabase(req, res);
-
-  // Check session token first (from cookie)
-  const cookies = String(req.headers.cookie || '').split(';').reduce((all, part) => {
-    const separator = part.indexOf('=');
-    if (separator > 0) all[part.slice(0, separator).trim()] = part.slice(separator + 1).trim();
-    return all;
-  }, {});
-  const sessionToken = cookies.fpl_admin_session;
-  if (isValidAdminSession(sessionToken)) return true;
-
-  // Fallback: check x-admin-key header
   const key = req.headers['x-admin-key'];
   const supplied = typeof key === 'string' ? Buffer.from(key) : Buffer.alloc(0);
   const expected = Buffer.from(ADMIN_KEY);
@@ -2925,33 +2895,6 @@ function requireAdmin(req, res) {
   }
   return true;
 }
-
-// Admin login endpoint
-app.post('/api/admin/login', (req, res) => {
-  if (!ADMIN_KEY) return res.status(503).json({ error: 'Admin not configured' });
-  const { key } = req.body || {};
-  const supplied = typeof key === 'string' ? Buffer.from(key) : Buffer.alloc(0);
-  const expected = Buffer.from(ADMIN_KEY);
-  if (supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) {
-    return res.status(401).json({ error: 'Invalid key' });
-  }
-  const token = createAdminSession();
-  res.setHeader('Set-Cookie', `fpl_admin_session=${token}; Max-Age=${Math.floor(ADMIN_SESSION_TTL / 1000)}; Path=/; SameSite=Lax; HttpOnly`);
-  res.json({ ok: true });
-});
-
-// Admin logout endpoint
-app.post('/api/admin/logout', (req, res) => {
-  const cookies = String(req.headers.cookie || '').split(';').reduce((all, part) => {
-    const separator = part.indexOf('=');
-    if (separator > 0) all[part.slice(0, separator).trim()] = part.slice(separator + 1).trim();
-    return all;
-  }, {});
-  const sessionToken = cookies.fpl_admin_session;
-  if (sessionToken) adminSessions.delete(sessionToken);
-  res.setHeader('Set-Cookie', 'fpl_admin_session=; Max-Age=0; Path=/; SameSite=Lax; HttpOnly');
-  res.json({ ok: true });
-});
 
 app.get('/api/admin/stats', async (req, res) => {
   if (!requireAdmin(req, res)) return;
