@@ -595,83 +595,62 @@ const FPL = {
                 <div style="font-size:13px;color:#00FF85;font-weight:600;margin-top:4px;">${(cap.weekly?.[0]?.xPts || 0).toFixed(1)} xPts (GW) \u00B7 ${cap.totalXpts?.toFixed(1)} xPts (Horizon)</div>`;
         }
 
-        // --- Pitch (Jersey-style display) ---
+        // --- Pitch (Tactics-style with club shirts) ---
         const pitchEl = document.getElementById('aiteam-pitch');
         if (pitchEl) {
-            const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
-            const posBgs = { GKP: 'linear-gradient(180deg, #FFD700 0%, #B8860B 100%)', DEF: 'linear-gradient(180deg, #4FC3F7 0%, #0288D1 100%)', MID: 'linear-gradient(180deg, #81C784 0%, #388E3C 100%)', FWD: 'linear-gradient(180deg, #E57373 0%, #C62828 100%)' };
             const formationParts = (formation || '4-4-2').split('-').map(Number);
             const numDEF = formationParts[0] || 4;
             const numMID = formationParts[1] || 4;
             const numFWD = formationParts[2] || 2;
 
-            function spreadPositions(count, baseTop, baseLefts) {
-                if (count === baseLefts.length) return baseLefts.map(l => ({ top: baseTop, left: l + '%' }));
-                if (count < baseLefts.length) return baseLefts.slice(0, count).map(l => ({ top: baseTop, left: l + '%' }));
-                const spread = [];
-                const usable = 80;
-                const step = usable / (count + 1);
-                for (let i = 0; i < count; i++) spread.push({ top: baseTop, left: (10 + step * (i + 1)).toFixed(1) + '%' });
-                return spread;
-            }
-
-            const defPos = spreadPositions(numDEF, '70%', [15, 33, 50, 67, 85]);
-            const midPos = spreadPositions(numMID, '48%', [8, 28, 50, 72, 92]);
-            const fwdPos = spreadPositions(numFWD, '26%', [35, 65]);
-            const positions = { GKP: [{ top: '88%', left: '50%' }], DEF: defPos, MID: midPos, FWD: fwdPos };
+            // Group starters by position
+            const gkps = lineup.starters.filter(p => p.position === 'GKP');
+            const defs = lineup.starters.filter(p => p.position === 'DEF');
+            const mids = lineup.starters.filter(p => p.position === 'MID');
+            const fwds = lineup.starters.filter(p => p.position === 'FWD');
 
             const isCaptain = (p) => lineup.captain && p.id === lineup.captain.id;
             const isVice = (p) => lineup.viceCaptain && p.id === lineup.viceCaptain.id;
 
-            let html = '<div class="aiteam-pitch-inner">';
-            // Pitch lines
-            html += '<div class="aiteam-pitch-lines">';
-            html += '<div style="position:absolute;top:50%;left:0;right:0;height:1px;background:rgba(255,255,255,0.12);"></div>';
-            html += '<div style="position:absolute;top:50%;left:50%;width:50px;height:50px;border:1px solid rgba(255,255,255,0.12);border-radius:50%;transform:translate(-50%,-50%);"></div>';
-            html += '<div style="position:absolute;top:12%;left:10%;right:10%;bottom:12%;border:1px solid rgba(255,255,255,0.08);border-radius:4px;"></div>';
-            html += '</div>';
+            function shirtUrl(player) {
+                const code = player.teamCode || 0;
+                return code > 0 ? `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${code}-110.webp` : '';
+            }
 
-            const startersSorted = [...lineup.starters].sort((a, b) => {
-                const order = { GKP: 0, DEF: 1, MID: 2, FWD: 3 };
-                return (order[a.position] || 0) - (order[b.position] || 0);
-            });
-            const pIdx = { GKP: 0, DEF: 0, MID: 0, FWD: 0 };
-            startersSorted.forEach(p => {
-                const idx = pIdx[p.position]++;
-                const slot = positions[p.position]?.[idx];
-                if (!slot) return;
-                const color = posColors[p.position];
-                const cap = isCaptain(p);
-                const vice = isVice(p);
-                const gwXPts = (p.weekly?.[0]?.xPts || 0).toFixed(1);
-                const clubName = p.teamFull || p.team;
-                html += `<div class="aiteam-player-node" style="left:${slot.left};top:${slot.top};">
-                    <div class="aiteam-node-shirt" style="background:${posBgs[p.position]};${cap ? 'box-shadow:0 0 16px rgba(255,215,0,0.4);border:2px solid #FFD700;' : vice ? 'border:2px solid rgba(255,255,255,0.4);' : 'border:2px solid rgba(255,255,255,0.15);'}">
-                        <div style="font:800 10px var(--font-mono);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.5);">${p.position}</div>
-                    </div>
-                    <div class="aiteam-node-info">
-                        <div class="aiteam-node-name" style="${cap ? 'color:#FFD700;font-weight:800;' : vice ? 'color:rgba(255,255,255,0.9);' : ''}">${p.name}${cap ? ' (C)' : vice ? ' (V)' : ''}</div>
-                        <div class="aiteam-node-club">${clubName}</div>
-                        <div class="aiteam-node-xpts" style="color:${color};">${gwXPts} xPts</div>
-                    </div>
+            function playerCard(player) {
+                const shirt = shirtUrl(player);
+                const cap = isCaptain(player);
+                const vice = isVice(player);
+                const gwXPts = (player.weekly?.[0]?.xPts || 0).toFixed(1);
+                const badge = cap ? ' (C)' : vice ? ' (V)' : '';
+                const borderStyle = cap ? 'border:2px solid #FFD700;box-shadow:0 0 12px rgba(255,215,0,0.4);' : vice ? 'border:2px solid rgba(255,255,255,0.5);' : 'border:1px solid rgba(255,255,255,0.28);';
+                return `<div class="tactics-player-card home" style="${borderStyle}min-width:80px;max-width:90px;" title="${player.name}${badge} - ${gwXPts} xPts">
+                    <div class="tactics-player-shirt">${shirt ? `<img src="${shirt}" alt="" onerror="this.style.display='none'">` : ''}</div>
+                    <div class="tactics-player-copy"><b style="${cap ? 'color:#FFD700;' : ''}">${player.name}${badge}</b></div>
+                    <div style="font:700 10px var(--font-mono);color:#00FF85;">${gwXPts} xPts</div>
                 </div>`;
-            });
-            html += '</div>';
+            }
+
+            // Build pitch rows
+            const rows = [];
+            rows.push(`<div class="tactics-pitch-row">${gkps.map(p => playerCard(p)).join('')}</div>`);
+            rows.push(`<div class="tactics-pitch-row">${defs.map(p => playerCard(p)).join('')}</div>`);
+            rows.push(`<div class="tactics-pitch-row">${mids.map(p => playerCard(p)).join('')}</div>`);
+            rows.push(`<div class="tactics-pitch-row">${fwds.map(p => playerCard(p)).join('')}</div>`);
+
+            let html = `<div class="tactics-pitch" style="min-height:420px;">${rows.join('')}</div>`;
 
             // Bench
             html += '<div class="aiteam-bench"><div class="aiteam-bench-label"><span class="material-symbols-outlined">event_seat</span> BENCH</div><div class="aiteam-bench-players">';
             lineup.bench.forEach(p => {
-                const color = posColors[p.position];
+                const shirt = shirtUrl(p);
                 const gwXPts = (p.weekly?.[0]?.xPts || 0).toFixed(1);
-                const clubName = p.teamFull || p.team;
                 html += `<div class="aiteam-bench-slot">
-                    <div class="aiteam-bench-shirt" style="background:${posBgs[p.position]};">
-                        <div style="font:800 9px var(--font-mono);color:#fff;">${p.position.charAt(0)}</div>
-                    </div>
+                    <div class="aiteam-bench-shirt-img" style="width:32px;height:36px;overflow:hidden;flex-shrink:0;">${shirt ? `<img src="${shirt}" alt="" style="width:100%;height:100%;object-fit:contain;" onerror="this.style.display='none'">` : ''}</div>
                     <div class="aiteam-bench-info">
                         <div class="aiteam-bench-name">${p.name}</div>
-                        <div class="aiteam-bench-club">${clubName}</div>
-                        <div class="aiteam-bench-xpts" style="color:${color};">${gwXPts} xPts \u00B7 \u00A3${p.cost?.toFixed(1)}m</div>
+                        <div class="aiteam-bench-club">${p.teamFull || p.team}</div>
+                        <div class="aiteam-bench-xpts" style="color:#00FF85;">${gwXPts} xPts \u00B7 \u00A3${p.cost?.toFixed(1)}m</div>
                     </div>
                 </div>`;
             });

@@ -583,6 +583,24 @@ app.post('/api/ai-team', async (req, res) => {
       // Goal involvement threat for attackers
       const xGI90 = Number(raw.expected_goal_involvements_per_90) || 0;
 
+      // Bonus point potential: bonus pts earned per 90 mins
+      const bonusPer90 = Number(raw.bonus) > 0 && Number(raw.minutes) > 0
+        ? (Number(raw.bonus) * 90) / Number(raw.minutes)
+        : 0;
+
+      // DEFCON: clean sheet probability for defenders/GK
+      const cleanSheets = Number(raw.clean_sheets) || 0;
+      const csPerGame = gamesPlayed > 0 ? cleanSheets / gamesPlayed : 0;
+
+      // Set piece taker bonus
+      const isPenaltyTaker = Number(raw.penalties_order) === 1;
+      const isFKTaker = Number(raw.direct_freekicks_order) === 1;
+      const isCornerTaker = Number(raw.corners_and_indirect_freekicks_order) === 1;
+      const setPieceBonus = (isPenaltyTaker ? 0.35 : 0) + (isFKTaker ? 0.15 : 0) + (isCornerTaker ? 0.1 : 0);
+
+      // ICT index threat (influence, creativity, threat combined)
+      const ictIndex = Number(raw.ict_index) || 0;
+
       return {
         ...p,
         availability: Math.round(enhancedAvailability),
@@ -591,8 +609,16 @@ app.post('/api/ai-team', async (req, res) => {
         formBoost,
         minutesReliability,
         xGI90,
+        bonusPer90,
+        csPerGame,
+        setPieceBonus,
+        ictIndex,
+        isPenaltyTaker,
+        isFKTaker,
+        isCornerTaker,
         enhancedCost: Number(raw.now_cost) / 10,
         teamFull: teamsById.get(p.teamId)?.name || p.team,
+        teamCode: teamsById.get(p.teamId)?.code || 0,
       };
     });
 
@@ -613,10 +639,19 @@ app.post('/api/ai-team', async (req, res) => {
       const form = player.formBoost || 0;
       const own = player.ownership || 0;
 
-      if (strat === 'protect') return base * 0.85 + Math.min(own, 50) * 0.04 + avail * 2 + mins * 3;
-      if (strat === 'chase') return base * 0.8 + (100 - Math.min(own, 80)) * 0.02 + (player.range?.high || base) * 0.15 + form;
-      // Balanced: weighted mix favouring value and reliability
-      return base * 0.7 + xPtsPerM * 0.15 + avail * 1.5 + mins * 2 + form;
+      // Bonus/DEFCON simulation: players who earn bonus and clean sheets are more valuable
+      const bonusBoost = (player.bonusPer90 || 0) * 1.8;
+      const csBoost = (player.csPerGame || 0) * (player.position === 'GKP' || player.position === 'DEF' ? 2.5 : 0.3);
+      const setPieceBoost = (player.setPieceBonus || 0) * 1.2;
+      const ictBoost = Math.min((player.ictIndex || 0) / 300, 0.5);
+
+      // Captain potential: players with high xPts AND bonus/ICT get captaincy consideration
+      const captainBonus = (bonusBoost + setPieceBoost + ictBoost) * 0.3;
+
+      if (strat === 'protect') return base * 0.85 + Math.min(own, 50) * 0.04 + avail * 2 + mins * 3 + bonusBoost + csBoost;
+      if (strat === 'chase') return base * 0.8 + (100 - Math.min(own, 80)) * 0.02 + (player.range?.high || base) * 0.15 + form + bonusBoost + captainBonus;
+      // Balanced: weighted mix favouring value, reliability, and bonus/DEFCON upside
+      return base * 0.65 + xPtsPerM * 0.12 + avail * 1.2 + mins * 1.8 + form + bonusBoost * 0.8 + csBoost * 0.6 + setPieceBoost * 0.5 + captainBonus;
     }
 
     // Greedy squad builder with backtracking for budget optimization
@@ -772,14 +807,27 @@ app.post('/api/ai-team', async (req, res) => {
     ].filter(Boolean);
 
     const bench = selected.filter(p => !starters.some(s => s.id === p.id));
-    const captainPool = starters.filter(p => p.position !== 'GKP').sort((a, b) => (b.weekly?.[0]?.xPts || 0) - (a.weekly?.[0]?.xPts || 0));
+
+    // Captain selection: pick the non-GKP starter with highest xPts + bonus/ICT upside
+    const captainPool = starters.filter(p => p.position !== 'GKP').sort((a, b) => {
+      const aScore = (a.weekly?.[0]?.xPts || 0) + (a.bonusPer90 || 0) * 0.5 + (a.setPieceBonus || 0) * 0.3 + (a.ictIndex || 0) / 500;
+      const bScore = (b.weekly?.[0]?.xPts || 0) + (b.bonusPer90 || 0) * 0.5 + (b.setPieceBonus || 0) * 0.3 + (b.ictIndex || 0) / 500;
+      return bScore - aScore;
+    });
     const captain = captainPool[0] || starters[0];
     const viceCaptain = captainPool[1] || starters[1];
-    const expectedPoints = starters.reduce((s, p) => s + (p.weekly?.[0]?.xPts || 0), 0) + (captain?.weekly?.[0]?.xPts || 0);
+
+    // FPL rule: Captain gets x2 points
+    const captainXPts = captain?.weekly?.[0]?.xPts || 0;
+    const expectedPoints = starters.reduce((s, p) => s + (p.weekly?.[0]?.xPts || 0), 0) + captainXPts;
 
     const formation = `${bestFormation.DEF}-${bestFormation.MID}-${bestFormation.FWD}`;
     const teamCost = selected.reduce((s, p) => s + (p.cost || p.enhancedCost), 0);
-    const teamXpts = selected.reduce((s, p) => s + (p.totalXpts || 0), 0);
+
+    // Team xPts: sum of all players' horizon xPts + captain x2 bonus across horizon
+    const teamXptsRaw = selected.reduce((s, p) => s + (p.totalXpts || 0), 0);
+    const captainHorizonBonus = captain ? captain.weekly?.reduce((s, w) => s + (w.xPts || 0), 0) || 0 : 0;
+    const teamXpts = teamXptsRaw + captainHorizonBonus;
 
     // Chip strategy
     const chipRecommendations = ['Bench Boost', 'Triple Captain', 'Free Hit', 'Wildcard'].map(chip => {
@@ -819,8 +867,8 @@ app.post('/api/ai-team', async (req, res) => {
       lineup: {
         starters: starters.map(p => ({ ...p, isCaptain: captain?.id === p.id, isViceCaptain: viceCaptain?.id === p.id })),
         bench,
-        captain,
-        viceCaptain,
+        captain: captain ? { ...captain, isCaptain: true } : null,
+        viceCaptain: viceCaptain ? { ...viceCaptain, isViceCaptain: true } : null,
         expectedPoints: Math.round(expectedPoints * 10) / 10,
       },
       chips: { recommendations: chipRecommendations },
