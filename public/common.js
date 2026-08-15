@@ -2192,12 +2192,13 @@ const FPL = {
         this.state.selectedFixtureId = match.fixture.id;
         document.getElementById('match-analysis-content')?.style.setProperty('display', 'block');
         document.getElementById('match-empty-state')?.style.setProperty('display', 'none');
+        const awayPanel = document.getElementById('away-picks-panel');
+        if (awayPanel) awayPanel.style.display = '';
         this.renderTacticsMatchHero(match);
         this.renderTacticsFormation(match.home, true);
         this.renderTacticsFormation(match.away, false);
         this.renderTacticsDissection(match);
-        this.renderTacticsTargets(match.home, true);
-        this.renderTacticsTargets(match.away, false);
+        this.renderBestPicks(match);
     },
 
     renderTacticsMatchHero(match) {
@@ -2276,10 +2277,53 @@ const FPL = {
             cleanSheet: `${player.cleanSheets || 0} CS`,
             saves: `${player.saves || 0} saves`,
             defcon: `${player.defensiveContribution || 0} DEFCON`,
-            value: `${player.minutesSecurity || 0}% secure`
-        }[category] || `${player.score || 0} score`);
+            value: `${player.minutesSecurity || 0}% min`
+        }[category] || `${player.score || 0}`);
         panel.innerHTML = `<div class="tactics-target-heading"><div><span class="tactics-kicker">${isHome ? 'HOME TARGETS' : 'AWAY TARGETS'}</span><h2>${e(teamData.teamName)} picks</h2></div><span class="tactics-muted-label">${groups.length} signals</span></div>
-            <div class="tactics-target-groups">${groups.map(group => `<section class="tactics-target-group"><div class="tactics-group-heading"><span class="material-symbols-outlined">${e(group.icon)}</span><b>${e(group.label)}</b></div>${group.picks.map(player => `<article class="tactics-target-player ${accent}"><div class="tactics-target-main">${this.tacticsPlayerCard(player, accent, true)}<strong>${player.score || 0}</strong></div><p>${e(player.reason)}</p><div class="tactics-target-metrics"><span class="is-primary">${e(keyMetric(player, group.key))}</span><span>F ${Number(player.form || 0).toFixed(1)}</span><span>PPG ${Number(player.pointsPerGame || 0).toFixed(1)}</span><span>£${(Number(player.cost || 0) / 10).toFixed(1)}m</span><span>G ${player.goals || 0}</span><span>A ${player.assists || 0}</span><span>B ${player.bonus || 0}</span><span>MIN ${player.minutesSecurity || 0}%</span></div></article>`).join('')}</section>`).join('')}</div>`;
+            <div class="tactics-target-groups">${groups.map(group => `<section class="tactics-target-group"><div class="tactics-group-heading"><span class="material-symbols-outlined">${e(group.icon)}</span><b>${e(group.label)}</b></div>${group.picks.map(player => `<article class="tactics-target-player ${accent}"><div class="tactics-target-main">${this.tacticsPlayerCard(player, accent, true)}<strong>${player.score || 0}</strong></div><p>${e(player.reason)}</p><div class="tactics-target-metrics"><span class="is-primary">${e(keyMetric(player, group.key))}</span><span>F ${Number(player.form || 0).toFixed(1)}</span><span>£${(Number(player.cost || 0) / 10).toFixed(1)}m</span><span>${player.goals || 0}G ${player.assists || 0}A</span></div></article>`).join('')}</section>`).join('')}</div>`;
+    },
+
+    renderBestPicks(match) {
+        const e = value => this.escapeHTML(value);
+        const bestPicks = match.bestPicks || [];
+        const panel = document.getElementById('home-picks-panel');
+        if (!panel) return;
+        if (!bestPicks.length) {
+            panel.innerHTML = '<div class="tactics-inline-empty">No strong picks identified for this fixture.</div>';
+            return;
+        }
+        const fdrColor = fdr => fdr <= 2 ? '#00ff85' : fdr <= 3 ? '#f9d243' : '#ff5c72';
+        panel.innerHTML = `<div class="tactics-target-heading"><div><span class="tactics-kicker">BEST PICKS</span><h2>Top ${bestPicks.length} for this fixture</h2></div><span class="tactics-muted-label">${e(match.fixture.homeTeam)} vs ${e(match.fixture.awayTeam)}</span></div>
+            <div class="tactics-target-groups">${bestPicks.map((player, i) => {
+                const teamBadge = this.getTeamLogo(player.team);
+                const posColor = { FWD: '#FF005A', MID: '#37DB59', DEF: '#6496ff', GKP: '#ffa600' }[player.position] || '#8ba396';
+                return `<section class="tactics-target-group" style="grid-column:span 2;border-top:1px solid var(--md-sys-color-outline-variant);padding-top:12px;">
+                    <article class="tactics-target-player" style="padding:8px 0;">
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;background:rgba(0,255,133,0.1);color:var(--md-sys-color-primary);font-family:var(--font-mono);font-weight:800;font-size:13px;">${i + 1}</span>
+                            ${teamBadge ? `<img src="${teamBadge}" style="width:22px;height:22px;object-fit:contain;">` : ''}
+                            <div style="flex:1;min-width:0;">
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <b style="font-size:13px;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e(player.name)}</b>
+                                    <span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:${posColor}22;color:${posColor};">${e(player.position)}</span>
+                                    <span style="font-family:var(--font-mono);font-size:11px;color:#8ba396;">${e(player.team)}</span>
+                                </div>
+                                <p style="margin:3px 0 0;color:var(--md-sys-color-on-surface-variant);font-size:11px;line-height:1.4;">${e(player.reason)}</p>
+                                <div class="tactics-target-metrics" style="margin-top:4px;">
+                                    <span class="is-primary">${player.score || 0} pts</span>
+                                    <span>F ${Number(player.form || 0).toFixed(1)}</span>
+                                    <span>£${(Number(player.cost || 0) / 10).toFixed(1)}m</span>
+                                    <span>${player.goals || 0}G ${player.assists || 0}A</span>
+                                    <span>${player.minutesSecurity || 0}% min</span>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                </section>`;
+            }).join('')}</div>`;
+        // Hide away panel when showing combined best picks
+        const awayPanel = document.getElementById('away-picks-panel');
+        if (awayPanel) awayPanel.style.display = 'none';
     },
 
     changeGW(delta) {

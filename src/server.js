@@ -1223,6 +1223,19 @@ app.get('/api/zone-analysis', async (req, res) => {
       const homeTargets = buildTargetGroups(fixture.team_h, home, away, homeFDR, true);
       const awayTargets = buildTargetGroups(fixture.team_a, away, home, awayFDR, false);
 
+      // Combined best 4 picks across both teams
+      const allPicks = [...homeTargets, ...awayTargets]
+        .flatMap(g => g.picks.map(p => ({ ...p, sourceGroup: g.key, sourceLabel: g.label, sourceIcon: g.icon })))
+        .sort((a, b) => (b.score || 0) - (a.score || 0));
+      const seen = new Set();
+      const bestPicks = [];
+      for (const pick of allPicks) {
+        if (bestPicks.length >= 4) break;
+        if (seen.has(pick.id)) continue;
+        seen.add(pick.id);
+        bestPicks.push(pick);
+      }
+
       return {
         fixture: {
           id: fixture.id,
@@ -1260,7 +1273,8 @@ app.get('/api/zone-analysis', async (req, res) => {
         },
         homeDefconAdvantage,
         prediction: homeAttackTotal > awayAttackTotal ? home.teamName :
-                    awayAttackTotal > homeAttackTotal ? away.teamName : 'Even'
+                    awayAttackTotal > homeAttackTotal ? away.teamName : 'Even',
+        bestPicks
       };
     }).filter(Boolean);
 
