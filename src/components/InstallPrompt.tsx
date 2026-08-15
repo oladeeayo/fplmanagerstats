@@ -77,6 +77,15 @@ export function InstallPrompt() {
         dismiss();
       }
       setDeferredPrompt(null);
+    } else if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'FPL Manager Stats',
+          text: 'Track. Analyse. Dominate.',
+          url: window.location.href,
+        });
+      } catch {}
+      dismiss();
     } else {
       dismiss();
     }
@@ -98,7 +107,7 @@ export function InstallPrompt() {
 
         {isIOSDevice ? (
           <p className="install-prompt-desc">
-            Tap the <strong>Share</strong> icon below, then <strong>"Add to Home Screen"</strong> — no app store needed.
+            Tap <strong>Got it</strong> to open the share sheet, then select <strong>"Add to Home Screen"</strong>.
           </p>
         ) : (
           <p className="install-prompt-desc">
