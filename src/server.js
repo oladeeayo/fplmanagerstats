@@ -1035,10 +1035,13 @@ app.get('/api/zone-analysis', async (req, res) => {
         const minutesSecurity = (minutesShare * 0.35) + (startShare * 0.65);
         const availability = player.chanceOfPlaying == null ? 1 : player.chanceOfPlaying / 100;
         const readiness = (0.55 + (minutesSecurity * 0.45)) * availability;
+
+        // Per-90 rates
         const goalRate = per90(player.goals, player.minutes);
         const assistRate = per90(player.assists, player.minutes);
         const xg90 = per90(player.expectedGoals, player.minutes);
         const xa90 = per90(player.expectedAssists, player.minutes);
+        const xgi90 = xg90 + xa90;
         const threat90 = per90(player.threat, player.minutes);
         const creativity90 = per90(player.creativity, player.minutes);
         const saves90 = per90(player.saves, player.minutes);
@@ -1050,41 +1053,57 @@ app.get('/api/zone-analysis', async (req, res) => {
         const cleanSheetRate = player.cleanSheets / Math.max(player.starts, 1);
         const zoneBoost = directZoneMatch && player.zone === team.strongestAttack ? 1.12 : 1;
 
-        const goalScore = clampScore((
-          (xg90 * 65) + (goalRate * 35) + (threat90 / 12) +
-          (player.form * 2.0) + (player.pointsPerGame * 1.6)
-        ) * difficultyMod * zoneBoost * readiness);
-        const assistScore = clampScore((
-          (xa90 * 78) + (assistRate * 34) + (creativity90 / 16) +
-          (player.form * 1.8) + (player.pointsPerGame * 1.2)
-        ) * difficultyMod * zoneBoost * readiness);
-        const cleanSheetScore = clampScore((
-          (team.defcon * 0.58) + (cleanSheetRate * 28) +
-          (Math.max(0, 1.8 - opponentAttackPerMatch) * 10)
-        ) * difficultyMod * readiness);
-        const saveScore = clampScore((
-          (saves90 * 12) + (bonusPerStart * 8) +
-          (Math.min(opponentAttackPerMatch, 2.5) * 9) + (minutesSecurity * 12)
-        ) * (0.85 + (difficulty * 0.05)) * availability);
-        const defconScore = clampScore((
-          (defcon90 * 4.5) + (tackles90 * 3) + (cbi90 * 0.65) +
-          (recoveries90 * 0.25) + (bonusPerStart * 5) + (minutesSecurity * 12)
-        ) * readiness);
-        // Combined attacking returns score: xGI weighted heavily + actual returns
-        const attackingReturnScore = clampScore((
-          ((xg90 + xa90) * 50) + (goalRate * 28) + (assistRate * 24) +
-          (threat90 / 15) + (creativity90 / 20) +
-          (player.form * 2.2) + (player.pointsPerGame * 1.5)
-        ) * difficultyMod * zoneBoost * readiness);
-        // Minutes certainty score: heavily weights starts ratio and availability
-        const minutesCertainty = clampScore((
-          (minutesSecurity * 30) + (startShare * 25) +
-          (availability * 20) + (player.form * 5)
-        ) * difficultyMod);
-        // Final composite: attacking returns + minutes certainty
-        const compositeScore = clampScore((attackingReturnScore * 0.65) + (minutesCertainty * 0.35));
-        const baseReturnScore = Math.max(goalScore, assistScore, cleanSheetScore, saveScore, defconScore);
-        const valueScore = clampScore(((baseReturnScore / Math.max(player.nowCost / 10, 4)) * 7) + (minutesSecurity * 24));
+        // Opponent weakness: does this player's zone attack the opponent's weak side?
+        const playerZoneWeak = attackTargetsWeakness(player.zone, opponent.weakestDefence);
+        const weaknessBoost = playerZoneWeak ? 1.10 : 1;
+
+        // === ROUTE 1: Attacking returns (goals + assists) ===
+        const attackPoints = (
+          (xg90 * 5.5) +        // xG -> expected goals -> ~5.5 pts each
+          (xa90 * 4.0) +        // xA -> expected assists -> ~4 pts each
+          (goalRate * 4.8) +    // actual goals weighted
+          (assistRate * 3.5) +  // actual assists weighted
+          (threat90 * 0.3) +    // shot threat as signal
+          (creativity90 * 0.2) + // chance creation as signal
+          (player.form * 0.8) + // recent form
+          (player.pointsPerGame * 0.6) // historical output
+        ) * difficultyMod * zoneBoost * weaknessBoost * readiness;
+
+        // === ROUTE 2: Defensive returns (DEFCON + clean sheets) ===
+        const defensivePoints = (
+          (defcon90 * 2.0) +    // DEFCON points per 90
+          (tackles90 * 0.4) +   // tackles as bonus signal
+          (cbi90 * 0.15) +      // clearances/blocks/interceptions
+          (recoveries90 * 0.1) + // ball recoveries
+          (cleanSheetRate * 4.0) + // clean sheet probability * pts
+          (team.defcon * 0.08) + // team defensive profile
+          (bonusPerStart * 1.5)  // bonus tendency
+        ) * difficultyMod * readiness;
+
+        // === ROUTE 3: GK returns (saves + clean sheets) ===
+        const gkPoints = (
+          (saves90 * 1.0) +     // save points
+          (cleanSheetRate * 4.0) + // clean sheet pts
+          (bonusPerStart * 1.5) + // bonus
+          (Math.min(opponentAttackPerMatch, 2.5) * 1.2) // more shots = more saves
+        ) * (0.85 + (difficulty * 0.05)) * availability;
+
+        // === Composite: best route for this player ===
+        const bestRoute = Math.max(attackPoints, defensivePoints, gkPoints);
+
+        // === Minutes certainty as a final multiplier ===
+        const minutesMultiplier = 0.5 + (minutesSecurity * 0.5); // 0.5 to 1.0
+
+        // === Final expected points ===
+        const expectedPoints = clampScore(bestRoute * minutesMultiplier);
+
+        // Keep individual category scores for the target groups
+        const goalScore = clampScore(attackPoints * 0.8);
+        const assistScore = clampScore(attackPoints * 0.7);
+        const cleanSheetScore = clampScore(defensivePoints * 0.9);
+        const saveScore = clampScore(gkPoints);
+        const defconScore = clampScore(defensivePoints);
+        const valueScore = clampScore(((bestRoute / Math.max(player.nowCost / 10, 4)) * 7) + (minutesSecurity * 24));
 
         return {
           ...player,
@@ -1093,7 +1112,7 @@ app.get('/api/zone-analysis', async (req, res) => {
             xG90: Number(xg90.toFixed(2)), xA90: Number(xa90.toFixed(2)),
             saves90: Number(saves90.toFixed(1)), defcon90: Number(defcon90.toFixed(1))
           },
-          scores: { goals: goalScore, assists: assistScore, cleanSheet: cleanSheetScore, saves: saveScore, defcon: defconScore, value: valueScore, composite: compositeScore }
+          scores: { goals: goalScore, assists: assistScore, cleanSheet: cleanSheetScore, saves: saveScore, defcon: defconScore, value: valueScore, composite: expectedPoints }
         };
       });
 
@@ -1112,7 +1131,7 @@ app.get('/api/zone-analysis', async (req, res) => {
       const ranked = (category, filter, reason) => scored
         .filter(player => player.minutesSecurity >= 65 && filter(player))
         .sort((a, b) => b.scores[category] - a.scores[category] || b.minutesSecurity - a.minutesSecurity)
-        .slice(0, 2)
+        .slice(0, 1)
         .map(player => serialize(player, category, reason(player)));
 
       return [
@@ -1236,11 +1255,18 @@ app.get('/api/zone-analysis', async (req, res) => {
       const homeTargets = buildTargetGroups(fixture.team_h, home, away, homeFDR, true);
       const awayTargets = buildTargetGroups(fixture.team_a, away, home, awayFDR, false);
 
-      // Combined best 4 picks across both teams, ranked by attacking returns + minutes certainty
+      // Combined best 4 picks across both teams, ranked by expected points (holistic model)
       const allPicks = [...homeTargets, ...awayTargets]
         .flatMap(g => g.picks.map(p => ({ ...p, sourceGroup: g.key, sourceLabel: g.label, sourceIcon: g.icon })))
         .filter(p => (p.minutesSecurity || 0) >= 60)
-        .map(p => ({ ...p, score: p.compositeScore || p.score }))
+        .map(p => {
+          // Determine the dominant route for the reason
+          const isAttacking = p.sourceGroup === 'goals' || p.sourceGroup === 'assists';
+          const isDefensive = p.sourceGroup === 'cleanSheet' || p.sourceGroup === 'defcon';
+          const isGK = p.sourceGroup === 'saves';
+          const route = isAttacking ? 'attacking threat' : isDefensive ? 'defensive solidity' : isGK ? 'save potential' : 'overall value';
+          return { ...p, score: p.compositeScore || p.score, reason: `${p.reason} Best route: ${route}.` };
+        })
         .sort((a, b) => (b.score || 0) - (a.score || 0) || (b.minutesSecurity || 0) - (a.minutesSecurity || 0));
       const seen = new Set();
       const bestPicks = [];
