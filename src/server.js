@@ -3,6 +3,7 @@ const path = require('path');
 const axios = require('axios');
 const { neon } = require('@neondatabase/serverless');
 const { buildDecisionCentre } = require('./decisionModel');
+const { buildPlayerProjections, buildCaptaincyModel } = require('./captaincyModel');
 
 // Upstash Redis (optional — falls back to in-memory Map if not configured)
 let redis = null;
@@ -442,6 +443,163 @@ app.post('/api/v1/decision-centre', async (req, res) => {
     console.error('Decision centre error:', error.message);
     const status = error.response?.status === 404 ? 404 : 500;
     res.status(status).json({ error: status === 404 ? 'Manager or rival could not be found' : 'Failed to build the decision centre' });
+  }
+});
+
+// ---- AI Team: Optimal squad for the season ----
+app.post('/api/ai-team', async (req, res) => {
+  const budget = Math.max(80, Math.min(120, Number(req.body?.budget) || 100));
+  const horizon = Math.max(3, Math.min(38, Number(req.body?.horizon) || 5));
+  const strategy = ['balanced', 'protect', 'chase'].includes(req.body?.strategy) ? req.body.strategy : 'balanced';
+
+  try {
+    const [bootstrap, fixtures] = await Promise.all([
+      getCachedApiData(BOOTSTRAP_URL),
+      getCachedApiData(FIXTURES_URL),
+    ]);
+
+    const events = bootstrap.events || [];
+    const currentGW = events.find(e => e.is_current)?.id || null;
+    const nextGW = events.find(e => e.is_next)?.id || currentGW || 1;
+
+    // Build full player projections across the horizon
+    const projectionData = buildPlayerProjections({ bootstrap, fixtures, startGW: nextGW, horizon });
+    const allPlayers = projectionData.projections;
+
+    // Build optimal 15-player squad within budget
+    const POSITION_LIMITS = { GKP: 2, DEF: 5, MID: 5, FWD: 3 };
+    const selected = [];
+    const teamCounts = {};
+    let spent = 0;
+    const minimumCosts = Object.fromEntries(
+      Object.keys(POSITION_LIMITS).map(pos => [pos, Math.min(...allPlayers.filter(p => p.position === pos).map(p => p.cost))])
+    );
+
+    function adjustedScore(player) {
+      if (strategy === 'protect') return player.totalXpts + Math.min(player.ownership, 50) * 0.025 + player.availability * 0.006;
+      if (strategy === 'chase') return player.totalXpts + (100 - Math.min(player.ownership, 80)) * 0.018 + (player.range.high - player.totalXpts) * 0.22;
+      return player.totalXpts + player.xPtsPerMillion * 0.04;
+    }
+
+    for (const [position, count] of Object.entries(POSITION_LIMITS)) {
+      for (let slot = 0; slot < count; slot++) {
+        const remainingMinimum = Object.entries(POSITION_LIMITS).reduce((sum, [pos, limit]) => {
+          const already = selected.filter(p => p.position === pos).length;
+          return sum + Math.max(0, limit - already - (pos === position ? 1 : 0)) * minimumCosts[pos];
+        }, 0);
+        const choice = allPlayers
+          .filter(p => p.position === position && !selected.some(s => s.id === p.id) && (teamCounts[p.teamId] || 0) < 3)
+          .filter(p => p.availability >= 50 && spent + p.cost + remainingMinimum <= budget + 0.001)
+          .sort((a, b) => adjustedScore(b) / Math.max(b.cost, 3.5) - adjustedScore(a) / Math.max(a.cost, 3.5))[0];
+        if (!choice) continue;
+        selected.push(choice);
+        spent += choice.cost;
+        teamCounts[choice.teamId] = (teamCounts[choice.teamId] || 0) + 1;
+      }
+    }
+
+    // Select best XI from the 15
+    const START_MINIMUMS = { GKP: 1, DEF: 3, MID: 2, FWD: 1 };
+    const ranked = [...selected].sort((a, b) => adjustedScore(b) - adjustedScore(a));
+    const starters = [];
+    for (const [pos, min] of Object.entries(START_MINIMUMS)) {
+      starters.push(...ranked.filter(p => p.position === pos).slice(0, min));
+    }
+    ranked.forEach(p => {
+      if (starters.length >= 11 || starters.some(s => s.id === p.id)) return;
+      if (p.position === 'GKP' && starters.some(s => s.position === 'GKP')) return;
+      starters.push(p);
+    });
+    const bench = ranked.filter(p => !starters.some(s => s.id === p.id));
+    const captainPool = starters.filter(p => p.position !== 'GKP').sort((a, b) => b.weekly[0].xPts - a.weekly[0].xPts);
+    const captain = captainPool[0] || starters[0];
+    const viceCaptain = captainPool[1] || starters[1];
+    const expectedPoints = starters.reduce((s, p) => s + p.weekly[0].xPts, 0) + (captain?.weekly[0].xPts || 0);
+
+    // Determine formation
+    const starterPositions = {};
+    starters.forEach(p => { starterPositions[p.position] = (starterPositions[p.position] || 0) + 1; });
+    const formation = `${starterPositions.DEF || 4}-${starterPositions.MID || 4}-${starterPositions.FWD || 2}`;
+
+    // Team cost & xPts
+    const teamCost = selected.reduce((s, p) => s + p.cost, 0);
+    const teamXpts = selected.reduce((s, p) => s + p.totalXpts, 0);
+
+    // Chip strategy
+    const chipData = buildCaptaincyModel({ bootstrap, fixtures, selectedGW: nextGW });
+    const usedChips = [];
+    const chipRecommendations = [
+      { chip: 'Bench Boost', metric: 'benchBoostGain', icon: 'event_seat' },
+      { chip: 'Triple Captain', metric: 'tripleCaptainGain', icon: 'star' },
+      { chip: 'Free Hit', metric: 'freeHitNeed', icon: 'flash_on' },
+      { chip: 'Wildcard', metric: 'wildcardNeed', icon: 'auto_fix_high' },
+    ].map(({ chip }) => {
+      // Simulate chip gains across horizon
+      let bestGW = nextGW;
+      let bestGain = 0;
+      for (let gw = nextGW; gw < nextGW + horizon && gw <= 38; gw++) {
+        let gain = 0;
+        if (chip === 'Bench Boost') {
+          gain = bench.reduce((s, p) => {
+            const w = p.weekly.find(week => week.gameweek === gw);
+            return s + (w?.xPts || 0);
+          }, 0);
+        } else if (chip === 'Triple Captain') {
+          gain = captain ? (captain.weekly.find(w => w.gameweek === gw)?.xPts || 0) : 0;
+        } else if (chip === 'Free Hit') {
+          gain = starters.filter(p => !p.weekly.some(w => w.gameweek === gw && w.fixtures.length > 0)).length * 2;
+        } else {
+          gain = selected.filter(p => p.availability < 75).length * 1.2;
+        }
+        if (gain > bestGain) { bestGain = gain; bestGW = gw; }
+      }
+      return { chip, gameweek: bestGW, expectedGain: Math.round(bestGain * 10) / 10, confidence: bestGain >= 8 ? 'High' : bestGain >= 4 ? 'Medium' : 'Wait' };
+    });
+
+    // Enrich squad with per-GW breakdown
+    const enrichedSquad = selected.map(p => ({
+      ...p,
+      isCaptain: captain && p.id === captain.id,
+      isViceCaptain: viceCaptain && p.id === viceCaptain.id,
+    }));
+
+    const enrichedStarters = starters.map(p => ({
+      ...p,
+      isCaptain: captain && p.id === captain.id,
+      isViceCaptain: viceCaptain && p.id === viceCaptain.id,
+    }));
+
+    const enrichedBench = bench.map(p => ({
+      ...p,
+    }));
+
+    res.json({
+      meta: {
+        modelVersion: 'AI Team Engine 1.0',
+        generatedAt: new Date().toISOString(),
+        strategy,
+        budget,
+        horizon,
+        targetGW: nextGW,
+        currentGW,
+        gameweeks: projectionData.gameweeks,
+      },
+      formation,
+      teamCost: Math.round(teamCost * 10) / 10,
+      teamXpts: Math.round(teamXpts * 10) / 10,
+      squad: enrichedSquad,
+      lineup: {
+        starters: enrichedStarters,
+        bench: enrichedBench,
+        captain,
+        viceCaptain,
+        expectedPoints: Math.round(expectedPoints * 10) / 10,
+      },
+      chips: { recommendations: chipRecommendations },
+    });
+  } catch (error) {
+    console.error('AI Team error:', error.message);
+    res.status(500).json({ error: 'Failed to build AI Team' });
   }
 });
 

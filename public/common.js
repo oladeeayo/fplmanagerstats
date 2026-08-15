@@ -66,7 +66,8 @@ const FPL = {
         deadline: '/api/deadline',
         injuryNews: '/api/injury-news',
         priceChanges: '/api/price-changes',
-        decisionCentre: '/api/v1/decision-centre'
+        decisionCentre: '/api/v1/decision-centre',
+        aiTeam: '/api/ai-team'
     },
 
     async apiFetch(url) {
@@ -423,7 +424,7 @@ const FPL = {
     },
 
     navigateTo(tab) {
-        const validTabs = ['general', 'manager', 'decision', 'league', 'players', 'zones', 'fixtures', 'captain', 'ownership', 'setpieces'];
+        const validTabs = ['general', 'manager', 'decision', 'league', 'players', 'zones', 'fixtures', 'captain', 'ownership', 'setpieces', 'aiteam'];
         if (!validTabs.includes(tab)) tab = 'general';
         this.state.activeTab = tab;
 
@@ -465,6 +466,229 @@ const FPL = {
             case 'manager': this.renderTeamAnalysis(); break;
             case 'decision': this.renderDecisionCentre(); break;
             case 'setpieces': this.renderSetPieces(); break;
+            case 'aiteam': this.renderAITeam(); break;
+        }
+    },
+
+    // ==================== RENDER: AI TEAM ====================
+    async renderAITeam() {
+        const loading = document.getElementById('aiteam-loading');
+        const results = document.getElementById('aiteam-results');
+        loading?.classList.remove('hidden');
+        results?.classList.add('hidden');
+        await this.loadAITeam();
+    },
+
+    async loadAITeam() {
+        const loading = document.getElementById('aiteam-loading');
+        const results = document.getElementById('aiteam-results');
+        loading?.classList.remove('hidden');
+        results?.classList.add('hidden');
+        try {
+            const budget = Number(document.getElementById('aiteam-budget')?.value) || 100;
+            const horizon = Number(document.getElementById('aiteam-horizon')?.value) || 5;
+            const strategy = document.getElementById('aiteam-strategy')?.value || 'balanced';
+            const data = await this.apiPost(this.API.aiTeam, { budget, horizon, strategy });
+            this.state.aiTeamData = data;
+            this.paintAITeam(data);
+            results?.classList.remove('hidden');
+        } catch (error) {
+            console.error('AI Team error:', error);
+            results?.classList.remove('hidden');
+            results.innerHTML = '<div style="text-align:center;padding:60px 20px;color:#8ba396;"><span class="material-symbols-outlined" style="font-size:48px;margin-bottom:12px;display:block;">error</span><div style="font-weight:700;font-size:16px;margin-bottom:4px;">AI Model Unavailable</div><div style="font-size:13px;">' + this.escapeHTML(error.message || 'Try again shortly.') + '</div></div>';
+        } finally {
+            loading?.classList.add('hidden');
+        }
+    },
+
+    paintAITeam(data) {
+        const { squad, lineup, meta, chips, teamCost, teamXpts, formation } = data;
+
+        // --- Summary Cards ---
+        const summaryEl = document.getElementById('aiteam-summary');
+        if (summaryEl) {
+            const nextGWxPts = lineup.starters.reduce((s, p) => s + (p.weekly?.[0]?.xPts || 0), 0) + (lineup.captain?.weekly?.[0]?.xPts || 0);
+            summaryEl.innerHTML = `
+                <div class="aiteam-card">
+                    <div class="aiteam-card-icon" style="background:rgba(0,255,133,0.12);color:#00FF85;"><span class="material-symbols-outlined">payments</span></div>
+                    <div class="aiteam-card-data"><span class="aiteam-card-value">\u00A3${teamCost.toFixed(1)}m</span><span class="aiteam-card-label">Squad Cost</span></div>
+                </div>
+                <div class="aiteam-card">
+                    <div class="aiteam-card-icon" style="background:rgba(79,195,247,0.12);color:#4FC3F7;"><span class="material-symbols-outlined">trending_up</span></div>
+                    <div class="aiteam-card-data"><span class="aiteam-card-value">${nextGWxPts.toFixed(1)}</span><span class="aiteam-card-label">Next GW xPts</span></div>
+                </div>
+                <div class="aiteam-card">
+                    <div class="aiteam-card-icon" style="background:rgba(192,132,252,0.12);color:#c084fc;"><span class="material-symbols-outlined">emoji_events</span></div>
+                    <div class="aiteam-card-data"><span class="aiteam-card-value">${teamXpts.toFixed(1)}</span><span class="aiteam-card-label">Horizon xPts</span></div>
+                </div>
+                <div class="aiteam-card">
+                    <div class="aiteam-card-icon" style="background:rgba(255,167,38,0.12);color:#FFA726;"><span class="material-symbols-outlined">calendar_month</span></div>
+                    <div class="aiteam-card-data"><span class="aiteam-card-value">${meta.horizon} GWs</span><span class="aiteam-card-label">Projection Horizon</span></div>
+                </div>`;
+        }
+
+        // --- Formation Label ---
+        const formLabel = document.getElementById('aiteam-formation-label');
+        if (formLabel) formLabel.textContent = formation || '4-4-2';
+
+        // --- Captain Display ---
+        const captainDisp = document.getElementById('aiteam-captain-display');
+        if (captainDisp && lineup.captain) {
+            const cap = lineup.captain;
+            captainDisp.innerHTML = `
+                <div class="aiteam-captain-badge">
+                    <span class="material-symbols-outlined">star</span>
+                    <span>CAPTAIN</span>
+                </div>
+                <div style="font-weight:700;color:#fff;font-size:14px;">${cap.name} <span style="color:#FFD700;">(C)</span></div>
+                <div style="font-size:12px;color:#8ba396;">${cap.team} \u00B7 ${cap.position} \u00B7 \u00A3${cap.cost?.toFixed(1)}m</div>
+                <div style="font-size:13px;color:#00FF85;font-weight:600;margin-top:4px;">${(cap.weekly?.[0]?.xPts || 0).toFixed(1)} xPts (GW) \u00B7 ${cap.totalXpts?.toFixed(1)} xPts (Horizon)</div>`;
+        }
+
+        // --- Pitch ---
+        const pitchEl = document.getElementById('aiteam-pitch');
+        if (pitchEl) {
+            const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
+            const formationParts = (formation || '4-4-2').split('-').map(Number);
+            const numDEF = formationParts[0] || 4;
+            const numMID = formationParts[1] || 4;
+            const numFWD = formationParts[2] || 2;
+
+            function spreadPositions(count, baseTop, baseLefts) {
+                if (count === baseLefts.length) return baseLefts.map(l => ({ top: baseTop, left: l + '%' }));
+                if (count < baseLefts.length) return baseLefts.slice(0, count).map(l => ({ top: baseTop, left: l + '%' }));
+                const spread = [];
+                const usable = 80;
+                const step = usable / (count + 1);
+                for (let i = 0; i < count; i++) spread.push({ top: baseTop, left: (10 + step * (i + 1)).toFixed(1) + '%' });
+                return spread;
+            }
+
+            const defPos = spreadPositions(numDEF, '72%', [15, 33, 50, 67, 85]);
+            const midPos = spreadPositions(numMID, '52%', [8, 28, 50, 72, 92]);
+            const fwdPos = spreadPositions(numFWD, '30%', [35, 65]);
+            const positions = { GKP: [{ top: '88%', left: '50%' }], DEF: defPos, MID: midPos, FWD: fwdPos };
+
+            const isCaptain = (p) => lineup.captain && p.id === lineup.captain.id;
+            const isVice = (p) => lineup.viceCaptain && p.id === lineup.viceCaptain.id;
+
+            let html = '<div class="aiteam-pitch-inner">';
+            const startersSorted = [...lineup.starters].sort((a, b) => {
+                const order = { GKP: 0, DEF: 1, MID: 2, FWD: 3 };
+                return (order[a.position] || 0) - (order[b.position] || 0);
+            });
+            const pIdx = { GKP: 0, DEF: 0, MID: 0, FWD: 0 };
+            startersSorted.forEach(p => {
+                const idx = pIdx[p.position]++;
+                const slot = positions[p.position]?.[idx];
+                if (!slot) return;
+                const color = posColors[p.position];
+                const cap = isCaptain(p);
+                const vice = isVice(p);
+                const gwXPts = (p.weekly?.[0]?.xPts || 0).toFixed(1);
+                html += `<div class="aiteam-player-node" style="left:${slot.left};top:${slot.top};">
+                    <div class="aiteam-node-avatar" style="border-color:${color};${cap ? 'border-width:3px;background:rgba(255,215,0,0.15);box-shadow:0 0 12px rgba(255,215,0,0.3);' : ''}">${p.position}</div>
+                    <div class="aiteam-node-name" style="${cap ? 'background:linear-gradient(135deg,#FFD700,#FFA000);color:#000;font-weight:700;' : vice ? 'background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);' : ''}">${p.name}${cap ? ' (C)' : vice ? ' (V)' : ''}</div>
+                    <div class="aiteam-node-xpts" style="color:${color};">${gwXPts} xPts</div>
+                </div>`;
+            });
+
+            html += '<div class="aiteam-pitch-lines"><div style="position:absolute;top:50%;left:0;right:0;height:1px;background:rgba(255,255,255,0.1);"></div><div style="position:absolute;top:50%;left:50%;width:50px;height:50px;border:1px solid rgba(255,255,255,0.1);border-radius:50%;transform:translate(-50%,-50%);"></div></div>';
+            html += '</div>';
+
+            // Bench
+            html += '<div class="aiteam-bench"><div class="aiteam-bench-label"><span class="material-symbols-outlined">event_seat</span> BENCH</div><div class="aiteam-bench-players">';
+            lineup.bench.forEach(p => {
+                const color = posColors[p.position];
+                const gwXPts = (p.weekly?.[0]?.xPts || 0).toFixed(1);
+                html += `<div class="aiteam-bench-slot">
+                    <div class="aiteam-bench-avatar" style="border-color:${color};">${p.position.charAt(0)}</div>
+                    <div class="aiteam-bench-info">
+                        <div class="aiteam-bench-name">${p.name} <span style="color:#8ba396;font-size:11px;">${p.team}</span></div>
+                        <div class="aiteam-bench-xpts">${gwXPts} xPts \u00B7 \u00A3${p.cost?.toFixed(1)}m</div>
+                    </div>
+                </div>`;
+            });
+            html += '</div></div>';
+
+            pitchEl.innerHTML = html;
+        }
+
+        // --- Squad Table ---
+        const tbody = document.getElementById('aiteam-squad-tbody');
+        if (tbody) {
+            const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
+            const statusIcons = { a: { icon: 'check_circle', color: '#00FF87', label: 'Available' }, d: { icon: 'help', color: '#FFA726', label: 'Doubtful' }, i: { icon: 'hospital', color: '#ff4d4d', label: 'Injured' }, s: { icon: 'gavel', color: '#ff4d4d', label: 'Suspended' }, u: { icon: 'block', color: '#888', label: 'Unavailable' }, n: { icon: 'cancel', color: '#888', label: 'Not in squad' } };
+            const isCap = (p) => lineup.captain && p.id === lineup.captain.id;
+            const isVice = (p) => lineup.viceCaptain && p.id === lineup.viceCaptain.id;
+            tbody.innerHTML = squad.map((p, i) => {
+                const s = statusIcons[p.status] || statusIcons.a;
+                const gwXPts = (p.weekly?.[0]?.xPts || 0).toFixed(1);
+                const role = isCap(p) ? '<span style="color:#FFD700;font-weight:700;">Captain</span>' : isVice(p) ? '<span style="color:#C0C0C0;font-weight:600;">Vice-Captain</span>' : (i >= 11 ? '<span style="color:#8ba396;">Bench</span>' : '<span style="color:#00FF85;">Starter</span>');
+                return `<tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+                    <td style="text-align:center;color:#8ba396;font-family:var(--font-mono);font-size:12px;">${i + 1}</td>
+                    <td style="text-align:left;"><div style="display:flex;align-items:center;gap:10px;">${this.teamBadge(p.team, 24)}<span style="font-weight:600;color:#fff;font-size:13px;">${p.name}</span></div></td>
+                    <td style="text-align:center;"><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:${posColors[p.position]}22;color:${posColors[p.position]};">${p.position}</span></td>
+                    <td style="text-align:center;color:#B0B0B0;font-size:12px;">${p.team}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;color:#fff;">\u00A3${p.cost?.toFixed(1)}m</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;color:#B0B0B0;">${p.form?.toFixed(1) || '-'}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:13px;font-weight:700;color:#00FF85;">${gwXPts}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:13px;font-weight:700;color:#4FC3F7;">${p.totalXpts?.toFixed(1) || '-'}</td>
+                    <td style="text-align:center;font-size:12px;">${role}</td>
+                    <td style="text-align:center;"><span class="material-symbols-outlined" style="font-size:16px;color:${s.color};" title="${s.label}">${s.icon}</span></td>
+                </tr>`;
+            }).join('');
+        }
+
+        // --- Position Legend ---
+        const legend = document.getElementById('aiteam-position-legend');
+        if (legend) {
+            const counts = { GKP: 0, DEF: 0, MID: 0, FWD: 0 };
+            squad.forEach(p => counts[p.position]++);
+            legend.innerHTML = Object.entries(counts).map(([pos, count]) => {
+                const colors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
+                return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;"><span style="width:8px;height:8px;border-radius:2px;background:${colors[pos]};"></span>${pos} ${count}</span>`;
+            }).join('');
+        }
+
+        // --- GW Breakdown ---
+        const gwHeader = document.getElementById('aiteam-gw-header');
+        const gwBody = document.getElementById('aiteam-gw-tbody');
+        if (gwHeader && gwBody && lineup.starters[0]?.weekly) {
+            const gws = lineup.starters[0].weekly;
+            gwHeader.innerHTML = '<th style="text-align:left;">Player</th>' + gws.map(w => `<th>GW${w.gameweek}</th>`).join('') + '<th style="background:rgba(0,255,133,0.1);">Total</th>';
+            const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
+            const allPlayers = [...lineup.starters, ...lineup.bench];
+            gwBody.innerHTML = allPlayers.map((p, i) => {
+                const isB = i >= lineup.starters.length;
+                const rowStyle = isB ? 'background:rgba(255,255,255,0.02);' : '';
+                return `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);${rowStyle}">
+                    <td style="text-align:left;"><span style="display:inline-flex;align-items:center;gap:6px;"><span style="color:${posColors[p.position]};font-size:10px;font-weight:700;">${p.position}</span> ${p.name} ${p.team}${isB ? ' <span style="color:#8ba396;font-size:10px;">(B)</span>' : ''}</span></td>
+                    ${p.weekly.map(w => `<td style="text-align:center;font-family:var(--font-mono);font-size:12px;color:${w.xPts >= 5 ? '#00FF85' : w.xPts >= 3 ? '#fff' : '#8ba396'};">${w.xPts.toFixed(1)}</td>`).join('')}
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#00FF85;background:rgba(0,255,133,0.05);">${p.totalXpts?.toFixed(1) || '0.0'}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        // --- Chip Strategy ---
+        const chipsEl = document.getElementById('aiteam-chips-section');
+        if (chipsEl && chips?.recommendations?.length) {
+            chipsEl.innerHTML = `
+                <div class="aiteam-section-header">
+                    <div>
+                        <span class="aiteam-kicker">CHIP STRATEGY</span>
+                        <h2>Optimal Chip Timing</h2>
+                    </div>
+                </div>
+                <div class="aiteam-chips-grid">${chips.recommendations.map(c => `
+                    <div class="aiteam-chip-card">
+                        <div class="aiteam-chip-icon"><span class="material-symbols-outlined">${c.chip === 'Bench Boost' ? 'event_seat' : c.chip === 'Triple Captain' ? 'star' : c.chip === 'Free Hit' ? 'flash_on' : 'auto_fix_high'}</span></div>
+                        <div style="font-weight:700;color:#fff;font-size:14px;">${c.chip}</div>
+                        <div style="color:#00FF85;font-weight:600;font-size:13px;">GW${c.gameweek}</div>
+                        <div style="color:#8ba396;font-size:12px;margin-top:4px;">+${c.expectedGain?.toFixed(1) || '0.0'} xPts gain</div>
+                        <div class="aiteam-chip-confidence" style="color:${c.confidence === 'High' ? '#00FF85' : c.confidence === 'Medium' ? '#FFA726' : '#8ba396'};">${c.confidence} confidence</div>
+                    </div>
+                `).join('')}</div>`;
         }
     },
 
@@ -1583,7 +1807,6 @@ const FPL = {
         return (fixtures || []).map(fixture => `
             <span class="captaincy-fixture-badge">
                 <span>${fixture.label}</span>
-                <span class="captaincy-fdr captaincy-fdr-${fixture.fdr}">${fixture.fdr}</span>
             </span>
         `).join('');
     },

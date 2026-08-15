@@ -1174,7 +1174,7 @@ select.input {
 
 .captaincy-explanation { min-height: 62px; margin: 16px 0; color: #b9cbb9; font-size: 13px; line-height: 1.55; }
 .captaincy-metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-top: 1px solid #2c3d35; }
-.captaincy-metrics > div { min-width: 0; padding: 12px 10px 0 0; }
+.captaincy-metrics > div { min-width: 0; padding: 12px 10px 0 0; text-align: center; }
 .captaincy-metrics span { display: block; overflow: hidden; color: #789083; font-family: var(--font-mono); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .captaincy-metrics strong { display: block; margin-top: 2px; overflow: hidden; color: #fff; font-family: var(--font-mono); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -2629,4 +2629,402 @@ select option {
         border-radius: 20px;
         margin-bottom: 24px;
     }
+}
+
+/* ==================== AI TEAM PAGE ==================== */
+.aiteam-page { max-width: 1100px; margin: 0 auto; }
+
+.aiteam-hero {
+    position: relative;
+    padding: 32px 24px 28px;
+    margin-bottom: 20px;
+    background: linear-gradient(135deg, #0E2B1C 0%, #142E20 50%, #0E2B1C 100%);
+    border: 1px solid #1A3A28;
+    border-radius: 12px;
+    overflow: hidden;
+}
+.aiteam-hero::before {
+    content: "";
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(0,255,133,0.12), transparent 70%);
+    pointer-events: none;
+}
+.aiteam-hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    background: rgba(0,255,133,0.1);
+    border: 1px solid rgba(0,255,133,0.2);
+    border-radius: 6px;
+    color: var(--fpl-accent);
+    font: 700 10px var(--font-mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+}
+.aiteam-hero-badge .material-symbols-outlined { font-size: 16px; }
+.aiteam-hero-title {
+    margin: 0;
+    font: 800 28px var(--font-display);
+    color: #fff;
+    letter-spacing: -0.02em;
+}
+.aiteam-hero-title span { color: var(--fpl-accent); }
+.aiteam-hero-sub {
+    margin: 6px 0 0;
+    font-size: 13px;
+    color: #8ba396;
+    line-height: 1.45;
+    max-width: 540px;
+}
+
+.aiteam-controls {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    background: #141916;
+    border: 1px solid #1A2E28;
+    border-radius: 10px;
+}
+.aiteam-control-group {
+    display: grid;
+    gap: 6px;
+    text-align: center;
+}
+.aiteam-control-group label {
+    color: #8ba396;
+    font: 700 10px var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.aiteam-control-group input,
+.aiteam-control-group select {
+    min-height: 40px;
+    border: 1px solid #294138;
+    border-radius: 8px;
+    background: #0E1A14;
+    color: #fff;
+    padding: 8px 12px;
+    font: 700 13px var(--font-mono);
+    text-align: center;
+    min-width: 100px;
+}
+.aiteam-control-group input { width: 80px; }
+.aiteam-refresh-btn {
+    display: grid;
+    place-items: center;
+    width: 40px; height: 40px;
+    border: 1px solid #294138;
+    border-radius: 8px;
+    background: #0E1A14;
+    color: var(--fpl-accent);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.aiteam-refresh-btn:hover { background: #1A2E28; }
+
+.aiteam-loading {
+    display: flex;
+    justify-content: center;
+    padding: 60px 0;
+}
+
+.aiteam-results.hidden { display: none; }
+
+/* Summary Cards */
+.aiteam-summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+}
+.aiteam-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    background: #141916;
+    border: 1px solid #1A2E28;
+    border-radius: 10px;
+}
+.aiteam-card-icon {
+    display: grid;
+    place-items: center;
+    width: 42px; height: 42px;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+.aiteam-card-icon .material-symbols-outlined { font-size: 22px; }
+.aiteam-card-data { display: flex; flex-direction: column; }
+.aiteam-card-value {
+    font: 800 20px var(--font-mono);
+    color: #fff;
+    line-height: 1.1;
+}
+.aiteam-card-label {
+    margin-top: 3px;
+    font: 600 10px var(--font-mono);
+    color: #8ba396;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* Section Headers */
+.aiteam-section-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+.aiteam-section-header h2 { margin: 0; font-size: 18px; color: #fff; }
+.aiteam-kicker {
+    display: block;
+    margin-bottom: 4px;
+    color: #8ba396;
+    font: 700 10px var(--font-mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* Pitch Section */
+.aiteam-pitch-section {
+    margin-bottom: 28px;
+}
+.aiteam-pitch-wrapper {
+    position: relative;
+    border: 1px solid #315443;
+    border-radius: 10px;
+    overflow: hidden;
+    background: linear-gradient(rgba(11,45,28,0.93), rgba(8,35,23,0.96)),
+                repeating-linear-gradient(0deg, transparent 0 68px, rgba(255,255,255,0.05) 69px 70px);
+}
+.aiteam-pitch {
+    position: relative;
+    min-height: 520px;
+    padding: 40px 28px 20px;
+}
+.aiteam-pitch-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 480px;
+}
+.aiteam-pitch-lines {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+.aiteam-player-node {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    z-index: 2;
+}
+.aiteam-node-avatar {
+    display: grid;
+    place-items: center;
+    width: 38px; height: 38px;
+    border: 2px solid;
+    border-radius: 50%;
+    background: #0E1A14;
+    color: #fff;
+    font: 800 9px var(--font-mono);
+    text-transform: uppercase;
+}
+.aiteam-node-name {
+    padding: 3px 10px;
+    border-radius: 6px;
+    background: rgba(14,26,20,0.9);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #fff;
+    font: 700 11px var(--font-body);
+    white-space: nowrap;
+    text-align: center;
+}
+.aiteam-node-xpts {
+    font: 700 10px var(--font-mono);
+    color: var(--fpl-accent);
+    white-space: nowrap;
+}
+
+/* Bench */
+.aiteam-bench {
+    margin-top: 12px;
+    padding: 14px 16px;
+    background: #141916;
+    border: 1px solid #1A2E28;
+    border-radius: 8px;
+}
+.aiteam-bench-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 12px;
+    color: #8ba396;
+    font: 700 11px var(--font-mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+.aiteam-bench-label .material-symbols-outlined { font-size: 16px; }
+.aiteam-bench-players {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+.aiteam-bench-slot {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #0E1A14;
+    border: 1px solid #1A2E28;
+    border-radius: 8px;
+}
+.aiteam-bench-avatar {
+    display: grid;
+    place-items: center;
+    width: 28px; height: 28px;
+    border: 2px solid;
+    border-radius: 50%;
+    background: #0E1A14;
+    color: #fff;
+    font: 800 10px var(--font-mono);
+    flex-shrink: 0;
+}
+.aiteam-bench-info { min-width: 0; }
+.aiteam-bench-name {
+    font: 600 12px var(--font-body);
+    color: #fff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.aiteam-bench-xpts {
+    margin-top: 2px;
+    font: 600 10px var(--font-mono);
+    color: #8ba396;
+}
+
+/* Captain Pick */
+.aiteam-captain-pick {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.aiteam-captain-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    background: rgba(255,215,0,0.12);
+    border: 1px solid rgba(255,215,0,0.3);
+    border-radius: 6px;
+    color: #FFD700;
+    font: 700 10px var(--font-mono);
+    letter-spacing: 0.06em;
+}
+.aiteam-captain-badge .material-symbols-outlined { font-size: 14px; }
+
+/* Squad Table */
+.aiteam-squad-section { margin-bottom: 28px; }
+.aiteam-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12px;
+    white-space: nowrap;
+    background: #141916;
+    border: 1px solid #1A2E28;
+    border-radius: 10px;
+    overflow: hidden;
+}
+.aiteam-table thead tr {
+    background: #1c211e;
+    border-bottom: 1px solid #1A2E28;
+}
+.aiteam-table th {
+    padding: 12px;
+    color: #8ba396;
+    font: 700 10px var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    text-align: center;
+}
+.aiteam-table td {
+    padding: 10px 12px;
+    text-align: center;
+    color: #E0E0E0;
+    vertical-align: middle;
+}
+
+/* GW Breakdown */
+.aiteam-gw-section { margin-bottom: 28px; }
+
+/* Chip Strategy */
+.aiteam-chips-section { margin-bottom: 28px; }
+.aiteam-chips-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+.aiteam-chip-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
+    padding: 18px 14px;
+    background: #141916;
+    border: 1px solid #1A2E28;
+    border-radius: 10px;
+    transition: border-color 0.2s;
+}
+.aiteam-chip-card:hover { border-color: #315443; }
+.aiteam-chip-icon {
+    display: grid;
+    place-items: center;
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    background: rgba(0,255,133,0.08);
+    color: var(--fpl-accent);
+}
+.aiteam-chip-icon .material-symbols-outlined { font-size: 22px; }
+.aiteam-chip-confidence {
+    margin-top: 4px;
+    font: 600 10px var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* Position Legend */
+.aiteam-position-legend {
+    display: flex;
+    gap: 12px;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+    .aiteam-summary { grid-template-columns: repeat(2, 1fr); }
+    .aiteam-chips-grid { grid-template-columns: repeat(2, 1fr); }
+    .aiteam-bench-players { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+    .aiteam-summary { grid-template-columns: 1fr; }
+    .aiteam-chips-grid { grid-template-columns: 1fr; }
+    .aiteam-bench-players { grid-template-columns: 1fr; }
+    .aiteam-controls { flex-direction: column; align-items: stretch; }
+    .aiteam-control-group input,
+    .aiteam-control-group select { min-width: auto; width: 100%; }
 }
