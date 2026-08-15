@@ -292,7 +292,6 @@ app.use(async (req, res, next) => {
 
 const POSITION_MAP = ["GKP", "DEF", "MID", "FWD"];
 const { DETAILED_POSITIONS, ZONE_MAP, ZONE_LABELS, ZONE_GROUP, POSITION_LABELS, ATTACKING_ZONES, DEFENSIVE_ZONES, MIDFIELD_ZONES, ALL_ZONES } = require('./playerPositions');
-const { buildCaptaincyModel } = require('./captaincyModel');
 
 async function apiGet(url) {
   let lastError;
