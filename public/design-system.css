@@ -1587,6 +1587,7 @@ select.input {
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;
+    text-align: center;
 }
 
 .tactics-fixture-teams {
@@ -1603,7 +1604,6 @@ select.input {
 .tactics-fixture-team { display: flex; min-width: 0; align-items: center; gap: 6px; }
 .tactics-fixture-team b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tactics-fixture-team.is-away { flex-direction: row-reverse; text-align: right; }
-.tactics-fixture-fdr { display: flex; justify-content: center; gap: 4px; margin-top: 4px; font-family: var(--font-mono); font-size: 10px; font-weight: 700; }
 
 .tactics-fdr-chip {
     display: inline-flex;
@@ -1804,7 +1804,7 @@ select.input {
 .tactics-target-main .tactics-player-copy b { font-size: 12px; }
 .tactics-target-main > strong { color: var(--md-sys-color-primary); font-family: var(--font-mono); font-size: 15px; }
 .tactics-target-player p { margin: 7px 0; color: var(--md-sys-color-on-surface-variant); font-size: 11px; line-height: 1.4; }
-.tactics-target-metrics { display: flex; flex-wrap: wrap; gap: 5px 9px; color: var(--md-sys-color-on-surface-variant); font-family: var(--font-mono); font-size: 9px; }
+.tactics-target-metrics { display: flex; flex-wrap: wrap; gap: 5px 9px; color: var(--md-sys-color-on-surface-variant); font-family: var(--font-mono); font-size: 11px; }
 .tactics-target-metrics .is-primary { color: var(--md-sys-color-primary); font-weight: 800; }
 
 .tactics-empty-state { padding: 70px 20px; color: var(--md-sys-color-on-surface-variant); text-align: center; }

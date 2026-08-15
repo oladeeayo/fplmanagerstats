@@ -2160,7 +2160,6 @@ const FPL = {
         const selectedExists = fixtures.some(match => String(match.fixture.id) === String(this.state.selectedFixtureId));
         if (!selectedExists) this.state.selectedFixtureId = fixtures[0].fixture.id;
         const e = value => this.escapeHTML(value);
-        const fdrColor = fdr => fdr <= 2 ? '#00ff85' : fdr <= 3 ? '#f9d243' : '#ff5c72';
         list.innerHTML = fixtures.map(match => {
             const fixture = match.fixture;
             const selected = String(fixture.id) === String(this.state.selectedFixtureId);
@@ -2174,7 +2173,6 @@ const FPL = {
                     <strong>${e(score)}</strong>
                     <span class="tactics-fixture-team is-away"><b>${e(fixture.awayTeam)}</b>${awayLogo ? `<img src="${awayLogo}" style="width:18px;height:18px;object-fit:contain;">` : ''}</span>
                 </span>
-                <span class="tactics-fixture-fdr"><span style="color:${fdrColor(fixture.homeFDR)}">${fixture.homeFDR}</span> · <span style="color:${fdrColor(fixture.awayFDR)}">${fixture.awayFDR}</span></span>
             </button>`;
         }).join('');
         this.renderSelectedTacticsMatch();
@@ -2310,11 +2308,11 @@ const FPL = {
                                 </div>
                                 <p style="margin:3px 0 0;color:var(--md-sys-color-on-surface-variant);font-size:11px;line-height:1.4;">${e(player.reason)}</p>
                                 <div class="tactics-target-metrics" style="margin-top:4px;">
-                                    <span class="is-primary">${player.score || 0} pts</span>
-                                    <span>F ${Number(player.form || 0).toFixed(1)}</span>
-                                    <span>£${(Number(player.cost || 0) / 10).toFixed(1)}m</span>
-                                    <span>${player.goals || 0}G ${player.assists || 0}A</span>
-                                    <span>${player.minutesSecurity || 0}% min</span>
+                                    <span class="is-primary" style="font-size:12px;">${player.score || 0} pts</span>
+                                    <span style="font-size:11px;">F ${Number(player.form || 0).toFixed(1)}</span>
+                                    <span style="font-size:11px;">£${(Number(player.cost || 0) / 10).toFixed(1)}m</span>
+                                    <span style="font-size:11px;">${player.goals || 0}G ${player.assists || 0}A</span>
+                                    <span style="font-size:11px;">${player.minutesSecurity || 0}% min</span>
                                 </div>
                             </div>
                         </div>

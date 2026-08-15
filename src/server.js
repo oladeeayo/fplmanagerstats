@@ -1051,12 +1051,12 @@ app.get('/api/zone-analysis', async (req, res) => {
         const zoneBoost = directZoneMatch && player.zone === team.strongestAttack ? 1.12 : 1;
 
         const goalScore = clampScore((
-          (xg90 * 60) + (goalRate * 32) + (threat90 / 14) +
-          (player.form * 1.8) + (player.pointsPerGame * 1.4)
+          (xg90 * 65) + (goalRate * 35) + (threat90 / 12) +
+          (player.form * 2.0) + (player.pointsPerGame * 1.6)
         ) * difficultyMod * zoneBoost * readiness);
         const assistScore = clampScore((
-          (xa90 * 72) + (assistRate * 30) + (creativity90 / 18) +
-          (player.form * 1.6) + player.pointsPerGame
+          (xa90 * 78) + (assistRate * 34) + (creativity90 / 16) +
+          (player.form * 1.8) + (player.pointsPerGame * 1.2)
         ) * difficultyMod * zoneBoost * readiness);
         const cleanSheetScore = clampScore((
           (team.defcon * 0.58) + (cleanSheetRate * 28) +
@@ -1070,6 +1070,19 @@ app.get('/api/zone-analysis', async (req, res) => {
           (defcon90 * 4.5) + (tackles90 * 3) + (cbi90 * 0.65) +
           (recoveries90 * 0.25) + (bonusPerStart * 5) + (minutesSecurity * 12)
         ) * readiness);
+        // Combined attacking returns score: xGI weighted heavily + actual returns
+        const attackingReturnScore = clampScore((
+          ((xg90 + xa90) * 50) + (goalRate * 28) + (assistRate * 24) +
+          (threat90 / 15) + (creativity90 / 20) +
+          (player.form * 2.2) + (player.pointsPerGame * 1.5)
+        ) * difficultyMod * zoneBoost * readiness);
+        // Minutes certainty score: heavily weights starts ratio and availability
+        const minutesCertainty = clampScore((
+          (minutesSecurity * 30) + (startShare * 25) +
+          (availability * 20) + (player.form * 5)
+        ) * difficultyMod);
+        // Final composite: attacking returns + minutes certainty
+        const compositeScore = clampScore((attackingReturnScore * 0.65) + (minutesCertainty * 0.35));
         const baseReturnScore = Math.max(goalScore, assistScore, cleanSheetScore, saveScore, defconScore);
         const valueScore = clampScore(((baseReturnScore / Math.max(player.nowCost / 10, 4)) * 7) + (minutesSecurity * 24));
 
@@ -1080,7 +1093,7 @@ app.get('/api/zone-analysis', async (req, res) => {
             xG90: Number(xg90.toFixed(2)), xA90: Number(xa90.toFixed(2)),
             saves90: Number(saves90.toFixed(1)), defcon90: Number(defcon90.toFixed(1))
           },
-          scores: { goals: goalScore, assists: assistScore, cleanSheet: cleanSheetScore, saves: saveScore, defcon: defconScore, value: valueScore }
+          scores: { goals: goalScore, assists: assistScore, cleanSheet: cleanSheetScore, saves: saveScore, defcon: defconScore, value: valueScore, composite: compositeScore }
         };
       });
 
@@ -1094,7 +1107,7 @@ app.get('/api/zone-analysis', async (req, res) => {
         saves: player.saves, defensiveContribution: player.defensiveContribution,
         bonus: player.bonus, minutes: player.minutes, starts: player.starts,
         ownership: player.selectedByPercent, minutesSecurity: player.minutesSecurity,
-        rates: player.rates, score: player.scores[category], reason
+        rates: player.rates, score: player.scores[category], compositeScore: player.scores.composite, reason
       });
       const ranked = (category, filter, reason) => scored
         .filter(player => player.minutesSecurity >= 65 && filter(player))
@@ -1223,10 +1236,12 @@ app.get('/api/zone-analysis', async (req, res) => {
       const homeTargets = buildTargetGroups(fixture.team_h, home, away, homeFDR, true);
       const awayTargets = buildTargetGroups(fixture.team_a, away, home, awayFDR, false);
 
-      // Combined best 4 picks across both teams
+      // Combined best 4 picks across both teams, ranked by attacking returns + minutes certainty
       const allPicks = [...homeTargets, ...awayTargets]
         .flatMap(g => g.picks.map(p => ({ ...p, sourceGroup: g.key, sourceLabel: g.label, sourceIcon: g.icon })))
-        .sort((a, b) => (b.score || 0) - (a.score || 0));
+        .filter(p => (p.minutesSecurity || 0) >= 60)
+        .map(p => ({ ...p, score: p.compositeScore || p.score }))
+        .sort((a, b) => (b.score || 0) - (a.score || 0) || (b.minutesSecurity || 0) - (a.minutesSecurity || 0));
       const seen = new Set();
       const bestPicks = [];
       for (const pick of allPicks) {
