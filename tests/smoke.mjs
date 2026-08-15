@@ -80,7 +80,38 @@ try {
   await slowPage.waitForSelector('#sidebar.mobile-open');
   await slowContext.close();
 
-  const routes = ['/', '/manager', '/decision-lab', '/league', '/players', '/tactics', '/fixtures', '/captaincy', '/ownership', '/set-pieces'];
+  const coldContext = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+  const coldPage = await coldContext.newPage();
+  await coldPage.route('http://localhost:8400/live.js*', (route) => route.abort());
+  await coldPage.route('**/common.js?v=6', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    await route.continue();
+  });
+  const coldNavigation = coldPage.goto(`${baseUrl}/ai-team`, { waitUntil: 'domcontentloaded' });
+  await coldPage.waitForSelector('#initial-shell');
+  const coldState = await coldPage.evaluate(() => ({
+    initialShellVisible: getComputedStyle(document.querySelector('#initial-shell')).display !== 'none',
+    rootText: document.querySelector('#root')?.textContent?.trim(),
+    background: getComputedStyle(document.body).backgroundColor,
+  }));
+  assert.equal(coldState.initialShellVisible, true, 'Cold load must show the styled entry shell before React mounts');
+  assert.match(coldState.rootText || '', /Loading FPL Manager Stats/, 'Cold load must not expose raw AI Team markup');
+  assert.equal(coldState.background, 'rgb(10, 15, 13)', 'Cold load must use the application background immediately');
+  await coldNavigation;
+  await coldPage.waitForSelector('#content-aiteam.active');
+  await coldPage.waitForSelector('#loading-overlay', { state: 'hidden', timeout: 30000 });
+  await coldPage.waitForSelector('#aiteam-results:not(.hidden)', { timeout: 90000 });
+  const hydratedState = await coldPage.evaluate(() => ({
+    initialShellExists: Boolean(document.querySelector('#initial-shell')),
+    stylesheetLoaded: getComputedStyle(document.querySelector('.aiteam-page')).maxWidth !== 'none',
+    aiTabActive: document.querySelector('#content-aiteam')?.classList.contains('active'),
+  }));
+  assert.equal(hydratedState.initialShellExists, false, 'React must replace the initial shell after mounting');
+  assert.equal(hydratedState.stylesheetLoaded, true, 'AI Team stylesheet must be applied on first load');
+  assert.equal(hydratedState.aiTabActive, true, 'Cold /ai-team load must hydrate directly into AI Team');
+  await coldContext.close();
+
+  const routes = ['/', '/manager', '/decision-lab', '/league', '/players', '/tactics', '/fixtures', '/captaincy', '/ownership', '/set-pieces', '/ai-team'];
   const viewports = [
     { width: 1440, height: 900 },
     { width: 768, height: 1024 },
@@ -102,7 +133,7 @@ try {
     for (const route of routes) {
       await page.goto(`${baseUrl}${route}`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.layout');
-      const expectedTab = route === '/' ? 'general' : route === '/decision-lab' ? 'decision' : route === '/tactics' ? 'zones' : route === '/captaincy' ? 'captain' : route === '/set-pieces' ? 'setpieces' : route.slice(1);
+      const expectedTab = route === '/' ? 'general' : route === '/decision-lab' ? 'decision' : route === '/tactics' ? 'zones' : route === '/captaincy' ? 'captain' : route === '/set-pieces' ? 'setpieces' : route === '/ai-team' ? 'aiteam' : route.slice(1);
       await page.waitForSelector(`#content-${expectedTab}.active`);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       const clippedElements = await page.evaluate(() => {

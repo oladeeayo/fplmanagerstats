@@ -4,6 +4,7 @@ const axios = require('axios');
 const { neon } = require('@neondatabase/serverless');
 const { buildDecisionCentre } = require('./decisionModel');
 const { buildPlayerProjections, buildCaptaincyModel } = require('./captaincyModel');
+const { selectOptimalLineup } = require('./aiTeamModel');
 
 // Upstash Redis (optional — falls back to in-memory Map if not configured)
 let redis = null;
@@ -123,10 +124,17 @@ async function initDatabase() {
           horizon INT NOT NULL DEFAULT 5,
           is_locked BOOLEAN DEFAULT FALSE,
           locked_at TIMESTAMP,
+          transfers JSONB NOT NULL DEFAULT '{"plan":[]}'::jsonb,
+          chips JSONB NOT NULL DEFAULT '{"schedule":[]}'::jsonb,
           created_at TIMESTAMP DEFAULT NOW(),
           updated_at TIMESTAMP DEFAULT NOW()
         )
-      `.then(() => sql`CREATE INDEX IF NOT EXISTS idx_aiteam_session ON ai_team(session_id)`)
+      `.then(async () => {
+        await sql`ALTER TABLE ai_team ADD COLUMN IF NOT EXISTS transfers JSONB NOT NULL DEFAULT '{"plan":[]}'::jsonb`;
+        await sql`ALTER TABLE ai_team ADD COLUMN IF NOT EXISTS chips JSONB NOT NULL DEFAULT '{"schedule":[]}'::jsonb`;
+        await sql`DELETE FROM ai_team older USING ai_team newer WHERE older.session_id = newer.session_id AND older.id < newer.id`;
+        await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_aiteam_session_unique ON ai_team(session_id)`;
+      })
     ]);
 
     console.log('Database initialized successfully');
@@ -233,7 +241,7 @@ function getSessionId(req, res) {
   }, {});
   const existing = cookies.fpl_analytics_session;
   const sessionId = /^[a-f0-9]{32}$/.test(existing || '') ? existing : generateSessionId();
-  if (!existing) {
+  if (!existing && !res.headersSent) {
     res.setHeader('Set-Cookie', `fpl_analytics_session=${sessionId}; Max-Age=31536000; Path=/; SameSite=Lax`);
   }
   return sessionId;
@@ -465,19 +473,38 @@ app.post('/api/v1/decision-centre', async (req, res) => {
 });
 
 // ---- AI Team: Autonomous Season Manager ----
-function getSessionId(req) {
-  return req.cookies?.fpl_analytics_session || req.headers['x-session-id'] || 'default';
+const AI_TEAM_MODEL_VERSION = 'AI Team Engine 4.0';
+const AI_TEAM_POSITION_LIMITS = { GKP: 2, DEF: 5, MID: 5, FWD: 3 };
+
+function isValidAITeamPayload(payload) {
+  const squad = payload?.squad;
+  const starters = payload?.lineup?.starters;
+  const bench = payload?.lineup?.bench;
+  if (!Array.isArray(squad) || squad.length !== 15 || !Array.isArray(starters) || starters.length !== 11 || !Array.isArray(bench) || bench.length !== 4) return false;
+  const ids = squad.map(player => Number(player?.id));
+  if (ids.some(id => !Number.isFinite(id)) || new Set(ids).size !== 15) return false;
+  const starterIds = starters.map(player => Number(player?.id));
+  const benchIds = bench.map(player => Number(player?.id));
+  if (new Set(starterIds).size !== 11 || new Set(benchIds).size !== 4 || starterIds.some(id => benchIds.includes(id))) return false;
+  const positions = squad.reduce((counts, player) => ({ ...counts, [player.position]: (counts[player.position] || 0) + 1 }), {});
+  const clubs = squad.reduce((counts, player) => ({ ...counts, [player.teamId]: (counts[player.teamId] || 0) + 1 }), {});
+  const costTenths = squad.reduce((sum, player) => sum + Math.round(Number(player.cost || 0) * 10), 0);
+  return Object.entries(AI_TEAM_POSITION_LIMITS).every(([position, count]) => positions[position] === count)
+    && Object.values(clubs).every(count => count <= 3)
+    && costTenths <= 1000
+    && starters.every(player => ids.includes(Number(player.id)))
+    && bench.every(player => ids.includes(Number(player.id)));
 }
 
 // GET saved AI team + transfer plan + chip schedule
 app.get('/api/ai-team', async (req, res) => {
-  if (!requireDatabase(req, res)) return;
-  const sessionId = getSessionId(req);
+  if (!sql) return res.json({ saved: false, persistenceAvailable: false });
+  const sessionId = req.headers['x-session-id'] || getSessionId(req, res);
   try {
     const rows = await sql`SELECT * FROM ai_team WHERE session_id = ${sessionId} ORDER BY updated_at DESC LIMIT 1`;
     if (!rows.length) return res.json({ saved: false });
     const row = rows[0];
-    res.json({
+    const payload = {
       saved: true,
       isLocked: row.is_locked,
       lockedAt: row.locked_at,
@@ -489,11 +516,27 @@ app.get('/api/ai-team', async (req, res) => {
       horizon: row.horizon,
       squad: row.squad,
       lineup: row.lineup,
-      transfers: row.transfers || [],
-      chips: row.chips || { recommendations: [] },
+      transfers: row.transfers || { plan: [] },
+      chips: row.chips || { schedule: [] },
+      meta: {
+        schemaVersion: '2.0',
+        modelVersion: AI_TEAM_MODEL_VERSION,
+        generatedAt: row.updated_at,
+        strategy: row.strategy,
+        budget: Number(row.budget),
+        horizon: row.horizon,
+        gameweeks: row.lineup?.starters?.[0]?.weekly?.map(week => week.gameweek) || [],
+        isAutoLocked: row.is_locked,
+        quality: row.lineup?.quality || null,
+      },
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-    });
+    };
+    if (!isValidAITeamPayload(payload)) {
+      await sql`DELETE FROM ai_team WHERE session_id = ${sessionId}`;
+      return res.json({ saved: false, stale: true });
+    }
+    res.json(payload);
   } catch (e) {
     console.error('AI Team GET error:', e.message);
     res.status(500).json({ error: 'Failed to load AI team' });
@@ -503,7 +546,7 @@ app.get('/api/ai-team', async (req, res) => {
 // Reset/unlock AI team (only for WC)
 app.delete('/api/ai-team', async (req, res) => {
   if (!requireDatabase(req, res)) return;
-  const sessionId = getSessionId(req);
+  const sessionId = req.headers['x-session-id'] || getSessionId(req, res);
   try {
     await sql`DELETE FROM ai_team WHERE session_id = ${sessionId}`;
     res.json({ success: true });
@@ -516,10 +559,24 @@ app.delete('/api/ai-team', async (req, res) => {
 // ---- Core AI Team Builder ----
 app.post('/api/ai-team', async (req, res) => {
   const budget = 100;
-  const horizon = Math.max(3, Math.min(38, Number(req.body?.horizon) || 5));
+  const horizon = Math.max(3, Math.min(8, Number(req.body?.horizon) || 8));
   const strategy = ['balanced', 'protect', 'chase'].includes(req.body?.strategy) ? req.body.strategy : 'balanced';
+  const sessionId = req.headers['x-session-id'] || getSessionId(req, res);
 
   try {
+    if (sql && !req.body?.reset) {
+      const rows = await sql`SELECT * FROM ai_team WHERE session_id = ${sessionId} AND is_locked = TRUE ORDER BY updated_at DESC LIMIT 1`;
+      if (rows.length) {
+        const row = rows[0];
+        return res.json({
+          saved: true, isLocked: true, lockedAt: row.locked_at, formation: row.formation,
+          teamCost: Number(row.team_cost), teamXpts: Number(row.team_xpts), strategy: row.strategy,
+          budget: Number(row.budget), horizon: row.horizon, squad: row.squad, lineup: row.lineup,
+          transfers: row.transfers || { plan: [] }, chips: row.chips || { schedule: [] },
+          meta: { schemaVersion: '2.0', modelVersion: AI_TEAM_MODEL_VERSION, generatedAt: row.updated_at, strategy: row.strategy, budget: Number(row.budget), horizon: row.horizon, isAutoLocked: true, quality: row.lineup?.quality || null },
+        });
+      }
+    }
     const [bootstrap, fixtures] = await Promise.all([
       getCachedApiData(BOOTSTRAP_URL),
       getCachedApiData(FIXTURES_URL),
@@ -533,7 +590,7 @@ app.post('/api/ai-team', async (req, res) => {
     const nextGW = events.find(e => e.is_next)?.id || currentGW || 1;
 
     // Build full player projections across the horizon
-    const projectionData = buildPlayerProjections({ bootstrap, fixtures, startGW: nextGW, horizon: Math.max(horizon, 8) });
+    const projectionData = buildPlayerProjections({ bootstrap, fixtures, startGW: nextGW, horizon });
     const allPlayers = projectionData.projections;
 
     // Enrich with bootstrap data
@@ -566,7 +623,8 @@ app.post('/api/ai-team', async (req, res) => {
       const minutesPlayed = Number(raw.minutes) || 0;
       const gamesPlayed = Math.max(1, events.filter(e => e.finished).length || 1);
       const minutesPerGame = minutesPlayed / gamesPlayed;
-      const minutesReliability = Math.min(1, minutesPerGame / 75);
+      const projectedMinutes = Number(p.weekly?.[0]?.xMins) || 0;
+      const minutesReliability = Math.min(1, (minutesPlayed > 0 ? minutesPerGame : projectedMinutes) / 75);
       const xGI90 = Number(raw.expected_goal_involvements_per_90) || 0;
       const bonusPer90 = Number(raw.bonus) > 0 && Number(raw.minutes) > 0
         ? (Number(raw.bonus) * 90) / Number(raw.minutes) : 0;
@@ -578,31 +636,28 @@ app.post('/api/ai-team', async (req, res) => {
       const setPieceBonus = (isPenaltyTaker ? 0.35 : 0) + (isFKTaker ? 0.15 : 0) + (isCornerTaker ? 0.1 : 0);
       const ictIndex = Number(raw.ict_index) || 0;
 
-      // NEW: Transfer window check - player moved to new team
-      // If the player's team changed from previous season, add rotation risk
-      const prevTeam = raw.prev_team || null;
-      const isNewSigning = prevTeam && prevTeam !== raw.team;
-      const rotationRisk = isNewSigning ? 0.85 : 1.0; // 15% penalty for new signings
-
-      // NEW: Get team's upcoming fixtures with FDR
-      const playerFixtures = (fixturesByTeam.get(raw.team) || [])
-        .filter(f => !f.finished && f.event >= nextGW)
+      const fixturesByGameweek = new Map();
+      (fixturesByTeam.get(raw.team) || [])
+        .filter(f => !f.finished && f.event >= nextGW && f.event < nextGW + projectionData.horizon)
         .sort((a, b) => (a.event || 0) - (b.event || 0))
-        .slice(0, 8)
-        .map(f => {
+        .forEach(f => {
           const isHome = f.team_h === raw.team;
           const opponentId = isHome ? f.team_a : f.team_h;
           const opponent = teamsById.get(opponentId);
           const fdr = isHome ? (f.team_h_difficulty || 3) : (f.team_a_difficulty || 3);
-          return { gw: f.event, opponent: opponent?.short_name || '?', opponentFull: opponent?.name || '?', home: isHome, fdr, kickoff: f.kickoff_time };
+          const item = { gw: f.event, opponent: opponent?.short_name || '?', opponentFull: opponent?.name || '?', home: isHome, fdr, kickoff: f.kickoff_time };
+          if (!fixturesByGameweek.has(f.event)) fixturesByGameweek.set(f.event, []);
+          fixturesByGameweek.get(f.event).push(item);
         });
+      const playerFixtures = [...fixturesByGameweek.values()].flat();
 
       // NEW: 4+ consecutive fixture run analysis
       let consecutiveGoodFixtures = 0;
       let maxConsecutiveRun = 0;
       let currentRun = 0;
-      for (const fx of playerFixtures) {
-        if (fx.fdr <= 2) {
+      for (const gw of projectionData.gameweeks) {
+        const gwFixtures = fixturesByGameweek.get(gw) || [];
+        if (gwFixtures.length && Math.min(...gwFixtures.map(fixture => fixture.fdr)) <= 2) {
           currentRun++;
           maxConsecutiveRun = Math.max(maxConsecutiveRun, currentRun);
         } else {
@@ -617,21 +672,20 @@ app.post('/api/ai-team', async (req, res) => {
         news, status, formBoost, minutesReliability, xGI90,
         bonusPer90, csPerGame, setPieceBonus, ictIndex,
         isPenaltyTaker, isFKTaker, isCornerTaker,
-        isNewSigning, rotationRisk,
+        rotationRisk: minutesReliability >= 0.85 ? 1 : minutesReliability >= 0.65 ? 0.94 : 0.86,
         upcomingFixtures: playerFixtures,
         consecutiveGoodFixtures,
         enhancedCost: Number(raw.now_cost) / 10,
         teamFull: teamsById.get(p.teamId)?.name || p.team,
         teamCode: teamsById.get(p.teamId)?.code || 0,
         teamShort: teamsById.get(p.teamId)?.short_name || '',
-        prevTeam: prevTeam,
       };
     });
 
     const availablePlayers = enrichedPlayers.filter(p => p.availability > 10);
 
     // ---- SMART SQUAD BUILDER ----
-    const POSITION_LIMITS = { GKP: 2, DEF: 5, MID: 5, FWD: 3 };
+    const POSITION_LIMITS = AI_TEAM_POSITION_LIMITS;
     const MAX_PER_TEAM = 3;
 
     function adjustedScore(player, strat) {
@@ -657,57 +711,73 @@ app.post('/api/ai-team', async (req, res) => {
       return base * 0.65 + xPtsPerM * 0.12 + avail * 1.2 + mins * 1.8 + form + bonusBoost * 0.8 + csBoost * 0.6 + setPieceBoost * 0.5 + captainBonus + fixtureRunBonus + rotPenalty;
     }
 
-    // Multi-pass squad builder
+    function isLegalSquad(players) {
+      if (!Array.isArray(players) || players.length !== 15) return false;
+      const positions = players.reduce((counts, player) => ({ ...counts, [player.position]: (counts[player.position] || 0) + 1 }), {});
+      const clubs = players.reduce((counts, player) => ({ ...counts, [player.teamId]: (counts[player.teamId] || 0) + 1 }), {});
+      return Object.entries(POSITION_LIMITS).every(([position, count]) => positions[position] === count)
+        && Object.values(clubs).every(count => count <= MAX_PER_TEAM)
+        && players.reduce((sum, player) => sum + costTenths(player), 0) <= 1000;
+    }
+
+    const costTenths = player => Math.round(Number(player.cost || player.enhancedCost || 0) * 10);
+    const slotTemplate = Object.entries(POSITION_LIMITS).flatMap(([position, count]) => Array(count).fill(position));
+
+    // Multiple deterministic slot orders avoid greedy dead ends while keeping the model fast.
     let bestSquad = [];
     let bestScore = -1;
     let bestCost = 0;
 
-    for (let attempt = 0; attempt < 3; attempt++) {
+    const slotOrders = [
+      slotTemplate,
+      [...slotTemplate].reverse(),
+      ['FWD', 'MID', 'DEF', 'GKP', 'MID', 'DEF', 'FWD', 'MID', 'DEF', 'GKP', 'MID', 'DEF', 'FWD', 'MID', 'DEF'],
+    ];
+    for (let attempt = 0; attempt < slotOrders.length; attempt++) {
       const selected = [];
       const teamCounts = {};
-      let spent = 0;
-      const costBias = attempt * 0.08;
+      let spentTenths = 0;
 
-      for (const [position, count] of Object.entries(POSITION_LIMITS)) {
-        for (let slot = 0; slot < count; slot++) {
-          const minCosts = Object.fromEntries(
-            Object.keys(POSITION_LIMITS).map(pos => [pos, Math.min(...availablePlayers.filter(p => p.position === pos).map(p => p.cost))])
-          );
-          const remainingMinimum = Object.entries(POSITION_LIMITS).reduce((sum, [pos, limit]) => {
-            const already = selected.filter(p => p.position === pos).length;
-            return sum + Math.max(0, limit - already - (pos === position ? 1 : 0)) * minCosts[pos];
+      for (const position of slotOrders[attempt]) {
+          const remainingSlots = { ...POSITION_LIMITS };
+          selected.forEach(player => { remainingSlots[player.position] -= 1; });
+          remainingSlots[position] -= 1;
+          const remainingMinimum = Object.entries(remainingSlots).reduce((sum, [pos, count]) => {
+            const costs = availablePlayers.filter(player => player.position === pos && !selected.some(item => item.id === player.id)).map(costTenths).sort((a, b) => a - b);
+            return sum + costs.slice(0, Math.max(0, count)).reduce((total, cost) => total + cost, 0);
           }, 0);
 
           const candidates = availablePlayers
             .filter(p => p.position === position && !selected.some(s => s.id === p.id))
             .filter(p => (teamCounts[p.teamId] || 0) < MAX_PER_TEAM)
-            .filter(p => spent + (p.cost || p.enhancedCost) + remainingMinimum <= budget + 0.01)
-            // Minimum quality: non-GKP must project at least 2.5 xPts/GW average
-            .filter(p => p.position === 'GKP' || (p.totalXpts && p.totalXpts / Math.max(horizon, 1) >= 2.5));
+            .filter(p => spentTenths + costTenths(p) + remainingMinimum <= 1000);
 
           const scored = candidates.map(p => ({
             ...p,
-            _score: adjustedScore(p, strategy) + costBias,
-          })).sort((a, b) => b._score - a._score);
+            _score: adjustedScore(p, strategy),
+          })).sort((a, b) => b._score - a._score || costTenths(a) - costTenths(b));
 
           if (scored[0]) {
             selected.push(scored[0]);
-            spent += scored[0].cost || scored[0].enhancedCost;
+            spentTenths += costTenths(scored[0]);
             teamCounts[scored[0].teamId] = (teamCounts[scored[0].teamId] || 0) + 1;
           }
-        }
       }
 
       const squadScore = selected.reduce((s, p) => s + adjustedScore(p, strategy), 0);
+      const spent = spentTenths / 10;
       const costDiff = Math.abs(budget - spent);
       const totalScore = squadScore - costDiff * 0.5;
 
-      if (totalScore > bestScore || (Math.abs(totalScore - bestScore) < 0.1 && spent > bestCost)) {
+      if (isLegalSquad(selected)
+        && (totalScore > bestScore || (Math.abs(totalScore - bestScore) < 0.1 && spent > bestCost))) {
         bestScore = totalScore;
         bestSquad = selected;
         bestCost = spent;
       }
     }
+
+    if (bestSquad.length !== 15) throw new Error('The model could not produce a legal 15-player squad within £100m');
 
     // Budget upgrade pass
     if (budget - bestCost > 1.5) {
@@ -722,7 +792,7 @@ app.post('/api/ai-team', async (req, res) => {
             .sort((a, b) => adjustedScore(b, strategy) - adjustedScore(a, strategy))[0];
           if (upgrade) {
             const costDiff = upgrade.cost - cheap.cost;
-            if (bestCost + costDiff <= budget + 0.01) {
+            if (Math.round((bestCost + costDiff) * 10) <= 1000) {
               const idx = bestSquad.findIndex(s => s.id === cheap.id);
               bestSquad[idx] = upgrade;
               bestCost += costDiff;
@@ -733,36 +803,11 @@ app.post('/api/ai-team', async (req, res) => {
     }
 
     const selected = bestSquad;
+    const lineupScore = player => (player.weekly?.[0]?.xPts || 0) * 0.7 + (adjustedScore(player, strategy) / Math.max(projectionData.horizon, 1)) * 0.3;
 
-    // ---- FORMATION + STARTING XI ----
-    const VALID_FORMATIONS = [
-      { DEF: 3, MID: 4, FWD: 3 }, { DEF: 3, MID: 5, FWD: 2 },
-      { DEF: 4, MID: 3, FWD: 3 }, { DEF: 4, MID: 4, FWD: 2 },
-      { DEF: 4, MID: 5, FWD: 1 }, { DEF: 5, MID: 3, FWD: 2 },
-      { DEF: 5, MID: 4, FWD: 1 },
-    ];
-
-    let bestFormation = null;
-    let bestFormationScore = -1;
-    for (const form of VALID_FORMATIONS) {
-      const defPlayers = selected.filter(p => p.position === 'DEF').sort((a, b) => adjustedScore(b, strategy) - adjustedScore(a, strategy));
-      const midPlayers = selected.filter(p => p.position === 'MID').sort((a, b) => adjustedScore(b, strategy) - adjustedScore(a, strategy));
-      const fwdPlayers = selected.filter(p => p.position === 'FWD').sort((a, b) => adjustedScore(b, strategy) - adjustedScore(a, strategy));
-      const score = defPlayers.slice(0, form.DEF).reduce((s, p) => s + adjustedScore(p, strategy), 0)
-        + midPlayers.slice(0, form.MID).reduce((s, p) => s + adjustedScore(p, strategy), 0)
-        + fwdPlayers.slice(0, form.FWD).reduce((s, p) => s + adjustedScore(p, strategy), 0);
-      if (score > bestFormationScore) { bestFormationScore = score; bestFormation = form; }
-    }
-
-    const gkp = selected.filter(p => p.position === 'GKP').sort((a, b) => adjustedScore(b, strategy) - adjustedScore(a, strategy));
-    const starters = [
-      gkp[0],
-      ...selected.filter(p => p.position === 'DEF').sort((a, b) => adjustedScore(b, strategy) - adjustedScore(a, strategy)).slice(0, bestFormation.DEF),
-      ...selected.filter(p => p.position === 'MID').sort((a, b) => adjustedScore(b, strategy) - adjustedScore(a, strategy)).slice(0, bestFormation.MID),
-      ...selected.filter(p => p.position === 'FWD').sort((a, b) => adjustedScore(b, strategy) - adjustedScore(a, strategy)).slice(0, bestFormation.FWD),
-    ].filter(Boolean);
-
-    const bench = selected.filter(p => !starters.some(s => s.id === p.id));
+    // The weekly XI is the highest-scoring legal formation from all seven FPL shapes.
+    const lineupSelection = selectOptimalLineup(selected, lineupScore);
+    const { starters, bench } = lineupSelection;
 
     // Captain: highest xPts + bonus/ICT upside
     const captainPool = starters.filter(p => p.position !== 'GKP').sort((a, b) => {
@@ -776,7 +821,7 @@ app.post('/api/ai-team', async (req, res) => {
     // Captain x2
     const captainXPts = captain?.weekly?.[0]?.xPts || 0;
     const expectedPoints = starters.reduce((s, p) => s + (p.weekly?.[0]?.xPts || 0), 0) + captainXPts;
-    const formation = `${bestFormation.DEF}-${bestFormation.MID}-${bestFormation.FWD}`;
+    const formation = lineupSelection.formation;
     const teamCost = selected.reduce((s, p) => s + (p.cost || p.enhancedCost), 0);
     const teamXptsRaw = selected.reduce((s, p) => s + (p.totalXpts || 0), 0);
     const captainHorizonBonus = captain ? captain.weekly?.reduce((s, w) => s + (w.xPts || 0), 0) || 0 : 0;
@@ -788,72 +833,63 @@ app.post('/api/ai-team', async (req, res) => {
     let currentSquad = [...selected];
     let freeTransfers = 1;
 
-    for (let gw = nextGW; gw < nextGW + horizon && gw <= 38; gw++) {
-      const gwPlayers = currentSquad.map(p => {
-        const weekly = p.weekly?.find(w => w.gameweek === gw);
-        return { ...p, gwXPts: weekly?.xPts || 0, gwFixtures: weekly?.fixtures || [], gwXMins: weekly?.xMins || 0 };
-      });
+    let bankTenths = 1000 - selected.reduce((sum, player) => sum + costTenths(player), 0);
+    for (const gw of projectionData.gameweeks) {
+      const transfersMade = [];
+      const maxTransfers = freeTransfers + 1;
+      while (transfersMade.length < maxTransfers) {
+        const gwPlayers = currentSquad.map(p => {
+          const weekly = p.weekly?.find(w => w.gameweek === gw);
+          return { ...p, gwXPts: weekly?.xPts || 0, gwFixtures: weekly?.fixtures || [], gwXMins: weekly?.xMins || 0 };
+        });
+        const weakLinks = gwPlayers.filter(p => p.gwXPts < 3 || p.availability < 60).sort((a, b) => a.gwXPts - b.gwXPts);
+        const squadIds = new Set(currentSquad.map(p => p.id));
+        const teamCounts = {};
+        currentSquad.forEach(p => { teamCounts[p.teamId] = (teamCounts[p.teamId] || 0) + 1; });
+        let bestTransfer = null;
 
-      // Find weak links: players with low xPts or bad fixtures
-      const weakLinks = gwPlayers
-        .filter(p => p.position !== 'GKP' && p.gwXPts < 3 && bench.some(b => b.position === p.position && b.gwXPts > p.gwXPts + 1))
-        .sort((a, b) => a.gwXPts - b.gwXPts);
-
-      // Find upgrade targets from available pool
-      const squadIds = new Set(currentSquad.map(p => p.id));
-      const teamCounts = {};
-      currentSquad.forEach(p => { teamCounts[p.teamId] = (teamCounts[p.teamId] || 0) + 1; });
-
-      let bestTransfer = null;
-      let bestGain = 0;
-
-      for (const outgoing of weakLinks.slice(0, 5)) {
-        const incoming = availablePlayers
-          .filter(p => p.position === outgoing.position && !squadIds.has(p.id))
-          .filter(p => (teamCounts[p.teamId] || 0) < MAX_PER_TEAM)
-          .filter(p => {
-            const weekly = p.weekly?.find(w => w.gameweek === gw);
-            return weekly && (weekly.xPts || 0) > outgoing.gwXPts + 1.5;
-          })
-          .sort((a, b) => {
-            const aW = a.weekly?.find(w => w.gameweek === gw)?.xPts || 0;
-            const bW = b.weekly?.find(w => w.gameweek === gw)?.xPts || 0;
-            return bW - aW;
-          })[0];
-
-        if (incoming) {
-          const gain = (incoming.weekly?.find(w => w.gameweek === gw)?.xPts || 0) - outgoing.gwXPts;
-          if (gain > bestGain) {
-            bestGain = gain;
-            bestTransfer = { out: outgoing, in: incoming, gain };
-          }
+        for (const outgoing of weakLinks.slice(0, 5)) {
+          const incoming = availablePlayers
+            .filter(p => p.position === outgoing.position && !squadIds.has(p.id))
+            .filter(p => p.teamId === outgoing.teamId || (teamCounts[p.teamId] || 0) < MAX_PER_TEAM)
+            .filter(p => costTenths(p) <= costTenths(outgoing) + bankTenths)
+            .map(p => {
+              const nextGain = (p.weekly?.find(w => w.gameweek === gw)?.xPts || 0) - outgoing.gwXPts;
+              const horizonGain = projectionData.gameweeks.filter(projectedGW => projectedGW >= gw).reduce((gain, projectedGW) => {
+                const incomingWeek = p.weekly?.find(w => w.gameweek === projectedGW)?.xPts || 0;
+                const outgoingWeek = outgoing.weekly?.find(w => w.gameweek === projectedGW)?.xPts || 0;
+                return gain + incomingWeek - outgoingWeek;
+              }, 0);
+              return { out: outgoing, in: p, gain: Math.round(horizonGain * 10) / 10, nextGain: Math.round(nextGain * 10) / 10 };
+            })
+            .filter(move => move.gain > 0)
+            .sort((a, b) => b.gain - a.gain || b.nextGain - a.nextGain)[0];
+          if (incoming && (!bestTransfer || incoming.gain > bestTransfer.gain)) bestTransfer = incoming;
         }
+
+        const hit = transfersMade.length >= freeTransfers ? 4 : 0;
+        const threshold = hit ? 4.5 : 1.5;
+        if (!bestTransfer || bestTransfer.gain < threshold) break;
+        transfersMade.push({ ...bestTransfer, hit });
+        currentSquad = currentSquad.map(p => p.id === bestTransfer.out.id ? bestTransfer.in : p);
+        bankTenths += costTenths(bestTransfer.out) - costTenths(bestTransfer.in);
       }
 
-      // Only make transfer if gain justifies it (no hit if gain < 4, -4 if gain >= 5)
-      if (bestTransfer && freeTransfers > 0) {
-        transferPlan.push({ gw, transfer: bestTransfer, hit: 0, freeTransfers: freeTransfers });
-        // Update squad
-        currentSquad = currentSquad.map(p => p.id === bestTransfer.out.id ? bestTransfer.in : p);
-        freeTransfers = 1;
-      } else if (bestTransfer && bestTransfer.gain >= 5) {
-        // Take a -4 hit
-        transferPlan.push({ gw, transfer: bestTransfer, hit: 4, freeTransfers: freeTransfers });
-        currentSquad = currentSquad.map(p => p.id === bestTransfer.out.id ? bestTransfer.in : p);
-        freeTransfers = 1;
+      const hit = transfersMade.reduce((sum, move) => sum + move.hit, 0);
+      if (transfersMade.length) {
+        transferPlan.push({ gw, transfers: transfersMade, transfer: transfersMade[0], hit, freeTransfersBefore: freeTransfers, rolled: false });
+        freeTransfers = Math.min(5, Math.max(0, freeTransfers - transfersMade.length) + 1);
       } else {
-        // Roll the transfer
         freeTransfers = Math.min(freeTransfers + 1, 5);
-        transferPlan.push({ gw, transfer: null, hit: 0, freeTransfers, rolled: true });
+        transferPlan.push({ gw, transfers: [], transfer: null, hit: 0, freeTransfers, rolled: true });
       }
     }
 
     // ---- AUTONOMOUS CHIP SCHEDULE ----
     const chipSchedule = [];
-    const usedChips = [];
-
     // Analyze each GW for chip opportunities
-    for (let gw = nextGW; gw < nextGW + horizon && gw <= 38; gw++) {
+    const chipCandidates = [];
+    for (const gw of projectionData.gameweeks) {
       const gwSquad = currentSquad;
       const benchXPts = bench.reduce((s, p) => {
         const w = p.weekly?.find(week => week.gameweek === gw);
@@ -863,43 +899,45 @@ app.post('/api/ai-team', async (req, res) => {
       const blanks = starters.filter(p => !p.weekly?.some(w => w.gameweek === gw && w.fixtures?.length > 0)).length;
       const injured = gwSquad.filter(p => (p.availability || 0) < 50).length;
 
-      // Bench Boost: when bench output is high
-      if (!usedChips.includes('BB') && benchXPts >= 8) {
-        chipSchedule.push({ gw, chip: 'BB', reason: `Bench projects ${benchXPts.toFixed(1)} xPts`, confidence: benchXPts >= 12 ? 'High' : 'Medium' });
-        usedChips.push('BB');
-      }
-
-      // Triple Captain: when captain has a great fixture
-      if (!usedChips.includes('TC') && capXPts >= 8) {
-        chipSchedule.push({ gw, chip: 'TC', reason: `${captain?.name} projects ${capXPts.toFixed(1)} xPts`, confidence: capXPts >= 10 ? 'High' : 'Medium' });
-        usedChips.push('TC');
-      }
-
-      // Wildcard: when many players are injured or underperforming
-      if (!usedChips.includes('WC') && (injured >= 4 || blanks >= 5)) {
-        chipSchedule.push({ gw, chip: 'WC', reason: `${injured} injured, ${ blanks} blanks - squad rebuild needed`, confidence: 'High' });
-        usedChips.push('WC');
-      }
-
-      // Free Hit: when many blanks in one GW
-      if (!usedChips.includes('FH') && blanks >= 6) {
-        chipSchedule.push({ gw, chip: 'FH', reason: `${blanks} blanks - team only viable on free hit`, confidence: 'High' });
-        usedChips.push('FH');
-      }
+      chipCandidates.push(
+        { gw, chip: 'BB', score: benchXPts, expectedGain: benchXPts, reason: `Bench projects ${benchXPts.toFixed(1)} xPts.` },
+        { gw, chip: 'TC', score: capXPts, expectedGain: capXPts, reason: `${captain?.name || 'Captain'} projects ${capXPts.toFixed(1)} xPts.` },
+        { gw, chip: 'WC', score: injured * 2 + blanks * 1.5, expectedGain: injured * 2 + blanks * 1.5, reason: `${injured} availability concerns and ${blanks} blanks.` },
+        { gw, chip: 'FH', score: blanks * 2, expectedGain: blanks * 2, reason: `${blanks} projected blanks in the squad.` },
+      );
     }
+    const occupiedGameweeks = new Set();
+    ['WC', 'FH', 'BB', 'TC'].forEach(chip => {
+      const candidate = chipCandidates.filter(item => item.chip === chip && !occupiedGameweeks.has(item.gw)).sort((a, b) => b.score - a.score)[0];
+      if (!candidate) return;
+      occupiedGameweeks.add(candidate.gw);
+      chipSchedule.push({ ...candidate, confidence: candidate.score >= 8 ? 'High' : candidate.score >= 5 ? 'Medium' : 'Watch', projected: true });
+    });
+    chipSchedule.sort((a, b) => a.gw - b.gw);
 
     // ---- AUTO-LOCK BEFORE GW1 ----
-    const isGW1 = nextGW === 1 || (currentGW === null && nextGW === 1);
-    const shouldAutoLock = isGW1 || (events.find(e => e.is_current)?.finished === false);
+    const gw1 = events.find(event => event.id === 1);
+    const gw1Deadline = gw1?.deadline_time ? new Date(gw1.deadline_time) : null;
+    const lockWindow = gw1Deadline ? new Date(gw1Deadline.getTime() - 60 * 60 * 1000) : null;
+    const shouldAutoLock = nextGW === 1 && lockWindow && new Date() >= lockWindow;
+    const qualityAudit = {
+      legalSquad: isLegalSquad(selected),
+      budgetCompliant: selected.reduce((sum, player) => sum + costTenths(player), 0) <= 1000,
+      lineupComplete: starters.length === 11 && bench.length === 4,
+      ...lineupSelection.audit,
+    };
 
     const result = {
       meta: {
-        modelVersion: 'AI Team Engine 3.0',
+        schemaVersion: '2.0',
+        modelVersion: AI_TEAM_MODEL_VERSION,
         generatedAt: new Date().toISOString(),
         strategy, budget, horizon,
         targetGW: nextGW, currentGW,
         gameweeks: projectionData.gameweeks,
-        isAutoLocked: shouldAutoLock,
+        isAutoLocked: Boolean(shouldAutoLock),
+        lockScheduledFor: nextGW === 1 ? gw1?.deadline_time || null : null,
+        quality: qualityAudit,
       },
       formation,
       teamCost: Math.round(teamCost * 10) / 10,
@@ -911,6 +949,7 @@ app.post('/api/ai-team', async (req, res) => {
         captain: captain ? { ...captain, isCaptain: true } : null,
         viceCaptain: viceCaptain ? { ...viceCaptain, isViceCaptain: true } : null,
         expectedPoints: Math.round(expectedPoints * 10) / 10,
+        quality: qualityAudit,
       },
       transfers: { plan: transferPlan },
       chips: { schedule: chipSchedule },
@@ -918,11 +957,14 @@ app.post('/api/ai-team', async (req, res) => {
 
     // Auto-save to DB (locked if GW1)
     if (sql) {
-      const sessionId = getSessionId(req);
       try {
-        await sql`DELETE FROM ai_team WHERE session_id = ${sessionId}`;
         await sql`INSERT INTO ai_team (session_id, squad, lineup, formation, team_cost, team_xpts, strategy, budget, horizon, is_locked, locked_at, transfers, chips)
-          VALUES (${sessionId}, ${JSON.stringify(result.squad)}, ${JSON.stringify(result.lineup)}, ${result.formation}, ${result.teamCost}, ${result.teamXpts}, ${strategy}, ${budget}, ${horizon}, ${shouldAutoLock}, ${shouldAutoLock ? new Date() : null}, ${JSON.stringify(result.transfers)}, ${JSON.stringify(result.chips)})`;
+          VALUES (${sessionId}, ${JSON.stringify(result.squad)}, ${JSON.stringify(result.lineup)}, ${result.formation}, ${result.teamCost}, ${result.teamXpts}, ${strategy}, ${budget}, ${projectionData.horizon}, ${Boolean(shouldAutoLock)}, ${shouldAutoLock ? new Date() : null}, ${JSON.stringify(result.transfers)}, ${JSON.stringify(result.chips)})
+          ON CONFLICT (session_id) DO UPDATE SET
+            squad = EXCLUDED.squad, lineup = EXCLUDED.lineup, formation = EXCLUDED.formation,
+            team_cost = EXCLUDED.team_cost, team_xpts = EXCLUDED.team_xpts, strategy = EXCLUDED.strategy,
+            budget = EXCLUDED.budget, horizon = EXCLUDED.horizon, is_locked = EXCLUDED.is_locked,
+            locked_at = EXCLUDED.locked_at, transfers = EXCLUDED.transfers, chips = EXCLUDED.chips, updated_at = NOW()`;
       } catch (saveErr) {
         console.error('AI Team auto-save error:', saveErr.message);
       }

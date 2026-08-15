@@ -9,7 +9,7 @@ if (!document.cookie.split('; ').some((cookie) => cookie.startsWith('fpl_analyti
 }
 
 async function start() {
-  const legacyScript = '/common.js';
+  const legacyScript = '/common.js?v=6';
   await import(/* @vite-ignore */ legacyScript);
   createRoot(document.getElementById('root')!).render(
     <BrowserRouter>

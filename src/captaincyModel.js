@@ -44,6 +44,12 @@ function estimateExpectedMinutes(player, referenceMatches, availability) {
   const starts = number(player.starts);
   const ppg = number(player.points_per_game);
   const points = number(player.total_points);
+  if (minutes === 0 && starts === 0 && points === 0) {
+    const officialProjection = number(player.ep_next);
+    const ownership = number(player.selected_by_percent);
+    const rolePrior = 58 + Math.min(officialProjection * 4, 16) + Math.min(ownership * 0.25, 8);
+    return round(clamp(rolePrior * availability, 35, 82), 0);
+  }
   const inferredAppearances = ppg > 0 ? points / ppg : Math.max(starts, Math.ceil(minutes / 90));
   const appearances = clamp(inferredAppearances, starts, Math.max(referenceMatches, starts, 1));
   const substituteAppearances = Math.max(0, appearances - starts);

@@ -474,49 +474,73 @@ const FPL = {
     async renderAITeam() {
         const loading = document.getElementById('aiteam-loading');
         const results = document.getElementById('aiteam-results');
+        const errorEl = document.getElementById('aiteam-error');
         loading?.classList.remove('hidden');
         results?.classList.add('hidden');
-        await this.loadAITeam();
+        errorEl?.classList.add('hidden');
+        await this.loadAITeam(false);
     },
 
-    async loadAITeam() {
+    normalizeAITeamData(data) {
+        const lineup = data?.lineup || {};
+        const squad = Array.isArray(data?.squad) ? data.squad : [];
+        const starters = Array.isArray(lineup.starters) ? lineup.starters : [];
+        const bench = Array.isArray(lineup.bench) ? lineup.bench : [];
+        if (squad.length !== 15 || starters.length !== 11 || bench.length !== 4) return null;
+        return {
+            ...data,
+            isLocked: Boolean(data.isLocked ?? data.meta?.isAutoLocked),
+            meta: { ...(data.meta || {}), isAutoLocked: Boolean(data.isLocked ?? data.meta?.isAutoLocked) },
+            transfers: data.transfers?.plan ? data.transfers : { plan: [] },
+            chips: data.chips?.schedule ? data.chips : { schedule: [] },
+        };
+    },
+
+    async loadAITeam(force = false) {
         const loading = document.getElementById('aiteam-loading');
         const results = document.getElementById('aiteam-results');
+        const errorEl = document.getElementById('aiteam-error');
         loading?.classList.remove('hidden');
         results?.classList.add('hidden');
+        errorEl?.classList.add('hidden');
         try {
-            // First check for a saved team
             let data;
-            try {
-                const saved = await this.apiFetch(this.API.aiTeam);
-                if (saved && saved.saved) {
-                    data = saved;
+            if (!force) {
+                try {
+                    const saved = await this.apiFetch(this.API.aiTeam);
+                    data = saved?.saved ? this.normalizeAITeamData(saved) : null;
+                } catch (e) {
+                    console.warn('Saved AI Team unavailable, rebuilding:', e.message);
                 }
-            } catch (e) { /* no saved team */ }
-
+            }
             if (!data) {
                 const horizon = Number(document.getElementById('aiteam-horizon')?.value) || 5;
                 const strategy = document.getElementById('aiteam-strategy')?.value || 'balanced';
                 data = await this.apiPost(this.API.aiTeam, { horizon, strategy });
+                data = this.normalizeAITeamData(data);
             }
+            if (!data) throw new Error('The AI returned an incomplete squad. Rebuild again after the latest FPL data loads.');
 
             this.state.aiTeamData = data;
             this.paintAITeam(data);
             results?.classList.remove('hidden');
         } catch (error) {
             console.error('AI Team error:', error);
-            results?.classList.remove('hidden');
-            results.innerHTML = '<div style="text-align:center;padding:60px 20px;color:#8ba396;"><span class="material-symbols-outlined" style="font-size:48px;margin-bottom:12px;display:block;">error</span><div style="font-weight:700;font-size:16px;margin-bottom:4px;">AI Model Unavailable</div><div style="font-size:13px;">' + this.escapeHTML(error.message || 'Try again shortly.') + '</div></div>';
+            if (errorEl) {
+                errorEl.classList.remove('hidden');
+                errorEl.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">error</span><div><strong>AI Team unavailable</strong><p>${this.escapeHTML(error.message || 'Try again shortly.')}</p><button type="button" class="aiteam-secondary-btn" onclick="FPL.loadAITeam(true)">Try again</button></div>`;
+            }
         } finally {
             loading?.classList.add('hidden');
         }
     },
 
     async resetAITeam() {
+        if (!window.confirm('Reset the AI squad and rebuild it from current FPL data?')) return;
         try {
             await fetch(this.API.aiTeam, { method: 'DELETE' });
             this.state.aiTeamData = null;
-            await this.loadAITeam();
+            await this.loadAITeam(true);
         } catch (e) { console.error('Reset error:', e); }
     },
 
@@ -528,7 +552,7 @@ const FPL = {
         if (summaryEl) {
             const nextGWxPts = lineup.starters.reduce((s, p) => s + (p.weekly?.[0]?.xPts || 0), 0) + (lineup.captain?.weekly?.[0]?.xPts || 0);
             const remaining = Math.round((100 - teamCost) * 10) / 10;
-            const autoLocked = meta?.isAutoLocked;
+            const autoLocked = Boolean(isLocked ?? meta?.isAutoLocked);
             summaryEl.innerHTML = `
                 <div class="aiteam-card">
                     <div class="aiteam-card-icon" style="background:rgba(0,255,133,0.12);color:#00FF85;"><span class="material-symbols-outlined">payments</span></div>
@@ -542,10 +566,10 @@ const FPL = {
                     <div class="aiteam-card-icon" style="background:rgba(192,132,252,0.12);color:#c084fc;"><span class="material-symbols-outlined">emoji_events</span></div>
                     <div class="aiteam-card-data"><span class="aiteam-card-value">${teamXpts.toFixed(1)}</span><span class="aiteam-card-label">Horizon xPts</span></div>
                 </div>
-                <div class="aiteam-card" style="cursor:pointer;" onclick="FPL.resetAITeam()" title="Reset squad (Wild Card)">
+                <button type="button" class="aiteam-card aiteam-status-card" onclick="FPL.resetAITeam()" title="Reset squad and rebuild from current FPL data">
                     <div class="aiteam-card-icon" style="background:rgba(255,167,38,0.12);color:#FFA726;"><span class="material-symbols-outlined">${autoLocked ? 'lock' : 'refresh'}</span></div>
-                    <div class="aiteam-card-data"><span class="aiteam-card-value" style="font-size:13px;">${autoLocked ? 'AUTO-LOCKED' : 'AI MANAGED'}</span><span class="aiteam-card-label">${autoLocked ? 'Click to reset (WC)' : 'AI handles all decisions'}</span></div>
-                </div>`;
+                    <div class="aiteam-card-data"><span class="aiteam-card-value" style="font-size:13px;">${autoLocked ? 'AUTO-LOCKED' : 'AI MANAGED'}</span><span class="aiteam-card-label">${meta?.quality?.formationOptimal ? '7 legal formations checked' : autoLocked ? 'Click to reset (WC)' : 'AI handles all decisions'}</span></div>
+                </button>`;
         }
 
         // --- Formation Label ---
@@ -584,8 +608,7 @@ const FPL = {
             const isVice = (p) => lineup.viceCaptain && p.id === lineup.viceCaptain.id;
 
             function shirtUrl(player) {
-                const code = player.teamCode || 0;
-                return code > 0 ? `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${code}-110.webp` : '';
+                return FPL.playerTeamShirtUrl(player);
             }
 
             function playerCard(player) {
@@ -606,10 +629,10 @@ const FPL = {
                 const runLen = player.consecutiveGoodFixtures || 0;
                 const runBadge = runLen >= 4 ? `<span style="font-size:8px;padding:1px 4px;border-radius:3px;background:rgba(0,255,133,0.15);color:#00FF85;font-weight:700;position:absolute;top:2px;right:2px;" title="${runLen} consecutive easy fixtures">${runLen} RUN</span>` : '';
 
-                const shirtImg = shirt ? `<img src="${shirt}" alt="${player.team || ''}" style="width:100%;height:100%;object-fit:contain;">` : `<span style="font-size:28px;font-weight:800;color:rgba(255,255,255,0.15);">${(player.teamShort || player.team || '?').substring(0,3)}</span>`;
+                const shirtImg = shirt ? `<img src="${shirt}" alt="" loading="lazy" decoding="async" onerror="this.closest('.tactics-player-shirt').classList.add('is-missing');this.remove();" style="width:100%;height:100%;object-fit:contain;">` : '';
 
                 return `<div class="tactics-player-card home" style="${borderStyle}min-width:88px;max-width:96px;position:relative;" title="${player.name}${badge} - \u00A3${(player.cost || 0).toFixed(1)}m - ${gwXPts} xPts\n${fixtureStr ? `Next: ${fixtureStr} (FDR ${fixture?.fdr})` : ''}${runLen >= 4 ? `\n${runLen} consecutive easy fixtures!` : ''}">
-                    <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;">${shirtImg}</div>
+                    <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;">${shirtImg}<span class="aiteam-shirt-fallback" aria-hidden="true">${FPL.playerTeamShort(player)}</span></div>
                     <div class="tactics-player-copy" style="text-align:center;"><b style="${cap ? 'color:#FFD700;' : ''}">${player.name}${badge}</b></div>
                     <div style="font:700 10px var(--font-mono);color:#B0B0B0;text-align:center;">\u00A3${(player.cost || 0).toFixed(1)}m</div>
                     <div style="font:700 10px var(--font-mono);color:#00FF85;text-align:center;">${gwXPts} xPts</div>
@@ -629,12 +652,12 @@ const FPL = {
 
             // Bench
             html += '<div class="aiteam-bench"><div class="aiteam-bench-label"><span class="material-symbols-outlined">event_seat</span> BENCH</div><div class="aiteam-bench-players">';
-            lineup.bench.forEach(p => {
+             lineup.bench.slice(0, 4).forEach((p, benchIndex) => {
                 const shirt = shirtUrl(p);
                 const gwXPts = (p.weekly?.[0]?.xPts || 0).toFixed(1);
-                const shirtImg = shirt ? `<img src="${shirt}" alt="${p.team || ''}" style="width:100%;height:100%;object-fit:contain;">` : `<span style="font-size:14px;font-weight:800;color:rgba(255,255,255,0.15);">${(p.teamShort || p.team || '?').substring(0,3)}</span>`;
-                html += `<div class="aiteam-bench-slot">
-                    <div class="aiteam-bench-shirt-img" style="width:36px;height:40px;overflow:hidden;flex-shrink:0;display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;">${shirtImg}</div>
+                 const shirtImg = shirt ? `<img src="${shirt}" alt="" loading="lazy" decoding="async" onerror="this.closest('.aiteam-bench-shirt-img').classList.add('is-missing');this.remove();" style="width:100%;height:100%;object-fit:contain;">` : '';
+                 html += `<div class="aiteam-bench-slot">
+                    <div class="aiteam-bench-order">${benchIndex + 1}</div><div class="aiteam-bench-shirt-img" style="width:36px;height:40px;overflow:hidden;flex-shrink:0;display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;">${shirtImg}<span class="aiteam-shirt-fallback" aria-hidden="true">${FPL.playerTeamShort(p)}</span></div>
                     <div class="aiteam-bench-info">
                         <div class="aiteam-bench-name">${p.name}</div>
                         <div class="aiteam-bench-club">${p.teamFull || p.team}</div>
@@ -654,10 +677,13 @@ const FPL = {
             const statusIcons = { a: { icon: 'check_circle', color: '#00FF87', label: 'Available' }, d: { icon: 'help', color: '#FFA726', label: 'Doubtful' }, i: { icon: 'hospital', color: '#ff4d4d', label: 'Injured' }, s: { icon: 'gavel', color: '#ff4d4d', label: 'Suspended' }, u: { icon: 'block', color: '#888', label: 'Unavailable' }, n: { icon: 'cancel', color: '#888', label: 'Not in squad' } };
             const isCap = (p) => lineup.captain && p.id === lineup.captain.id;
             const isVice = (p) => lineup.viceCaptain && p.id === lineup.viceCaptain.id;
-            tbody.innerHTML = squad.map((p, i) => {
+             const starterIds = new Set(lineup.starters.map(player => player.id));
+             const benchIds = new Set(lineup.bench.map(player => player.id));
+             const orderedSquad = [...lineup.starters, ...lineup.bench].filter((player, index, list) => player && list.findIndex(item => item.id === player.id) === index);
+             tbody.innerHTML = orderedSquad.map((p, i) => {
                 const s = statusIcons[p.status] || statusIcons.a;
                 const gwXPts = (p.weekly?.[0]?.xPts || 0).toFixed(1);
-                const role = isCap(p) ? '<span style="color:#FFD700;font-weight:700;">Captain</span>' : isVice(p) ? '<span style="color:#C0C0C0;font-weight:600;">Vice-Captain</span>' : (i >= 11 ? '<span style="color:#8ba396;">Bench</span>' : '<span style="color:#00FF85;">Starter</span>');
+                 const role = isCap(p) ? '<span style="color:#FFD700;font-weight:700;">Captain</span>' : isVice(p) ? '<span style="color:#C0C0C0;font-weight:600;">Vice-Captain</span>' : benchIds.has(p.id) ? '<span style="color:#8ba396;">Bench</span>' : starterIds.has(p.id) ? '<span style="color:#00FF85;">Starter</span>' : '<span style="color:#ff4d4d;">Invalid</span>';
                 const clubName = p.teamFull || p.team;
                 const news = p.news ? `<span style="color:#FFA726;font-size:10px;margin-left:4px;" title="${this.escapeHTML(p.news)}">\u26A0</span>` : '';
                 // Upcoming fixtures preview (next 4 GWs)
@@ -747,7 +773,7 @@ const FPL = {
                         const chipColor = chipColors[c.chip] || '#00FF85';
                         const gain = c.expectedGain || 0;
                         return `
-                        <div class="aiteam-chip-card" style="border-left:3px solid ${chipColor};">
+                        <div class="aiteam-chip-card" style="border-color:${chipColor}55;">
                             <div class="aiteam-chip-icon" style="color:${chipColor};"><span class="material-symbols-outlined">${chipIcons[c.chip] || 'auto_awesome'}</span></div>
                             <div style="font-weight:700;color:#fff;font-size:14px;">${chipName}</div>
                             <div style="color:${chipColor};font-weight:700;font-size:15px;">Gameweek ${c.gameweek}</div>
@@ -767,7 +793,7 @@ const FPL = {
         const transfersEl = document.getElementById('aiteam-transfers-section');
         if (transfersEl) {
             const plan = transfers?.plan || [];
-            const activeTransfers = plan.filter(t => t.transfer && !t.rolled);
+            const activeTransfers = plan.filter(t => (t.transfers?.length || t.transfer) && !t.rolled);
             if (activeTransfers.length) {
                 transfersEl.innerHTML = `
                     <div class="aiteam-section-header">
@@ -777,26 +803,17 @@ const FPL = {
                         </div>
                     </div>
                     <div class="aiteam-chips-grid">${activeTransfers.map(t => {
-                        const out = t.transfer.out;
-                        const inP = t.transfer.in;
+                        const moves = t.transfers?.length ? t.transfers : [t.transfer];
                         const hitText = t.hit > 0 ? `<span style="color:#ff4d4d;font-weight:700;">-${t.hit} hit</span>` : '<span style="color:#00FF85;">Free</span>';
-                        const gain = t.transfer.gain;
+                        const gain = moves.reduce((sum, move) => sum + Number(move.gain || 0), 0) - Number(t.hit || 0);
                         return `
                         <div class="aiteam-chip-card">
                             <div class="aiteam-chip-icon"><span class="material-symbols-outlined">swap_horiz</span></div>
                             <div style="font-weight:700;color:#fff;font-size:13px;">GW${t.gw}</div>
-                            <div style="margin:6px 0;">
-                                <div style="color:#ff4d4d;font-size:12px;text-decoration:line-through;">${out.name}</div>
-                                <div style="color:#8ba396;font-size:10px;">${out.teamFull || out.team}</div>
-                            </div>
-                            <div style="font-size:16px;color:#4FC3F7;">\u2193</div>
-                            <div style="margin:6px 0;">
-                                <div style="color:#00FF85;font-size:12px;font-weight:700;">${inP.name}</div>
-                                <div style="color:#8ba396;font-size:10px;">${inP.teamFull || inP.team}</div>
-                            </div>
+                            ${moves.map(move => `<div class="aiteam-transfer-move"><span>${this.escapeHTML(move.out.name)} <small>${this.escapeHTML(move.out.teamFull || move.out.team)}</small></span><span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span><strong>${this.escapeHTML(move.in.name)} <small>${this.escapeHTML(move.in.teamFull || move.in.team)}</small></strong></div>`).join('')}
                             <div style="display:flex;gap:8px;align-items:center;">
                                 ${hitText}
-                                <span style="color:#4FC3F7;font-size:11px;">+${gain.toFixed(1)} xPts</span>
+                                <span style="color:#4FC3F7;font-size:11px;">${gain >= 0 ? '+' : ''}${gain.toFixed(1)} net xPts</span>
                             </div>
                         </div>`;
                     }).join('')}</div>`;

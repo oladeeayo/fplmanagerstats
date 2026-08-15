@@ -82,7 +82,7 @@
     }
     </script>
 
-    <link rel="stylesheet" href="design-system.css?v=5">
+    <link rel="stylesheet" href="design-system.css?v=6">
     <style>
         .material-symbols-outlined { font-family: 'Material Symbols Outlined'; font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
         .material-symbols-outlined.filled { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
@@ -116,7 +116,7 @@
     </style>
 </head>
 <body>
-    <div id="loading-overlay" class="hidden" aria-live="polite">
+    <div id="loading-overlay" aria-live="polite">
         <div class="pixel-loader-container" style="padding:14px 24px;">
             <span class="pixel-grid" style="grid-template-columns:repeat(3, 7px);gap:4px;" aria-hidden="true">
                 <span class="pixel-dot" style="width:7px;height:7px;"></span>
@@ -1021,35 +1021,32 @@
                 <!-- AI TEAM -->
                 <div id="content-aiteam" class="tab-content">
                     <div class="aiteam-page">
-                        <!-- Hero Header -->
-                        <div class="aiteam-hero" style="text-align:center;">
-                            <div class="aiteam-hero-badge" style="justify-content:center;">
-                                <span class="material-symbols-outlined">smart_toy</span>
-                                <span>AI ENGINE</span>
+                        <div class="aiteam-hero">
+                            <div>
+                                <h1 class="aiteam-hero-title">AI Team</h1>
+                                <p class="aiteam-hero-sub">Autonomous squad selection, weekly transfers and projected chip timing, optimized within the official £100m budget.</p>
                             </div>
-                            <h1 class="aiteam-hero-title" style="text-align:center;">AI Team</h1>
-                            <p class="aiteam-hero-sub" style="text-align:center;">Fully autonomous squad management. The AI picks the team, makes transfers, and plays chips — all without hits unless absolutely necessary.</p>
+                            <span class="aiteam-engine-state"><span class="material-symbols-outlined" aria-hidden="true">smart_toy</span> Autonomous</span>
                         </div>
 
                         <!-- Controls -->
                         <div class="aiteam-controls">
-                            <button class="aiteam-refresh-btn" onclick="FPL.loadAITeam()" title="Refresh AI Team">
+                            <button class="aiteam-refresh-btn" type="button" onclick="FPL.loadAITeam(true)">
                                 <span class="material-symbols-outlined">refresh</span> Rebuild Squad
                             </button>
                             <details class="aiteam-advanced-toggle">
-                                <summary style="cursor:pointer;color:#8ba396;font-size:11px;font-family:var(--font-mono);">Advanced Options</summary>
-                                <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;padding:8px 0;">
+                                <summary>Projection settings</summary>
+                                <div class="aiteam-advanced-options">
                                     <div class="aiteam-control-group">
-                                        <label>HORIZON</label>
-                                        <select id="aiteam-horizon" onchange="FPL.loadAITeam()">
+                                        <label for="aiteam-horizon">Horizon</label>
+                                        <select id="aiteam-horizon">
                                             <option value="5" selected>5 GWs</option>
                                             <option value="8">8 GWs</option>
-                                            <option value="38">Full Season</option>
                                         </select>
                                     </div>
                                     <div class="aiteam-control-group">
-                                        <label>STRATEGY</label>
-                                        <select id="aiteam-strategy" onchange="FPL.loadAITeam()">
+                                        <label for="aiteam-strategy">Strategy</label>
+                                        <select id="aiteam-strategy">
                                             <option value="balanced" selected>Balanced</option>
                                             <option value="protect">Protect Rank</option>
                                             <option value="chase">Chase Glory</option>
@@ -1060,7 +1057,7 @@
                         </div>
 
                         <!-- Loading -->
-                        <div id="aiteam-loading" class="aiteam-loading hidden">
+                        <div id="aiteam-loading" class="aiteam-loading hidden" role="status" aria-live="polite">
                             <div class="pixel-loader-container">
                                 <span class="pixel-grid" aria-hidden="true">
                                     <span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span>
@@ -1070,6 +1067,7 @@
                                 <span class="pixel-loader-label">Building optimal squad...</span>
                             </div>
                         </div>
+                        <div id="aiteam-error" class="aiteam-error hidden" role="alert"></div>
 
                         <!-- Results -->
                         <div id="aiteam-results" class="aiteam-results hidden">
@@ -1080,8 +1078,7 @@
                             <div class="aiteam-pitch-section">
                                 <div class="aiteam-section-header">
                                     <div>
-                                        <span class="aiteam-kicker">STARTING XI</span>
-                                        <h2 id="aiteam-formation-label">Formation</h2>
+                                        <h2>Starting XI <span id="aiteam-formation-label">Formation</span></h2>
                                     </div>
                                     <div class="aiteam-captain-pick" id="aiteam-captain-display"></div>
                                 </div>
@@ -1094,19 +1091,18 @@
                             <div class="aiteam-squad-section">
                                 <div class="aiteam-section-header">
                                     <div>
-                                        <span class="aiteam-kicker">FULL SQUAD</span>
                                         <h2>15-Player Roster</h2>
                                     </div>
                                     <div class="aiteam-position-legend" id="aiteam-position-legend"></div>
                                 </div>
-                                <div class="table-scroll-mobile">
+                                <div class="table-scroll-mobile" tabindex="0" aria-label="AI Team full squad table">
                                     <table class="aiteam-table">
+                                        <caption class="sr-only">AI Team 15-player squad</caption>
                                         <thead>
                                             <tr>
                                                 <th style="width:40px;">#</th>
                                                 <th style="text-align:left;">Player</th>
                                                 <th>Pos</th>
-                                                <th>Team</th>
                                                 <th>Price</th>
                                                 <th>Form</th>
                                                 <th>xPts (Next GW)</th>
@@ -1127,12 +1123,12 @@
                             <div class="aiteam-gw-section">
                                 <div class="aiteam-section-header">
                                     <div>
-                                        <span class="aiteam-kicker">GAMEWEEK PROJECTIONS</span>
                                         <h2>Per-GW xPts Breakdown</h2>
                                     </div>
                                 </div>
-                                <div class="table-scroll-mobile">
+                                <div class="table-scroll-mobile" tabindex="0" aria-label="AI Team gameweek projections table">
                                     <table class="aiteam-table">
+                                        <caption class="sr-only">Projected points and opponents by gameweek</caption>
                                         <thead>
                                             <tr id="aiteam-gw-header"></tr>
                                         </thead>
@@ -1176,11 +1172,21 @@
         </div>
     </div>
 
-    <script src="common.js?v=5"></script>
+    <script src="common.js?v=6"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const routeTab = window.location.pathname === '/ai-team' ? 'aiteam' : params.get('tab');
+            if (routeTab) {
+                document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+                document.getElementById(`content-${routeTab}`)?.classList.add('active');
+                FPL.state.activeTab = routeTab;
+            }
             FPL.init().then(() => {
                 document.getElementById('loading-overlay').classList.add('hidden');
+                FPL.initSidebar();
+                FPL.initDialogs();
+                if (routeTab) FPL.loadTabData(routeTab);
                 if (FPL.state.managerId) {
                     const display = document.getElementById('manager-id-display');
                     if (display) display.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:8px;height:8px;border-radius:50%;background:#00FF85;box-shadow:0 0 6px #00FF85;"></span> Manager ${FPL.state.managerId}</span>`;
