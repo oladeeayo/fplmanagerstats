@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { InstallPrompt } from '../components/InstallPrompt';
 import { LegacyDashboard } from '../components/LegacyDashboard';
 import { appRoutes, isAppTab, tabFromPath, type AppTab } from './routes';
 
@@ -56,5 +57,10 @@ export function App() {
     });
   }, [activeTab, ready]);
 
-  return <LegacyDashboard activeTab={activeTab} />;
+  return (
+    <>
+      <LegacyDashboard activeTab={activeTab} />
+      <InstallPrompt />
+    </>
+  );
 }
