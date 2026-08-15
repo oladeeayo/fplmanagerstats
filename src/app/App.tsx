@@ -22,31 +22,40 @@ export function App() {
   }, [legacyTab, location.pathname, navigate, pathTab]);
 
   useEffect(() => {
-    const fpl = window.FPL;
-    const originalNavigate = fpl.navigateTo.bind(fpl);
-
-    fpl.navigateTo = (tab: string) => {
-      const path = appRoutes[tab as AppTab] ?? appRoutes.general;
-      navigate(path);
-      window.scrollTo(0, 0);
+    let disposed = false;
+    let originalNavigate: ((tab: string) => void) | null = null;
+    const initialize = () => {
+      const fpl = window.FPL;
+      if (!fpl || disposed) return;
+      originalNavigate = fpl.navigateTo.bind(fpl);
+      fpl.navigateTo = (tab: string) => {
+        const path = appRoutes[tab as AppTab] ?? appRoutes.general;
+        navigate(path);
+        window.scrollTo(0, 0);
+      };
+      if (!initPromise.current) {
+        fpl.state.activeTab = activeTab;
+        fpl.initSidebar();
+        fpl.initDialogs();
+        initPromise.current = fpl.init();
+      }
+      void initPromise.current.finally(() => {
+        if (!disposed) setReady(true);
+      });
     };
-
-    if (!initPromise.current) {
-      fpl.state.activeTab = activeTab;
-      fpl.initSidebar();
-      fpl.initDialogs();
-      initPromise.current = fpl.init();
-    }
-    void initPromise.current.finally(() => setReady(true));
+    if (window.FPL) initialize();
+    else window.addEventListener('fpl-ready', initialize, { once: true });
 
     return () => {
-      fpl.navigateTo = originalNavigate;
+      disposed = true;
+      window.removeEventListener('fpl-ready', initialize);
+      if (originalNavigate && window.FPL) window.FPL.navigateTo = originalNavigate;
     };
   }, [activeTab, navigate]);
 
   useEffect(() => {
+    if (!ready || !window.FPL) return;
     window.FPL.state.activeTab = activeTab;
-    if (!ready) return;
     void window.FPL.loadTabData(activeTab);
 
     document.querySelectorAll<HTMLElement>('.sidebar-nav-item').forEach(el => {

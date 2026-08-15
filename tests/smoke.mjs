@@ -71,7 +71,7 @@ try {
     }));
     throw new Error(`Players route did not activate: ${JSON.stringify({ shellState, slowPageErrors, slowFailedResponses })}`, { cause: error });
   }
-  await slowPage.waitForSelector('#loading-overlay', { state: 'hidden' });
+  await slowPage.waitForSelector('.layout');
   await slowPage.evaluate(() => document.fonts.ready);
   const iconFont = await slowPage.locator('.sidebar-nav-item .material-symbols-outlined').first().evaluate((element) => getComputedStyle(element).fontFamily);
   assert.match(iconFont, /Material Symbols Outlined/, 'Navigation icons did not load the bundled icon font');
@@ -83,30 +83,25 @@ try {
   const coldContext = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
   const coldPage = await coldContext.newPage();
   await coldPage.route('http://localhost:8400/live.js*', (route) => route.abort());
-  await coldPage.route('**/common.js?v=6', async (route) => {
+  await coldPage.route('**/common.js?v=7', async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 1200));
     await route.continue();
   });
-  const coldNavigation = coldPage.goto(`${baseUrl}/ai-team`, { waitUntil: 'domcontentloaded' });
-  await coldPage.waitForSelector('#initial-shell');
+  await coldPage.goto(`${baseUrl}/ai-team`, { waitUntil: 'domcontentloaded' });
+  await coldPage.waitForSelector('.layout');
   const coldState = await coldPage.evaluate(() => ({
-    initialShellVisible: getComputedStyle(document.querySelector('#initial-shell')).display !== 'none',
-    rootText: document.querySelector('#root')?.textContent?.trim(),
-    background: getComputedStyle(document.body).backgroundColor,
+    rootMounted: Boolean(document.querySelector('#root .layout')),
+    initialShellExists: Boolean(document.querySelector('#initial-shell')),
+    blockingOverlayExists: Boolean(document.querySelector('#loading-overlay')),
   }));
-  assert.equal(coldState.initialShellVisible, true, 'Cold load must show the styled entry shell before React mounts');
-  assert.match(coldState.rootText || '', /Loading FPL Manager Stats/, 'Cold load must not expose raw AI Team markup');
-  assert.equal(coldState.background, 'rgb(10, 15, 13)', 'Cold load must use the application background immediately');
-  await coldNavigation;
+  assert.equal(coldState.initialShellExists, false, 'Cold load must not add a blocking entry shell');
+  assert.equal(coldState.blockingOverlayExists, false, 'Cold load must not add a full-screen loading overlay');
   await coldPage.waitForSelector('#content-aiteam.active');
-  await coldPage.waitForSelector('#loading-overlay', { state: 'hidden', timeout: 30000 });
   await coldPage.waitForSelector('#aiteam-results:not(.hidden)', { timeout: 90000 });
   const hydratedState = await coldPage.evaluate(() => ({
-    initialShellExists: Boolean(document.querySelector('#initial-shell')),
     stylesheetLoaded: getComputedStyle(document.querySelector('.aiteam-page')).maxWidth !== 'none',
     aiTabActive: document.querySelector('#content-aiteam')?.classList.contains('active'),
   }));
-  assert.equal(hydratedState.initialShellExists, false, 'React must replace the initial shell after mounting');
   assert.equal(hydratedState.stylesheetLoaded, true, 'AI Team stylesheet must be applied on first load');
   assert.equal(hydratedState.aiTabActive, true, 'Cold /ai-team load must hydrate directly into AI Team');
   await coldContext.close();
@@ -181,19 +176,8 @@ try {
 
     if (viewport.width < 1024) {
       await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
-      try {
-        await page.waitForSelector('#loading-overlay', { state: 'hidden', timeout: 30000 });
-      } catch (error) {
-        const startupState = await page.evaluate(() => ({
-          classes: document.querySelector('#loading-overlay')?.className,
-          timer: document.querySelector('#main-overlay-timer')?.textContent,
-          error: document.querySelector('#error-toast')?.textContent,
-          hasBootstrap: Boolean(window.FPL?.state.bootstrapData),
-          apiFetchHasTimeout: window.FPL?.apiFetch?.toString().includes('AbortController'),
-          controlledByServiceWorker: Boolean(navigator.serviceWorker?.controller),
-        }));
-        throw new Error(`Startup remained blocked: ${JSON.stringify(startupState)}`, { cause: error });
-      }
+      await page.waitForSelector('.layout');
+      assert.equal(await page.locator('#loading-overlay').count(), 0, 'Full-screen loading overlay must not exist');
       await page.locator('#mobile-menu-btn').click();
       await page.waitForSelector('#sidebar.mobile-open');
       await page.locator('#sidebar [data-tab="players"]').click();

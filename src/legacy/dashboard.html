@@ -88,8 +88,6 @@
         .material-symbols-outlined.filled { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        #loading-overlay { position: fixed; inset: 0; background: var(--md-sys-color-background); z-index: 9999; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: var(--space-md); }
-        #loading-overlay.hidden { display: none; }
         .spinner { width: 40px; height: 40px; border: 3px solid var(--md-sys-color-outline); border-top-color: var(--md-sys-color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
         #error-toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: var(--md-sys-color-error); color: #000; padding: var(--space-sm) var(--space-lg); border-radius: var(--radius-pill); font-size: 0.875rem; font-weight: 600; z-index: 10000; transition: all var(--transition-normal); }
@@ -116,23 +114,6 @@
     </style>
 </head>
 <body>
-    <div id="loading-overlay" aria-live="polite">
-        <div class="pixel-loader-container" style="padding:14px 24px;">
-            <span class="pixel-grid" style="grid-template-columns:repeat(3, 7px);gap:4px;" aria-hidden="true">
-                <span class="pixel-dot" style="width:7px;height:7px;"></span>
-                <span class="pixel-dot" style="width:7px;height:7px;"></span>
-                <span class="pixel-dot" style="width:7px;height:7px;"></span>
-                <span class="pixel-dot" style="width:7px;height:7px;"></span>
-                <span class="pixel-dot" style="width:7px;height:7px;"></span>
-                <span class="pixel-dot" style="width:7px;height:7px;"></span>
-                <span class="pixel-dot" style="width:7px;height:7px;"></span>
-                <span class="pixel-dot" style="width:7px;height:7px;"></span>
-                <span class="pixel-dot" style="width:7px;height:7px;"></span>
-            </span>
-            <span class="pixel-loader-label" style="font-size:15px;">Loading FPL data...</span>
-            <span id="main-overlay-timer" class="pixel-loader-timer" style="font-size:13px;">0.0s</span>
-        </div>
-    </div>
     <div id="error-toast" class="hidden" role="status" aria-live="polite"></div>
     <div id="sidebar-overlay" class="sidebar-overlay"></div>
 
@@ -1172,7 +1153,7 @@
         </div>
     </div>
 
-    <script src="common.js?v=6"></script>
+    <script src="common.js?v=7"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams(window.location.search);
@@ -1183,7 +1164,6 @@
                 FPL.state.activeTab = routeTab;
             }
             FPL.init().then(() => {
-                document.getElementById('loading-overlay').classList.add('hidden');
                 FPL.initSidebar();
                 FPL.initDialogs();
                 if (routeTab) FPL.loadTabData(routeTab);

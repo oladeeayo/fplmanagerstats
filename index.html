@@ -25,24 +25,12 @@
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <link rel="manifest" href="/manifest.json" />
     <link rel="stylesheet" href="/design-system.css?v=6" />
-    <style>
-      html, body { min-height: 100%; margin: 0; background: #0a0f0d; color: #fff; }
-      .initial-shell { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; background: #0a0f0d; font-family: Arial, sans-serif; }
-      .initial-shell__content { display: grid; justify-items: center; gap: 14px; }
-      .initial-shell__mark { display: grid; grid-template-columns: repeat(3, 7px); gap: 4px; }
-      .initial-shell__mark i { width: 7px; height: 7px; background: #00ff85; animation: initial-pulse 1.2s ease-in-out infinite; }
-      .initial-shell__mark i:nth-child(2n) { animation-delay: 120ms; }
-      .initial-shell__mark i:nth-child(3n) { animation-delay: 240ms; }
-      .initial-shell__label { color: #9ab2a5; font-size: 12px; font-weight: 700; letter-spacing: .04em; }
-      @keyframes initial-pulse { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
-      @media (prefers-reduced-motion: reduce) { .initial-shell__mark i { animation: none; opacity: .7; } }
-    </style>
     <script type="application/ld+json">
       {"@context":"https://schema.org","@type":"WebApplication","name":"FPL Manager Stats","url":"https://fplmanagerstats.vercel.app/","applicationCategory":"SportsApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"GBP"}}
     </script>
   </head>
   <body>
-    <div id="root"><div id="initial-shell" class="initial-shell" role="status" aria-live="polite"><div class="initial-shell__content"><span class="initial-shell__mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="initial-shell__label">Loading FPL Manager Stats</span></div></div></div>
+    <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

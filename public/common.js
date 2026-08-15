@@ -230,32 +230,10 @@ const FPL = {
     loaderStartTime: 0,
 
     showLoading(label = 'Loading FPL data...') {
-        const el = document.getElementById('loading-overlay');
-        if (el) {
-            const labelEl = el.querySelector('.pixel-loader-label');
-            if (labelEl) labelEl.textContent = label;
-            el.classList.remove('hidden');
-        }
-
-        const timerEl = document.getElementById('main-overlay-timer');
-        if (timerEl) {
-            this.loaderStartTime = Date.now();
-            if (this.loaderInterval) clearInterval(this.loaderInterval);
-            this.loaderInterval = setInterval(() => {
-                const ds = Math.floor((Date.now() - this.loaderStartTime) / 100);
-                const total = ds / 10;
-                if (total < 60) {
-                    timerEl.textContent = total.toFixed(1) + 's';
-                } else {
-                    timerEl.textContent = Math.floor(total / 60) + 'm ' + (total % 60).toFixed(1) + 's';
-                }
-            }, 100);
-        }
+        void label;
     },
 
     hideLoading() {
-        const el = document.getElementById('loading-overlay');
-        if (el) el.classList.add('hidden');
         if (this.loaderInterval) {
             clearInterval(this.loaderInterval);
             this.loaderInterval = null;

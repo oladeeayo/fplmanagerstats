@@ -8,9 +8,7 @@ if (!document.cookie.split('; ').some((cookie) => cookie.startsWith('fpl_analyti
   document.cookie = `fpl_analytics_session=${sessionId}; Max-Age=31536000; Path=/; SameSite=Lax`;
 }
 
-async function start() {
-  const legacyScript = '/common.js?v=6';
-  await import(/* @vite-ignore */ legacyScript);
+function mountApp() {
   createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <App />
@@ -18,7 +16,12 @@ async function start() {
   );
 }
 
-void start();
+mountApp();
+
+const legacyScript = '/common.js?v=7';
+void import(/* @vite-ignore */ legacyScript).then(() => {
+  window.dispatchEvent(new CustomEvent('fpl-ready'));
+});
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
