@@ -681,7 +681,9 @@ app.post('/api/ai-team', async (req, res) => {
           const candidates = availablePlayers
             .filter(p => p.position === position && !selected.some(s => s.id === p.id))
             .filter(p => (teamCounts[p.teamId] || 0) < MAX_PER_TEAM)
-            .filter(p => spent + (p.cost || p.enhancedCost) + remainingMinimum <= budget + 0.01);
+            .filter(p => spent + (p.cost || p.enhancedCost) + remainingMinimum <= budget + 0.01)
+            // Minimum quality: non-GKP must project at least 2.5 xPts/GW average
+            .filter(p => p.position === 'GKP' || (p.totalXpts && p.totalXpts / Math.max(horizon, 1) >= 2.5));
 
           const scored = candidates.map(p => ({
             ...p,

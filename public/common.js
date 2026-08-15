@@ -542,26 +542,10 @@ const FPL = {
                     <div class="aiteam-card-icon" style="background:rgba(192,132,252,0.12);color:#c084fc;"><span class="material-symbols-outlined">emoji_events</span></div>
                     <div class="aiteam-card-data"><span class="aiteam-card-value">${teamXpts.toFixed(1)}</span><span class="aiteam-card-label">Horizon xPts</span></div>
                 </div>
-                <div class="aiteam-card">
-                    <div class="aiteam-card-icon" style="background:rgba(255,167,38,0.12);color:#FFA726;"><span class="material-symbols-outlined">${autoLocked ? 'lock' : 'smart_toy'}</span></div>
-                    <div class="aiteam-card-data"><span class="aiteam-card-value" style="font-size:14px;">${autoLocked ? 'AUTO-LOCKED' : 'AI MANAGED'}</span><span class="aiteam-card-label">${autoLocked ? 'Locked before GW1 deadline' : 'AI handles all decisions'}</span></div>
+                <div class="aiteam-card" style="cursor:pointer;" onclick="FPL.resetAITeam()" title="Reset squad (Wild Card)">
+                    <div class="aiteam-card-icon" style="background:rgba(255,167,38,0.12);color:#FFA726;"><span class="material-symbols-outlined">${autoLocked ? 'lock' : 'refresh'}</span></div>
+                    <div class="aiteam-card-data"><span class="aiteam-card-value" style="font-size:13px;">${autoLocked ? 'AUTO-LOCKED' : 'AI MANAGED'}</span><span class="aiteam-card-label">${autoLocked ? 'Click to reset (WC)' : 'AI handles all decisions'}</span></div>
                 </div>`;
-        }
-
-        // --- Auto-lock indicator (no manual buttons needed) ---
-        const controlsEl = document.querySelector('.aiteam-controls');
-        if (controlsEl && !controlsEl.querySelector('.aiteam-lock-btns')) {
-            const lockDiv = document.createElement('div');
-            lockDiv.className = 'aiteam-lock-btns';
-            lockDiv.style.cssText = 'display:flex;gap:8px;margin-left:auto;';
-            controlsEl.appendChild(lockDiv);
-        }
-        const lockBtns = controlsEl?.querySelector('.aiteam-lock-btns');
-        if (lockBtns) {
-            const autoLocked = meta?.isAutoLocked;
-            lockBtns.innerHTML = `
-                <span style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:rgba(255,167,38,0.1);border:1px solid rgba(255,167,38,0.3);border-radius:8px;color:#FFA726;font:700 12px var(--font-mono);"><span class="material-symbols-outlined" style="font-size:16px;">${autoLocked ? 'lock' : 'smart_toy'}</span> ${autoLocked ? 'AUTO-LOCKED' : 'AI MANAGED'}</span>
-                <button onclick="FPL.resetAITeam()" style="padding:8px 16px;background:rgba(255,77,77,0.1);border:1px solid rgba(255,77,77,0.3);border-radius:8px;color:#ff4d4d;font:700 12px var(--font-mono);cursor:pointer;display:inline-flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">refresh</span> RESET (WC)</button>`;
         }
 
         // --- Formation Label ---
@@ -758,15 +742,20 @@ const FPL = {
                     <div class="aiteam-chips-grid">${chipList.map(c => {
                         const chipIcons = { BB: 'event_seat', TC: 'star', FH: 'flash_on', WC: 'auto_fix_high', 'Bench Boost': 'event_seat', 'Triple Captain': 'star', 'Free Hit': 'flash_on', 'Wildcard': 'auto_fix_high' };
                         const chipNames = { BB: 'Bench Boost', TC: 'Triple Captain', FH: 'Free Hit', WC: 'Wild Card' };
+                        const chipColors = { BB: '#4FC3F7', TC: '#FFD700', FH: '#c084fc', WC: '#FFA726' };
                         const chipName = chipNames[c.chip] || c.chip;
-                        const gain = c.expectedGain || c.expectedGain || 0;
+                        const chipColor = chipColors[c.chip] || '#00FF85';
+                        const gain = c.expectedGain || 0;
                         return `
-                        <div class="aiteam-chip-card">
-                            <div class="aiteam-chip-icon"><span class="material-symbols-outlined">${chipIcons[c.chip] || 'auto_awesome'}</span></div>
+                        <div class="aiteam-chip-card" style="border-left:3px solid ${chipColor};">
+                            <div class="aiteam-chip-icon" style="color:${chipColor};"><span class="material-symbols-outlined">${chipIcons[c.chip] || 'auto_awesome'}</span></div>
                             <div style="font-weight:700;color:#fff;font-size:14px;">${chipName}</div>
-                            <div style="color:#00FF85;font-weight:600;font-size:13px;">GW${c.gameweek}</div>
-                            <div style="color:#8ba396;font-size:12px;margin-top:4px;">${c.reason || (gain > 0 ? '+' + gain.toFixed(1) + ' xPts' : '')}</div>
-                            <div class="aiteam-chip-confidence" style="color:${c.confidence === 'High' ? '#00FF85' : c.confidence === 'Medium' ? '#FFA726' : '#8ba396'};">${c.confidence || 'Scheduled'}</div>
+                            <div style="color:${chipColor};font-weight:700;font-size:15px;">Gameweek ${c.gameweek}</div>
+                            <div style="color:#8ba396;font-size:11px;margin-top:4px;line-height:1.4;">${c.reason || ''}</div>
+                            <div style="margin-top:6px;display:flex;gap:8px;align-items:center;">
+                                <span style="color:#00FF85;font-size:11px;font-weight:600;">+${gain.toFixed(1)} xPts</span>
+                                <span style="color:${c.confidence === 'High' ? '#00FF85' : c.confidence === 'Medium' ? '#FFA726' : '#8ba396'};font-size:10px;font-weight:600;">${c.confidence || 'Scheduled'}</span>
+                            </div>
                         </div>`;
                     }).join('')}</div>`;
             } else {
