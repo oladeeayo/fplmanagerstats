@@ -2,7 +2,7 @@ const CACHE_NAME = 'fpl-stats-react-v5';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
-    '/common.js?v=react-4',
+    '/common.js',
     '/design-system.css?v=react-4',
     '/football.ico',
     '/icon-192.png',

@@ -8,11 +8,17 @@ if (!document.cookie.split('; ').some((cookie) => cookie.startsWith('fpl_analyti
   document.cookie = `fpl_analytics_session=${sessionId}; Max-Age=31536000; Path=/; SameSite=Lax`;
 }
 
-createRoot(document.getElementById('root')!).render(
-  <BrowserRouter>
-    <App />
-  </BrowserRouter>,
-);
+async function start() {
+  const legacyScript = '/common.js';
+  await import(/* @vite-ignore */ legacyScript);
+  createRoot(document.getElementById('root')!).render(
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>,
+  );
+}
+
+void start();
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
