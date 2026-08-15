@@ -623,10 +623,12 @@ const FPL = {
                 const runLen = player.consecutiveGoodFixtures || 0;
                 const runBadge = runLen >= 4 ? `<span style="font-size:8px;padding:1px 4px;border-radius:3px;background:rgba(0,255,133,0.15);color:#00FF85;font-weight:700;position:absolute;top:2px;right:2px;" title="${runLen} consecutive easy fixtures">${runLen} RUN</span>` : '';
 
-                return `<div class="tactics-player-card home" style="${borderStyle}min-width:80px;max-width:90px;position:relative;" title="${player.name}${badge} - ${gwXPts} xPts\n${fixtureStr ? `Next: ${fixtureStr} (FDR ${fixture?.fdr})` : ''}${runLen >= 4 ? `\n${runLen} consecutive easy fixtures!` : ''}">
-                    <div class="tactics-player-shirt">${shirt ? `<img src="${shirt}" alt="" onerror="this.style.display='none'">` : ''}</div>
-                    <div class="tactics-player-copy"><b style="${cap ? 'color:#FFD700;' : ''}">${player.name}${badge}</b></div>
-                    <div style="font:700 10px var(--font-mono);color:#00FF85;">${gwXPts} xPts</div>
+                const shirtImg = shirt ? `<img src="${shirt}" alt="${player.team || ''}" crossorigin="anonymous" style="width:100%;height:100%;object-fit:contain;">` : `<span style="font-size:28px;font-weight:800;color:rgba(255,255,255,0.15);">${(player.teamShort || player.team || '?').substring(0,3)}</span>`;
+
+                return `<div class="tactics-player-card home" style="${borderStyle}min-width:88px;max-width:96px;position:relative;" title="${player.name}${badge} - ${gwXPts} xPts\n${fixtureStr ? `Next: ${fixtureStr} (FDR ${fixture?.fdr})` : ''}${runLen >= 4 ? `\n${runLen} consecutive easy fixtures!` : ''}">
+                    <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;">${shirtImg}</div>
+                    <div class="tactics-player-copy" style="text-align:center;"><b style="${cap ? 'color:#FFD700;' : ''}">${player.name}${badge}</b></div>
+                    <div style="font:700 10px var(--font-mono);color:#00FF85;text-align:center;">${gwXPts} xPts</div>
                     ${fixtureBadge}
                     ${runBadge}
                 </div>`;
@@ -646,8 +648,9 @@ const FPL = {
             lineup.bench.forEach(p => {
                 const shirt = shirtUrl(p);
                 const gwXPts = (p.weekly?.[0]?.xPts || 0).toFixed(1);
+                const shirtImg = shirt ? `<img src="${shirt}" alt="${p.team || ''}" style="width:100%;height:100%;object-fit:contain;">` : `<span style="font-size:14px;font-weight:800;color:rgba(255,255,255,0.15);">${(p.teamShort || p.team || '?').substring(0,3)}</span>`;
                 html += `<div class="aiteam-bench-slot">
-                    <div class="aiteam-bench-shirt-img" style="width:32px;height:36px;overflow:hidden;flex-shrink:0;">${shirt ? `<img src="${shirt}" alt="" style="width:100%;height:100%;object-fit:contain;" onerror="this.style.display='none'">` : ''}</div>
+                    <div class="aiteam-bench-shirt-img" style="width:36px;height:40px;overflow:hidden;flex-shrink:0;display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;">${shirtImg}</div>
                     <div class="aiteam-bench-info">
                         <div class="aiteam-bench-name">${p.name}</div>
                         <div class="aiteam-bench-club">${p.teamFull || p.team}</div>

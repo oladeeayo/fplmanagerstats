@@ -623,6 +623,7 @@ app.post('/api/ai-team', async (req, res) => {
         enhancedCost: Number(raw.now_cost) / 10,
         teamFull: teamsById.get(p.teamId)?.name || p.team,
         teamCode: teamsById.get(p.teamId)?.code || 0,
+        teamShort: teamsById.get(p.teamId)?.short_name || '',
         prevTeam: prevTeam,
       };
     });
