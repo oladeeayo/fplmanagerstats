@@ -41,7 +41,10 @@ function selectOptimalLineup(squad, scorePlayer) {
   const starterIds = new Set(best.starters.map(player => player.id));
   const bench = squad
     .filter(player => !starterIds.has(player.id))
-    .sort((a, b) => (a.position === 'GKP' ? -1 : b.weekly?.[0]?.xPts - a.weekly?.[0]?.xPts));
+    .sort((a, b) => {
+      if ((a.position === 'GKP') !== (b.position === 'GKP')) return a.position === 'GKP' ? -1 : 1;
+      return (b.weekly?.[0]?.xPts || 0) - (a.weekly?.[0]?.xPts || 0);
+    });
 
   return {
     formation: best.formation,
@@ -57,4 +60,12 @@ function selectOptimalLineup(squad, scorePlayer) {
   };
 }
 
-module.exports = { VALID_FORMATIONS, selectOptimalLineup };
+function hasEconomicalReserveGoalkeeper(squad, reserveCeilingTenths) {
+  const goalkeeperCosts = (squad || [])
+    .filter(player => player.position === 'GKP')
+    .map(player => Math.round(Number(player.cost || 0) * 10))
+    .sort((a, b) => a - b);
+  return goalkeeperCosts.length === 2 && goalkeeperCosts[0] <= reserveCeilingTenths;
+}
+
+module.exports = { VALID_FORMATIONS, selectOptimalLineup, hasEconomicalReserveGoalkeeper };

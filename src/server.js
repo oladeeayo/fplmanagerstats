@@ -4,7 +4,7 @@ const axios = require('axios');
 const { neon } = require('@neondatabase/serverless');
 const { buildDecisionCentre } = require('./decisionModel');
 const { buildPlayerProjections, buildCaptaincyModel } = require('./captaincyModel');
-const { selectOptimalLineup } = require('./aiTeamModel');
+const { selectOptimalLineup, hasEconomicalReserveGoalkeeper } = require('./aiTeamModel');
 
 // Upstash Redis (optional — falls back to in-memory Map if not configured)
 let redis = null;
@@ -492,6 +492,7 @@ function isValidAITeamPayload(payload) {
   return Object.entries(AI_TEAM_POSITION_LIMITS).every(([position, count]) => positions[position] === count)
     && Object.values(clubs).every(count => count <= 3)
     && costTenths <= 1000
+    && payload?.lineup?.quality?.reserveGoalkeeperEconomical === true
     && starters.every(player => ids.includes(Number(player.id)))
     && bench.every(player => ids.includes(Number(player.id)));
 }
@@ -721,6 +722,8 @@ app.post('/api/ai-team', async (req, res) => {
     }
 
     const costTenths = player => Math.round(Number(player.cost || player.enhancedCost || 0) * 10);
+    const goalkeeperCosts = availablePlayers.filter(player => player.position === 'GKP').map(costTenths).sort((a, b) => a - b);
+    const reserveGoalkeeperCeilingTenths = (goalkeeperCosts[0] || 40) + 5;
     const slotTemplate = Object.entries(POSITION_LIMITS).flatMap(([position, count]) => Array(count).fill(position));
 
     // Multiple deterministic slot orders avoid greedy dead ends while keeping the model fast.
@@ -750,6 +753,7 @@ app.post('/api/ai-team', async (req, res) => {
           const candidates = availablePlayers
             .filter(p => p.position === position && !selected.some(s => s.id === p.id))
             .filter(p => (teamCounts[p.teamId] || 0) < MAX_PER_TEAM)
+            .filter(p => position !== 'GKP' || selected.every(player => player.position !== 'GKP') || costTenths(p) <= reserveGoalkeeperCeilingTenths)
             .filter(p => spentTenths + costTenths(p) + remainingMinimum <= 1000);
 
           const scored = candidates.map(p => ({
@@ -781,7 +785,7 @@ app.post('/api/ai-team', async (req, res) => {
 
     // Budget upgrade pass
     if (budget - bestCost > 1.5) {
-      for (const position of ['FWD', 'MID', 'DEF', 'GKP']) {
+      for (const position of ['FWD', 'MID', 'DEF']) {
         const posPlayers = bestSquad.filter(p => p.position === position).sort((a, b) => a.cost - b.cost);
         for (const cheap of posPlayers) {
           const upgrade = availablePlayers
@@ -924,6 +928,8 @@ app.post('/api/ai-team', async (req, res) => {
       legalSquad: isLegalSquad(selected),
       budgetCompliant: selected.reduce((sum, player) => sum + costTenths(player), 0) <= 1000,
       lineupComplete: starters.length === 11 && bench.length === 4,
+      reserveGoalkeeperEconomical: hasEconomicalReserveGoalkeeper(selected, reserveGoalkeeperCeilingTenths),
+      reserveGoalkeeperCeiling: reserveGoalkeeperCeilingTenths / 10,
       ...lineupSelection.audit,
     };
 

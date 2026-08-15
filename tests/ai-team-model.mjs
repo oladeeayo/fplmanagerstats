@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { VALID_FORMATIONS, selectOptimalLineup } = require('../src/aiTeamModel.js');
+const { VALID_FORMATIONS, selectOptimalLineup, hasEconomicalReserveGoalkeeper } = require('../src/aiTeamModel.js');
 
 const makePlayers = (position, scores) => scores.map((score, index) => ({
   id: `${position}-${index}`,
@@ -35,5 +35,13 @@ const expectedBest = VALID_FORMATIONS.map(shape => ({
     .reduce((sum, value) => sum + value, 0),
 })).sort((a, b) => b.score - a.score || a.formation.localeCompare(b.formation))[0];
 assert.equal(result.formation, expectedBest.formation);
+assert.equal(hasEconomicalReserveGoalkeeper([
+  { position: 'GKP', cost: 5.5 },
+  { position: 'GKP', cost: 4.5 },
+], 45), true);
+assert.equal(hasEconomicalReserveGoalkeeper([
+  { position: 'GKP', cost: 5.5 },
+  { position: 'GKP', cost: 5.0 },
+], 45), false);
 
 console.log('AI Team formation tests passed');
