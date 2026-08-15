@@ -67,7 +67,8 @@ const FPL = {
         injuryNews: '/api/injury-news',
         priceChanges: '/api/price-changes',
         decisionCentre: '/api/v1/decision-centre',
-        aiTeam: '/api/ai-team'
+        aiTeam: '/api/ai-team',
+        aiTeamLock: '/api/ai-team/lock',
     },
 
     async apiFetch(url) {
@@ -485,10 +486,22 @@ const FPL = {
         loading?.classList.remove('hidden');
         results?.classList.add('hidden');
         try {
-            const budget = Number(document.getElementById('aiteam-budget')?.value) || 100;
-            const horizon = Number(document.getElementById('aiteam-horizon')?.value) || 5;
-            const strategy = document.getElementById('aiteam-strategy')?.value || 'balanced';
-            const data = await this.apiPost(this.API.aiTeam, { budget, horizon, strategy });
+            // First check for a saved team
+            let data;
+            try {
+                const saved = await this.apiFetch(this.API.aiTeam);
+                if (saved && saved.saved) {
+                    data = saved;
+                }
+            } catch (e) { /* no saved team */ }
+
+            if (!data) {
+                const budget = Number(document.getElementById('aiteam-budget')?.value) || 100;
+                const horizon = Number(document.getElementById('aiteam-horizon')?.value) || 5;
+                const strategy = document.getElementById('aiteam-strategy')?.value || 'balanced';
+                data = await this.apiPost(this.API.aiTeam, { budget, horizon, strategy });
+            }
+
             this.state.aiTeamData = data;
             this.paintAITeam(data);
             results?.classList.remove('hidden');
@@ -501,17 +514,34 @@ const FPL = {
         }
     },
 
+    async lockAITeam() {
+        try {
+            await this.apiPost(this.API.aiTeamLock, {});
+            if (this.state.aiTeamData) this.state.aiTeamData.isLocked = true;
+            this.paintAITeam(this.state.aiTeamData);
+        } catch (e) { console.error('Lock error:', e); }
+    },
+
+    async resetAITeam() {
+        try {
+            await fetch(this.API.aiTeam, { method: 'DELETE' });
+            this.state.aiTeamData = null;
+            await this.loadAITeam();
+        } catch (e) { console.error('Reset error:', e); }
+    },
+
     paintAITeam(data) {
-        const { squad, lineup, meta, chips, teamCost, teamXpts, formation } = data;
+        const { squad, lineup, meta, chips, teamCost, teamXpts, formation, isLocked } = data;
 
         // --- Summary Cards ---
         const summaryEl = document.getElementById('aiteam-summary');
         if (summaryEl) {
             const nextGWxPts = lineup.starters.reduce((s, p) => s + (p.weekly?.[0]?.xPts || 0), 0) + (lineup.captain?.weekly?.[0]?.xPts || 0);
+            const remaining = Math.round((100 - teamCost) * 10) / 10;
             summaryEl.innerHTML = `
                 <div class="aiteam-card">
                     <div class="aiteam-card-icon" style="background:rgba(0,255,133,0.12);color:#00FF85;"><span class="material-symbols-outlined">payments</span></div>
-                    <div class="aiteam-card-data"><span class="aiteam-card-value">\u00A3${teamCost.toFixed(1)}m</span><span class="aiteam-card-label">Squad Cost</span></div>
+                    <div class="aiteam-card-data"><span class="aiteam-card-value">\u00A3${teamCost.toFixed(1)}m</span><span class="aiteam-card-label">Squad Cost (\u00A3${remaining.toFixed(1)}m left)</span></div>
                 </div>
                 <div class="aiteam-card">
                     <div class="aiteam-card-icon" style="background:rgba(79,195,247,0.12);color:#4FC3F7;"><span class="material-symbols-outlined">trending_up</span></div>
@@ -522,9 +552,29 @@ const FPL = {
                     <div class="aiteam-card-data"><span class="aiteam-card-value">${teamXpts.toFixed(1)}</span><span class="aiteam-card-label">Horizon xPts</span></div>
                 </div>
                 <div class="aiteam-card">
-                    <div class="aiteam-card-icon" style="background:rgba(255,167,38,0.12);color:#FFA726;"><span class="material-symbols-outlined">calendar_month</span></div>
-                    <div class="aiteam-card-data"><span class="aiteam-card-value">${meta.horizon} GWs</span><span class="aiteam-card-label">Projection Horizon</span></div>
+                    <div class="aiteam-card-icon" style="background:${isLocked ? 'rgba(255,167,38,0.12)' : 'rgba(0,255,133,0.12)'};color:${isLocked ? '#FFA726' : '#00FF85'};"><span class="material-symbols-outlined">${isLocked ? 'lock' : 'lock_open'}</span></div>
+                    <div class="aiteam-card-data"><span class="aiteam-card-value" style="font-size:16px;">${isLocked ? 'LOCKED IN' : 'UNLOCKED'}</span><span class="aiteam-card-label">${isLocked ? 'Squad is locked for GWs' : 'Use WC/FH to change'}</span></div>
                 </div>`;
+        }
+
+        // --- Lock/Reset Controls ---
+        const controlsEl = document.querySelector('.aiteam-controls');
+        if (controlsEl && !controlsEl.querySelector('.aiteam-lock-btns')) {
+            const lockDiv = document.createElement('div');
+            lockDiv.className = 'aiteam-lock-btns';
+            lockDiv.style.cssText = 'display:flex;gap:8px;margin-left:auto;';
+            controlsEl.appendChild(lockDiv);
+        }
+        const lockBtns = controlsEl?.querySelector('.aiteam-lock-btns');
+        if (lockBtns) {
+            if (isLocked) {
+                lockBtns.innerHTML = `
+                    <span style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:rgba(255,167,38,0.1);border:1px solid rgba(255,167,38,0.3);border-radius:8px;color:#FFA726;font:700 12px var(--font-mono);"><span class="material-symbols-outlined" style="font-size:16px;">lock</span> LOCKED</span>
+                    <button onclick="FPL.resetAITeam()" style="padding:8px 16px;background:rgba(255,77,77,0.1);border:1px solid rgba(255,77,77,0.3);border-radius:8px;color:#ff4d4d;font:700 12px var(--font-mono);cursor:pointer;display:inline-flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">refresh</span> RESET (WC/FH)</button>`;
+            } else {
+                lockBtns.innerHTML = `
+                    <button onclick="FPL.lockAITeam()" style="padding:8px 16px;background:rgba(0,255,133,0.1);border:1px solid rgba(0,255,133,0.3);border-radius:8px;color:#00FF85;font:700 12px var(--font-mono);cursor:pointer;display:inline-flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">lock</span> LOCK IN</button>`;
+            }
         }
 
         // --- Formation Label ---
@@ -541,14 +591,15 @@ const FPL = {
                     <span>CAPTAIN</span>
                 </div>
                 <div style="font-weight:700;color:#fff;font-size:14px;">${cap.name} <span style="color:#FFD700;">(C)</span></div>
-                <div style="font-size:12px;color:#8ba396;">${cap.team} \u00B7 ${cap.position} \u00B7 \u00A3${cap.cost?.toFixed(1)}m</div>
+                <div style="font-size:12px;color:#8ba396;">${cap.teamFull || cap.team} \u00B7 ${cap.position} \u00B7 \u00A3${cap.cost?.toFixed(1)}m</div>
                 <div style="font-size:13px;color:#00FF85;font-weight:600;margin-top:4px;">${(cap.weekly?.[0]?.xPts || 0).toFixed(1)} xPts (GW) \u00B7 ${cap.totalXpts?.toFixed(1)} xPts (Horizon)</div>`;
         }
 
-        // --- Pitch ---
+        // --- Pitch (Jersey-style display) ---
         const pitchEl = document.getElementById('aiteam-pitch');
         if (pitchEl) {
             const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
+            const posBgs = { GKP: 'linear-gradient(180deg, #FFD700 0%, #B8860B 100%)', DEF: 'linear-gradient(180deg, #4FC3F7 0%, #0288D1 100%)', MID: 'linear-gradient(180deg, #81C784 0%, #388E3C 100%)', FWD: 'linear-gradient(180deg, #E57373 0%, #C62828 100%)' };
             const formationParts = (formation || '4-4-2').split('-').map(Number);
             const numDEF = formationParts[0] || 4;
             const numMID = formationParts[1] || 4;
@@ -564,15 +615,22 @@ const FPL = {
                 return spread;
             }
 
-            const defPos = spreadPositions(numDEF, '72%', [15, 33, 50, 67, 85]);
-            const midPos = spreadPositions(numMID, '52%', [8, 28, 50, 72, 92]);
-            const fwdPos = spreadPositions(numFWD, '30%', [35, 65]);
+            const defPos = spreadPositions(numDEF, '70%', [15, 33, 50, 67, 85]);
+            const midPos = spreadPositions(numMID, '48%', [8, 28, 50, 72, 92]);
+            const fwdPos = spreadPositions(numFWD, '26%', [35, 65]);
             const positions = { GKP: [{ top: '88%', left: '50%' }], DEF: defPos, MID: midPos, FWD: fwdPos };
 
             const isCaptain = (p) => lineup.captain && p.id === lineup.captain.id;
             const isVice = (p) => lineup.viceCaptain && p.id === lineup.viceCaptain.id;
 
             let html = '<div class="aiteam-pitch-inner">';
+            // Pitch lines
+            html += '<div class="aiteam-pitch-lines">';
+            html += '<div style="position:absolute;top:50%;left:0;right:0;height:1px;background:rgba(255,255,255,0.12);"></div>';
+            html += '<div style="position:absolute;top:50%;left:50%;width:50px;height:50px;border:1px solid rgba(255,255,255,0.12);border-radius:50%;transform:translate(-50%,-50%);"></div>';
+            html += '<div style="position:absolute;top:12%;left:10%;right:10%;bottom:12%;border:1px solid rgba(255,255,255,0.08);border-radius:4px;"></div>';
+            html += '</div>';
+
             const startersSorted = [...lineup.starters].sort((a, b) => {
                 const order = { GKP: 0, DEF: 1, MID: 2, FWD: 3 };
                 return (order[a.position] || 0) - (order[b.position] || 0);
@@ -586,14 +644,18 @@ const FPL = {
                 const cap = isCaptain(p);
                 const vice = isVice(p);
                 const gwXPts = (p.weekly?.[0]?.xPts || 0).toFixed(1);
+                const clubName = p.teamFull || p.team;
                 html += `<div class="aiteam-player-node" style="left:${slot.left};top:${slot.top};">
-                    <div class="aiteam-node-avatar" style="border-color:${color};${cap ? 'border-width:3px;background:rgba(255,215,0,0.15);box-shadow:0 0 12px rgba(255,215,0,0.3);' : ''}">${p.position}</div>
-                    <div class="aiteam-node-name" style="${cap ? 'background:linear-gradient(135deg,#FFD700,#FFA000);color:#000;font-weight:700;' : vice ? 'background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);' : ''}">${p.name}${cap ? ' (C)' : vice ? ' (V)' : ''}</div>
-                    <div class="aiteam-node-xpts" style="color:${color};">${gwXPts} xPts</div>
+                    <div class="aiteam-node-shirt" style="background:${posBgs[p.position]};${cap ? 'box-shadow:0 0 16px rgba(255,215,0,0.4);border:2px solid #FFD700;' : vice ? 'border:2px solid rgba(255,255,255,0.4);' : 'border:2px solid rgba(255,255,255,0.15);'}">
+                        <div style="font:800 10px var(--font-mono);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.5);">${p.position}</div>
+                    </div>
+                    <div class="aiteam-node-info">
+                        <div class="aiteam-node-name" style="${cap ? 'color:#FFD700;font-weight:800;' : vice ? 'color:rgba(255,255,255,0.9);' : ''}">${p.name}${cap ? ' (C)' : vice ? ' (V)' : ''}</div>
+                        <div class="aiteam-node-club">${clubName}</div>
+                        <div class="aiteam-node-xpts" style="color:${color};">${gwXPts} xPts</div>
+                    </div>
                 </div>`;
             });
-
-            html += '<div class="aiteam-pitch-lines"><div style="position:absolute;top:50%;left:0;right:0;height:1px;background:rgba(255,255,255,0.1);"></div><div style="position:absolute;top:50%;left:50%;width:50px;height:50px;border:1px solid rgba(255,255,255,0.1);border-radius:50%;transform:translate(-50%,-50%);"></div></div>';
             html += '</div>';
 
             // Bench
@@ -601,11 +663,15 @@ const FPL = {
             lineup.bench.forEach(p => {
                 const color = posColors[p.position];
                 const gwXPts = (p.weekly?.[0]?.xPts || 0).toFixed(1);
+                const clubName = p.teamFull || p.team;
                 html += `<div class="aiteam-bench-slot">
-                    <div class="aiteam-bench-avatar" style="border-color:${color};">${p.position.charAt(0)}</div>
+                    <div class="aiteam-bench-shirt" style="background:${posBgs[p.position]};">
+                        <div style="font:800 9px var(--font-mono);color:#fff;">${p.position.charAt(0)}</div>
+                    </div>
                     <div class="aiteam-bench-info">
-                        <div class="aiteam-bench-name">${p.name} <span style="color:#8ba396;font-size:11px;">${p.team}</span></div>
-                        <div class="aiteam-bench-xpts">${gwXPts} xPts \u00B7 \u00A3${p.cost?.toFixed(1)}m</div>
+                        <div class="aiteam-bench-name">${p.name}</div>
+                        <div class="aiteam-bench-club">${clubName}</div>
+                        <div class="aiteam-bench-xpts" style="color:${color};">${gwXPts} xPts \u00B7 \u00A3${p.cost?.toFixed(1)}m</div>
                     </div>
                 </div>`;
             });
@@ -625,11 +691,12 @@ const FPL = {
                 const s = statusIcons[p.status] || statusIcons.a;
                 const gwXPts = (p.weekly?.[0]?.xPts || 0).toFixed(1);
                 const role = isCap(p) ? '<span style="color:#FFD700;font-weight:700;">Captain</span>' : isVice(p) ? '<span style="color:#C0C0C0;font-weight:600;">Vice-Captain</span>' : (i >= 11 ? '<span style="color:#8ba396;">Bench</span>' : '<span style="color:#00FF85;">Starter</span>');
+                const clubName = p.teamFull || p.team;
+                const news = p.news ? `<span style="color:#FFA726;font-size:10px;margin-left:4px;" title="${this.escapeHTML(p.news)}">\u26A0</span>` : '';
                 return `<tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
                     <td style="text-align:center;color:#8ba396;font-family:var(--font-mono);font-size:12px;">${i + 1}</td>
-                    <td style="text-align:left;"><div style="display:flex;align-items:center;gap:10px;">${this.teamBadge(p.team, 24)}<span style="font-weight:600;color:#fff;font-size:13px;">${p.name}</span></div></td>
+                    <td style="text-align:left;"><div style="display:flex;align-items:center;gap:10px;">${this.teamBadge(p.team, 24)}<div><span style="font-weight:600;color:#fff;font-size:13px;">${p.name}</span>${news}<div style="font-size:11px;color:#8ba396;">${clubName}</div></div></div></td>
                     <td style="text-align:center;"><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:${posColors[p.position]}22;color:${posColors[p.position]};">${p.position}</span></td>
-                    <td style="text-align:center;color:#B0B0B0;font-size:12px;">${p.team}</td>
                     <td style="text-align:center;font-family:var(--font-mono);font-size:12px;color:#fff;">\u00A3${p.cost?.toFixed(1)}m</td>
                     <td style="text-align:center;font-family:var(--font-mono);font-size:12px;color:#B0B0B0;">${p.form?.toFixed(1) || '-'}</td>
                     <td style="text-align:center;font-family:var(--font-mono);font-size:13px;font-weight:700;color:#00FF85;">${gwXPts}</td>
@@ -662,8 +729,9 @@ const FPL = {
             gwBody.innerHTML = allPlayers.map((p, i) => {
                 const isB = i >= lineup.starters.length;
                 const rowStyle = isB ? 'background:rgba(255,255,255,0.02);' : '';
+                const clubName = p.teamFull || p.team;
                 return `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);${rowStyle}">
-                    <td style="text-align:left;"><span style="display:inline-flex;align-items:center;gap:6px;"><span style="color:${posColors[p.position]};font-size:10px;font-weight:700;">${p.position}</span> ${p.name} ${p.team}${isB ? ' <span style="color:#8ba396;font-size:10px;">(B)</span>' : ''}</span></td>
+                    <td style="text-align:left;"><span style="display:inline-flex;align-items:center;gap:6px;"><span style="color:${posColors[p.position]};font-size:10px;font-weight:700;">${p.position}</span> ${p.name} <span style="color:#8ba396;font-size:10px;">${clubName}</span>${isB ? ' <span style="color:#8ba396;font-size:10px;">(B)</span>' : ''}</span></td>
                     ${p.weekly.map(w => `<td style="text-align:center;font-family:var(--font-mono);font-size:12px;color:${w.xPts >= 5 ? '#00FF85' : w.xPts >= 3 ? '#fff' : '#8ba396'};">${w.xPts.toFixed(1)}</td>`).join('')}
                     <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#00FF85;background:rgba(0,255,133,0.05);">${p.totalXpts?.toFixed(1) || '0.0'}</td>
                 </tr>`;
