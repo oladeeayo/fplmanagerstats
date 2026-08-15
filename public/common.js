@@ -18,6 +18,7 @@ const FPL = {
         teamMap: {},
         playerMap: {},
         fotmobPlayerIds: {},
+        fotmobUnavailablePhotos: new Set(),
         positionMap: { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' },
         isLoading: false,
         error: null,
@@ -112,6 +113,7 @@ const FPL = {
             ]);
 
             this.state.fotmobPlayerIds = fotmobData?.byOptaId || {};
+            this.state.fotmobUnavailablePhotos = new Set(fotmobData?.unavailablePhotoOptaIds || []);
 
             const currentEvent = bootstrap.events?.find(e => e.is_current);
             const nextEvent = bootstrap.events?.find(e => e.is_next);
@@ -2056,6 +2058,7 @@ const FPL = {
         const current = this.resolvePlayer(player) || player;
         const rawPhoto = String(current?.photo ?? current?.photoId ?? '').replace(/^p/i, '').replace(/\.(png|jpe?g)$/i, '');
         const code = Number(current?.code || rawPhoto);
+        if (this.state.fotmobUnavailablePhotos.has(String(code))) return '';
         const fotmobId = Number(current?.fotmobId || this.state.fotmobPlayerIds[String(code)]);
         return Number.isFinite(fotmobId) && fotmobId > 0
             ? `https://images.fotmob.com/image_resources/playerimages/${fotmobId}.png`

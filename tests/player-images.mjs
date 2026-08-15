@@ -51,9 +51,11 @@ try {
       fallbacks: document.querySelectorAll('#players-table-body [data-player-fallback]').length,
       footballFallbacks: document.querySelectorAll('img[src*="football.ico"]').length,
       mappedPlayers: Object.keys(window.FPL.state.fotmobPlayerIds).length,
+      unavailablePhotos: window.FPL.state.fotmobUnavailablePhotos.size,
     }));
     assert.ok(playerPhotoState.images > 0, 'FotMob player photos should render');
-    assert.ok(playerPhotoState.mappedPlayers > 300, 'Reep FotMob mappings should load');
+    assert.equal(playerPhotoState.mappedPlayers, 587, 'every current FPL player should map to FotMob');
+    assert.equal(playerPhotoState.unavailablePhotos, 1, 'known missing FotMob portraits should use the shirt fallback');
     assert.ok(playerPhotoState.fallbacks > 0, 'every player photo should have a current-team fallback');
     assert.equal(playerPhotoState.footballFallbacks, 0, 'football icon must not be used as a player image');
 
