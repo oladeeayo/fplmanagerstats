@@ -548,31 +548,60 @@ const FPL = {
             return player.weekly.slice(0, count).reduce((s, w) => s + (w.xPts || 0), 0);
         }
 
+        function fdrColor(fdr) {
+            if (fdr <= 1.5) return { bg: '#00FF85', text: '#0a0f0d' };
+            if (fdr <= 2.5) return { bg: '#37DB59', text: '#0a0f0d' };
+            if (fdr <= 3.5) return { bg: '#FFA600', text: '#0a0f0d' };
+            return { bg: '#FF005A', text: '#fff' };
+        }
+
+        function gwFixtures(player, maxGws) {
+            const weekly = player.weekly || [];
+            const fixtures = player.upcomingFixtures || [];
+            const result = [];
+            for (let i = 0; i < Math.min(maxGws, weekly.length); i++) {
+                const w = weekly[i];
+                const fx = fixtures.find(f => f.gw === w.gameweek) || fixtures[i] || null;
+                result.push({ gw: w.gameweek, xPts: w.xPts || 0, fixture: fx });
+            }
+            return result;
+        }
+
+        function fixtureBox(fx, xPts) {
+            if (!fx) return `<div class="aiteam-fixture-box aiteam-fixture-empty"><div class="aiteam-fixture-opp">\u2014</div><div class="aiteam-fixture-xpts">\u2014</div></div>`;
+            const col = fdrColor(fx.fdr);
+            const oppText = fx.home ? `${fx.opponent}(H)` : `${fx.opponent}(A)`;
+            return `<div class="aiteam-fixture-box" style="background:${col.bg}18;">
+                <div class="aiteam-fixture-opp" style="color:${col.bg};">${oppText}</div>
+                <div class="aiteam-fixture-xpts">${xPts.toFixed(1)}</div>
+            </div>`;
+        }
+
         // --- Summary Cards ---
         const summaryEl = document.getElementById('aiteam-summary');
         if (summaryEl) {
             const startersXPts = lineup.starters.reduce((s, p) => s + sumPlayerXPts(p, gwView), 0);
             const captainBonus = lineup.captain ? sumPlayerXPts(lineup.captain, gwView) : 0;
-            const nextGWxPts = startersXPts + captainBonus;
+            const predictedPts = startersXPts + captainBonus;
             const remaining = Math.round((100 - teamCost) * 10) / 10;
             const autoLocked = Boolean(isLocked ?? meta?.isAutoLocked);
-            const gwLabel = gwView === 1 ? 'Next GW' : `Next ${gwView} GWs`;
+            const teamRating = Math.min(99, Math.round((teamXpts / 100) * 100));
             summaryEl.innerHTML = `
                 <div class="aiteam-card">
-                    <div class="aiteam-card-icon" style="background:rgba(0,255,133,0.12);color:#00FF85;"><span class="material-symbols-outlined">payments</span></div>
-                    <div class="aiteam-card-data"><span class="aiteam-card-value">\u00A3${teamCost.toFixed(1)}m</span><span class="aiteam-card-label">Squad Cost (\u00A3${remaining.toFixed(1)}m left)</span></div>
+                    <div class="aiteam-card-icon" style="background:rgba(0,255,133,0.12);color:#00FF85;"><span class="material-symbols-outlined">thumb_up</span></div>
+                    <div class="aiteam-card-data"><span class="aiteam-card-value">${teamRating}%</span><span class="aiteam-card-label">Team Rating</span></div>
                 </div>
                 <div class="aiteam-card">
                     <div class="aiteam-card-icon" style="background:rgba(79,195,247,0.12);color:#4FC3F7;"><span class="material-symbols-outlined">trending_up</span></div>
-                    <div class="aiteam-card-data"><span class="aiteam-card-value">${nextGWxPts.toFixed(1)}</span><span class="aiteam-card-label">${gwLabel} xPts</span></div>
+                    <div class="aiteam-card-data"><span class="aiteam-card-value">${predictedPts.toFixed(1)}pts</span><span class="aiteam-card-label">Predicted</span></div>
                 </div>
                 <div class="aiteam-card">
-                    <div class="aiteam-card-icon" style="background:rgba(192,132,252,0.12);color:#c084fc;"><span class="material-symbols-outlined">emoji_events</span></div>
-                    <div class="aiteam-card-data"><span class="aiteam-card-value">${teamXpts.toFixed(1)}</span><span class="aiteam-card-label">Horizon xPts</span></div>
+                    <div class="aiteam-card-icon" style="background:rgba(192,132,252,0.12);color:#c084fc;"><span class="material-symbols-outlined">savings</span></div>
+                    <div class="aiteam-card-data"><span class="aiteam-card-value">\u00A3${remaining.toFixed(1)}m</span><span class="aiteam-card-label">In the Bank</span></div>
                 </div>
                 <button type="button" class="aiteam-card aiteam-status-card" onclick="FPL.resetAITeam()" title="Reset squad and rebuild from current FPL data">
                     <div class="aiteam-card-icon" style="background:rgba(255,167,38,0.12);color:#FFA726;"><span class="material-symbols-outlined">${autoLocked ? 'lock' : 'refresh'}</span></div>
-                    <div class="aiteam-card-data"><span class="aiteam-card-value" style="font-size:13px;">${autoLocked ? 'AUTO-LOCKED' : 'AI MANAGED'}</span><span class="aiteam-card-label">${meta?.quality?.formationOptimal ? '7 legal formations checked' : autoLocked ? 'Click to reset (WC)' : 'AI handles all decisions'}</span></div>
+                    <div class="aiteam-card-data"><span class="aiteam-card-value" style="font-size:13px;">${autoLocked ? 'AUTO-LOCKED' : 'AI MANAGED'}</span><span class="aiteam-card-label">${autoLocked ? 'Click to reset (WC)' : 'AI handles all decisions'}</span></div>
                 </button>`;
         }
 
@@ -594,15 +623,9 @@ const FPL = {
                 <div style="font-size:13px;color:#00FF85;font-weight:600;margin-top:4px;">${sumPlayerXPts(cap, gwView).toFixed(1)} xPts (${gwView === 1 ? 'GW' : gwView + ' GWs'}) \u00B7 ${cap.totalXpts?.toFixed(1)} xPts (Horizon)</div>`;
         }
 
-        // --- Pitch (Tactics-style with club shirts) ---
+        // --- Pitch ---
         const pitchEl = document.getElementById('aiteam-pitch');
         if (pitchEl) {
-            const formationParts = (formation || '4-4-2').split('-').map(Number);
-            const numDEF = formationParts[0] || 4;
-            const numMID = formationParts[1] || 4;
-            const numFWD = formationParts[2] || 2;
-
-            // Group starters by position
             const gkps = lineup.starters.filter(p => p.position === 'GKP');
             const defs = lineup.starters.filter(p => p.position === 'DEF');
             const mids = lineup.starters.filter(p => p.position === 'MID');
@@ -619,33 +642,26 @@ const FPL = {
                 const shirt = shirtUrl(player);
                 const cap = isCaptain(player);
                 const vice = isVice(player);
-                const gwXPts = sumPlayerXPts(player, gwView).toFixed(1);
                 const badge = cap ? ' (C)' : vice ? ' (V)' : '';
                 const borderStyle = cap ? 'border:2px solid #FFD700;box-shadow:0 0 12px rgba(255,215,0,0.4);' : vice ? 'border:2px solid rgba(255,255,255,0.5);' : 'border:1px solid rgba(255,255,255,0.28);';
 
-                // Opponent fixture
-                const fixture = player.upcomingFixtures?.[0];
-                const fixtureStr = fixture ? `${fixture.home ? '' : '@'}${fixture.opponent}` : '';
-                const fdrColor = fixture ? (fixture.fdr <= 2 ? '#00FF85' : fixture.fdr <= 3 ? '#FFA726' : '#ff4d4d') : '#8ba396';
-                const fixtureBadge = fixture ? `<span style="font-size:9px;padding:1px 4px;border-radius:3px;background:${fdrColor}22;color:${fdrColor};font-weight:700;">${fixtureStr}</span>` : '';
-
-                // Consecutive good fixture run indicator
-                const runLen = player.consecutiveGoodFixtures || 0;
-                const runBadge = runLen >= 4 ? `<span style="font-size:8px;padding:1px 4px;border-radius:3px;background:rgba(0,255,133,0.15);color:#00FF85;font-weight:700;position:absolute;top:2px;right:2px;" title="${runLen} consecutive easy fixtures">${runLen} RUN</span>` : '';
+                const fixtures = gwFixtures(player, gwView);
+                const fixtureBoxes = fixtures.map(fx => fixtureBox(fx.fixture, fx.xPts)).join('');
 
                 const shirtImg = shirt ? `<img src="${shirt}" alt="" loading="lazy" decoding="async" onerror="this.closest('.tactics-player-shirt').classList.add('is-missing');this.remove();" style="width:100%;height:100%;object-fit:contain;">` : '';
 
-                return `<div class="tactics-player-card home" style="${borderStyle}min-width:88px;max-width:96px;position:relative;" title="${player.name}${badge} - \u00A3${(player.cost || 0).toFixed(1)}m - ${gwXPts} xPts\n${fixtureStr ? `Next: ${fixtureStr} (FDR ${fixture?.fdr})` : ''}${runLen >= 4 ? `\n${runLen} consecutive easy fixtures!` : ''}">
-                    <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;">${shirtImg}<span class="aiteam-shirt-fallback" aria-hidden="true">${FPL.playerTeamShort(player)}</span></div>
-                    <div class="tactics-player-copy" style="text-align:center;"><b style="${cap ? 'color:#FFD700;' : ''}">${player.name}${badge}</b></div>
-                    <div style="font:700 10px var(--font-mono);color:#B0B0B0;text-align:center;">\u00A3${(player.cost || 0).toFixed(1)}m</div>
-                    <div style="font:700 10px var(--font-mono);color:#00FF85;text-align:center;">${gwXPts} xPts</div>
-                    ${fixtureBadge}
-                    ${runBadge}
+                return `<div class="aiteam-pitch-card" style="${borderStyle}">
+                    <div class="aiteam-pitch-card-top">
+                        <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;width:32px;height:36px;flex-shrink:0;">${shirtImg}<span class="aiteam-shirt-fallback" aria-hidden="true">${FPL.playerTeamShort(player)}</span></div>
+                        <div class="aiteam-pitch-card-info">
+                            <div class="aiteam-pitch-card-name" style="${cap ? 'color:#FFD700;' : ''}">${player.name}${badge}</div>
+                            <div class="aiteam-pitch-card-cost">\u00A3${(player.cost || 0).toFixed(1)}</div>
+                        </div>
+                    </div>
+                    <div class="aiteam-pitch-card-fixtures">${fixtureBoxes}</div>
                 </div>`;
             }
 
-            // Build pitch rows
             const rows = [];
             rows.push(`<div class="tactics-pitch-row">${gkps.map(p => playerCard(p)).join('')}</div>`);
             rows.push(`<div class="tactics-pitch-row">${defs.map(p => playerCard(p)).join('')}</div>`);
@@ -654,19 +670,21 @@ const FPL = {
 
             let html = `<div class="tactics-pitch" style="min-height:420px;">${rows.join('')}</div>`;
 
-            // Bench
+            // Bench - same format as pitch cards
             html += '<div class="aiteam-bench"><div class="aiteam-bench-label"><span class="material-symbols-outlined">event_seat</span> BENCH</div><div class="aiteam-bench-players">';
-             lineup.bench.slice(0, 4).forEach((p, benchIndex) => {
+            lineup.bench.slice(0, 4).forEach((p, benchIndex) => {
                 const shirt = shirtUrl(p);
-                const gwXPts = sumPlayerXPts(p, gwView).toFixed(1);
-                 const shirtImg = shirt ? `<img src="${shirt}" alt="" loading="lazy" decoding="async" onerror="this.closest('.aiteam-bench-shirt-img').classList.add('is-missing');this.remove();" style="width:100%;height:100%;object-fit:contain;">` : '';
-                 html += `<div class="aiteam-bench-slot">
-                    <div class="aiteam-bench-order">${benchIndex + 1}</div><div class="aiteam-bench-shirt-img" style="width:36px;height:40px;overflow:hidden;flex-shrink:0;display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;">${shirtImg}<span class="aiteam-shirt-fallback" aria-hidden="true">${FPL.playerTeamShort(p)}</span></div>
+                const fixtures = gwFixtures(p, gwView);
+                const fixtureBoxes = fixtures.map(fx => fixtureBox(fx.fixture, fx.xPts)).join('');
+                const shirtImg = shirt ? `<img src="${shirt}" alt="" loading="lazy" decoding="async" onerror="this.closest('.aiteam-bench-shirt-img').classList.add('is-missing');this.remove();" style="width:100%;height:100%;object-fit:contain;">` : '';
+                html += `<div class="aiteam-bench-slot">
+                    <div class="aiteam-bench-order">${benchIndex + 1}</div>
+                    <div class="aiteam-bench-shirt-img" style="width:32px;height:36px;overflow:hidden;flex-shrink:0;display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;">${shirtImg}<span class="aiteam-shirt-fallback" aria-hidden="true">${FPL.playerTeamShort(p)}</span></div>
                     <div class="aiteam-bench-info">
                         <div class="aiteam-bench-name">${p.name}</div>
-                        <div class="aiteam-bench-club">${p.teamFull || p.team}</div>
-                        <div class="aiteam-bench-xpts" style="color:#00FF85;">${gwXPts} xPts \u00B7 \u00A3${p.cost?.toFixed(1)}m</div>
+                        <div class="aiteam-bench-club">${p.teamFull || p.team} \u00B7 \u00A3${p.cost?.toFixed(1)}</div>
                     </div>
+                    <div class="aiteam-bench-fixtures">${fixtureBoxes}</div>
                 </div>`;
             });
             html += '</div></div>';

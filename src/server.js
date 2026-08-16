@@ -695,21 +695,52 @@ app.post('/api/ai-team', async (req, res) => {
       const avail = (player.availability || 0) / 100;
       const mins = player.minutesReliability || 0.5;
       const form = player.formBoost || 0;
-      const bonusBoost = (player.bonusPer90 || 0) * 1.8;
-      const csBoost = (player.csPerGame || 0) * (player.position === 'GKP' || player.position === 'DEF' ? 2.5 : 0.3);
-      const setPieceBoost = (player.setPieceBonus || 0) * 1.2;
-      const ictBoost = Math.min((player.ictIndex || 0) / 300, 0.5);
-      const captainBonus = (bonusBoost + setPieceBoost + ictBoost) * 0.3;
+      const isDef = player.position === 'GKP' || player.position === 'DEF';
+      const isMid = player.position === 'MID';
+      const isFwd = player.position === 'FWD';
 
-      // NEW: Fixture run bonus - players with 4+ consecutive good fixtures get a boost
-      const fixtureRunBonus = (player.consecutiveGoodFixtures || 0) >= 4 ? (player.consecutiveGoodFixtures - 3) * 0.8 : 0;
+      // Clean sheet probability based on FDR of upcoming fixtures
+      const nextFixtures = (player.upcomingFixtures || []).slice(0, 3);
+      const avgFdr = nextFixtures.length > 0 ? nextFixtures.reduce((s, f) => s + (f.fdr || 3), 0) / nextFixtures.length : 3;
+      const csProb = isDef ? Math.max(0, (4 - avgFdr) / 3) : 0.05;
+      const csValue = csProb * (isDef ? 4.5 : 1.0);
 
-      // NEW: Rotation penalty for new signings
-      const rotPenalty = (player.rotationRisk || 1) < 1 ? -1.5 : 0;
+      // Bonus point potential (attackers & creative midfielders get more)
+      const bonusPer90 = player.bonusPer90 || 0;
+      const bonusValue = isDef ? bonusPer90 * 1.2 : bonusPer90 * 2.0;
 
-      if (strat === 'protect') return base * 0.85 + Math.min(player.ownership || 0, 50) * 0.04 + avail * 2 + mins * 3 + bonusBoost + csBoost + fixtureRunBonus + rotPenalty;
-      if (strat === 'chase') return base * 0.8 + (100 - Math.min(player.ownership || 0, 80)) * 0.02 + (player.range?.high || base) * 0.15 + form + bonusBoost + captainBonus + fixtureRunBonus + rotPenalty;
-      return base * 0.65 + xPtsPerM * 0.12 + avail * 1.2 + mins * 1.8 + form + bonusBoost * 0.8 + csBoost * 0.6 + setPieceBoost * 0.5 + captainBonus + fixtureRunBonus + rotPenalty;
+      // Set piece value
+      const setPieceValue = (player.setPieceBonus || 0) * (isDef ? 1.5 : 1.0);
+
+      // xGI contribution for attacking players
+      const xGI = player.xGI90 || 0;
+      const xGIValue = isFwd ? xGI * 2.5 : isMid ? xGI * 1.8 : xGI * 0.4;
+
+      // ICT index (overall threat)
+      const ictValue = Math.min((player.ictIndex || 0) / 250, 0.8);
+
+      // Fixture run bonus
+      const runLen = player.consecutiveGoodFixtures || 0;
+      const fixtureRunBonus = runLen >= 4 ? (runLen - 3) * 1.0 : 0;
+
+      // Easy fixture boost (single GW FDR <= 2)
+      const nextFdr = nextFixtures[0]?.fdr || 3;
+      const easyFixtureBoost = nextFdr <= 2 ? (isDef ? 1.5 : 0.8) : 0;
+
+      // Rotation penalty
+      const rotPenalty = (player.rotationRisk || 1) < 1 ? -2.0 : 0;
+
+      // Captain upside
+      const captainScore = bonusValue + setPieceValue + xGIValue + ictValue;
+
+      if (strat === 'protect') {
+        return base * 0.7 + Math.min(player.ownership || 0, 50) * 0.06 + avail * 2.5 + mins * 3 + csValue + bonusValue + fixtureRunBonus + easyFixtureBoost + rotPenalty;
+      }
+      if (strat === 'chase') {
+        return base * 0.65 + (100 - Math.min(player.ownership || 0, 80)) * 0.03 + (player.range?.high || base) * 0.2 + form + captainScore * 1.2 + fixtureRunBonus + easyFixtureBoost + rotPenalty;
+      }
+      // Balanced
+      return base * 0.55 + xPtsPerM * 0.15 + avail * 1.5 + mins * 2.0 + form + csValue * 0.8 + bonusValue * 0.7 + xGIValue * 0.5 + setPieceValue * 0.4 + captainScore * 0.3 + fixtureRunBonus + easyFixtureBoost + rotPenalty;
     }
 
     function isLegalSquad(players) {
@@ -833,10 +864,16 @@ app.post('/api/ai-team', async (req, res) => {
     const lineupSelection = selectOptimalLineup(selected, lineupScore);
     const { starters, bench } = lineupSelection;
 
-    // Captain: highest xPts + bonus/ICT upside
+    // Captain: highest ceiling + reliable minutes + fixture quality
     const captainPool = starters.filter(p => p.position !== 'GKP').sort((a, b) => {
-      const aScore = (a.weekly?.[0]?.xPts || 0) + (a.bonusPer90 || 0) * 0.5 + (a.setPieceBonus || 0) * 0.3 + (a.ictIndex || 0) / 500;
-      const bScore = (b.weekly?.[0]?.xPts || 0) + (b.bonusPer90 || 0) * 0.5 + (b.setPieceBonus || 0) * 0.3 + (b.ictIndex || 0) / 500;
+      const aNext = a.weekly?.[0]?.xPts || 0;
+      const bNext = b.weekly?.[0]?.xPts || 0;
+      const aHigh = a.range?.high || aNext;
+      const bHigh = b.range?.high || bNext;
+      const aFixture = a.upcomingFixtures?.[0]?.fdr || 3;
+      const bFixture = b.upcomingFixtures?.[0]?.fdr || 3;
+      const aScore = aNext * 0.5 + aHigh * 0.2 + (a.bonusPer90 || 0) * 1.5 + (a.setPieceBonus || 0) * 0.8 + (a.ictIndex || 0) / 200 + (5 - aFixture) * 0.5 + (a.minutesReliability || 0.5) * 1.5;
+      const bScore = bNext * 0.5 + bHigh * 0.2 + (b.bonusPer90 || 0) * 1.5 + (b.setPieceBonus || 0) * 0.8 + (b.ictIndex || 0) / 200 + (5 - bFixture) * 0.5 + (b.minutesReliability || 0.5) * 1.5;
       return bScore - aScore;
     });
     const captain = captainPool[0] || starters[0];
