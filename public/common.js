@@ -26,7 +26,17 @@ const FPL = {
         managerId: localStorage.getItem('fplManagerId') || null,
         leagueId: localStorage.getItem('fplLeagueId') || null,
         theme: 'dark',
-        aiTeamGWView: 1
+        aiTeamGWView: 1,
+        teamBuilder: {
+            players: [],
+            selectedIds: [],
+            selectedGWs: [],
+            captainId: null,
+            query: '',
+            position: 'all',
+            sort: 'xpts',
+            importMatches: []
+        }
     },
 
     // Client-side tab data cache (avoids re-fetching when switching tabs)
@@ -71,6 +81,7 @@ const FPL = {
         priceChanges: '/api/price-changes',
         decisionCentre: '/api/v1/decision-centre',
         aiTeam: '/api/ai-team',
+        teamBuilderAdvice: '/api/team-builder/advice',
     },
 
     async apiFetch(url) {
@@ -444,7 +455,7 @@ const FPL = {
     },
 
     navigateTo(tab) {
-        const validTabs = ['general', 'manager', 'decision', 'league', 'players', 'zones', 'fixtures', 'captain', 'ownership', 'setpieces', 'aiteam'];
+        const validTabs = ['general', 'manager', 'decision', 'league', 'players', 'zones', 'fixtures', 'captain', 'ownership', 'setpieces', 'aiteam', 'teambuilder'];
         if (!validTabs.includes(tab)) tab = 'general';
         this.state.activeTab = tab;
 
@@ -487,7 +498,382 @@ const FPL = {
             case 'decision': this.renderDecisionCentre(); break;
             case 'setpieces': this.renderSetPieces(); break;
             case 'aiteam': this.renderAITeam(); break;
+            case 'teambuilder': this.renderTeamBuilder(); break;
         }
+    },
+
+    // ==================== RENDER: TEAM BUILDER ====================
+    async renderTeamBuilder() {
+        const loading = document.getElementById('tb-loading');
+        const workspace = document.getElementById('tb-workspace');
+        const breakdown = document.getElementById('tb-breakdown');
+        const error = document.getElementById('tb-error');
+        loading?.classList.remove('hidden');
+        workspace?.classList.add('hidden');
+        breakdown?.classList.add('hidden');
+        error?.classList.add('hidden');
+        try {
+            let data = this.getCachedTabData('team-builder-projections');
+            if (!data) {
+                data = await this.apiFetch(this.API.xptsProjections);
+                this.setCachedTabData('team-builder-projections', data);
+            }
+            const builder = this.state.teamBuilder;
+            builder.players = (data.playerProjections || []).map(player => ({
+                ...player,
+                costValue: Number(player.cost || 0) / 10,
+                nextFixtures: player.nextFixtures || []
+            }));
+            const availableGWs = [...new Set(builder.players.flatMap(player => player.nextFixtures.map(fixture => fixture.gw)))].sort((a, b) => a - b).slice(0, 8);
+            const saved = this.readTeamBuilderDraft();
+            builder.selectedGWs = (saved?.selectedGWs || builder.selectedGWs).filter(gw => availableGWs.includes(gw));
+            if (!builder.selectedGWs.length) builder.selectedGWs = availableGWs.slice(0, Math.min(5, availableGWs.length));
+            const playerIds = new Set(builder.players.map(player => player.id));
+            builder.selectedIds = (saved?.selectedIds || builder.selectedIds).filter(id => playerIds.has(id)).slice(0, 15);
+            builder.captainId = builder.selectedIds.includes(saved?.captainId) ? saved.captainId : (builder.selectedIds.includes(builder.captainId) ? builder.captainId : null);
+            this.paintTeamBuilder();
+            workspace?.classList.remove('hidden');
+            breakdown?.classList.remove('hidden');
+            document.getElementById('tb-advisor')?.classList.remove('hidden');
+        } catch (err) {
+            if (error) {
+                error.innerHTML = `${this.escapeHTML(err.message || 'Player projections could not be loaded.')} <button type="button" class="tb-btn tb-btn-secondary" onclick="FPL.renderTeamBuilder()"><span class="material-symbols-outlined">refresh</span> Try again</button>`;
+                error.classList.remove('hidden');
+            }
+        } finally {
+            loading?.classList.add('hidden');
+        }
+    },
+
+    readTeamBuilderDraft() {
+        try { return JSON.parse(localStorage.getItem('fplTeamBuilderDraft') || 'null'); }
+        catch { return null; }
+    },
+
+    saveTeamBuilderDraft() {
+        const builder = this.state.teamBuilder;
+        localStorage.setItem('fplTeamBuilderDraft', JSON.stringify({ selectedIds: builder.selectedIds, selectedGWs: builder.selectedGWs, captainId: builder.captainId }));
+        const status = document.getElementById('tb-save-status');
+        if (status) status.textContent = `Draft saved locally · ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    },
+
+    teamBuilderXPts(player, gameweeks = this.state.teamBuilder.selectedGWs) {
+        return (player?.nextFixtures || []).filter(fixture => gameweeks.includes(fixture.gw)).reduce((sum, fixture) => sum + Number(fixture.xpts || 0), 0);
+    },
+
+    teamBuilderSquad() {
+        const ids = new Set(this.state.teamBuilder.selectedIds);
+        return this.state.teamBuilder.players.filter(player => ids.has(player.id));
+    },
+
+    teamBuilderValidation(squad = this.teamBuilderSquad()) {
+        const quotas = { GKP: 2, DEF: 5, MID: 5, FWD: 3 };
+        const positions = { GKP: 0, DEF: 0, MID: 0, FWD: 0 };
+        const clubs = {};
+        squad.forEach(player => {
+            positions[player.position] = (positions[player.position] || 0) + 1;
+            clubs[player.team] = (clubs[player.team] || 0) + 1;
+        });
+        const cost = squad.reduce((sum, player) => sum + player.costValue, 0);
+        return {
+            quotas,
+            positions,
+            clubs,
+            cost,
+            legal: squad.length === 15 && cost <= 100 && Object.entries(quotas).every(([position, count]) => positions[position] === count) && Object.values(clubs).every(count => count <= 3)
+        };
+    },
+
+    canAddTeamBuilderPlayer(player) {
+        const squad = this.teamBuilderSquad();
+        const validation = this.teamBuilderValidation(squad);
+        if (squad.length >= 15) return 'Squad already has 15 players';
+        if (validation.positions[player.position] >= validation.quotas[player.position]) return `${player.position} quota is full`;
+        if ((validation.clubs[player.team] || 0) >= 3) return `Maximum 3 players from ${player.team}`;
+        if (validation.cost + player.costValue > 100.0001) return 'This pick exceeds the £100.0m budget';
+        return '';
+    },
+
+    toggleTeamBuilderPlayer(playerId) {
+        const builder = this.state.teamBuilder;
+        const index = builder.selectedIds.indexOf(playerId);
+        if (index >= 0) {
+            builder.selectedIds.splice(index, 1);
+            if (builder.captainId === playerId) builder.captainId = null;
+        } else {
+            const player = builder.players.find(item => item.id === playerId);
+            const reason = player ? this.canAddTeamBuilderPlayer(player) : 'Player unavailable';
+            if (reason) {
+                const message = document.getElementById('tb-market-message');
+                if (message) message.textContent = reason;
+                return;
+            }
+            builder.selectedIds.push(playerId);
+        }
+        this.saveTeamBuilderDraft();
+        this.paintTeamBuilder();
+    },
+
+    setTeamBuilderCaptain(playerId) {
+        if (!this.state.teamBuilder.selectedIds.includes(playerId)) return;
+        this.state.teamBuilder.captainId = playerId;
+        this.saveTeamBuilderDraft();
+        this.paintTeamBuilder();
+    },
+
+    toggleTeamBuilderGW(gameweek) {
+        const selected = this.state.teamBuilder.selectedGWs;
+        const index = selected.indexOf(gameweek);
+        if (index >= 0) {
+            if (selected.length === 1) return;
+            selected.splice(index, 1);
+        } else if (selected.length < 8) selected.push(gameweek);
+        selected.sort((a, b) => a - b);
+        this.saveTeamBuilderDraft();
+        this.paintTeamBuilder();
+    },
+
+    updateTeamBuilderFilters() {
+        const builder = this.state.teamBuilder;
+        builder.query = document.getElementById('tb-player-search')?.value.trim().toLowerCase() || '';
+        builder.position = document.getElementById('tb-position-filter')?.value || 'all';
+        builder.sort = document.getElementById('tb-sort')?.value || 'xpts';
+        this.paintTeamBuilderMarket();
+    },
+
+    clearTeamBuilder() {
+        if (this.state.teamBuilder.selectedIds.length && !window.confirm('Clear all players from this draft?')) return;
+        this.state.teamBuilder.selectedIds = [];
+        this.state.teamBuilder.captainId = null;
+        this.saveTeamBuilderDraft();
+        this.paintTeamBuilder();
+    },
+
+    async loadBuilderCurrentSquad() {
+        const builder = this.state.teamBuilder;
+        const message = document.getElementById('tb-market-message');
+        if (!this.state.managerId) {
+            if (message) message.textContent = 'Connect your FPL ID first to load your current squad.';
+            this.showDialog('connect-dialog');
+            return;
+        }
+        try {
+            if (!this.state.managerData) await this.loadManagerData(this.state.managerId);
+            const ids = (this.state.managerData?.currentTeam || []).map(player => player.elementId).filter(id => builder.players.some(item => item.id === id));
+            if (!ids.length) throw new Error('No current squad was returned for this manager.');
+            builder.selectedIds = [...new Set(ids)].slice(0, 15);
+            builder.captainId = null;
+            this.saveTeamBuilderDraft();
+            this.paintTeamBuilder();
+            if (message) message.textContent = `Loaded ${builder.selectedIds.length} players from your current FPL squad.`;
+        } catch (err) {
+            if (message) message.textContent = err.message || 'Current squad could not be loaded.';
+        }
+    },
+
+    async importTeamScreenshot(file) {
+        const panel = document.getElementById('tb-import-panel');
+        const status = document.getElementById('tb-import-status');
+        const preview = document.getElementById('tb-import-preview');
+        const summary = document.getElementById('tb-import-summary');
+        const confirm = document.getElementById('tb-import-confirm');
+        if (!file || !panel || !status || !preview || !summary || !confirm) return;
+        panel.classList.remove('hidden');
+        preview.innerHTML = '<div class="tb-import-working"><span class="material-symbols-outlined">document_scanner</span><b>Reading names from screenshot</b><small>This can take a few seconds. The image stays on this device.</small></div>';
+        status.textContent = 'Preparing OCR...';
+        summary.textContent = '';
+        confirm.disabled = true;
+        try {
+            if (!window.createFplOcrWorker) throw new Error('The OCR engine is not ready. Reload the page and try again.');
+            const worker = await window.createFplOcrWorker('eng', 1, { logger: event => {
+                if (event.status === 'recognizing text') status.textContent = `Reading screenshot · ${Math.round((event.progress || 0) * 100)}%`;
+            }});
+            const result = await worker.recognize(file);
+            await worker.terminate();
+            this.state.teamBuilder.importMatches = window.FPLSquadImport.matchPlayers(result.data.text, this.state.teamBuilder.players);
+            this.paintTeamScreenshotMatches();
+        } catch (error) {
+            status.textContent = 'Screenshot could not be read';
+            preview.innerHTML = `<div class="tb-import-working is-error"><span class="material-symbols-outlined">error</span><b>OCR unavailable</b><small>${this.escapeHTML(error.message || 'Try a clear, uncropped FPL squad screenshot.')}</small></div>`;
+        } finally {
+            const input = document.getElementById('tb-screenshot-input');
+            if (input) input.value = '';
+        }
+    },
+
+    paintTeamScreenshotMatches() {
+        const matches = this.state.teamBuilder.importMatches || [];
+        const preview = document.getElementById('tb-import-preview');
+        const status = document.getElementById('tb-import-status');
+        const summary = document.getElementById('tb-import-summary');
+        const confirm = document.getElementById('tb-import-confirm');
+        if (!preview || !status || !summary || !confirm) return;
+        status.textContent = matches.length ? 'Check each match before filling the squad.' : 'No player names were matched.';
+        preview.innerHTML = matches.map((match, index) => `<label class="tb-import-match"><span><small>Detected text</small><b>${this.escapeHTML(match.line)}</b></span><select onchange="FPL.updateTeamScreenshotMatch(${index}, this.value)" aria-label="Player matched to ${this.escapeHTML(match.line)}">${match.alternatives.map(option => `<option value="${option.id}"${option.id === match.playerId ? ' selected' : ''}>${this.escapeHTML(option.name)} · ${option.position} · ${option.team}</option>`).join('')}</select><i class="${match.confidence}">${match.confidence} ${match.score}%</i></label>`).join('') || '<div class="tb-import-working"><span class="material-symbols-outlined">image_search</span><b>No names found</b><small>Use the full Pick Team screen at a readable resolution, then try again.</small></div>';
+        const unique = new Set(matches.map(match => match.playerId)).size;
+        summary.textContent = `${unique} unique players matched${unique < 15 ? ' · add or correct remaining players manually' : ''}`;
+        confirm.disabled = unique === 0;
+    },
+
+    updateTeamScreenshotMatch(index, playerId) {
+        const match = this.state.teamBuilder.importMatches[index];
+        if (!match) return;
+        match.playerId = Number(playerId);
+        match.confidence = 'confirmed';
+        match.score = 100;
+        this.paintTeamScreenshotMatches();
+    },
+
+    confirmTeamScreenshotImport() {
+        const ids = [...new Set((this.state.teamBuilder.importMatches || []).map(match => Number(match.playerId)).filter(Number.isFinite))];
+        const candidates = this.state.teamBuilder.players.filter(player => ids.includes(player.id));
+        const originalIds = this.state.teamBuilder.selectedIds;
+        const validIds = [];
+        candidates.forEach(player => {
+            this.state.teamBuilder.selectedIds = validIds;
+            if (!this.canAddTeamBuilderPlayer(player)) validIds.push(player.id);
+        });
+        this.state.teamBuilder.selectedIds = validIds.slice(0, 15);
+        this.state.teamBuilder.captainId = null;
+        void originalIds;
+        this.saveTeamBuilderDraft();
+        this.closeTeamScreenshotImport();
+        this.paintTeamBuilder();
+        const message = document.getElementById('tb-market-message');
+        if (message) message.textContent = `Imported ${validIds.length} legal player matches. Review the squad and add any missing players.`;
+    },
+
+    closeTeamScreenshotImport() {
+        document.getElementById('tb-import-panel')?.classList.add('hidden');
+    },
+
+    async reviewTeamBuilderSquad() {
+        const builder = this.state.teamBuilder;
+        const loading = document.getElementById('tb-advisor-loading');
+        const error = document.getElementById('tb-advisor-error');
+        const results = document.getElementById('tb-advisor-results');
+        if (!builder.selectedIds.length || !loading || !error || !results) return;
+        loading.classList.remove('hidden');
+        error.classList.add('hidden');
+        results.classList.add('hidden');
+        try {
+            const bankInput = document.getElementById('tb-advisor-bank')?.value;
+            const data = await this.apiPost(this.API.teamBuilderAdvice, {
+                playerIds: builder.selectedIds,
+                horizon: builder.selectedGWs.length,
+                strategy: document.getElementById('tb-advisor-strategy')?.value || 'balanced',
+                freeTransfers: Number(document.getElementById('tb-advisor-transfers')?.value) || 1,
+                bank: bankInput === '' ? undefined : Number(bankInput),
+                usedChips: [...document.querySelectorAll('#tb-advisor fieldset input:checked')].map(input => input.value),
+            });
+            this.paintTeamBuilderAdvice(data);
+            results.classList.remove('hidden');
+        } catch (err) {
+            error.textContent = err.message || 'The squad review could not be generated.';
+            error.classList.remove('hidden');
+        } finally {
+            loading.classList.add('hidden');
+        }
+    },
+
+    paintTeamBuilderAdvice(data) {
+        const results = document.getElementById('tb-advisor-results');
+        if (!results) return;
+        const lineup = data.lineup;
+        const decisions = data.critiques.map(item => `<article class="tb-critique-row ${item.priority}"><div class="tb-critique-verdict"><span>${item.verdict}</span><strong>${this.escapeHTML(item.player.name)}</strong><small>${item.player.position} · ${item.player.team} · £${item.player.cost.toFixed(1)}m</small></div><div class="tb-critique-evidence">${item.reasons.map(reason => `<span>${this.escapeHTML(reason)}</span>`).join('')}</div>${item.replacement ? `<div class="tb-replacement"><span class="material-symbols-outlined">swap_horiz</span><div><small>Model alternative</small><b>${this.escapeHTML(item.replacement.name)}</b><span>£${item.replacement.cost.toFixed(1)}m · +${item.replacement.netGain.toFixed(1)} net xPts</span></div></div>` : '<div class="tb-replacement is-hold"><span class="material-symbols-outlined">verified</span><span>No clear upgrade</span></div>'}</article>`).join('');
+        const transferPlans = data.transfers.plans.slice(0, 4).map(plan => `<article class="tb-advice-plan"><div>${plan.transfers.map(move => `<span><del>${this.escapeHTML(move.out.name)}</del><i class="material-symbols-outlined">arrow_forward</i><b>${this.escapeHTML(move.in.name)}</b></span>`).join('')}</div><strong>+${plan.netGain.toFixed(1)} net xPts</strong><small>${plan.hitCost ? `Includes -${plan.hitCost} hit · ` : ''}£${plan.bankAfter.toFixed(1)}m bank · ${plan.risk} risk</small><p>${this.escapeHTML(plan.rationale)}</p></article>`).join('');
+        const chips = data.chips.recommendations.map(chip => `<article class="tb-chip-advice ${chip.recommendation.toLowerCase()}"><span>${chip.recommendation}</span><div><b>${chip.chip}</b><small>Best window GW${chip.gameweek}</small></div><strong>${chip.expectedGain.toFixed(1)}</strong><p>${this.escapeHTML(chip.reason)} ${chip.confidence === 'Wait' ? 'The evidence does not justify using it yet.' : `${chip.confidence} confidence.`}</p></article>`).join('');
+        const lineupHtml = lineup ? `<div class="tb-advisor-lineup"><div><span>Captain</span><b>${this.escapeHTML(lineup.captain?.name || '--')}</b><small>${lineup.captain?.weekly[0]?.xPts.toFixed(1) || '0.0'} xPts</small></div><div><span>Vice</span><b>${this.escapeHTML(lineup.viceCaptain?.name || '--')}</b><small>${lineup.viceCaptain?.weekly[0]?.xPts.toFixed(1) || '0.0'} xPts</small></div><div><span>Projected XI</span><b>${lineup.expectedPoints.toFixed(1)}</b><small>including captain</small></div><div><span>Bench</span><b>${lineup.bench.map(player => this.escapeHTML(player.name)).join(', ')}</b><small>ordered by model score</small></div></div>` : '';
+        results.innerHTML = `<div class="tb-advisor-summary ${data.summary.legal ? 'is-legal' : 'is-incomplete'}"><div><span>${data.summary.legal ? 'Legal squad' : 'Incomplete squad'}</span><h3>${this.escapeHTML(data.summary.headline)}</h3><p>${data.summary.horizonXpts.toFixed(1)} squad xPts across GW${data.meta.gameweeks[0]}-${data.meta.gameweeks.at(-1)} · £${data.summary.squadCost.toFixed(1)}m value · £${data.summary.bank.toFixed(1)}m bank</p></div><strong>${data.summary.urgentPlayers}<small>priority players</small></strong></div>${lineupHtml}<div class="tb-advice-section"><h3>Player verdicts</h3><div class="tb-critique-list">${decisions}</div></div><div class="tb-advice-grid"><section><h3>Transfer plan</h3>${transferPlans || '<div class="tb-advice-empty">Roll the transfer. No modeled move clears the threshold.</div>'}</section><section><h3>Chip discipline</h3><div class="tb-chip-list">${chips || '<div class="tb-advice-empty">Complete the squad to assess chips.</div>'}</div></section></div><footer class="tb-advisor-notes">${data.meta.warnings.map(warning => `<span><i class="material-symbols-outlined">info</i>${this.escapeHTML(warning)}</span>`).join('')}</footer>`;
+    },
+
+    optimalTeamBuilderLineup(squad, gameweek) {
+        const score = player => this.teamBuilderXPts(player, [gameweek]);
+        const byPosition = position => squad.filter(player => player.position === position).sort((a, b) => score(b) - score(a));
+        const groups = { GKP: byPosition('GKP'), DEF: byPosition('DEF'), MID: byPosition('MID'), FWD: byPosition('FWD') };
+        if (groups.GKP.length < 1 || groups.DEF.length < 3 || groups.MID.length < 2 || groups.FWD.length < 1 || squad.length < 11) return [];
+        const formations = [[3, 4, 3], [3, 5, 2], [4, 3, 3], [4, 4, 2], [4, 5, 1], [5, 3, 2], [5, 4, 1]];
+        return formations.map(([def, mid, fwd]) => [groups.GKP[0], ...groups.DEF.slice(0, def), ...groups.MID.slice(0, mid), ...groups.FWD.slice(0, fwd)])
+            .filter(lineup => lineup.length === 11)
+            .sort((a, b) => b.reduce((sum, player) => sum + score(player), 0) - a.reduce((sum, player) => sum + score(player), 0))[0] || [];
+    },
+
+    paintTeamBuilder() {
+        const builder = this.state.teamBuilder;
+        const squad = this.teamBuilderSquad();
+        const validation = this.teamBuilderValidation(squad);
+        const allGWs = [...new Set(builder.players.flatMap(player => player.nextFixtures.map(fixture => fixture.gw)))].sort((a, b) => a - b).slice(0, 8);
+        const selector = document.getElementById('tb-gw-selector');
+        if (selector) selector.innerHTML = allGWs.map(gw => `<button type="button" class="tb-gw-btn${builder.selectedGWs.includes(gw) ? ' active' : ''}" onclick="FPL.toggleTeamBuilderGW(${gw})" aria-pressed="${builder.selectedGWs.includes(gw)}"><span>GW</span>${gw}</button>`).join('');
+
+        const count = document.getElementById('tb-squad-count');
+        if (count) count.textContent = `${squad.length} / 15 selected${validation.legal ? ' · Legal squad' : ''}`;
+        const budget = document.getElementById('tb-budget-meter');
+        if (budget) budget.innerHTML = `<div><span>Budget used</span><strong>£${validation.cost.toFixed(1)}m</strong></div><div class="tb-budget-track"><span style="width:${Math.min(100, validation.cost)}%"></span></div><small>£${Math.max(0, 100 - validation.cost).toFixed(1)}m remaining</small>`;
+        const rules = document.getElementById('tb-rule-strip');
+        if (rules) rules.innerHTML = Object.entries(validation.quotas).map(([position, quota]) => `<span class="${validation.positions[position] === quota ? 'complete' : ''}">${position} <b>${validation.positions[position]}/${quota}</b></span>`).join('') + `<span class="${Object.values(validation.clubs).every(value => value <= 3) ? 'complete' : ''}">Club max <b>3</b></span>`;
+
+        const horizonTotal = builder.selectedGWs.reduce((total, gw) => {
+            const lineup = this.optimalTeamBuilderLineup(squad, gw);
+            const captain = lineup.find(player => player.id === builder.captainId) || lineup.sort((a, b) => this.teamBuilderXPts(b, [gw]) - this.teamBuilderXPts(a, [gw]))[0];
+            return total + lineup.reduce((sum, player) => sum + this.teamBuilderXPts(player, [gw]), 0) + (captain ? this.teamBuilderXPts(captain, [gw]) : 0);
+        }, 0);
+        const total = document.getElementById('tb-horizon-total');
+        if (total) total.textContent = `${horizonTotal.toFixed(1)} xPts`;
+
+        const squadList = document.getElementById('tb-squad-list');
+        if (squadList) {
+            const quotas = validation.quotas;
+            squadList.innerHTML = Object.keys(quotas).map(position => {
+                const players = squad.filter(player => player.position === position).sort((a, b) => this.teamBuilderXPts(b) - this.teamBuilderXPts(a));
+                const slots = [...players, ...Array(Math.max(0, quotas[position] - players.length)).fill(null)];
+                return `<div class="tb-position-group"><div class="tb-position-title"><span>${position}</span><small>${players.length} of ${quotas[position]}</small></div>${slots.map(player => player ? `<div class="tb-squad-player"><button type="button" class="tb-captain-btn${builder.captainId === player.id ? ' active' : ''}" onclick="FPL.setTeamBuilderCaptain(${player.id})" title="${builder.captainId === player.id ? 'Captain selected' : 'Set captain'}" aria-pressed="${builder.captainId === player.id}" aria-label="${builder.captainId === player.id ? `${this.escapeHTML(player.name)} is captain` : `Set ${this.escapeHTML(player.name)} as captain`}"><span class="material-symbols-outlined">star</span></button><div class="tb-player-identity">${this.teamBadge(player.team, 28)}<span><b>${this.escapeHTML(player.name)}</b><small>${player.team} · £${player.costValue.toFixed(1)}m</small></span></div><div class="tb-player-output"><strong>${this.teamBuilderXPts(player).toFixed(1)}</strong><small>xPts</small></div><button type="button" class="tb-remove-btn" onclick="FPL.toggleTeamBuilderPlayer(${player.id})" title="Remove ${this.escapeHTML(player.name)}" aria-label="Remove ${this.escapeHTML(player.name)}"><span class="material-symbols-outlined">close</span></button></div>` : `<div class="tb-empty-slot"><span class="material-symbols-outlined">add</span><span>Add ${position}</span></div>`).join('')}</div>`;
+            }).join('');
+        }
+        this.paintTeamBuilderMarket();
+        this.paintTeamBuilderBreakdown();
+    },
+
+    paintTeamBuilderMarket() {
+        const builder = this.state.teamBuilder;
+        const selected = new Set(builder.selectedIds);
+        const query = builder.query;
+        let players = builder.players.filter(player => (builder.position === 'all' || player.position === builder.position) && (!query || player.name.toLowerCase().includes(query) || player.team.toLowerCase().includes(query)));
+        const sorters = {
+            xpts: (a, b) => this.teamBuilderXPts(b) - this.teamBuilderXPts(a),
+            value: (a, b) => this.teamBuilderXPts(b) / b.costValue - this.teamBuilderXPts(a) / a.costValue,
+            'price-desc': (a, b) => b.costValue - a.costValue,
+            ownership: (a, b) => b.ownership - a.ownership
+        };
+        players = players.sort(sorters[builder.sort] || sorters.xpts);
+        const count = document.getElementById('tb-market-count');
+        if (count) count.textContent = `${players.length} players · ${builder.selectedGWs.length} GW horizon`;
+        const list = document.getElementById('tb-player-list');
+        if (!list) return;
+        list.innerHTML = players.slice(0, 120).map(player => {
+            const isSelected = selected.has(player.id);
+            const blocked = !isSelected && this.canAddTeamBuilderPlayer(player);
+            const fixtures = player.nextFixtures.filter(fixture => builder.selectedGWs.includes(fixture.gw));
+            return `<article class="tb-market-player${isSelected ? ' selected' : ''}${blocked ? ' blocked' : ''}"><button type="button" class="tb-market-main" onclick="FPL.toggleTeamBuilderPlayer(${player.id})" aria-pressed="${isSelected}" ${blocked ? `aria-disabled="true" aria-describedby="tb-market-message" title="${this.escapeHTML(blocked)}"` : ''}><span class="tb-add-state material-symbols-outlined">${isSelected ? 'check' : 'add'}</span><span class="tb-player-identity">${this.teamBadge(player.team, 32)}<span><b>${this.escapeHTML(player.name)}</b><small>${player.position} · ${player.team} · £${player.costValue.toFixed(1)}m${blocked ? ` · ${this.escapeHTML(blocked)}` : ''}</small></span></span><span class="tb-fixture-run">${fixtures.map(fixture => `<i class="${fixture.fdr ? `fdr-${fixture.fdr}` : 'blank'}" title="GW${fixture.gw}: ${fixture.opponent}">${fixture.opponent === 'BLANK' ? '-' : fixture.opponent}${fixture.isHome === null ? '' : fixture.isHome ? ' H' : ' A'}</i>`).join('')}</span><span class="tb-player-output"><strong>${this.teamBuilderXPts(player).toFixed(1)}</strong><small>xPts</small></span></button></article>`;
+        }).join('') || '<div class="tb-no-results">No players match these filters.</div>';
+    },
+
+    paintTeamBuilderBreakdown() {
+        const builder = this.state.teamBuilder;
+        const squad = this.teamBuilderSquad();
+        const head = document.getElementById('tb-breakdown-head');
+        const body = document.getElementById('tb-breakdown-body');
+        if (!head || !body) return;
+        head.innerHTML = `<tr><th>Gameweek</th><th>Projected XI</th><th>Captain</th><th>Bench xPts</th><th>Total xPts</th></tr>`;
+        body.innerHTML = builder.selectedGWs.map(gw => {
+            const lineup = this.optimalTeamBuilderLineup(squad, gw);
+            const lineupIds = new Set(lineup.map(player => player.id));
+            const captain = lineup.find(player => player.id === builder.captainId) || [...lineup].sort((a, b) => this.teamBuilderXPts(b, [gw]) - this.teamBuilderXPts(a, [gw]))[0];
+            const base = lineup.reduce((sum, player) => sum + this.teamBuilderXPts(player, [gw]), 0);
+            const captainPoints = captain ? this.teamBuilderXPts(captain, [gw]) : 0;
+            const bench = squad.filter(player => !lineupIds.has(player.id)).reduce((sum, player) => sum + this.teamBuilderXPts(player, [gw]), 0);
+            return `<tr><td><b>GW${gw}</b></td><td><span class="tb-lineup-names">${lineup.length ? lineup.map(player => this.escapeHTML(player.name)).join(' · ') : 'Add at least 11 players in a legal formation'}</span></td><td>${captain ? `<b>${this.escapeHTML(captain.name)}</b><small>${captainPoints.toFixed(1)} bonus xPts</small>` : '--'}</td><td>${bench.toFixed(1)}</td><td class="tb-total-cell">${(base + captainPoints).toFixed(1)}</td></tr>`;
+        }).join('');
     },
 
     // ==================== RENDER: AI TEAM ====================

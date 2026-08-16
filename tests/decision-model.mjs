@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { buildDecisionCentre, validSquad } = require('../src/decisionModel');
+const { buildDecisionCentre, buildSquadAdvice, validSquad } = require('../src/decisionModel');
 
 const teams = Array.from({ length: 8 }, (_, index) => ({ id: index + 1, name: `Team ${index + 1}`, short_name: `T${index + 1}` }));
 const positions = [1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4];
@@ -82,5 +82,13 @@ assert.equal(doublePlayer.weekly[0].fixtures.length, 2, 'double gameweeks must i
 assert.equal(result.backtest.status, 'baseline');
 assert.equal(result.live.status, 'live');
 assert.ok(result.live.players.length === 15 && Number.isFinite(result.live.livePoints));
+
+const advice = buildSquadAdvice({ bootstrap, fixtures, playerIds: squadPlayers.map(player => player.id), options: { targetGW: 10, horizon: 5, strategy: 'balanced', freeTransfers: 1, bank: 5 } });
+assert.equal(advice.summary.legal, true);
+assert.equal(advice.critiques.length, 15);
+assert.equal(advice.lineup.starters.length, 11);
+assert.ok(advice.critiques.every(item => item.verdict && item.reasons.length >= 2));
+assert.ok(advice.chips.recommendations.every(item => ['Hold', 'Consider'].includes(item.recommendation)));
+assert.ok(advice.meta.warnings.length >= 2);
 
 console.log('Decision model tests passed');

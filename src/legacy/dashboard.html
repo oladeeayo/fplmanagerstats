@@ -140,6 +140,7 @@
                     <a href="/ownership" class="sidebar-nav-item" data-tab="ownership" onclick="event.preventDefault();FPL.navigateTo('ownership')"><span class="material-symbols-outlined">pie_chart</span> Ownership</a>
                     <a href="/set-pieces" class="sidebar-nav-item" data-tab="setpieces" onclick="event.preventDefault();FPL.navigateTo('setpieces')"><span class="material-symbols-outlined">sports_motorsports</span> Set Pieces</a>
                     <a href="/ai-team" class="sidebar-nav-item" data-tab="aiteam" onclick="event.preventDefault();FPL.navigateTo('aiteam')"><span class="material-symbols-outlined">smart_toy</span> AI Team</a>
+                    <a href="/team-builder" class="sidebar-nav-item" data-tab="teambuilder" onclick="event.preventDefault();FPL.navigateTo('teambuilder')"><span class="material-symbols-outlined">edit_square</span> Team Builder</a>
                 </div>
                 <div class="divider"></div>
                 <div>
@@ -1131,6 +1132,77 @@
                     </div>
                 </div>
 
+                <!-- TEAM BUILDER -->
+                <!-- THESIS: A live selection desk where every pick immediately changes legality and projected returns. OWN-WORLD: The incumbent near-black operations UI, pitch green, crisp rules, and data-first controls. STORY: Choose a horizon, assemble a legal squad, compare xPts, and save a draft. FIRST VIEWPORT: Squad ledger and player market share the workspace beneath a compact control rail. FORM: Dense selection workspace extending the established product. FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md. -->
+                <div id="content-teambuilder" class="tab-content">
+                    <div class="tb-page">
+                        <header class="tb-heading">
+                            <div>
+                                <h1>Team Builder</h1>
+                                <p>Build a legal 15-player squad and compare projected returns across up to eight gameweeks.</p>
+                            </div>
+                            <div class="tb-heading-actions">
+                                <input id="tb-screenshot-input" class="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onchange="FPL.importTeamScreenshot(this.files?.[0])">
+                                <button type="button" class="tb-btn tb-btn-secondary" onclick="document.getElementById('tb-screenshot-input').click()"><span class="material-symbols-outlined">image</span> Import screenshot</button>
+                                <button type="button" class="tb-btn tb-btn-secondary" onclick="FPL.loadBuilderCurrentSquad()"><span class="material-symbols-outlined">download</span> Current squad</button>
+                                <button type="button" class="tb-icon-btn" onclick="FPL.clearTeamBuilder()" title="Clear squad" aria-label="Clear squad"><span class="material-symbols-outlined">delete_sweep</span></button>
+                            </div>
+                        </header>
+
+                        <section id="tb-import-panel" class="tb-import-panel hidden" aria-labelledby="tb-import-title">
+                            <div class="tb-panel-heading"><div><h2 id="tb-import-title">Confirm screenshot players</h2><span id="tb-import-status">Reading screenshot locally...</span></div><button type="button" class="tb-icon-btn" onclick="FPL.closeTeamScreenshotImport()" aria-label="Close screenshot import"><span class="material-symbols-outlined">close</span></button></div>
+                            <div id="tb-import-preview" class="tb-import-preview"></div>
+                            <div class="tb-import-actions"><span id="tb-import-summary"></span><button id="tb-import-confirm" type="button" class="tb-btn tb-btn-primary" onclick="FPL.confirmTeamScreenshotImport()" disabled><span class="material-symbols-outlined">check</span> Fill squad</button></div>
+                        </section>
+
+                        <section class="tb-horizon" aria-labelledby="tb-horizon-title">
+                            <div><h2 id="tb-horizon-title">Projection horizon</h2><p>Select the gameweeks this draft should optimize for.</p></div>
+                            <div id="tb-gw-selector" class="tb-gw-selector" aria-label="Gameweek selection"></div>
+                        </section>
+
+                        <div id="tb-loading" class="tb-loading" role="status">Loading player projections...</div>
+                        <div id="tb-error" class="tb-message tb-message-error hidden" role="alert"></div>
+                        <div id="tb-workspace" class="tb-workspace hidden">
+                            <section class="tb-squad-panel" aria-labelledby="tb-squad-title">
+                                <div class="tb-panel-heading"><div><h2 id="tb-squad-title">Your squad</h2><span id="tb-squad-count">0 / 15 selected</span></div><strong id="tb-horizon-total">0.0 xPts</strong></div>
+                                <div id="tb-budget-meter" class="tb-budget-meter"></div>
+                                <div id="tb-rule-strip" class="tb-rule-strip"></div>
+                                <div id="tb-squad-list" class="tb-squad-list"></div>
+                                <div id="tb-save-status" class="tb-save-status" aria-live="polite"></div>
+                            </section>
+
+                            <section class="tb-market-panel" aria-labelledby="tb-market-title">
+                                <div class="tb-panel-heading"><div><h2 id="tb-market-title">Player market</h2><span id="tb-market-count">All players</span></div></div>
+                                <div class="tb-market-controls">
+                                    <label class="tb-search"><span class="material-symbols-outlined">search</span><input id="tb-player-search" type="search" placeholder="Search player or club" oninput="FPL.updateTeamBuilderFilters()" aria-label="Search players"></label>
+                                    <select id="tb-position-filter" onchange="FPL.updateTeamBuilderFilters()" aria-label="Filter by position"><option value="all">All positions</option><option>GKP</option><option>DEF</option><option>MID</option><option>FWD</option></select>
+                                    <select id="tb-sort" onchange="FPL.updateTeamBuilderFilters()" aria-label="Sort players"><option value="xpts">Horizon xPts</option><option value="value">xPts per £m</option><option value="price-desc">Price high to low</option><option value="ownership">Ownership</option></select>
+                                </div>
+                                <div id="tb-market-message" class="tb-market-message" aria-live="polite"></div>
+                                <div id="tb-player-list" class="tb-player-list"></div>
+                            </section>
+                        </div>
+
+                        <section id="tb-breakdown" class="tb-breakdown hidden" aria-labelledby="tb-breakdown-title">
+                            <div class="tb-panel-heading"><div><h2 id="tb-breakdown-title">Gameweek outlook</h2><span>Best legal XI per gameweek, plus captain bonus</span></div></div>
+                            <div class="tb-breakdown-scroll" tabindex="0" aria-label="Team projected points by gameweek"><table><caption class="sr-only">Team projected points by selected gameweek</caption><thead id="tb-breakdown-head"></thead><tbody id="tb-breakdown-body"></tbody></table></div>
+                        </section>
+
+                        <section id="tb-advisor" class="tb-advisor hidden" aria-labelledby="tb-advisor-title">
+                            <div class="tb-advisor-heading"><div><h2 id="tb-advisor-title">Squad Advisor</h2><p>Evidence-led critique across players, transfers, lineup, captaincy and chips.</p></div><button type="button" class="tb-btn tb-btn-primary" onclick="FPL.reviewTeamBuilderSquad()"><span class="material-symbols-outlined">psychology</span> Review my squad</button></div>
+                            <div class="tb-advisor-settings">
+                                <label>Approach<select id="tb-advisor-strategy"><option value="balanced">Balanced</option><option value="protect">Protect rank</option><option value="chase">Chase rank</option></select></label>
+                                <label>Free transfers<input id="tb-advisor-transfers" type="number" min="1" max="5" value="1"></label>
+                                <label>Money in bank<input id="tb-advisor-bank" type="number" min="0" max="20" step="0.1" placeholder="Auto"></label>
+                                <fieldset><legend>Used chips</legend><label><input type="checkbox" value="wildcard"> WC</label><label><input type="checkbox" value="freehit"> FH</label><label><input type="checkbox" value="bboost"> BB</label><label><input type="checkbox" value="3xc"> TC</label></fieldset>
+                            </div>
+                            <div id="tb-advisor-loading" class="tb-loading hidden" role="status">Reviewing squad evidence...</div>
+                            <div id="tb-advisor-error" class="tb-message tb-message-error hidden" role="alert"></div>
+                            <div id="tb-advisor-results" class="tb-advisor-results hidden"></div>
+                        </section>
+                    </div>
+                </div>
+
             </main>
         </div>
     </div>
@@ -1143,6 +1215,7 @@
         <a href="/fixtures" class="bottom-nav-item" data-tab="fixtures" onclick="event.preventDefault();FPL.navigateTo('fixtures')"><span class="material-symbols-outlined">calendar_month</span><span>Fixtures</span></a>
         <a href="/captaincy" class="bottom-nav-item" data-tab="captain" onclick="event.preventDefault();FPL.navigateTo('captain')"><span class="material-symbols-outlined">star</span><span>Captain</span></a>
         <a href="/ai-team" class="bottom-nav-item" data-tab="aiteam" onclick="event.preventDefault();FPL.navigateTo('aiteam')"><span class="material-symbols-outlined">smart_toy</span><span>AI</span></a>
+        <a href="/team-builder" class="bottom-nav-item" data-tab="teambuilder" onclick="event.preventDefault();FPL.navigateTo('teambuilder')"><span class="material-symbols-outlined">edit_square</span><span>Build</span></a>
     </nav>
 
     <!-- Connect Dialog -->
@@ -1163,7 +1236,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams(window.location.search);
-            const routeTab = window.location.pathname === '/ai-team' ? 'aiteam' : params.get('tab');
+            const routeTab = window.location.pathname === '/ai-team' ? 'aiteam' : window.location.pathname === '/team-builder' ? 'teambuilder' : params.get('tab');
             if (routeTab) {
                 document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
                 document.getElementById(`content-${routeTab}`)?.classList.add('active');

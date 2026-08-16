@@ -2,7 +2,7 @@ const express = require('express');
 const path = require('path');
 const axios = require('axios');
 const { neon } = require('@neondatabase/serverless');
-const { buildDecisionCentre } = require('./decisionModel');
+const { buildDecisionCentre, buildSquadAdvice } = require('./decisionModel');
 const { buildPlayerProjections, buildCaptaincyModel } = require('./captaincyModel');
 const { selectOptimalLineup, hasEconomicalReserveGoalkeeper, nextGameweekScore, horizonScore } = require('./aiTeamModel');
 
@@ -3082,27 +3082,29 @@ app.get('/api/xpts-projections', async (req, res) => {
     const [bs, fixtures] = await Promise.all([getCachedApiData(BOOTSTRAP_URL), getCachedApiData(FIXTURES_URL)]);
     const elements = bs.elements;
     const teams = bs.teams;
-    const currentGW = bs.events.find(e => e.is_current)?.id || 1;
+    const currentGW = bs.events.find(e => e.is_next)?.id || bs.events.find(e => e.is_current)?.id || 1;
     const getTeam = id => teams.find(t => t.id === id);
 
-    // Project points for next 5 GWs for each player
+    // Project every player for up to eight upcoming GWs so squad tools can enforce
+    // official quotas without silently hiding low-form or newly added players.
     const projections = elements
-      .filter(p => parseFloat(p.form) > 0 || p.total_points > 0)
       .map(p => {
         const form = parseFloat(p.form) || 0;
         const ppg = parseFloat(p.points_per_game) || 0;
         const xGI = parseFloat(p.expected_goal_involvements) || 0;
         const team = p.team;
         
-        // Get next 5 fixtures
+        // Include blanks and aggregate doubles into one gameweek projection.
         const nextFixtures = [];
         let totalXpts = 0;
         
-        for (let gw = currentGW; gw <= Math.min(currentGW + 4, 38); gw++) {
-          const fx = fixtures.find(f => f.event === gw && (f.team_h === team || f.team_a === team));
-          if (fx) {
+        for (let gw = currentGW; gw <= Math.min(currentGW + 7, 38); gw++) {
+          const gameweekFixtures = fixtures.filter(f => f.event === gw && (f.team_h === team || f.team_a === team));
+          let gameweekXpts = 0;
+          const fixtureLabels = [];
+          gameweekFixtures.forEach(fx => {
             const isHome = fx.team_h === team;
-            const fdr = fx.difficulty || 3;
+            const fdr = isHome ? (fx.team_h_difficulty || 3) : (fx.team_a_difficulty || 3);
             const oppId = isHome ? fx.team_a : fx.team_h;
             const opp = getTeam(oppId);
             
@@ -3110,13 +3112,22 @@ app.get('/api/xpts-projections', async (req, res) => {
             const baseXpts = (xGI * 3 + form * 1.5 + ppg * 1) / 5;
             const fdrMod = fdr === 1 ? 1.4 : fdr === 2 ? 1.2 : fdr === 3 ? 1.0 : fdr === 4 ? 0.8 : 0.6;
             const homeMod = isHome ? 1.1 : 1.0;
-            const gwXpts = Math.round(baseXpts * fdrMod * homeMod * 10) / 10;
+            const availabilityMod = p.status === 'a' ? 1 : Math.max(0, Number(p.chance_of_playing_next_round || 0) / 100);
+            const gwXpts = Math.round(baseXpts * fdrMod * homeMod * availabilityMod * 10) / 10;
             
-            totalXpts += gwXpts;
-            nextFixtures.push({
-              gw, opponent: opp?.short_name || '?', isHome, fdr, xpts: gwXpts
-            });
-          }
+            gameweekXpts += gwXpts;
+            fixtureLabels.push({ opponent: opp?.short_name || '?', isHome, fdr });
+          });
+          gameweekXpts = Math.round(gameweekXpts * 10) / 10;
+          totalXpts += gameweekXpts;
+          nextFixtures.push({
+            gw,
+            opponent: fixtureLabels.map(item => item.opponent).join(' + ') || 'BLANK',
+            isHome: fixtureLabels.length === 1 ? fixtureLabels[0].isHome : null,
+            fdr: fixtureLabels.length ? Math.round(fixtureLabels.reduce((sum, item) => sum + item.fdr, 0) / fixtureLabels.length) : null,
+            xpts: gameweekXpts,
+            fixtures: fixtureLabels,
+          });
         }
 
         return {
@@ -3129,7 +3140,11 @@ app.get('/api/xpts-projections', async (req, res) => {
           xptsPerMillion: p.now_cost > 0 ? (totalXpts / (p.now_cost / 10)).toFixed(1) : '0.0',
           nextFixtures,
           totalPoints: p.total_points || 0,
-          ownership: parseFloat(p.selected_by_percent) || 0
+          ownership: parseFloat(p.selected_by_percent) || 0,
+          status: p.status,
+          news: p.news || '',
+          teamId: p.team,
+          photoId: p.code,
         };
       })
       .sort((a, b) => b.totalXpts - a.totalXpts);
@@ -3144,7 +3159,7 @@ app.get('/api/xpts-projections', async (req, res) => {
 
     res.json({
       currentGW,
-      playerProjections: projections.slice(0, 100),
+      playerProjections: projections,
       teamProjections: Object.values(teamProjections).sort((a, b) => b.totalXpts - a.totalXpts),
       topByPosition: {
         FWD: projections.filter(p => p.position === 'FWD').slice(0, 10),
@@ -3156,6 +3171,33 @@ app.get('/api/xpts-projections', async (req, res) => {
   } catch (e) {
     console.error('xPts projections error:', e.message);
     res.status(500).json({ error: 'Failed to calculate projections' });
+  }
+});
+
+// ---- Team Builder Squad Advisor ----
+app.post('/api/team-builder/advice', async (req, res) => {
+  try {
+    const playerIds = Array.isArray(req.body?.playerIds) ? req.body.playerIds.map(Number).filter(Number.isFinite) : [];
+    if (!playerIds.length || playerIds.length > 15) return res.status(400).json({ error: 'Choose between 1 and 15 players for review' });
+    const horizon = Math.max(1, Math.min(8, Number(req.body?.horizon) || 5));
+    const [bootstrap, fixtures] = await Promise.all([getCachedApiData(BOOTSTRAP_URL), getCachedApiData(FIXTURES_URL)]);
+    const nextGW = bootstrap.events.find(event => event.is_next)?.id || bootstrap.events.find(event => event.is_current)?.id || 1;
+    res.json(buildSquadAdvice({
+      bootstrap,
+      fixtures,
+      playerIds,
+      options: {
+        horizon,
+        targetGW: nextGW,
+        strategy: req.body?.strategy,
+        bank: req.body?.bank,
+        freeTransfers: req.body?.freeTransfers,
+        usedChips: Array.isArray(req.body?.usedChips) ? req.body.usedChips : [],
+      },
+    }));
+  } catch (error) {
+    console.error('Team builder advice error:', error.message);
+    res.status(500).json({ error: error.message || 'Failed to review this squad' });
   }
 });
 

@@ -261,4 +261,86 @@ function buildDecisionCentre({ bootstrap, fixtures, manager, picks, history, riv
   };
 }
 
-module.exports = { buildDecisionCentre, selectLineup, validSquad };
+function buildSquadAdvice({ bootstrap, fixtures, playerIds, options = {} }) {
+  const strategy = normalizeStrategy(options.strategy);
+  const projectionData = buildPlayerProjections({ bootstrap, fixtures, startGW: options.targetGW, horizon: options.horizon });
+  const projectionMap = new Map(projectionData.projections.map(player => [player.id, player]));
+  const squad = [...new Set((playerIds || []).map(Number))].map(id => projectionMap.get(id)).filter(Boolean);
+  if (!squad.length) throw new Error('Add players before running the squad review');
+
+  const legal = validSquad(squad);
+  const squadCost = round(squad.reduce((sum, player) => sum + player.cost, 0));
+  const bank = round(Math.max(0, Number.isFinite(Number(options.bank)) ? Number(options.bank) : 100 - squadCost));
+  const freeTransfers = Math.max(1, Math.min(5, Number(options.freeTransfers) || 1));
+  const lineup = squad.length === 15 ? selectLineup(squad, strategy) : null;
+  const transferPlans = squad.length === 15
+    ? buildTransferPlans({ squad, allPlayers: projectionData.projections, bank, freeTransfers, strategy })
+    : [];
+  const chips = squad.length === 15
+    ? buildChipPlan({ squad, gameweeks: projectionData.gameweeks, usedChips: options.usedChips || [], strategy })
+    : { weeks: [], recommendations: [] };
+  const bestReplacementByPlayer = new Map();
+  transferPlans.forEach(plan => {
+    if (plan.transfers.length !== 1) return;
+    const move = plan.transfers[0];
+    if (!bestReplacementByPlayer.has(move.out.id)) bestReplacementByPlayer.set(move.out.id, { ...move.in, netGain: plan.netGain, horizonGain: plan.horizonGain, nextGain: plan.nextGain, hitCost: plan.hitCost, risk: plan.risk });
+  });
+
+  const rankedWithinPosition = Object.fromEntries(['GKP', 'DEF', 'MID', 'FWD'].map(position => [position,
+    projectionData.projections.filter(player => player.position === position).sort((a, b) => adjustedScore(b, strategy) - adjustedScore(a, strategy))
+  ]));
+  const critiques = squad.map(player => {
+    const replacement = bestReplacementByPlayer.get(player.id) || null;
+    const positionPool = rankedWithinPosition[player.position];
+    const percentile = Math.round((1 - Math.max(0, positionPool.findIndex(item => item.id === player.id)) / Math.max(positionPool.length - 1, 1)) * 100);
+    const riskReasons = [];
+    if (player.availability < 75) riskReasons.push(`${player.availability}% availability${player.news ? `: ${player.news}` : ''}`);
+    if ((player.weekly[0]?.xMins || 0) < 60) riskReasons.push(`${player.weekly[0]?.xMins || 0} expected minutes next GW`);
+    if (!player.weekly[0]?.fixtures?.length) riskReasons.push('blank next gameweek');
+    const weakProjection = player.totalXpts < projectionData.horizon * 2.6;
+    const transferCase = replacement && replacement.netGain >= (replacement.hitCost ? 4.5 : 2.5);
+    const verdict = riskReasons.length && transferCase ? 'Sell' : transferCase ? 'Consider replacing' : weakProjection ? 'Monitor' : 'Keep';
+    const reasons = [];
+    reasons.push(`${player.totalXpts.toFixed(1)} xPts over ${projectionData.horizon} GWs (${player.range.low.toFixed(1)}-${player.range.high.toFixed(1)} range)`);
+    reasons.push(`${player.xPtsPerMillion.toFixed(2)} xPts/£m and ${percentile}th position percentile`);
+    reasons.push(...riskReasons);
+    if (replacement) reasons.push(`${replacement.name} projects ${replacement.horizonGain.toFixed(1)} more horizon xPts${replacement.hitCost ? ` before a -${replacement.hitCost} hit` : ''}`);
+    return { player, verdict, priority: verdict === 'Sell' ? 'high' : verdict === 'Consider replacing' ? 'medium' : verdict === 'Monitor' ? 'watch' : 'keep', percentile, reasons, replacement };
+  }).sort((a, b) => ({ high: 0, medium: 1, watch: 2, keep: 3 }[a.priority] - { high: 0, medium: 1, watch: 2, keep: 3 }[b.priority]) || a.player.totalXpts - b.player.totalXpts);
+
+  const topPlan = transferPlans[0] || null;
+  const urgentPlayers = critiques.filter(item => ['Sell', 'Consider replacing'].includes(item.verdict)).length;
+  const wildcard = chips.recommendations.find(item => item.chip === 'Wildcard');
+  const chipRecommendations = chips.recommendations.map(item => {
+    let confidence = item.confidence;
+    let recommendation = confidence === 'Wait' ? 'Hold' : 'Consider';
+    if (item.chip === 'Wildcard') {
+      const shouldUse = urgentPlayers >= 4 && item.expectedGain >= 7;
+      confidence = shouldUse ? confidence : 'Wait';
+      recommendation = shouldUse ? 'Consider' : 'Hold';
+    }
+    if (item.chip === 'Bench Boost' && item.expectedGain < 14) { confidence = 'Wait'; recommendation = 'Hold'; }
+    if (item.chip === 'Triple Captain' && item.expectedGain < 7.5) { confidence = 'Wait'; recommendation = 'Hold'; }
+    if (item.chip === 'Free Hit' && item.expectedGain < 8) { confidence = 'Wait'; recommendation = 'Hold'; }
+    return { ...item, confidence, recommendation };
+  });
+
+  const headline = !legal
+    ? `Complete a legal 15-player squad before acting on transfer or chip advice.`
+    : topPlan?.netGain >= 4
+      ? `${topPlan.transfers.map(move => `${move.out.name} to ${move.in.name}`).join(' and ')} is the strongest modeled move at +${topPlan.netGain.toFixed(1)} net xPts.`
+      : `The model prefers patience: no transfer clears a strong hit-adjusted threshold.`;
+
+  return {
+    meta: { modelVersion: 'Squad Advisor 1.0', generatedAt: new Date().toISOString(), strategy, gameweeks: projectionData.gameweeks, warnings: ['Projections are uncertain, especially before stable minutes and role data exist.', 'Confirm prices, free transfers, bank and chip availability before acting.'] },
+    summary: { legal, squadCost, bank, headline, urgentPlayers, horizonXpts: round(squad.reduce((sum, player) => sum + player.totalXpts, 0)) },
+    squad,
+    lineup,
+    critiques,
+    transfers: { rollRecommended: !topPlan || topPlan.netGain < 2.5, plans: transferPlans.slice(0, 8) },
+    chips: { ...chips, recommendations: chipRecommendations, wildcardPressure: wildcard?.expectedGain || 0 },
+    alerts: squad.length === 15 ? buildAlerts(squad, transferPlans) : [],
+  };
+}
+
+module.exports = { buildDecisionCentre, buildSquadAdvice, selectLineup, validSquad };
