@@ -106,6 +106,24 @@ const FPL = {
         // The application shell is usable while base data hydrates in the background.
         this.hideLoading();
         this.state.playerFilter = 'all';
+        const setupDeadlineCountdown = (deadlineTime) => {
+            if (!deadlineTime) return false;
+            const deadlineDate = new Date(deadlineTime);
+            if (Number.isNaN(deadlineDate.getTime())) return false;
+            localStorage.setItem('fplDeadlineTime', deadlineDate.toISOString());
+            const dlEl = document.getElementById('deadline-time');
+            if (dlEl) {
+                dlEl.textContent = deadlineDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+            }
+            this.startCountdown(deadlineDate);
+            return true;
+        };
+
+        setupDeadlineCountdown(localStorage.getItem('fplDeadlineTime'));
+        this.apiFetch(this.API.deadline)
+            .then(deadline => setupDeadlineCountdown(deadline?.deadlineTime))
+            .catch(() => {});
+
         try {
             const [bootstrap, fixtures, fotmobData] = await Promise.all([
                 this.apiFetch(this.API.bootstrap),
@@ -140,26 +158,15 @@ const FPL = {
             });
 
             // Update deadline display and start countdown
-            const setupDeadlineCountdown = (dl) => {
-                if (!dl || !dl.deadlineTime) return false;
-                const dlEl = document.getElementById('deadline-time');
-                if (dlEl) {
-                    const d = new Date(dl.deadlineTime);
-                    dlEl.textContent = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-                }
-                this.startCountdown(new Date(dl.deadlineTime));
-                return true;
-            };
-
-            if (!setupDeadlineCountdown(deadline)) {
+            if (!setupDeadlineCountdown(deadline.deadlineTime)) {
                 // Fallback: fetch deadline independently if initial load failed
-                this.apiFetch(this.API.deadline).then(dl => setupDeadlineCountdown(dl)).catch(() => {});
+                this.apiFetch(this.API.deadline).then(dl => setupDeadlineCountdown(dl?.deadlineTime)).catch(() => {});
             }
 
             // Refresh deadline every 5 minutes to stay accurate
             if (this._deadlineRefreshInterval) clearInterval(this._deadlineRefreshInterval);
             this._deadlineRefreshInterval = setInterval(() => {
-                this.apiFetch(this.API.deadline).then(dl => setupDeadlineCountdown(dl)).catch(() => {});
+                this.apiFetch(this.API.deadline).then(dl => setupDeadlineCountdown(dl?.deadlineTime)).catch(() => {});
             }, 5 * 60 * 1000);
 
             // Populate GW jump selector
@@ -245,17 +252,19 @@ const FPL = {
     },
 
     startCountdown(deadlineDate) {
-        const countdownEl = document.getElementById('dash-countdown');
-        const dateEl = document.getElementById('dash-deadline-date');
-        if (!countdownEl || !(deadlineDate instanceof Date) || Number.isNaN(deadlineDate.getTime())) return;
+        if (!(deadlineDate instanceof Date) || Number.isNaN(deadlineDate.getTime())) return;
 
         this._countdownDeadline = deadlineDate;
 
-        if (dateEl && deadlineDate) {
-            dateEl.textContent = deadlineDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-        }
-
         const update = () => {
+            // Resolve the element on every tick because the React shell can remount it.
+            const countdownEl = document.getElementById('dash-countdown');
+            const dateEl = document.getElementById('dash-deadline-date');
+            if (!countdownEl) return;
+
+            if (dateEl) {
+                dateEl.textContent = deadlineDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+            }
             const now = new Date();
             const diff = deadlineDate - now;
             if (diff <= 0) {
@@ -293,6 +302,15 @@ const FPL = {
         update();
         if (this._countdownInterval) clearInterval(this._countdownInterval);
         this._countdownInterval = setInterval(update, 1000);
+        if (!this._countdownLifecycleReady) {
+            const resumeCountdown = () => {
+                this._countdownUpdate?.();
+            };
+            document.addEventListener('visibilitychange', resumeCountdown);
+            window.addEventListener('pageshow', resumeCountdown);
+            this._countdownLifecycleReady = true;
+        }
+        this._countdownUpdate = update;
     },
 
     createPixelLoader(label = 'Loading FPL data...') {
