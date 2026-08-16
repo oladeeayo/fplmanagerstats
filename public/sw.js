@@ -3,7 +3,7 @@ const STATIC_ASSETS = [
     '/',
     '/index.html',
     '/common.js?v=12',
-    '/design-system.css?v=11',
+    '/design-system.css?v=12',
     '/football.ico',
     '/icon-192.png',
     '/icon-512.png',

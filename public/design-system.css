@@ -1102,9 +1102,6 @@ select.input {
     background: #171c19;
 }
 
-.captaincy-spotlight-best { border-top: 3px solid var(--fpl-accent); }
-.captaincy-spotlight-differential { border-top: 3px solid #f9d243; }
-
 .captaincy-spotlight-topline {
     display: flex;
     align-items: center;
@@ -1194,9 +1191,7 @@ select.input {
 .captaincy-table td { height: 56px; padding: 6px 8px; border-bottom: 1px solid #25332c; color: #cfd8d2; line-height: 1.2; text-align: center; vertical-align: middle; }
 .captaincy-table td:nth-child(3) { text-align: left; }
 .captaincy-table tbody tr:last-child td { border-bottom: 0; }
-.captaincy-row-best { background: rgba(0, 255, 133, 0.035); }
 .captaincy-rank { display: inline-flex; width: 25px; height: 25px; align-items: center; justify-content: center; border: 1px solid #355044; border-radius: 4px; color: #b9cbb9; font-family: var(--font-mono); font-weight: 800; }
-.captaincy-row-best .captaincy-rank { border-color: var(--fpl-accent); color: var(--fpl-accent); }
 .captaincy-table-player { display: grid; grid-template-columns: 38px minmax(0, 1fr); align-items: center; gap: 8px; min-width: 0; text-align: left; }
 .captaincy-table-player-info { min-width: 0; }
 .captaincy-table-player strong { display: flex; align-items: center; gap: 4px; min-height: 16px; overflow: hidden; color: #fff; font-size: 12px; line-height: 1.2; text-overflow: ellipsis; }
@@ -1292,10 +1287,14 @@ select.input {
     .players-table-wrap,
     .league-table-wrap,
     .table-scroll-mobile {
+        display: block !important;
         overflow-x: auto !important;
         -webkit-overflow-scrolling: touch !important;
+        overscroll-behavior-x: contain;
+        touch-action: pan-x pan-y;
         width: 100% !important;
         max-width: 100% !important;
+        min-width: 0 !important;
         position: relative !important;
     }
 
@@ -1329,20 +1328,18 @@ select.input {
     .squad-performance-table td:first-child { background: #141916 !important; }
 
     .sticky-rank-player th:nth-child(1),
-    .sticky-rank-player td:nth-child(1),
-    .sticky-rank-player th:nth-child(2),
-    .sticky-rank-player td:nth-child(2) {
+    .sticky-rank-player td:nth-child(1) {
         position: sticky !important;
         z-index: 2 !important;
     }
     .sticky-rank-player th:nth-child(1), .sticky-rank-player td:nth-child(1) { left: 0 !important; width: 44px !important; min-width: 44px !important; max-width: 44px !important; }
-    .sticky-rank-player th:nth-child(2), .sticky-rank-player td:nth-child(2) { left: 44px !important; min-width: 150px !important; box-shadow: 2px 0 rgba(255,255,255,0.1); }
-    .sticky-rank-player th:nth-child(1), .sticky-rank-player th:nth-child(2) { z-index: 3 !important; }
-    .league-table-wrap th:nth-child(-n+2), .league-table-wrap td:nth-child(-n+2) { background: #022B1E !important; }
-    .captaincy-table th:nth-child(-n+2) { background: #111613 !important; }
-    .captaincy-table td:nth-child(-n+2) { background: #171c19 !important; }
-    .ownership-data-table th:nth-child(-n+2) { background: #2A2A2A !important; }
-    .ownership-data-table td:nth-child(-n+2) { background: #1E1E1E !important; }
+    .sticky-rank-player th:nth-child(1) { z-index: 3 !important; }
+    .sticky-rank-player th:nth-child(2), .sticky-rank-player td:nth-child(2) { position: static !important; box-shadow: none !important; }
+    .league-table-wrap th:first-child, .league-table-wrap td:first-child { background: #022B1E !important; }
+    .captaincy-table th:first-child { background: #111613 !important; }
+    .captaincy-table td:first-child { background: #171c19 !important; }
+    .ownership-data-table th:first-child { background: #2A2A2A !important; }
+    .ownership-data-table td:first-child { background: #1E1E1E !important; }
 
     .table-compact table,
     .dashboard-selection-table {
@@ -1424,6 +1421,7 @@ select.input {
     .captaincy-controls { width: min(100%, 260px); margin: 0 auto; grid-template-columns: 1fr; justify-items: center; }
     .captaincy-controls label { text-align: center; }
     .captaincy-controls select { width: 100%; }
+    .captaincy-controls select { text-align: center; text-align-last: center; }
     .captaincy-model-status { grid-column: 1; width: 100%; text-align: center; }
     .captaincy-spotlights { gap: 10px; }
     .captaincy-spotlight { padding: 14px; }

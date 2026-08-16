@@ -82,7 +82,7 @@
     }
     </script>
 
-    <link rel="stylesheet" href="design-system.css?v=6">
+    <link rel="stylesheet" href="design-system.css?v=12">
     <style>
         .material-symbols-outlined { font-family: 'Material Symbols Outlined'; font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
         .material-symbols-outlined.filled { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
@@ -591,7 +591,7 @@
 
                     <!-- Data Table (Standings) -->
                     <div style="background:#022B1E;border:1px solid #333333;border-radius:12px;overflow:clip;display:flex;flex-direction:column;">
-                        <div class="league-table-wrap sticky-rank-player">
+                        <div class="league-table-wrap sticky-rank-player" tabindex="0" aria-label="League standings table">
                             <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:13px;white-space:nowrap;min-width:700px;">
                                 <thead>
                                     <tr style="border-bottom:1px solid #333333;background:rgba(255,255,255,0.03);color:#E0E0E0;font-size:11px;font-family:var(--font-mono);">
@@ -653,7 +653,7 @@
 
                     <!-- Data Table Container -->
                     <div style="background:#1E1E1E;border:1px solid #1A2E28;border-radius:12px;overflow:clip;">
-                        <div class="players-table-wrap sticky-first-column">
+                        <div class="players-table-wrap sticky-first-column" tabindex="0" aria-label="Player statistics table">
                             <table class="players-data-table" style="width:100%;border-collapse:separate;border-spacing:0;white-space:nowrap;">
                                 <thead style="background:#333333;border-bottom:1px solid #1A2E28;font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.03em;">
                                     <tr>
@@ -770,7 +770,7 @@
 
                             <!-- Fixture Grid Container -->
                             <div style="background:#1c211e;border:1px solid #1A2E28;border-radius:12px;overflow:clip;">
-                        <div class="table-scroll-mobile sticky-first-column fixture-table-wrap">
+                        <div class="table-scroll-mobile sticky-first-column fixture-table-wrap" tabindex="0" aria-label="Fixture data table">
                             <table class="fixture-grid-table" style="width:100%;border-collapse:separate;border-spacing:0;white-space:nowrap;">
                                         <thead>
                                             <tr id="fixture-grid-header-row" style="background:#202722;border-bottom:1px solid #34453b;">
@@ -838,7 +838,7 @@
                             </div>
                             <div id="cap-model-inputs" class="captaincy-model-inputs"></div>
                         </div>
-                        <div class="table-scroll-mobile sticky-rank-player">
+                        <div class="table-scroll-mobile sticky-rank-player" tabindex="0" aria-label="Captaincy rankings table">
                             <table class="captaincy-table">
                                 <thead>
                                     <tr>
@@ -951,7 +951,7 @@
                         </div>
 
                         <!-- Table -->
-                        <div class="table-scroll-mobile sticky-rank-player">
+                        <div class="table-scroll-mobile sticky-rank-player" tabindex="0" aria-label="Ownership trends table">
                             <table class="ownership-data-table" style="width:100%;border-collapse:separate;border-spacing:0;font-size:12px;white-space:nowrap;">
                                 <thead>
                                     <tr style="border-bottom:2px solid #333333;background:#2A2A2A;color:#B0B0B0;font-size:11px;">
@@ -981,7 +981,7 @@
                         <p style="font-size:13px;color:#8ba396;margin-top:6px;">Penalty takers, free kick specialists, and corner takers for every Premier League team.</p>
                     </div>
                     <div id="setpieces-table-container" style="background:#141916;border:1px solid #1A2E28;border-radius:12px;overflow:clip;">
-                        <div class="table-scroll-mobile sticky-first-column">
+                        <div class="table-scroll-mobile sticky-first-column" tabindex="0" aria-label="Set pieces table">
                             <table class="setpieces-data-table" style="width:100%;border-collapse:separate;border-spacing:0;min-width:920px;">
                                 <thead>
                                     <tr style="background:#1c211e;border-bottom:1px solid #1A2E28;font-size:10px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);letter-spacing:0.03em;">
