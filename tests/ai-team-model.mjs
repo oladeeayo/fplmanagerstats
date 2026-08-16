@@ -35,6 +35,11 @@ const expectedBest = VALID_FORMATIONS.map(shape => ({
     .reduce((sum, value) => sum + value, 0),
 })).sort((a, b) => b.score - a.score || a.formation.localeCompare(b.formation))[0];
 assert.equal(result.formation, expectedBest.formation);
+assert.ok(result.starters.some(player => player.id === 'MID-0'), 'Highest projected midfielder should start');
+assert.ok(!result.starters.some(player => player.id === 'DEF-4'), 'Lower projected defender should not displace a legal higher projected midfielder');
+
+const horizonResult = selectOptimalLineup(squad, player => player.position === 'MID' ? player.score * 2 : player.score);
+assert.notEqual(horizonResult.formation, '5-3-2', 'Formation must remain an optimizer output');
 assert.equal(hasEconomicalReserveGoalkeeper([
   { position: 'GKP', cost: 5.5 },
   { position: 'GKP', cost: 4.5 },

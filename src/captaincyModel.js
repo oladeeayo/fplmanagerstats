@@ -5,6 +5,7 @@ const CLEAN_SHEET_POINTS = { GKP: 4, DEF: 4, MID: 1, FWD: 0 };
 const ATTACK_MODIFIER = { 1: 1.25, 2: 1.12, 3: 1, 4: 0.88, 5: 0.76 };
 const FORM_MODIFIER = { 1: 1.12, 2: 1.06, 3: 1, 4: 0.94, 5: 0.88 };
 const CLEAN_SHEET_PROBABILITY = { 1: 0.46, 2: 0.37, 3: 0.28, 4: 0.19, 5: 0.12 };
+const PRESEASON_POSITION_PRIOR = { GKP: 3.4, DEF: 3.25, MID: 3.45, FWD: 3.35 };
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -130,11 +131,16 @@ function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form
   const savePoints = position === 'GKP'
     ? (number(player.saves_per_90) * minuteShare / 3)
     : 0;
+  const contributionRate = number(player.defensive_contribution_per_90);
+  const contributionThreshold = position === 'DEF' ? 10 : 12;
+  const contributionPoints = position === 'GKP'
+    ? 0
+    : 2 * clamp((contributionRate * minuteShare) / contributionThreshold, 0, 1) * sixtyMinuteProbability;
   const cardPoints = -(
     (number(player.yellow_cards) + (number(player.red_cards) * 3)) * 90 /
     Math.max(number(player.minutes), 1800)
   ) * minuteShare;
-  const eventProjection = appearancePoints + goalPoints + assistPoints + cleanSheetPoints + bonusPoints + setPiecePoints + savePoints + cardPoints;
+  const eventProjection = appearancePoints + goalPoints + assistPoints + cleanSheetPoints + bonusPoints + setPiecePoints + savePoints + contributionPoints + cardPoints;
 
   const historicAverageMinutes = clamp(number(player.minutes) / Math.max(number(player.total_points) / Math.max(ppg, 0.1), 1), 45, 90);
   const roleMinutesRatio = clamp(fixtureXmins / historicAverageMinutes, 0, 1.2);
@@ -143,7 +149,10 @@ function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form
   let projectedPoints = (eventProjection * 0.68) + (formProjection * 0.2) + (ppgProjection * 0.12);
 
   if (officialProjection > 0 && fixtureIndex === 0) {
-    projectedPoints = (projectedPoints * 0.88) + (officialProjection * 0.12);
+    const preseason = number(player.minutes) === 0 && number(player.total_points) === 0;
+    projectedPoints = preseason
+      ? (projectedPoints * 0.42) + (officialProjection * 0.43) + (PRESEASON_POSITION_PRIOR[position] * 0.15)
+      : (projectedPoints * 0.84) + (officialProjection * 0.16);
   }
 
   return {
@@ -155,6 +164,7 @@ function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form
     xMins: fixtureXmins,
     xPts: round(Math.max(0, projectedPoints)),
     attackingXPts: round(goalPoints + assistPoints, 2),
+    defensiveContributionXPts: round(contributionPoints, 2),
     tone: fixtureTone(difficulty),
   };
 }
@@ -412,6 +422,7 @@ function buildPlayerProjections({ bootstrap, fixtures, startGW, horizon = 5 }) {
       ownership: round(number(player.selected_by_percent)),
       form: round(number(player.form)),
       xGI90: firstCandidate?.xGI90 || round(number(player.expected_goal_involvements_per_90), 2),
+      defensiveContributionPer90: round(number(player.defensive_contribution_per_90), 2),
       roles: firstCandidate?.roles || describeRole(player),
       availability: round(availability * 100, 0),
       status: player.status || 'a',

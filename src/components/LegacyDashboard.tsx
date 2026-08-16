@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo } from 'react';
+import { memo, useMemo, useRef } from 'react';
 import legacyDocument from '../legacy/dashboard.html?raw';
 
 function extractBody(documentSource: string) {
@@ -13,22 +13,26 @@ function extractInlineStyles(documentSource: string) {
     .join('\n');
 }
 
+function prepareMarkup(documentSource: string, activeTab: string) {
+  const template = document.createElement('template');
+  template.innerHTML = extractBody(documentSource);
+  template.content.querySelectorAll<HTMLElement>('.tab-content').forEach((element) => {
+    element.classList.toggle('active', element.id === `content-${activeTab}`);
+  });
+  template.content.querySelectorAll<HTMLElement>('[data-tab]').forEach((element) => {
+    element.classList.toggle('active', element.dataset.tab === activeTab);
+  });
+  return template.innerHTML;
+}
+
 interface LegacyDashboardProps {
   activeTab: string;
 }
 
 function LegacyDashboardComponent({ activeTab }: LegacyDashboardProps) {
-  const markup = useMemo(() => extractBody(legacyDocument), []);
+  const initialTab = useRef(activeTab);
+  const markup = useMemo(() => prepareMarkup(legacyDocument, initialTab.current), []);
   const styles = useMemo(() => extractInlineStyles(legacyDocument), []);
-
-  useEffect(() => {
-    document.querySelectorAll<HTMLElement>('.tab-content').forEach((element) => {
-      element.classList.toggle('active', element.id === `content-${activeTab}`);
-    });
-    document.querySelectorAll<HTMLElement>('[data-tab]').forEach((element) => {
-      element.classList.toggle('active', element.dataset.tab === activeTab);
-    });
-  }, [activeTab]);
 
   return (
     <>

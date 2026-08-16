@@ -473,7 +473,7 @@ app.post('/api/v1/decision-centre', async (req, res) => {
 });
 
 // ---- AI Team: Autonomous Season Manager ----
-const AI_TEAM_MODEL_VERSION = 'AI Team Engine 4.0';
+const AI_TEAM_MODEL_VERSION = 'AI Team Engine 5.0';
 const AI_TEAM_POSITION_LIMITS = { GKP: 2, DEF: 5, MID: 5, FWD: 3 };
 
 function isValidAITeamPayload(payload) {
@@ -493,6 +493,7 @@ function isValidAITeamPayload(payload) {
     && Object.values(clubs).every(count => count <= 3)
     && costTenths <= 1000
     && payload?.lineup?.quality?.reserveGoalkeeperEconomical === true
+    && payload?.lineup?.quality?.optimizerVersion === 5
     && starters.every(player => ids.includes(Number(player.id)))
     && bench.every(player => ids.includes(Number(player.id)));
 }
@@ -755,111 +756,72 @@ app.post('/api/ai-team', async (req, res) => {
     const costTenths = player => Math.round(Number(player.cost || player.enhancedCost || 0) * 10);
     const goalkeeperCosts = availablePlayers.filter(player => player.position === 'GKP').map(costTenths).sort((a, b) => a - b);
     const reserveGoalkeeperCeilingTenths = (goalkeeperCosts[0] || 40) + 5;
-    const slotTemplate = Object.entries(POSITION_LIMITS).flatMap(([position, count]) => Array(count).fill(position));
+    const lineupWeights = [0.58, 0.27, 0.15];
+    const lineupScore = player => lineupWeights.reduce((score, weight, index) => score + (player.weekly?.[index]?.xPts || 0) * weight, 0);
+    const easyDefensiveTriple = (players, teamId) => {
+      const defensivePlayers = players.filter(player => player.teamId === teamId && ['GKP', 'DEF'].includes(player.position));
+      if (defensivePlayers.length <= 2) return true;
+      const next3 = defensivePlayers[0]?.upcomingFixtures?.slice(0, 3) || [];
+      const avgFdr = next3.length ? next3.reduce((sum, fixture) => sum + (fixture.fdr || 3), 0) / next3.length : 5;
+      const projected = defensivePlayers.reduce((sum, player) => sum + lineupScore(player), 0);
+      return avgFdr <= 2 && projected >= 10.5;
+    };
+    const respectsDefensiveStack = players => [...new Set(players.map(player => player.teamId))].every(teamId => easyDefensiveTriple(players, teamId));
+    const squadObjective = players => {
+      const selection = selectOptimalLineup(players, lineupScore);
+      const starterIds = new Set(selection.starters.map(player => player.id));
+      const xi = selection.starters.reduce((sum, player) => sum + lineupScore(player), 0);
+      const benchValue = players.filter(player => !starterIds.has(player.id)).reduce((sum, player) => sum + lineupScore(player), 0) * 0.08;
+      const horizonValue = players.reduce((sum, player) => sum + (player.totalXpts || 0), 0) * 0.035;
+      const riskPenalty = players.reduce((sum, player) => sum + Math.max(0, 70 - (player.availability || 0)) * 0.025, 0);
+      return xi + benchValue + horizonValue - riskPenalty;
+    };
 
-    // Multiple deterministic slot orders avoid greedy dead ends while keeping the model fast.
-    let bestSquad = [];
-    let bestScore = -1;
-    let bestCost = 0;
-
-    const slotOrders = [
-      slotTemplate,
-      [...slotTemplate].reverse(),
-      ['FWD', 'MID', 'DEF', 'GKP', 'MID', 'DEF', 'FWD', 'MID', 'DEF', 'GKP', 'MID', 'DEF', 'FWD', 'MID', 'DEF'],
-    ];
-    for (let attempt = 0; attempt < slotOrders.length; attempt++) {
-      const selected = [];
-      const teamCounts = {};
-      let spentTenths = 0;
-
-      for (const position of slotOrders[attempt]) {
-          const remainingSlots = { ...POSITION_LIMITS };
-          selected.forEach(player => { remainingSlots[player.position] -= 1; });
-          remainingSlots[position] -= 1;
-          const remainingMinimum = Object.entries(remainingSlots).reduce((sum, [pos, count]) => {
-            const costs = availablePlayers.filter(player => player.position === pos && !selected.some(item => item.id === player.id)).map(costTenths).sort((a, b) => a - b);
-            return sum + costs.slice(0, Math.max(0, count)).reduce((total, cost) => total + cost, 0);
-          }, 0);
-
-          const candidates = availablePlayers
-            .filter(p => p.position === position && !selected.some(s => s.id === p.id))
-            .filter(p => (teamCounts[p.teamId] || 0) < MAX_PER_TEAM)
-            .filter(p => position !== 'GKP' || selected.every(player => player.position !== 'GKP') || costTenths(p) <= reserveGoalkeeperCeilingTenths)
-            .filter(p => spentTenths + costTenths(p) + remainingMinimum <= 1000)
-            .filter(p => {
-              if (position !== 'GKP' && position !== 'DEF') return true;
-              const teamDefCount = selected.filter(s => s.teamId === p.teamId && (s.position === 'GKP' || s.position === 'DEF')).length;
-              if (teamDefCount < 2) return true;
-              const teamFixtures = p.upcomingFixtures || [];
-              const next3 = teamFixtures.slice(0, 3);
-              if (next3.length === 0) return false;
-              const avgFdr = next3.reduce((s, f) => s + (f.fdr || 3), 0) / next3.length;
-              return avgFdr <= 2.0;
-            });
-
-          const scored = candidates.map(p => ({
-            ...p,
-            _score: adjustedScore(p, strategy),
-          })).sort((a, b) => b._score - a._score || costTenths(a) - costTenths(b));
-
-          if (scored[0]) {
-            selected.push(scored[0]);
-            spentTenths += costTenths(scored[0]);
-            teamCounts[scored[0].teamId] = (teamCounts[scored[0].teamId] || 0) + 1;
-          }
-      }
-
-      const squadScore = selected.reduce((s, p) => s + adjustedScore(p, strategy), 0);
-      const spent = spentTenths / 10;
-      const costDiff = Math.abs(budget - spent);
-      const totalScore = squadScore - costDiff * 0.5;
-
-      if (isLegalSquad(selected)
-        && (totalScore > bestScore || (Math.abs(totalScore - bestScore) < 0.1 && spent > bestCost))) {
-        bestScore = totalScore;
-        bestSquad = selected;
-        bestCost = spent;
-      }
-    }
-
-    if (bestSquad.length !== 15) throw new Error('The model could not produce a legal 15-player squad within £100m');
-
-    // Budget upgrade pass
-    if (budget - bestCost > 1.5) {
-      for (const position of ['FWD', 'MID', 'DEF']) {
-        const posPlayers = bestSquad.filter(p => p.position === position).sort((a, b) => a.cost - b.cost);
-        for (const cheap of posPlayers) {
-          const upgrade = availablePlayers
-            .filter(p => p.position === position && p.id !== cheap.id && !bestSquad.some(s => s.id === p.id))
-            .filter(p => bestSquad.filter(s => s.teamId === p.teamId).length < MAX_PER_TEAM)
-            .filter(p => p.cost <= cheap.cost + (budget - bestCost))
-            .filter(p => adjustedScore(p, strategy) > adjustedScore(cheap, strategy))
-            .filter(p => {
-              if (position !== 'DEF') return true;
-              const newSquad = bestSquad.map(s => s.id === cheap.id ? p : s);
-              const teamDefCount = newSquad.filter(s => s.teamId === p.teamId && (s.position === 'GKP' || s.position === 'DEF')).length;
-              if (teamDefCount <= 2) return true;
-              const next3 = (p.upcomingFixtures || []).slice(0, 3);
-              if (next3.length === 0) return false;
-              const avgFdr = next3.reduce((s, f) => s + (f.fdr || 3), 0) / next3.length;
-              return avgFdr <= 2.0;
-            })
-            .sort((a, b) => adjustedScore(b, strategy) - adjustedScore(a, strategy))[0];
-          if (upgrade) {
-            const costDiff = upgrade.cost - cheap.cost;
-            if (Math.round((bestCost + costDiff) * 10) <= 1000) {
-              const idx = bestSquad.findIndex(s => s.id === cheap.id);
-              bestSquad[idx] = upgrade;
-              bestCost += costDiff;
-            }
-          }
+    // Bounded beam search keeps alternative budget structures alive, then scores complete squads by their best XI.
+    const slots = ['FWD', 'MID', 'DEF', 'GKP', 'MID', 'DEF', 'FWD', 'MID', 'DEF', 'GKP', 'MID', 'DEF', 'FWD', 'MID', 'DEF'];
+    const pools = Object.keys(POSITION_LIMITS).reduce((result, position) => {
+      const ranked = availablePlayers.filter(player => player.position === position).sort((a, b) => adjustedScore(b, strategy) - adjustedScore(a, strategy));
+      const economical = [...ranked].sort((a, b) => costTenths(a) - costTenths(b)).slice(0, 8);
+      result[position] = [...ranked.slice(0, 34), ...economical].filter((player, index, list) => list.findIndex(item => item.id === player.id) === index);
+      return result;
+    }, {});
+    let beam = [{ players: [], spent: 0, score: 0, teamCounts: {} }];
+    for (const position of slots) {
+      const next = [];
+      for (const state of beam) {
+        const samePositionCount = state.players.filter(player => player.position === position).length;
+        for (const player of pools[position]) {
+          if (state.players.some(item => item.id === player.id) || (state.teamCounts[player.teamId] || 0) >= MAX_PER_TEAM) continue;
+          if (position === 'GKP' && samePositionCount === 1 && costTenths(player) > reserveGoalkeeperCeilingTenths) continue;
+          const spent = state.spent + costTenths(player);
+          if (spent > 1000) continue;
+          const players = [...state.players, player];
+          if (!respectsDefensiveStack(players)) continue;
+          const remainingSlots = slots.slice(players.length);
+          const minimumRemaining = remainingSlots.reduce((sum, remainingPosition) => sum + Math.min(...pools[remainingPosition].filter(candidate => !players.some(item => item.id === candidate.id)).map(costTenths)), 0);
+          if (spent + minimumRemaining > 1000) continue;
+          next.push({
+            players,
+            spent,
+            score: state.score + adjustedScore(player, strategy),
+            teamCounts: { ...state.teamCounts, [player.teamId]: (state.teamCounts[player.teamId] || 0) + 1 },
+          });
         }
       }
+      const signatures = new Set();
+      beam = next.sort((a, b) => b.score - a.score || b.spent - a.spent).filter(state => {
+        const signature = `${state.spent}:${Object.entries(state.teamCounts).sort().map(([team, count]) => `${team}-${count}`).join(',')}`;
+        if (signatures.has(signature)) return false;
+        signatures.add(signature);
+        return true;
+      }).slice(0, 650);
     }
+    const finalists = beam.filter(state => isLegalSquad(state.players) && respectsDefensiveStack(state.players)).map(state => ({ ...state, objective: squadObjective(state.players) })).sort((a, b) => b.objective - a.objective || b.spent - a.spent);
+    if (!finalists.length) throw new Error('The optimizer could not produce a legal 15-player squad within £100m');
+    const bestSquad = finalists[0].players;
+    const bestCost = finalists[0].spent / 10;
 
     const selected = bestSquad;
-    // Use next GW xPts directly - ensures highest immediate-value players start
-    const lineupScore = player => (player.weekly?.[0]?.xPts || 0);
 
     // The weekly XI is the highest-scoring legal formation from all seven FPL shapes.
     const lineupSelection = selectOptimalLineup(selected, lineupScore);
@@ -988,6 +950,8 @@ app.post('/api/ai-team', async (req, res) => {
       lineupComplete: starters.length === 11 && bench.length === 4,
       reserveGoalkeeperEconomical: hasEconomicalReserveGoalkeeper(selected, reserveGoalkeeperCeilingTenths),
       reserveGoalkeeperCeiling: reserveGoalkeeperCeilingTenths / 10,
+      optimizerVersion: 5,
+      optimizer: 'bounded beam search with best-XI objective',
       ...lineupSelection.audit,
     };
 
@@ -2519,7 +2483,9 @@ app.get('/api/dashboard/overview', async (req, res) => {
     const teams = bs.teams || [];
     const events = bs.events || [];
     const currentEvent = events.find(e => e.is_current) || events.find(e => e.is_next) || events[0];
+    const nextEvent = events.find(e => e.is_next) || currentEvent;
     const currentGW = currentEvent?.id || 1;
+    const projectionGW = nextEvent?.id || currentGW;
 
     const getTeam = id => teams.find(t => t.id === id);
     const getPosStr = type => {
@@ -2540,7 +2506,7 @@ app.get('/api/dashboard/overview', async (req, res) => {
       .map(p => {
         const team = getTeam(p.team);
         const formVal = parseFloat(p.form || 0);
-        const ppg = p.points_per_game || '0.0';
+        const xPPG = Number.parseFloat(p.ep_next || p.points_per_game || 0).toFixed(1);
         let fdrClass = 'fdr-3';
         if (formVal >= 6.0) fdrClass = 'fdr-1';
         else if (formVal >= 4.5) fdrClass = 'fdr-2';
@@ -2555,7 +2521,7 @@ app.get('/api/dashboard/overview', async (req, res) => {
           team: team ? team.short_name : 'FPL',
           pos: getPosStr(p.element_type),
           selectedBy: p.selected_by_percent + '%',
-          ppg,
+          xPPG,
           fdrClass
         };
       });
@@ -2640,10 +2606,10 @@ app.get('/api/dashboard/overview', async (req, res) => {
         };
       });
 
-    const topTeamIds = [1, 13, 12, 6, 18, 14, 15];
-    const nextGWs = [currentGW, currentGW + 1, currentGW + 2, currentGW + 3, currentGW + 4];
+    const nextGWs = Array.from({ length: Math.min(5, 39 - projectionGW) }, (_, index) => projectionGW + index);
 
-    const fdrGrid = topTeamIds.map(tId => {
+    const fdrGrid = teams.map(team => {
+      const tId = team.id;
       const teamObj = getTeam(tId);
       const teamShort = teamObj ? teamObj.short_name : 'TEAM';
 
@@ -2652,15 +2618,15 @@ app.get('/api/dashboard/overview', async (req, res) => {
         if (!gwFixtures || gwFixtures.length === 0) {
           return { label: 'BLANK', fdr: 3 };
         }
-        const f = gwFixtures[0];
-        const isHome = f.team_h === tId;
-        const oppId = isHome ? f.team_a : f.team_h;
-        const oppTeam = getTeam(oppId)?.short_name || 'OPP';
-        const fdr = isHome ? f.team_h_difficulty : f.team_a_difficulty;
-        return {
-          label: `${oppTeam} (${isHome ? 'H' : 'A'})`,
-          fdr: fdr || 3
-        };
+        const labels = gwFixtures.map(f => {
+          const isHome = f.team_h === tId;
+          const oppId = isHome ? f.team_a : f.team_h;
+          return {
+            label: `${getTeam(oppId)?.short_name || 'OPP'} (${isHome ? 'H' : 'A'})`,
+            fdr: (isHome ? f.team_h_difficulty : f.team_a_difficulty) || 3
+          };
+        });
+        return labels.length === 1 ? labels[0] : labels;
       });
 
       return {
@@ -3248,14 +3214,15 @@ app.get('/api/deadline', async (req, res) => {
     const events = bs.events;
     const currentGW = events.find(e => e.is_current);
     const nextGW = events.find(e => e.is_next);
+    const futureGW = events.find(e => e.deadline_time && new Date(e.deadline_time).getTime() > Date.now());
     
     // Get deadline times
-    const deadlineTime = nextGW?.deadline_time || currentGW?.deadline_time;
+    const deadlineTime = futureGW?.deadline_time || nextGW?.deadline_time || currentGW?.deadline_time;
     const deadlineDate = deadlineTime ? new Date(deadlineTime) : null;
     
     res.json({
       currentGW: currentGW?.id || 1,
-      nextGW: nextGW?.id || currentGW?.id + 1,
+      nextGW: futureGW?.id || nextGW?.id || (currentGW?.id ? currentGW.id + 1 : 1),
       deadlineTime: deadlineDate?.toISOString() || null,
       deadlineTimestamp: deadlineDate?.getTime() || null,
       gameweekDeadline: deadlineTime || 'TBA',

@@ -118,9 +118,10 @@ const FPL = {
 
             const currentEvent = bootstrap.events?.find(e => e.is_current);
             const nextEvent = bootstrap.events?.find(e => e.is_next);
+            const futureEvent = bootstrap.events?.find(e => e.deadline_time && new Date(e.deadline_time).getTime() > Date.now());
             const deadline = {
                 currentGW: currentEvent?.id || nextEvent?.id || 1,
-                deadlineTime: nextEvent?.deadline_time || currentEvent?.deadline_time || null
+                deadlineTime: futureEvent?.deadline_time || nextEvent?.deadline_time || null
             };
 
             this.state.bootstrapData = bootstrap;
@@ -246,7 +247,9 @@ const FPL = {
     startCountdown(deadlineDate) {
         const countdownEl = document.getElementById('dash-countdown');
         const dateEl = document.getElementById('dash-deadline-date');
-        if (!countdownEl) return;
+        if (!countdownEl || !(deadlineDate instanceof Date) || Number.isNaN(deadlineDate.getTime())) return;
+
+        this._countdownDeadline = deadlineDate;
 
         if (dateEl && deadlineDate) {
             dateEl.textContent = deadlineDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -256,12 +259,25 @@ const FPL = {
             const now = new Date();
             const diff = deadlineDate - now;
             if (diff <= 0) {
-                countdownEl.textContent = 'LIVE';
-                countdownEl.style.color = '#FF005A';
-                countdownEl.style.textShadow = '0 0 10px rgba(255, 0, 90, 0.5)';
-                if (this._countdownInterval) clearInterval(this._countdownInterval);
+                countdownEl.textContent = 'UPDATING';
+                countdownEl.style.color = '#FFA600';
+                countdownEl.style.textShadow = 'none';
+                const canRefresh = !this._deadlineRefreshAttempt || Date.now() - this._deadlineRefreshAttempt >= 15000;
+                if (!this._deadlineRefreshPending && canRefresh) {
+                    this._deadlineRefreshPending = true;
+                    this._deadlineRefreshAttempt = Date.now();
+                    this.apiFetch(this.API.deadline)
+                        .then(next => {
+                            const nextDate = new Date(next?.deadlineTime);
+                            if (!Number.isNaN(nextDate.getTime()) && nextDate > new Date()) this.startCountdown(nextDate);
+                        })
+                        .catch(() => {})
+                        .finally(() => { this._deadlineRefreshPending = false; });
+                }
                 return;
             }
+            countdownEl.style.color = '#00ff85';
+            countdownEl.style.textShadow = 'none';
             const days = Math.floor(diff / (1000 * 60 * 60 * 24));
             const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
             const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
@@ -647,7 +663,7 @@ const FPL = {
                     return `<div style="display:flex;align-items:center;gap:3px;justify-content:center;"><span style="font-size:8px;font-weight:700;color:${col};">${opp}</span><span style="font-size:8px;color:#00FF85;font-weight:700;">${g.xPts.toFixed(1)}</span></div>`;
                 }).join('');
 
-                return `<div class="tactics-player-card home" style="${borderStyle}min-width:88px;max-width:96px;position:relative;text-align:center;" title="${player.name}${badge} - \u00A3${(player.cost || 0).toFixed(1)}m - ${xPts} xPts">
+                return `<div class="tactics-player-card home" style="${borderStyle}position:relative;text-align:center;" title="${player.name}${badge} - \u00A3${(player.cost || 0).toFixed(1)}m - ${xPts} xPts">
                     <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;">${shirtImg}<span class="aiteam-shirt-fallback" aria-hidden="true">${FPL.playerTeamShort(player)}</span></div>
                     <div class="tactics-player-copy" style="text-align:center;"><b style="${cap ? 'color:#FFD700;' : ''}font-size:11px;">${player.name}${badge}</b></div>
                     <div style="font:700 10px var(--font-mono);color:#B0B0B0;text-align:center;">\u00A3${(player.cost || 0).toFixed(1)}m</div>
@@ -658,10 +674,10 @@ const FPL = {
             }
 
             const rows = [];
-            rows.push(`<div class="tactics-pitch-row">${gkps.map(p => playerCard(p)).join('')}</div>`);
-            rows.push(`<div class="tactics-pitch-row">${defs.map(p => playerCard(p)).join('')}</div>`);
-            rows.push(`<div class="tactics-pitch-row">${mids.map(p => playerCard(p)).join('')}</div>`);
-            rows.push(`<div class="tactics-pitch-row">${fwds.map(p => playerCard(p)).join('')}</div>`);
+            rows.push(`<div class="tactics-pitch-row" style="--players:${gkps.length};">${gkps.map(p => playerCard(p)).join('')}</div>`);
+            rows.push(`<div class="tactics-pitch-row" style="--players:${defs.length};">${defs.map(p => playerCard(p)).join('')}</div>`);
+            rows.push(`<div class="tactics-pitch-row" style="--players:${mids.length};">${mids.map(p => playerCard(p)).join('')}</div>`);
+            rows.push(`<div class="tactics-pitch-row" style="--players:${fwds.length};">${fwds.map(p => playerCard(p)).join('')}</div>`);
 
             let html = `<div class="tactics-pitch" style="min-height:420px;">${rows.join('')}</div>`;
 
@@ -762,7 +778,7 @@ const FPL = {
         const gwHeader = document.getElementById('aiteam-gw-header');
         const gwBody = document.getElementById('aiteam-gw-tbody');
         if (gwHeader && gwBody && lineup.starters[0]?.weekly) {
-            const gws = lineup.starters[0].weekly;
+            const gws = lineup.starters[0].weekly.slice(0, gwView);
             gwHeader.innerHTML = '<th style="text-align:left;">Player</th>' + gws.map(w => `<th>GW${w.gameweek}</th>`).join('') + '<th style="background:rgba(0,255,133,0.1);">Total</th>';
             const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
             const allPlayers = [...lineup.starters, ...lineup.bench];
@@ -774,7 +790,7 @@ const FPL = {
                 const runIcon = runLen >= 4 ? `<span style="color:#00FF85;font-size:9px;font-weight:700;margin-left:4px;" title="${runLen} consecutive easy fixtures">\u25B2${runLen}</span>` : '';
                 return `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);${rowStyle}">
                     <td style="text-align:left;"><span style="display:inline-flex;align-items:center;gap:6px;"><span style="color:${posColors[p.position]};font-size:10px;font-weight:700;">${p.position}</span> ${p.name} <span style="color:#8ba396;font-size:10px;">${clubName}</span>${runIcon}${isB ? ' <span style="color:#8ba396;font-size:10px;">(B)</span>' : ''}</span></td>
-                    ${p.weekly.map(w => {
+                    ${p.weekly.slice(0, gwView).map(w => {
                         // Show opponent fixture + xPts for each GW
                         const fx = p.upcomingFixtures?.find(f => f.gw === w.gameweek);
                         const fxStr = fx ? `${fx.home ? '' : '@'}${fx.opponent}` : '';
@@ -786,7 +802,7 @@ const FPL = {
                             <div>${w.xPts.toFixed(1)}</div>
                         </td>`;
                     }).join('')}
-                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#00FF85;background:rgba(0,255,133,0.05);">${p.totalXpts?.toFixed(1) || '0.0'}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#00FF85;background:rgba(0,255,133,0.05);">${sumPlayerXPts(p, gwView).toFixed(1)}</td>
                 </tr>`;
             }).join('');
         }
@@ -903,8 +919,8 @@ const FPL = {
                                 <div class="mono" style="font-size:10px;color:#8ba396;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.team} • ${p.pos}</div>
                             </div>
                         </td>
-                        <td style="padding:8px 10px;text-align:right;font-weight:600;color:#dfe4e0;font-family:var(--font-mono);font-size:12px;white-space:nowrap;">${p.selectedBy}</td>
-                        <td style="padding:8px 10px;text-align:right;font-weight:700;color:#00ff85;font-family:var(--font-mono);font-size:13px;white-space:nowrap;">${p.ppg}</td>
+                        <td style="padding:8px 10px;text-align:center;font-weight:600;color:#dfe4e0;font-family:var(--font-mono);font-size:12px;white-space:nowrap;">${p.selectedBy}</td>
+                        <td style="padding:8px 10px;text-align:center;font-weight:700;color:#00ff85;font-family:var(--font-mono);font-size:13px;white-space:nowrap;">${p.xPPG ?? p.ppg ?? '--'}</td>
                     </tr>`;
                 }).join('');
             }
@@ -934,8 +950,8 @@ const FPL = {
             }
 
             const transfersInContainer = document.getElementById('dash-transfers-in-list');
-            if (transfersInContainer && data.topTransfersIn) {
-                transfersInContainer.innerHTML = data.topTransfersIn.map(p => `
+            if (transfersInContainer) {
+                transfersInContainer.innerHTML = data.topTransfersIn?.length ? data.topTransfersIn.map(p => `
                     <div style="display:flex;align-items:center;gap:10px;padding:4px 0;">
                         <div class="player-photo-shell" style="width:32px;height:32px;border-radius:50%;border:1px solid #1A2E28;">
                             ${this.playerPhotoMarkup(p, `${p.name || p.web_name || 'FPL Player'} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}
@@ -946,7 +962,7 @@ const FPL = {
                         </div>
                         <div class="mono" style="font-size:13px;font-weight:700;color:#00ff85;white-space:nowrap;">${p.transfersCount}</div>
                     </div>
-                `).join('');
+                `).join('') : '<div style="text-align:center;padding:12px;font-size:13px;color:#8ba396;">No transfer data yet</div>';
             }
 
             const priceChangesContainer = document.getElementById('dash-price-changes-list');
@@ -966,7 +982,7 @@ const FPL = {
             }
 
             const transfersOutContainer = document.getElementById('dash-transfers-out-list');
-            if (transfersOutContainer && data.topTransfersOut) {
+            if (transfersOutContainer) {
                 transfersOutContainer.innerHTML = data.topTransfersOut.length > 0 ? data.topTransfersOut.map((p, idx) => `
                     <div style="display:flex;align-items:center;gap:10px;padding:8px 0;${idx < data.topTransfersOut.length - 1 ? 'border-bottom:1px solid #19261f;' : ''}">
                         <div style="width:32px;height:32px;border-radius:50%;background:#1c2720;border:1px solid #28392e;display:flex;align-items:center;justify-content:center;font-weight:700;color:#FF005A;font-size:12px;">${idx + 1}</div>
@@ -1578,11 +1594,11 @@ const FPL = {
                             </div>
                             <div style="min-width:0;overflow:hidden;">
                                 <div style="font-weight:700;font-size:11px;color:#E0E0E0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.web_name}</div>
-                                <div style="display:flex;align-items:center;gap:3px;font-size:9px;color:#8ba396;white-space:nowrap;">
+                                <div class="players-table-player-meta" style="display:flex;align-items:center;gap:3px;font-size:9px;color:#8ba396;white-space:nowrap;">
                                     <span style="padding:1px 3px;border-radius:2px;font-weight:700;background:${posColor}20;color:${posColor};font-size:8px;">${posStr}</span>
                                     <span>${teamShort}</span>
-                                    <span style="color:#444;">·</span>
-                                    <span style="font-family:var(--font-mono);color:#B0B0B0;">£${price}m</span>
+                                    <span class="players-table-price-separator" style="color:#444;">·</span>
+                                    <span class="players-table-price" style="font-family:var(--font-mono);color:#B0B0B0;">£${price}m</span>
                                 </div>
                             </div>
                         </div>
@@ -1834,9 +1850,9 @@ const FPL = {
         const fixtureTable = document.querySelector('.fixture-grid-table');
         if (fixtureTable) fixtureTable.style.setProperty('--fixture-columns', targetGWs.length);
         if (headerRow) {
-            headerRow.style.background = '#a7cfbc';
-            headerRow.innerHTML = `<th style="padding:6px 8px;background:#a7cfbc;width:60px;max-width:60px;font-family:var(--font-mono);font-size:10px;color:#0a0f0d;font-weight:700;position:sticky;left:0;z-index:2;border-right:2px solid rgba(0,0,0,0.1);">TEAM</th>` +
-                targetGWs.map(gw => `<th style="padding:4px 6px;text-align:center;font-family:var(--font-mono);font-size:10px;color:#0a0f0d;font-weight:700;background:#a7cfbc;">GW${gw}</th>`).join('');
+            headerRow.style.background = '#202722';
+            headerRow.innerHTML = `<th style="padding:6px 8px;background:#202722;width:60px;max-width:60px;font-family:var(--font-mono);font-size:10px;color:#dfe4e0;font-weight:700;position:sticky;left:0;z-index:2;border-right:1px solid #34453b;">TEAM</th>` +
+                targetGWs.map(gw => `<th style="padding:4px 6px;text-align:center;font-family:var(--font-mono);font-size:10px;color:#dfe4e0;font-weight:700;background:#202722;">GW${gw}</th>`).join('');
         }
 
         // Render Table Rows for all 20 teams

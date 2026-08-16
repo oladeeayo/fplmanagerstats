@@ -1,9 +1,9 @@
-const CACHE_NAME = 'fpl-stats-react-v8';
+const CACHE_NAME = 'fpl-stats-react-v9';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
-    '/common.js?v=7',
-    '/design-system.css?v=6',
+    '/common.js?v=9',
+    '/design-system.css?v=9',
     '/football.ico',
     '/icon-192.png',
     '/icon-512.png',
@@ -53,8 +53,8 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Hashed Vite assets and local fonts are immutable; cache them for instant repeat loads.
-    if (event.request.method === 'GET' && (url.pathname.startsWith('/assets/') || /\.(?:css|js|ico|png|svg|woff2?)$/i.test(url.pathname))) {
+    // Only hashed Vite assets and local fonts are immutable. Versioned legacy files stay network-first.
+    if (event.request.method === 'GET' && (url.pathname.startsWith('/assets/') || /\.(?:ico|png|svg|woff2?)$/i.test(url.pathname))) {
         event.respondWith(
             caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
                 if (response && response.status === 200) {

@@ -209,8 +209,8 @@
                                         <thead>
                                             <tr style="border-bottom:1px solid #1A2E28;font-size:10px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);">
                                                 <th style="padding:8px 10px;text-align:left;background:#1c211e;width:55%;">Player</th>
-                                                <th style="padding:8px 10px;text-align:right;background:#1c211e;width:25%;">Selected By</th>
-                                                <th style="padding:8px 10px;text-align:right;background:#1c211e;width:20%;">PPG</th>
+                                                 <th style="padding:8px 10px;text-align:center;background:#1c211e;width:25%;">Selected By</th>
+                                                 <th style="padding:8px 10px;text-align:center;background:#1c211e;width:20%;">xPPG</th>
                                             </tr>
                                         </thead>
                                         <tbody id="dash-most-selected-tbody">
@@ -742,15 +742,15 @@
                         <!-- Center Data Grid (Fixtures) -->
                         <div style="flex:1;display:flex;flex-direction:column;gap:24px;">
                             <!-- Filters & Controls Bar -->
-                            <div class="fixtures-controls" style="background:#a7cfbc;border:1px solid #1A2E28;border-radius:12px;padding:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;color:#103729;">
+                            <div class="fixtures-controls" style="background:#202722;border:1px solid #34453b;border-radius:8px;padding:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;color:#dfe4e0;">
                                 <div class="fixtures-control-groups" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;min-width:0;">
                                     <div class="fixtures-start-control" style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
-                                        <span style="font-family:var(--font-mono);font-size:11px;color:#103729;font-weight:700;white-space:nowrap;">START GW:</span>
+                                        <span style="font-family:var(--font-mono);font-size:11px;color:#b9cbb9;font-weight:700;white-space:nowrap;">START GW:</span>
                                         <select id="fixture-gw-select" onchange="FPL.setFixtureStartGW(this.value)" style="background:#1c211e;border:1px solid #1A2E28;border-radius:6px;padding:6px 10px;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#ffffff;cursor:pointer;outline:none;">
                                         </select>
                                     </div>
                                     <div class="fixtures-lookahead-control" style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
-                                        <span style="font-family:var(--font-mono);font-size:11px;color:#103729;font-weight:700;white-space:nowrap;">LOOKAHEAD:</span>
+                                        <span style="font-family:var(--font-mono);font-size:11px;color:#b9cbb9;font-weight:700;white-space:nowrap;">LOOKAHEAD:</span>
                                         <div class="fixtures-lookahead-buttons" style="display:flex;background:#1c211e;border:1px solid #1A2E28;border-radius:6px;overflow:hidden;flex:1;min-width:0;">
                                             <button id="lookahead-3" onclick="FPL.setFixtureLookahead(3)" style="padding:6px 8px;font-family:var(--font-mono);font-size:12px;border:none;background:transparent;color:#b9cbb9;cursor:pointer;flex:1;transition:all 0.2s;">3 GW</button>
                                             <button id="lookahead-5" onclick="FPL.setFixtureLookahead(5)" style="padding:6px 8px;font-family:var(--font-mono);font-size:12px;border:none;background:#00FF85;color:#0a0f0d;cursor:pointer;border-left:1px solid #1A2E28;border-right:1px solid #1A2E28;font-weight:700;flex:1;transition:all 0.2s;">5 GW</button>
@@ -760,11 +760,11 @@
                                 </div>
                                 <!-- FDR Scale Color Blocks -->
                                 <div class="fixtures-fdr-legend" style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-                                    <div style="display:flex;align-items:center;gap:3px;"><div style="width:12px;height:12px;border-radius:2px;background:#00FF85;"></div><span style="font-size:9px;color:#103729;font-family:var(--font-mono);">1</span></div>
-                                    <div style="display:flex;align-items:center;gap:3px;"><div style="width:12px;height:12px;border-radius:2px;background:#37DB59;"></div><span style="font-size:9px;color:#103729;font-family:var(--font-mono);">2</span></div>
-                                    <div style="display:flex;align-items:center;gap:3px;"><div style="width:12px;height:12px;border-radius:2px;background:#E1E1E1;"></div><span style="font-size:9px;color:#103729;font-family:var(--font-mono);">3</span></div>
-                                    <div style="display:flex;align-items:center;gap:3px;"><div style="width:12px;height:12px;border-radius:2px;background:#FFA600;"></div><span style="font-size:9px;color:#103729;font-family:var(--font-mono);">4</span></div>
-                                    <div style="display:flex;align-items:center;gap:3px;"><div style="width:12px;height:12px;border-radius:2px;background:#FF005A;"></div><span style="font-size:9px;color:#103729;font-family:var(--font-mono);">5</span></div>
+                                    <div style="display:flex;align-items:center;gap:3px;"><div style="width:12px;height:12px;border-radius:2px;background:#00FF85;"></div><span style="font-size:9px;color:#b9cbb9;font-family:var(--font-mono);">1</span></div>
+                                    <div style="display:flex;align-items:center;gap:3px;"><div style="width:12px;height:12px;border-radius:2px;background:#37DB59;"></div><span style="font-size:9px;color:#b9cbb9;font-family:var(--font-mono);">2</span></div>
+                                    <div style="display:flex;align-items:center;gap:3px;"><div style="width:12px;height:12px;border-radius:2px;background:#E1E1E1;"></div><span style="font-size:9px;color:#b9cbb9;font-family:var(--font-mono);">3</span></div>
+                                    <div style="display:flex;align-items:center;gap:3px;"><div style="width:12px;height:12px;border-radius:2px;background:#FFA600;"></div><span style="font-size:9px;color:#b9cbb9;font-family:var(--font-mono);">4</span></div>
+                                    <div style="display:flex;align-items:center;gap:3px;"><div style="width:12px;height:12px;border-radius:2px;background:#FF005A;"></div><span style="font-size:9px;color:#b9cbb9;font-family:var(--font-mono);">5</span></div>
                                 </div>
                             </div>
 
@@ -773,8 +773,8 @@
                         <div class="table-scroll-mobile sticky-first-column fixture-table-wrap">
                             <table class="fixture-grid-table" style="width:100%;border-collapse:separate;border-spacing:0;white-space:nowrap;">
                                         <thead>
-                                            <tr id="fixture-grid-header-row" style="background:#a7cfbc;border-bottom:1px solid #1A2E28;">
-                                                <th style="background:#a7cfbc;width:60px;max-width:60px;font-family:var(--font-mono);font-size:11px;color:#0a0f0d;font-weight:700;position:sticky;left:0;z-index:2;border-right:2px solid rgba(0,0,0,0.1);">TEAM</th>
+                                            <tr id="fixture-grid-header-row" style="background:#202722;border-bottom:1px solid #34453b;">
+                                                <th style="background:#202722;width:60px;max-width:60px;font-family:var(--font-mono);font-size:11px;color:#dfe4e0;font-weight:700;position:sticky;left:0;z-index:2;border-right:1px solid #34453b;">TEAM</th>
                                                 <!-- Dynamic GW Header Columns -->
                                             </tr>
                                         </thead>
@@ -1061,7 +1061,7 @@
                                     <div>
                                         <h2>Starting XI <span id="aiteam-formation-label">Formation</span></h2>
                                     </div>
-                                    <div style="display:flex;align-items:center;gap:12px;">
+                                    <div class="aiteam-pitch-tools">
                                         <div class="aiteam-gw-toggle" id="aiteam-gw-toggle">
                                             <button type="button" class="aiteam-gw-toggle-btn active" data-gw="1" onclick="FPL.setAITeamGWView(1)">Next GW</button>
                                             <button type="button" class="aiteam-gw-toggle-btn" data-gw="3" onclick="FPL.setAITeamGWView(3)">Next 3 GWs</button>
@@ -1082,8 +1082,8 @@
                                     </div>
                                     <div class="aiteam-position-legend" id="aiteam-position-legend"></div>
                                 </div>
-                                <div class="table-scroll-mobile" tabindex="0" aria-label="AI Team full squad table">
-                                    <table class="aiteam-table">
+                                <div class="table-scroll-mobile aiteam-roster-scroll" tabindex="0" aria-label="AI Team full squad table">
+                                    <table class="aiteam-table aiteam-roster-table">
                                         <caption class="sr-only">AI Team 15-player squad</caption>
                                         <thead>
                                             <tr>
@@ -1113,8 +1113,8 @@
                                         <h2>Per-GW xPts Breakdown</h2>
                                     </div>
                                 </div>
-                                <div class="table-scroll-mobile" tabindex="0" aria-label="AI Team gameweek projections table">
-                                    <table class="aiteam-table">
+                                <div class="table-scroll-mobile aiteam-gw-scroll" tabindex="0" aria-label="AI Team gameweek projections table">
+                                    <table class="aiteam-table aiteam-gw-table">
                                         <caption class="sr-only">Projected points and opponents by gameweek</caption>
                                         <thead>
                                             <tr id="aiteam-gw-header"></tr>
@@ -1159,7 +1159,7 @@
         </div>
     </div>
 
-    <script src="common.js?v=8"></script>
+    <script src="common.js?v=9"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams(window.location.search);

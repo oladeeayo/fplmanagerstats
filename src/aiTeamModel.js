@@ -16,10 +16,11 @@ function round(value, precision = 1) {
 function selectOptimalLineup(squad, scorePlayer) {
   if (!Array.isArray(squad) || squad.length !== 15) throw new Error('A legal 15-player squad is required');
 
-  // Use next GW xPts directly for starting lineup - ensures highest xPts players start
-  const nextGWxPts = player => player.weekly?.[0]?.xPts || 0;
+  const lineupScore = typeof scorePlayer === 'function'
+    ? scorePlayer
+    : player => player.weekly?.[0]?.xPts || 0;
 
-  const byPosition = position => squad.filter(player => player.position === position).sort((a, b) => nextGWxPts(b) - nextGWxPts(a));
+  const byPosition = position => squad.filter(player => player.position === position).sort((a, b) => lineupScore(b) - lineupScore(a));
   const goalkeepers = byPosition('GKP');
   const defenders = byPosition('DEF');
   const midfielders = byPosition('MID');
@@ -36,7 +37,7 @@ function selectOptimalLineup(squad, scorePlayer) {
     return {
       formation: `${formation.DEF}-${formation.MID}-${formation.FWD}`,
       shape: formation,
-      score: round(starters.reduce((sum, player) => sum + nextGWxPts(player), 0), 3),
+      score: round(starters.reduce((sum, player) => sum + lineupScore(player), 0), 3),
       starters,
     };
   }).sort((a, b) => b.score - a.score || a.formation.localeCompare(b.formation));
@@ -47,7 +48,7 @@ function selectOptimalLineup(squad, scorePlayer) {
     .filter(player => !starterIds.has(player.id))
     .sort((a, b) => {
       if ((a.position === 'GKP') !== (b.position === 'GKP')) return a.position === 'GKP' ? -1 : 1;
-      return nextGWxPts(b) - nextGWxPts(a);
+      return lineupScore(b) - lineupScore(a);
     });
 
   return {
