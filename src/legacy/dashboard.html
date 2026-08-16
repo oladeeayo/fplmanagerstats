@@ -1150,8 +1150,9 @@
                         </header>
 
                         <section id="tb-import-panel" class="tb-import-panel hidden" aria-labelledby="tb-import-title">
-                            <div class="tb-panel-heading"><div><h2 id="tb-import-title">Confirm screenshot players</h2><span id="tb-import-status">Reading screenshot locally...</span></div><button type="button" class="tb-icon-btn" onclick="FPL.closeTeamScreenshotImport()" aria-label="Close screenshot import"><span class="material-symbols-outlined">close</span></button></div>
+                            <div class="tb-panel-heading"><div><h2 id="tb-import-title">Confirm screenshot players</h2><span id="tb-import-status">Reading screenshot locally...</span></div><div class="tb-import-tools"><div class="tb-import-view-toggle" role="radiogroup" aria-label="View mode"><button type="button" class="tb-import-view-btn active" data-view="pitch" onclick="FPL.setImportView('pitch')" aria-pressed="true"><span class="material-symbols-outlined">sports_soccer</span> Pitch</button><button type="button" class="tb-import-view-btn" data-view="list" onclick="FPL.setImportView('list')" aria-pressed="false"><span class="material-symbols-outlined">list</span> List</button></div><div id="tb-import-gw-toggle" class="tb-import-gw-toggle"></div><button type="button" class="tb-icon-btn" onclick="FPL.closeTeamScreenshotImport()" aria-label="Close screenshot import"><span class="material-symbols-outlined">close</span></button></div></div>
                             <div id="tb-import-preview" class="tb-import-preview"></div>
+                            <div id="tb-import-pitch" class="tb-import-pitch hidden"></div>
                             <div class="tb-import-actions"><span id="tb-import-summary"></span><button id="tb-import-confirm" type="button" class="tb-btn tb-btn-primary" onclick="FPL.confirmTeamScreenshotImport()" disabled><span class="material-symbols-outlined">check</span> Fill squad</button></div>
                         </section>
 

@@ -35,7 +35,9 @@ const FPL = {
             query: '',
             position: 'all',
             sort: 'xpts',
-            importMatches: []
+            importMatches: [],
+            importView: 'pitch',
+            importGW: null
         }
     },
 
@@ -704,15 +706,150 @@ const FPL = {
     paintTeamScreenshotMatches() {
         const matches = this.state.teamBuilder.importMatches || [];
         const preview = document.getElementById('tb-import-preview');
+        const pitch = document.getElementById('tb-import-pitch');
         const status = document.getElementById('tb-import-status');
         const summary = document.getElementById('tb-import-summary');
         const confirm = document.getElementById('tb-import-confirm');
+        const gwToggle = document.getElementById('tb-import-gw-toggle');
         if (!preview || !status || !summary || !confirm) return;
-        status.textContent = matches.length ? 'Check each match before filling the squad.' : 'No player names were matched.';
-        preview.innerHTML = matches.map((match, index) => `<label class="tb-import-match"><span><small>Detected text</small><b>${this.escapeHTML(match.line)}</b></span><select onchange="FPL.updateTeamScreenshotMatch(${index}, this.value)" aria-label="Player matched to ${this.escapeHTML(match.line)}">${match.alternatives.map(option => `<option value="${option.id}"${option.id === match.playerId ? ' selected' : ''}>${this.escapeHTML(option.name)} · ${option.position} · ${option.team}</option>`).join('')}</select><i class="${match.confidence}">${match.confidence} ${match.score}%</i></label>`).join('') || '<div class="tb-import-working"><span class="material-symbols-outlined">image_search</span><b>No names found</b><small>Use the full Pick Team screen at a readable resolution, then try again.</small></div>';
+
+        // Set up GW toggle
+        if (gwToggle) {
+            const availableGWs = [...new Set(this.state.teamBuilder.players.flatMap(p => (p.nextFixtures || []).map(f => f.gw)))].sort((a, b) => a - b).slice(0, 8);
+            if (!this.state.teamBuilder.importGW && availableGWs.length) {
+                this.state.teamBuilder.importGW = availableGWs[0];
+            }
+            const currentGW = this.state.teamBuilder.importGW;
+            gwToggle.innerHTML = availableGWs.map(gw => `<button type="button" class="tb-gw-btn${gw === currentGW ? ' active' : ''}" onclick="FPL.setImportGW(${gw})" aria-pressed="${gw === currentGW}"><span>GW</span>${gw}</button>`).join('');
+        }
+
+        const view = this.state.teamBuilder.importView || 'pitch';
+        const isPitch = view === 'pitch';
+
+        // Toggle views
+        preview.classList.toggle('hidden', isPitch);
+        if (pitch) pitch.classList.toggle('hidden', !isPitch);
+
+        // Update view toggle buttons
+        document.querySelectorAll('.tb-import-view-btn').forEach(btn => {
+            const isActive = btn.dataset.view === view;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-pressed', String(isActive));
+        });
+
+        if (isPitch) {
+            this.paintImportPitch();
+        } else {
+            preview.innerHTML = matches.map((match, index) => `<label class="tb-import-match"><span><small>Detected text</small><b>${this.escapeHTML(match.line)}</b></span><select onchange="FPL.updateTeamScreenshotMatch(${index}, this.value)" aria-label="Player matched to ${this.escapeHTML(match.line)}">${match.alternatives.map(option => `<option value="${option.id}"${option.id === match.playerId ? ' selected' : ''}>${this.escapeHTML(option.name)} · ${option.position} · ${option.team}</option>`).join('')}</select><i class="${match.confidence}">${match.confidence} ${match.score}%</i></label>`).join('') || '<div class="tb-import-working"><span class="material-symbols-outlined">image_search</span><b>No names found</b><small>Use the full Pick Team screen at a readable resolution, then try again.</small></div>';
+        }
+
+        status.textContent = matches.length ? (isPitch ? 'Review the pitch layout. Click a player to correct.' : 'Check each match before filling the squad.') : 'No player names were matched.';
         const unique = new Set(matches.map(match => match.playerId)).size;
         summary.textContent = `${unique} unique players matched${unique < 15 ? ' · add or correct remaining players manually' : ''}`;
         confirm.disabled = unique === 0;
+    },
+
+    paintImportPitch() {
+        const matches = this.state.teamBuilder.importMatches || [];
+        const pitch = document.getElementById('tb-import-pitch');
+        if (!pitch) return;
+
+        const builder = this.state.teamBuilder;
+        const players = builder.players;
+        const importGW = builder.importGW;
+        const selectedGWs = importGW ? [importGW] : builder.selectedGWs;
+
+        // Resolve matched players
+        const matchedPlayers = matches.map(match => {
+            const player = players.find(p => p.id === match.playerId);
+            if (!player) return null;
+            return { ...player, matchIndex: matches.indexOf(match), matchConfidence: match.confidence, matchScore: match.score };
+        }).filter(Boolean);
+
+        const gkps = matchedPlayers.filter(p => p.position === 'GKP');
+        const defs = matchedPlayers.filter(p => p.position === 'DEF');
+        const mids = matchedPlayers.filter(p => p.position === 'MID');
+        const fwds = matchedPlayers.filter(p => p.position === 'FWD');
+
+        function sumPlayerXPts(player, gws) {
+            return (player?.nextFixtures || []).filter(f => gws.includes(f.gw)).reduce((sum, f) => sum + Number(f.xpts || 0), 0);
+        }
+
+        function fdrColor(fdr) {
+            if (fdr <= 2) return '#00FF85';
+            if (fdr <= 3) return '#FFA726';
+            return '#ff4d4d';
+        }
+
+        const self = this;
+
+        function playerCard(player) {
+            const xPts = sumPlayerXPts(player, selectedGWs).toFixed(1);
+            const fixture = (player.nextFixtures || []).find(f => f.gw === importGW);
+            const fixtureHtml = fixture ? `<div class="aiteam-fixture-row"><span class="aiteam-fixture-opp" style="color:${fdrColor(fixture.fdr)};">${fixture.opponent}${fixture.isHome ? '(H)' : '(A)'}</span><span class="aiteam-fixture-xpts">${Number(fixture.xpts || 0).toFixed(1)}</span></div>` : '';
+            const confClass = player.matchConfidence === 'high' || player.matchConfidence === 'confirmed' ? ' is-high' : player.matchConfidence === 'medium' ? ' is-medium' : ' is-low';
+
+            return `<div class="tactics-player-card home aiteam-pitch-card tb-import-pitch-card${confClass}" onclick="FPL.editImportMatch(${player.matchIndex})" role="button" tabindex="0" title="${self.escapeHTML(player.name)} · ${player.position} · ${player.team} · £${player.costValue.toFixed(1)}m">
+                <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;"><span class="aiteam-shirt-fallback" aria-hidden="true">${player.team}</span></div>
+                <div class="tactics-player-copy"><b class="aiteam-pitch-name">${self.escapeHTML(player.name)}</b></div>
+                <div class="aiteam-pitch-cost">£${player.costValue.toFixed(1)}m</div>
+                <div class="aiteam-pitch-xpts">${xPts} xPts</div>
+                <div class="aiteam-fixture-block">${fixtureHtml}</div>
+            </div>`;
+        }
+
+        const rows = [];
+        if (fwds.length) rows.push(`<div class="tactics-pitch-row" style="--players:${fwds.length};">${fwds.map(playerCard).join('')}</div>`);
+        if (mids.length) rows.push(`<div class="tactics-pitch-row" style="--players:${mids.length};">${mids.map(playerCard).join('')}</div>`);
+        if (defs.length) rows.push(`<div class="tactics-pitch-row" style="--players:${defs.length};">${defs.map(playerCard).join('')}</div>`);
+        if (gkps.length) rows.push(`<div class="tactics-pitch-row" style="--players:${gkps.length};">${gkps.map(playerCard).join('')}</div>`);
+
+        // Add empty slots for missing positions
+        const allPositions = ['FWD', 'MID', 'DEF', 'GKP'];
+        const positionCounts = { FWD: fwds.length, MID: mids.length, DEF: defs.length, GKP: gkps.length };
+        const expectedCounts = { FWD: 3, MID: 5, DEF: 5, GKP: 2 };
+        const missingPlayers = matchedPlayers.length < 15;
+
+        // Total xPts
+        const totalXPts = matchedPlayers.reduce((sum, p) => sum + sumPlayerXPts(p, selectedGWs), 0);
+
+        let html = `<div class="tb-import-pitch-header"><span class="tb-import-pitch-gw">${importGW ? 'GW' + importGW : 'All GWs'}</span><strong class="tb-import-pitch-total">${totalXPts.toFixed(1)} xPts</strong></div>`;
+        html += `<div class="tactics-pitch" style="min-height:320px;">${rows.join('')}</div>`;
+
+        // Show unmatched slots info
+        if (missingPlayers) {
+            html += `<div class="tb-import-pitch-info"><span class="material-symbols-outlined">info</span>${matchedPlayers.length}/15 players matched · ${15 - matchedPlayers.length} slots remaining</div>`;
+        }
+
+        // Legend
+        html += `<div class="tb-import-legend"><span><i style="background:#00ff85;"></i>High</span><span><i style="background:#FFA726;"></i>Medium</span><span><i style="background:#ff8e8e;"></i>Low</span><span>Click player to correct</span></div>`;
+
+        pitch.innerHTML = html;
+    },
+
+    setImportView(view) {
+        this.state.teamBuilder.importView = view;
+        this.paintTeamScreenshotMatches();
+    },
+
+    setImportGW(gw) {
+        this.state.teamBuilder.importGW = gw;
+        this.paintTeamScreenshotMatches();
+    },
+
+    editImportMatch(index) {
+        // Switch to list view and scroll to the match
+        this.state.teamBuilder.importView = 'list';
+        this.paintTeamScreenshotMatches();
+        // Scroll to the match element after render
+        requestAnimationFrame(() => {
+            const matchEl = document.querySelectorAll('.tb-import-match')[index];
+            if (matchEl) {
+                matchEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                matchEl.style.outline = '2px solid #00ff85';
+                setTimeout(() => { matchEl.style.outline = ''; }, 2000);
+            }
+        });
     },
 
     updateTeamScreenshotMatch(index, playerId) {

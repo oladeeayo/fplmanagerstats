@@ -3172,6 +3172,36 @@ select option {
 .tb-import-working.is-error .material-symbols-outlined { color: #ff8e8e; }
 .tb-import-actions { display: flex; align-items: center; justify-content: space-between; gap: 15px; min-height: 58px; padding: 9px 12px; color: #8ba396; font: 600 10px var(--font-mono); }
 
+/* Import pitch view */
+.tb-import-pitch { padding: 12px; border: 1px solid #1a2e28; border-radius: 8px; background: #0b2d1c; margin-top: 0; }
+.tb-import-pitch .tactics-pitch { min-height: 320px; padding: 16px 12px; border: 0; border-radius: 0; }
+.tb-import-pitch .tactics-pitch-row { width: 100%; min-width: 0; margin-inline: auto; gap: clamp(6px, 1.2vw, 16px); padding-inline: 2px; }
+.tb-import-pitch .tactics-player-card { width: min(82px, calc((100% - ((var(--players) - 1) * clamp(6px, 1.2vw, 16px))) / var(--players))); min-width: 0; max-width: 82px; min-height: 100px; justify-content: flex-start; padding: 6px 4px; overflow: hidden; cursor: pointer; transition: border-color 0.15s, transform 0.15s; }
+.tb-import-pitch .tactics-player-card:hover { border-color: #00ff85; transform: translateY(-2px); }
+.tb-import-pitch .tactics-player-shirt { position: relative; width: 36px; height: 40px; }
+.tb-import-pitch .tactics-player-copy { width: 100%; min-width: 0; }
+.tb-import-pitch-card { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+.tb-import-pitch-card.is-high { border-color: rgba(0,255,133,0.6); }
+.tb-import-pitch-card.is-medium { border-color: rgba(255,167,38,0.5); }
+.tb-import-pitch-card.is-low { border-color: rgba(255,142,142,0.4); }
+.tb-import-pitch-header { display: flex; align-items: center; justify-content: space-between; padding: 0 4px 8px; }
+.tb-import-pitch-gw { font: 700 11px var(--font-mono); color: #8ba396; text-transform: uppercase; }
+.tb-import-pitch-total { font: 700 14px var(--font-mono); color: #00ff85; }
+.tb-import-pitch-info { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; color: #8ba396; font-size: 11px; text-align: center; }
+.tb-import-pitch-info .material-symbols-outlined { font-size: 14px; color: #FFA726; }
+.tb-import-legend { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 8px 0 0; color: #6f8f7d; font: 600 9px var(--font-mono); text-transform: uppercase; }
+.tb-import-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.tb-import-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }
+
+/* Import tools (view toggle + GW selector) */
+.tb-import-tools { display: flex; align-items: center; gap: 10px; }
+.tb-import-view-toggle { display: flex; border: 1px solid #294138; border-radius: 5px; overflow: hidden; }
+.tb-import-view-btn { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border: 0; background: #0e1a14; color: #6f8f7d; font: 600 10px var(--font-mono); cursor: pointer; transition: all 0.15s; }
+.tb-import-view-btn .material-symbols-outlined { font-size: 14px; }
+.tb-import-view-btn:hover { background: #1a2e28; color: #e8f0eb; }
+.tb-import-view-btn.active { background: #294138; color: #00ff85; }
+.tb-import-gw-toggle { display: flex; gap: 3px; }
+
 /* Squad advisor */
 .tb-advisor { margin-top: 18px; border-top: 1px solid #315443; }
 .tb-advisor-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 22px 0 15px; }
@@ -3237,5 +3267,5 @@ select option {
 .tb-advisor-notes { display: flex; flex-wrap: wrap; gap: 12px; padding: 14px 0 4px; color: #718f7e; font-size: 9px; }
 .tb-advisor-notes span { display: flex; align-items: center; gap: 4px; }
 .tb-advisor-notes .material-symbols-outlined { font-size: 14px; }
-@media (max-width: 900px) { .tb-import-preview { grid-template-columns: 1fr; } .tb-advisor-settings { flex-wrap: wrap; } .tb-advisor-settings fieldset { width: 100%; margin-left: 0; } .tb-critique-row { grid-template-columns: 150px 1fr; } .tb-replacement { grid-column: 2; } .tb-advice-grid { grid-template-columns: 1fr; } }
-@media (max-width: 600px) { .tb-heading-actions { flex-wrap: wrap; } .tb-import-match { grid-template-columns: 1fr auto; } .tb-import-match select { grid-column: 1 / -1; grid-row: 2; } .tb-import-actions, .tb-advisor-heading { align-items: stretch; flex-direction: column; } .tb-advisor-settings > label { width: calc(50% - 4px); } .tb-advisor-settings select, .tb-advisor-settings input[type="number"] { width: 100%; } .tb-advisor-lineup { grid-template-columns: 1fr 1fr; } .tb-advisor-lineup > div { border-bottom: 1px solid #1a2e28; } .tb-critique-row { grid-template-columns: 1fr; } .tb-replacement { grid-column: 1; } }
+@media (max-width: 900px) { .tb-import-preview { grid-template-columns: 1fr; } .tb-advisor-settings { flex-wrap: wrap; } .tb-advisor-settings fieldset { width: 100%; margin-left: 0; } .tb-critique-row { grid-template-columns: 150px 1fr; } .tb-replacement { grid-column: 2; } .tb-advice-grid { grid-template-columns: 1fr; } .tb-import-tools { flex-wrap: wrap; gap: 6px; } }
+@media (max-width: 600px) { .tb-heading-actions { flex-wrap: wrap; } .tb-import-match { grid-template-columns: 1fr auto; } .tb-import-match select { grid-column: 1 / -1; grid-row: 2; } .tb-import-actions, .tb-advisor-heading { align-items: stretch; flex-direction: column; } .tb-advisor-settings > label { width: calc(50% - 4px); } .tb-advisor-settings select, .tb-advisor-settings input[type="number"] { width: 100%; } .tb-advisor-lineup { grid-template-columns: 1fr 1fr; } .tb-advisor-lineup > div { border-bottom: 1px solid #1a2e28; } .tb-critique-row { grid-template-columns: 1fr; } .tb-replacement { grid-column: 1; } .tb-import-pitch .tactics-player-card { width: calc((100% - ((var(--players) - 1) * 3px)) / var(--players)); min-width: 0; max-width: none; min-height: 84px; padding: 4px 2px; border-radius: 5px; } .tb-import-pitch .tactics-player-shirt { width: 24px; height: 28px; } .tb-import-pitch .tactics-pitch { min-height: 260px; padding: 10px 4px; } .tb-import-pitch .tactics-pitch-row { gap: 3px; padding-inline: 0; } .tb-import-pitch .aiteam-pitch-name { font-size: 8px; min-height: 16px; overflow: hidden; white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; } .tb-import-pitch .aiteam-pitch-cost { font-size: 7px; } .tb-import-pitch .aiteam-pitch-xpts { font-size: 8px; margin: 0; } .tb-import-tools { width: 100%; justify-content: space-between; } }
