@@ -38,7 +38,8 @@ const FPL = {
             importMatches: [],
             importView: 'pitch',
             importGW: null,
-            lastAdvice: null
+            lastAdvice: null,
+            squadView: 'list'
         }
     },
 
@@ -1080,17 +1081,89 @@ const FPL = {
         const total = document.getElementById('tb-horizon-total');
         if (total) total.textContent = `${horizonTotal.toFixed(1)} xPts`;
 
+        // Update view toggle buttons
+        const squadView = builder.squadView || 'list';
+        document.querySelectorAll('.tb-squad-panel .tb-import-view-btn').forEach(btn => {
+            const isActive = btn.dataset.view === squadView;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-pressed', String(isActive));
+        });
+
         const squadList = document.getElementById('tb-squad-list');
-        if (squadList) {
-            const quotas = validation.quotas;
-            squadList.innerHTML = Object.keys(quotas).map(position => {
-                const players = squad.filter(player => player.position === position).sort((a, b) => this.teamBuilderXPts(b) - this.teamBuilderXPts(a));
-                const slots = [...players, ...Array(Math.max(0, quotas[position] - players.length)).fill(null)];
-                return `<div class="tb-position-group"><div class="tb-position-title"><span>${position}</span><small>${players.length} of ${quotas[position]}</small></div>${slots.map(player => player ? `<div class="tb-squad-player"><button type="button" class="tb-captain-btn${builder.captainId === player.id ? ' active' : ''}" onclick="FPL.setTeamBuilderCaptain(${player.id})" title="${builder.captainId === player.id ? 'Captain selected' : 'Set captain'}" aria-pressed="${builder.captainId === player.id}" aria-label="${builder.captainId === player.id ? `${this.escapeHTML(player.name)} is captain` : `Set ${this.escapeHTML(player.name)} as captain`}"><span class="material-symbols-outlined">star</span></button><div class="tb-player-identity">${this.teamBadge(player.team, 28)}<span><b>${this.escapeHTML(player.name)}</b><small>${player.team} · £${player.costValue.toFixed(1)}m</small></span></div><div class="tb-player-output"><strong>${this.teamBuilderXPts(player).toFixed(1)}</strong><small>xPts</small></div><button type="button" class="tb-remove-btn" onclick="FPL.toggleTeamBuilderPlayer(${player.id})" title="Remove ${this.escapeHTML(player.name)}" aria-label="Remove ${this.escapeHTML(player.name)}"><span class="material-symbols-outlined">close</span></button></div>` : `<div class="tb-empty-slot"><span class="material-symbols-outlined">add</span><span>Add ${position}</span></div>`).join('')}</div>`;
-            }).join('');
+        const squadPitch = document.getElementById('tb-squad-pitch');
+
+        if (squadView === 'pitch') {
+            if (squadList) squadList.style.display = 'none';
+            if (squadPitch) { squadPitch.style.display = ''; this.paintSquadPitch(squad, validation); }
+        } else {
+            if (squadList) { squadList.style.display = ''; this.paintSquadList(squad, validation); }
+            if (squadPitch) squadPitch.style.display = 'none';
         }
+
         this.paintTeamBuilderMarket();
         this.paintTeamBuilderBreakdown();
+    },
+
+    setSquadView(view) {
+        this.state.teamBuilder.squadView = view;
+        this.paintTeamBuilder();
+    },
+
+    paintSquadList(squad, validation) {
+        const builder = this.state.teamBuilder;
+        const squadList = document.getElementById('tb-squad-list');
+        if (!squadList) return;
+        const quotas = validation.quotas;
+        squadList.innerHTML = Object.keys(quotas).map(position => {
+            const players = squad.filter(player => player.position === position).sort((a, b) => this.teamBuilderXPts(b) - this.teamBuilderXPts(a));
+            const slots = [...players, ...Array(Math.max(0, quotas[position] - players.length)).fill(null)];
+            return `<div class="tb-position-group"><div class="tb-position-title"><span>${position}</span><small>${players.length} of ${quotas[position]}</small></div>${slots.map(player => player ? `<div class="tb-squad-player"><button type="button" class="tb-captain-btn${builder.captainId === player.id ? ' active' : ''}" onclick="FPL.setTeamBuilderCaptain(${player.id})" title="${builder.captainId === player.id ? 'Captain selected' : 'Set captain'}" aria-pressed="${builder.captainId === player.id}" aria-label="${builder.captainId === player.id ? `${this.escapeHTML(player.name)} is captain` : `Set ${this.escapeHTML(player.name)} as captain`}"><span class="material-symbols-outlined">star</span></button><div class="tb-player-identity">${this.teamBadge(player.team, 28)}<span><b>${this.escapeHTML(player.name)}</b><small>${player.team} · £${player.costValue.toFixed(1)}m</small></span></div><div class="tb-player-output"><strong>${this.teamBuilderXPts(player).toFixed(1)}</strong><small>xPts</small></div><button type="button" class="tb-remove-btn" onclick="FPL.toggleTeamBuilderPlayer(${player.id})" title="Remove ${this.escapeHTML(player.name)}" aria-label="Remove ${this.escapeHTML(player.name)}"><span class="material-symbols-outlined">close</span></button></div>` : `<div class="tb-empty-slot"><span class="material-symbols-outlined">add</span><span>Add ${position}</span></div>`).join('')}</div>`;
+        }).join('');
+    },
+
+    paintSquadPitch(squad, validation) {
+        const builder = this.state.teamBuilder;
+        const squadPitch = document.getElementById('tb-squad-pitch');
+        if (!squadPitch) return;
+
+        const gkps = squad.filter(p => p.position === 'GKP').sort((a, b) => this.teamBuilderXPts(b) - this.teamBuilderXPts(a));
+        const defs = squad.filter(p => p.position === 'DEF').sort((a, b) => this.teamBuilderXPts(b) - this.teamBuilderXPts(a));
+        const mids = squad.filter(p => p.position === 'MID').sort((a, b) => this.teamBuilderXPts(b) - this.teamBuilderXPts(a));
+        const fwds = squad.filter(p => p.position === 'FWD').sort((a, b) => this.teamBuilderXPts(b) - this.teamBuilderXPts(a));
+        const empty = { GKP: 2 - gkps.length, DEF: 5 - defs.length, MID: 5 - mids.length, FWD: 3 - fwds.length };
+
+        const self = this;
+        const isCaptain = p => builder.captainId === p.id;
+
+        function playerCard(player) {
+            const cap = isCaptain(player);
+            const xPts = self.teamBuilderXPts(player).toFixed(1);
+            const badge = cap ? ' (C)' : '';
+            const borderStyle = cap ? 'border:2px solid #FFD700;box-shadow:0 0 12px rgba(255,215,0,0.4);' : 'border:1px solid rgba(255,255,255,0.28);';
+
+            return `<div class="tactics-player-card home aiteam-pitch-card" style="${borderStyle}" title="${self.escapeHTML(player.name)}${badge} · ${player.team} · £${player.costValue.toFixed(1)}m · ${xPts} xPts">
+                <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;"><span class="aiteam-shirt-fallback" aria-hidden="true">${player.team}</span></div>
+                <div class="tactics-player-copy"><b class="aiteam-pitch-name${cap ? ' is-captain' : ''}">${self.escapeHTML(player.name)}${badge}</b></div>
+                <div class="aiteam-pitch-cost">£${player.costValue.toFixed(1)}m</div>
+                <div class="aiteam-pitch-xpts">${xPts} xPts</div>
+            </div>`;
+        }
+
+        function emptySlots(count, position) {
+            if (count <= 0) return '';
+            return Array(count).fill(`<div class="tactics-player-card home aiteam-pitch-card tb-empty-pitch-card" style="border:1px dashed rgba(255,255,255,0.15);opacity:0.4;" title="Add ${position}"><div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;"><span class="material-symbols-outlined" style="font-size:18px;color:#557261;">add</span></div><div class="tactics-player-copy"><b class="aiteam-pitch-name" style="color:#557261;">Add ${position}</b></div></div>`).join('');
+        }
+
+        const rows = [];
+        rows.push(`<div class="tactics-pitch-row" style="--players:${fwds.length + empty.FWD};">${fwds.map(playerCard).join('')}${emptySlots(empty.FWD, 'FWD')}</div>`);
+        rows.push(`<div class="tactics-pitch-row" style="--players:${mids.length + empty.MID};">${mids.map(playerCard).join('')}${emptySlots(empty.MID, 'MID')}</div>`);
+        rows.push(`<div class="tactics-pitch-row" style="--players:${defs.length + empty.DEF};">${defs.map(playerCard).join('')}${emptySlots(empty.DEF, 'DEF')}</div>`);
+        rows.push(`<div class="tactics-pitch-row" style="--players:${gkps.length + empty.GKP};">${gkps.map(playerCard).join('')}${emptySlots(empty.GKP, 'GKP')}</div>`);
+
+        let html = `<div class="tactics-pitch" style="min-height:360px;">${rows.join('')}</div>`;
+        html += `<div class="tb-import-legend"><span><i style="background:#FFD700;"></i>Captain</span><span>Click captain star in list view</span></div>`;
+
+        squadPitch.innerHTML = html;
     },
 
     paintTeamBuilderMarket() {

@@ -38,6 +38,7 @@ declare global {
       initDialogs(): void;
       loadTabData(tab: string): Promise<void>;
       navigateTo(tab: string): void;
+      setSquadView(view: string): void;
     };
   }
 }

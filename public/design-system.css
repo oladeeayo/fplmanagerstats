@@ -3089,9 +3089,16 @@ select option {
 .tb-workspace { display: grid; grid-template-columns: minmax(330px, .88fr) minmax(0, 1.45fr); gap: 18px; padding-top: 18px; align-items: start; }
 .tb-squad-panel, .tb-market-panel, .tb-breakdown { background: #141916; border: 1px solid #1a2e28; border-radius: 8px; }
 .tb-squad-panel { position: sticky; top: 80px; }
+.tb-squad-pitch { padding: 12px; }
+.tb-squad-pitch .tactics-pitch-row { min-height: 72px; }
+.tb-squad-pitch .aiteam-pitch-card { padding: 8px 6px; }
+.tb-squad-pitch .aiteam-pitch-name { font-size: 10px; }
+.tb-empty-pitch-card { opacity: 0.4; }
 .tb-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 15px 16px; border-bottom: 1px solid #1a2e28; }
 .tb-panel-heading span { display: block; margin-top: 4px; color: #8ba396; font-size: 11px; }
-.tb-panel-heading > strong { color: #00ff85; font: 800 18px var(--font-mono); white-space: nowrap; }
+.tb-panel-heading > div { flex: 1; min-width: 0; }
+.tb-squad-tools { display: flex; align-items: center; gap: 10px; justify-self: end; }
+.tb-squad-tools > strong { color: #00ff85; font: 800 18px var(--font-mono); white-space: nowrap; }
 .tb-budget-meter { padding: 13px 16px; border-bottom: 1px solid #1a2e28; }
 .tb-budget-meter > div:first-child { display: flex; justify-content: space-between; align-items: baseline; color: #8ba396; font: 700 10px var(--font-mono); text-transform: uppercase; }
 .tb-budget-meter strong { color: #fff; font-size: 14px; }
