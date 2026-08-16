@@ -2697,6 +2697,7 @@ select option {
     border-right: 1px solid #1A2E28;
     background: transparent;
     text-align: left;
+    justify-content: center;
 }
 .aiteam-card:last-child { border-right: 0; }
 .aiteam-status-card { width: 100%; color: inherit; font-family: inherit; cursor: pointer; }
@@ -2735,76 +2736,12 @@ select option {
     margin-bottom: 28px;
 }
 .aiteam-pitch-wrapper { overflow-x: auto; overscroll-behavior-x: contain; border: 1px solid #315443; background: #0b2d1c; border-radius: 10px; }
-.aiteam-pitch { min-width: 600px; }
-.aiteam-pitch .tactics-pitch { min-height: 480px; padding: 24px 16px; border: 0; border-radius: 0; overflow: visible; }
-.aiteam-pitch .tactics-pitch-row { width: max-content; min-width: 100%; margin-inline: auto; gap: clamp(8px, 1.5vw, 20px); }
-
-/* Pitch Player Card */
-.aiteam-pitch-card {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 110px;
-    max-width: 120px;
-    padding: 6px;
-    border-radius: 6px;
-    background: rgba(255,255,255,0.06);
-    position: relative;
-}
-.aiteam-pitch-card-top {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-.aiteam-pitch-card-info {
-    min-width: 0;
-    flex: 1;
-}
-.aiteam-pitch-card-name {
-    font: 700 10px var(--font-body);
-    color: #fff;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    line-height: 1.2;
-}
-.aiteam-pitch-card-cost {
-    font: 600 9px var(--font-mono);
-    color: #8ba396;
-}
-.aiteam-pitch-card-fixtures {
-    display: flex;
-    gap: 2px;
-}
-
-/* Fixture Box */
-.aiteam-fixture-box {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1px;
-    padding: 2px 4px;
-    border-radius: 3px;
-    min-width: 30px;
-    flex: 1;
-}
-.aiteam-fixture-opp {
-    font: 700 8px var(--font-mono);
-    line-height: 1.2;
-    white-space: nowrap;
-}
-.aiteam-fixture-xpts {
-    font: 700 9px var(--font-mono);
-    color: #00FF85;
-}
-.aiteam-fixture-empty {
-    opacity: 0.4;
-}
-.aiteam-fixture-empty .aiteam-fixture-xpts {
-    color: #8ba396;
-}
-
-.aiteam-shirt-fallback { display: none; color: #91a99b; font: 800 9px var(--font-mono); }
+.aiteam-pitch { min-width: 560px; }
+.aiteam-pitch .tactics-pitch { min-height: 520px; padding: 28px 20px; border: 0; border-radius: 0; overflow: visible; }
+.aiteam-pitch .tactics-pitch-row { width: max-content; min-width: 100%; margin-inline: auto; gap: clamp(12px, 2vw, 28px); }
+.aiteam-pitch .tactics-player-card { width: 92px; min-width: 92px; min-height: 114px; justify-content: flex-start; padding: 7px 5px; }
+.aiteam-pitch .tactics-player-shirt { position: relative; width: 42px; height: 46px; }
+.aiteam-shirt-fallback { display: none; color: #91a99b; font: 800 11px var(--font-mono); }
 .tactics-player-shirt.is-missing .aiteam-shirt-fallback, .aiteam-bench-shirt-img.is-missing .aiteam-shirt-fallback, .tactics-player-shirt:not(:has(img)) .aiteam-shirt-fallback, .aiteam-bench-shirt-img:not(:has(img)) .aiteam-shirt-fallback { display: block; }
 
 /* Bench */
@@ -2825,42 +2762,23 @@ select option {
     grid-template-columns: repeat(4, 1fr);
     gap: 10px;
 }
-.aiteam-bench-slot {
-    display: grid;
-    grid-template-columns: 20px 32px minmax(0,1fr) auto;
-    align-items: center;
-    gap: 6px;
-    min-width: 0;
-    padding: 8px;
-    border: 1px solid #223a2e;
-    background: #0E1A14;
-    border-radius: 6px;
-}
-.aiteam-bench-order {
-    display: grid;
-    width: 20px;
-    height: 20px;
-    place-items: center;
-    border: 1px solid #315443;
-    border-radius: 50%;
-    color: #9ab2a5;
-    font: 700 9px var(--font-mono);
-}
+.aiteam-bench-slot { display: grid; grid-template-columns: 22px 36px minmax(0,1fr); align-items: start; gap: 9px; min-width: 0; padding: 9px; border: 1px solid #223a2e; background: #0E1A14; border-radius: 6px; }
+.aiteam-bench-order { display: grid; width: 22px; height: 22px; place-items: center; border: 1px solid #315443; border-radius: 50%; color: #9ab2a5; font: 700 10px var(--font-mono); }
 .aiteam-bench-info { min-width: 0; }
 .aiteam-bench-name {
-    font: 600 11px var(--font-body);
+    font: 600 12px var(--font-body);
     color: #fff;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 .aiteam-bench-club {
-    font: 500 8px var(--font-mono);
+    font: 500 9px var(--font-mono);
     color: #8ba396;
 }
-.aiteam-bench-fixtures {
-    display: flex;
-    gap: 2px;
+.aiteam-bench-xpts {
+    margin-top: 2px;
+    font: 600 10px var(--font-mono);
 }
 
 /* Captain Pick */
@@ -3009,19 +2927,14 @@ select option {
     .aiteam-captain-pick { justify-items: start; text-align: left; }
     .aiteam-chips-grid { grid-template-columns: 1fr; }
     .aiteam-bench-players { grid-template-columns: 1fr; }
-    .aiteam-bench-slot { grid-template-columns: 20px 28px minmax(0,1fr) auto; gap: 4px; padding: 6px; }
-    .aiteam-bench-fixtures { gap: 1px; }
+    .aiteam-bench-slot { grid-template-columns: 22px minmax(0,1fr); gap: 6px; }
+    .aiteam-bench-shirt-img { display: none !important; }
     .aiteam-control-group input,
     .aiteam-control-group select { min-width: auto; width: 100%; }
     .aiteam-gw-toggle { width: 100%; }
     .aiteam-gw-toggle-btn { flex: 1; min-height: 44px; font-size: 13px; }
-    .aiteam-pitch-card { min-width: 90px; max-width: 100px; padding: 4px; }
-    .aiteam-pitch-card-name { font-size: 9px; }
-    .aiteam-pitch-card-cost { font-size: 8px; }
-    .aiteam-fixture-box { min-width: 24px; padding: 2px 2px; }
-    .aiteam-fixture-opp { font-size: 7px; }
-    .aiteam-fixture-xpts { font-size: 8px; }
-    .aiteam-pitch .tactics-pitch { min-height: 380px; padding: 12px 8px; }
-    .aiteam-pitch .tactics-pitch-row { gap: 4px; }
-    .aiteam-pitch .tactics-player-shirt { width: 26px; height: 30px; }
+    .aiteam-pitch .tactics-player-card { width: 78px; min-width: 78px; min-height: 100px; padding: 5px 3px; }
+    .aiteam-pitch .tactics-player-shirt { width: 34px; height: 38px; }
+    .aiteam-pitch .tactics-pitch { min-height: 380px; padding: 14px 8px; }
+    .aiteam-pitch .tactics-pitch-row { gap: 6px; }
 }

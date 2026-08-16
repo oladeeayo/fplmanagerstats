@@ -858,7 +858,8 @@ app.post('/api/ai-team', async (req, res) => {
     }
 
     const selected = bestSquad;
-    const lineupScore = player => (player.weekly?.[0]?.xPts || 0) * 0.7 + (adjustedScore(player, strategy) / Math.max(projectionData.horizon, 1)) * 0.3;
+    // Use next GW xPts directly - ensures highest immediate-value players start
+    const lineupScore = player => (player.weekly?.[0]?.xPts || 0);
 
     // The weekly XI is the highest-scoring legal formation from all seven FPL shapes.
     const lineupSelection = selectOptimalLineup(selected, lineupScore);

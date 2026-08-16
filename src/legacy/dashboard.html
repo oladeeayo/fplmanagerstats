@@ -1037,12 +1037,6 @@
                             </details>
                         </div>
 
-                        <!-- GW View Toggle -->
-                        <div class="aiteam-gw-toggle" id="aiteam-gw-toggle">
-                            <button type="button" class="aiteam-gw-toggle-btn active" data-gw="1" onclick="FPL.setAITeamGWView(1)">Next GW</button>
-                            <button type="button" class="aiteam-gw-toggle-btn" data-gw="3" onclick="FPL.setAITeamGWView(3)">Next 3 GWs</button>
-                        </div>
-
                         <!-- Loading -->
                         <div id="aiteam-loading" class="aiteam-loading hidden" role="status" aria-live="polite">
                             <div class="pixel-loader-container">
@@ -1067,7 +1061,13 @@
                                     <div>
                                         <h2>Starting XI <span id="aiteam-formation-label">Formation</span></h2>
                                     </div>
-                                    <div class="aiteam-captain-pick" id="aiteam-captain-display"></div>
+                                    <div style="display:flex;align-items:center;gap:12px;">
+                                        <div class="aiteam-gw-toggle" id="aiteam-gw-toggle">
+                                            <button type="button" class="aiteam-gw-toggle-btn active" data-gw="1" onclick="FPL.setAITeamGWView(1)">Next GW</button>
+                                            <button type="button" class="aiteam-gw-toggle-btn" data-gw="3" onclick="FPL.setAITeamGWView(3)">Next 3 GWs</button>
+                                        </div>
+                                        <div class="aiteam-captain-pick" id="aiteam-captain-display"></div>
+                                    </div>
                                 </div>
                                 <div class="aiteam-pitch-wrapper">
                                     <div class="aiteam-pitch" id="aiteam-pitch"></div>
