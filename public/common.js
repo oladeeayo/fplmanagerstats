@@ -1160,7 +1160,7 @@ const FPL = {
         rows.push(`<div class="tactics-pitch-row" style="--players:${defs.length + empty.DEF};">${defs.map(playerCard).join('')}${emptySlots(empty.DEF, 'DEF')}</div>`);
         rows.push(`<div class="tactics-pitch-row" style="--players:${gkps.length + empty.GKP};">${gkps.map(playerCard).join('')}${emptySlots(empty.GKP, 'GKP')}</div>`);
 
-        let html = `<div class="tactics-pitch" style="min-height:360px;">${rows.join('')}</div>`;
+        let html = `<div class="tactics-pitch" style="min-height:420px;">${rows.join('')}</div>`;
         html += `<div class="tb-import-legend"><span><i style="background:#FFD700;"></i>Captain</span><span>Click captain star in list view</span></div>`;
 
         squadPitch.innerHTML = html;

@@ -3089,11 +3089,17 @@ select option {
 .tb-workspace { display: grid; grid-template-columns: minmax(330px, .88fr) minmax(0, 1.45fr); gap: 18px; padding-top: 18px; align-items: start; }
 .tb-squad-panel, .tb-market-panel, .tb-breakdown { background: #141916; border: 1px solid #1a2e28; border-radius: 8px; }
 .tb-squad-panel { position: sticky; top: 80px; }
-.tb-squad-pitch { padding: 12px; }
-.tb-squad-pitch .tactics-pitch-row { min-height: 72px; }
-.tb-squad-pitch .aiteam-pitch-card { padding: 8px 6px; }
-.tb-squad-pitch .aiteam-pitch-name { font-size: 10px; }
-.tb-empty-pitch-card { opacity: 0.4; }
+.tb-squad-pitch { padding: 0; }
+.tb-squad-pitch .tactics-pitch { min-height: 420px; padding: 24px 16px; border: 0; border-radius: 0; background-image: linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px); background-size: 48px 48px; }
+.tb-squad-pitch .tactics-pitch-row { width: 100%; min-width: 0; margin-inline: auto; gap: clamp(8px, 2vw, 18px); padding-inline: 2px; }
+.tb-squad-pitch .tactics-player-card { width: min(88px, calc((100% - ((var(--players) - 1) * clamp(8px, 2vw, 18px))) / var(--players))); min-width: 0; max-width: 88px; min-height: 108px; justify-content: flex-start; padding: 8px 5px; overflow: hidden; }
+.tb-squad-pitch .tactics-player-shirt { width: 40px; height: 44px; }
+.tb-squad-pitch .aiteam-pitch-name { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.tb-squad-pitch .aiteam-pitch-cost { font: 700 10px var(--font-mono); color: #B0B0B0; }
+.tb-squad-pitch .aiteam-pitch-xpts { font: 700 10px var(--font-mono); color: #00FF85; }
+.tb-empty-pitch-card { opacity: 0.35; }
+.tb-empty-pitch-card .aiteam-pitch-name { color: #557261; }
+@media (max-width: 600px) { .tb-squad-pitch .tactics-player-card { width: calc((100% - ((var(--players) - 1) * 3px)) / var(--players)); min-width: 0; max-width: none; min-height: 88px; padding: 5px 3px; border-radius: 5px; } .tb-squad-pitch .tactics-player-shirt { width: 30px; height: 34px; } .tb-squad-pitch .tactics-pitch { min-height: 320px; padding: 14px 8px; } .tb-squad-pitch .tactics-pitch-row { gap: 3px; padding-inline: 0; } .tb-squad-pitch .aiteam-pitch-name { font-size: 8px; min-height: 16px; overflow: hidden; white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; } .tb-squad-pitch .aiteam-pitch-cost { font-size: 7px; } .tb-squad-pitch .aiteam-pitch-xpts { font-size: 8px; } }
 .tb-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 15px 16px; border-bottom: 1px solid #1a2e28; }
 .tb-panel-heading span { display: block; margin-top: 4px; color: #8ba396; font-size: 11px; }
 .tb-panel-heading > div { flex: 1; min-width: 0; }
