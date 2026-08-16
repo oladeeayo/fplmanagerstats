@@ -3173,7 +3173,7 @@ select option {
 .tb-import-actions { display: flex; align-items: center; justify-content: space-between; gap: 15px; min-height: 58px; padding: 9px 12px; color: #8ba396; font: 600 10px var(--font-mono); }
 
 /* Import pitch view */
-.tb-import-pitch { padding: 12px; border: 1px solid #1a2e28; border-radius: 8px; background: #0b2d1c; margin-top: 0; }
+.tb-import-pitch { display: block; padding: 12px; border: 1px solid #1a2e28; border-radius: 8px; background: #0b2d1c; margin-top: 0; }
 .tb-import-pitch .tactics-pitch { min-height: 320px; padding: 16px 12px; border: 0; border-radius: 0; }
 .tb-import-pitch .tactics-pitch-row { width: 100%; min-width: 0; margin-inline: auto; gap: clamp(6px, 1.2vw, 16px); padding-inline: 2px; }
 .tb-import-pitch .tactics-player-card { width: min(82px, calc((100% - ((var(--players) - 1) * clamp(6px, 1.2vw, 16px))) / var(--players))); min-width: 0; max-width: 82px; min-height: 100px; justify-content: flex-start; padding: 6px 4px; overflow: hidden; cursor: pointer; transition: border-color 0.15s, transform 0.15s; }
