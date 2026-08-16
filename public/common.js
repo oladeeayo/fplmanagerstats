@@ -858,6 +858,7 @@ const FPL = {
         match.playerId = Number(playerId);
         match.confidence = 'confirmed';
         match.score = 100;
+        this.state.teamBuilder.importView = 'pitch';
         this.paintTeamScreenshotMatches();
     },
 
