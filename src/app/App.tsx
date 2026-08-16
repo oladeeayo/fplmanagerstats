@@ -7,11 +7,16 @@ import { appRoutes, isAppTab, tabFromPath, type AppTab } from './routes';
 export function App() {
   const location = useLocation();
   const navigate = useNavigate();
+  const navigateRef = useRef(navigate);
   const initPromise = useRef<Promise<void> | null>(null);
   const [ready, setReady] = useState(false);
   const pathTab = tabFromPath(location.pathname);
   const legacyTab = new URLSearchParams(location.search).get('tab');
   const activeTab = pathTab ?? (location.pathname === '/' && isAppTab(legacyTab) ? legacyTab : 'general');
+
+  useEffect(() => {
+    navigateRef.current = navigate;
+  }, [navigate]);
 
   useEffect(() => {
     if (location.pathname === '/' && isAppTab(legacyTab) && legacyTab !== 'general') {
@@ -30,7 +35,7 @@ export function App() {
       originalNavigate = fpl.navigateTo.bind(fpl);
       fpl.navigateTo = (tab: string) => {
         const path = appRoutes[tab as AppTab] ?? appRoutes.general;
-        navigate(path);
+        navigateRef.current(path);
         window.scrollTo(0, 0);
       };
       if (!initPromise.current) {
@@ -51,7 +56,7 @@ export function App() {
       window.removeEventListener('fpl-ready', initialize);
       if (originalNavigate && window.FPL) window.FPL.navigateTo = originalNavigate;
     };
-  }, [activeTab, navigate]);
+  }, []);
 
   useEffect(() => {
     if (!ready || !window.FPL) return;

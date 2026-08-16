@@ -1,4 +1,4 @@
-import { memo, useMemo, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 import legacyDocument from '../legacy/dashboard.html?raw';
 
 function extractBody(documentSource: string) {
@@ -30,14 +30,27 @@ interface LegacyDashboardProps {
 }
 
 function LegacyDashboardComponent({ activeTab }: LegacyDashboardProps) {
+  const dashboardRef = useRef<HTMLDivElement>(null);
   const initialTab = useRef(activeTab);
   const markup = useMemo(() => prepareMarkup(legacyDocument, initialTab.current), []);
   const styles = useMemo(() => extractInlineStyles(legacyDocument), []);
 
+  useEffect(() => {
+    const dashboard = dashboardRef.current;
+    if (!dashboard) return;
+
+    dashboard.querySelectorAll<HTMLElement>('.tab-content').forEach((element) => {
+      element.classList.toggle('active', element.id === `content-${activeTab}`);
+    });
+    dashboard.querySelectorAll<HTMLElement>('[data-tab]').forEach((element) => {
+      element.classList.toggle('active', element.dataset.tab === activeTab);
+    });
+  }, [activeTab]);
+
   return (
     <>
       <style>{styles}</style>
-      <div dangerouslySetInnerHTML={{ __html: markup }} />
+      <div ref={dashboardRef} dangerouslySetInnerHTML={{ __html: markup }} />
     </>
   );
 }

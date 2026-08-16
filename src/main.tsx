@@ -18,7 +18,7 @@ function mountApp() {
 
 mountApp();
 
-const legacyScript = '/common.js?v=9';
+const legacyScript = '/common.js?v=10';
 void import(/* @vite-ignore */ legacyScript).then(() => {
   window.dispatchEvent(new CustomEvent('fpl-ready'));
 });
