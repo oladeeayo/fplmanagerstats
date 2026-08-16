@@ -1037,6 +1037,12 @@
                             </details>
                         </div>
 
+                        <!-- GW View Toggle -->
+                        <div class="aiteam-gw-toggle" id="aiteam-gw-toggle">
+                            <button type="button" class="aiteam-gw-toggle-btn active" data-gw="1" onclick="FPL.setAITeamGWView(1)">Next GW</button>
+                            <button type="button" class="aiteam-gw-toggle-btn" data-gw="3" onclick="FPL.setAITeamGWView(3)">Next 3 GWs</button>
+                        </div>
+
                         <!-- Loading -->
                         <div id="aiteam-loading" class="aiteam-loading hidden" role="status" aria-live="polite">
                             <div class="pixel-loader-container">
@@ -1136,7 +1142,7 @@
         <a href="/players" class="bottom-nav-item" data-tab="players" onclick="event.preventDefault();FPL.navigateTo('players')"><span class="material-symbols-outlined">person_search</span><span>Players</span></a>
         <a href="/fixtures" class="bottom-nav-item" data-tab="fixtures" onclick="event.preventDefault();FPL.navigateTo('fixtures')"><span class="material-symbols-outlined">calendar_month</span><span>Fixtures</span></a>
         <a href="/captaincy" class="bottom-nav-item" data-tab="captain" onclick="event.preventDefault();FPL.navigateTo('captain')"><span class="material-symbols-outlined">star</span><span>Captain</span></a>
-        <a href="/ownership" class="bottom-nav-item" data-tab="ownership" onclick="event.preventDefault();FPL.navigateTo('ownership')"><span class="material-symbols-outlined">pie_chart</span><span>Own</span></a>
+        <a href="/ai-team" class="bottom-nav-item" data-tab="aiteam" onclick="event.preventDefault();FPL.navigateTo('aiteam')"><span class="material-symbols-outlined">smart_toy</span><span>AI</span></a>
     </nav>
 
     <!-- Connect Dialog -->
@@ -1153,7 +1159,7 @@
         </div>
     </div>
 
-    <script src="common.js?v=7"></script>
+    <script src="common.js?v=8"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams(window.location.search);

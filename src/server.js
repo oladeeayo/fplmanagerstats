@@ -754,7 +754,17 @@ app.post('/api/ai-team', async (req, res) => {
             .filter(p => p.position === position && !selected.some(s => s.id === p.id))
             .filter(p => (teamCounts[p.teamId] || 0) < MAX_PER_TEAM)
             .filter(p => position !== 'GKP' || selected.every(player => player.position !== 'GKP') || costTenths(p) <= reserveGoalkeeperCeilingTenths)
-            .filter(p => spentTenths + costTenths(p) + remainingMinimum <= 1000);
+            .filter(p => spentTenths + costTenths(p) + remainingMinimum <= 1000)
+            .filter(p => {
+              if (position !== 'GKP' && position !== 'DEF') return true;
+              const teamDefCount = selected.filter(s => s.teamId === p.teamId && (s.position === 'GKP' || s.position === 'DEF')).length;
+              if (teamDefCount < 2) return true;
+              const teamFixtures = p.upcomingFixtures || [];
+              const next3 = teamFixtures.slice(0, 3);
+              if (next3.length === 0) return false;
+              const avgFdr = next3.reduce((s, f) => s + (f.fdr || 3), 0) / next3.length;
+              return avgFdr <= 2.0;
+            });
 
           const scored = candidates.map(p => ({
             ...p,
@@ -793,6 +803,16 @@ app.post('/api/ai-team', async (req, res) => {
             .filter(p => bestSquad.filter(s => s.teamId === p.teamId).length < MAX_PER_TEAM)
             .filter(p => p.cost <= cheap.cost + (budget - bestCost))
             .filter(p => adjustedScore(p, strategy) > adjustedScore(cheap, strategy))
+            .filter(p => {
+              if (position !== 'DEF') return true;
+              const newSquad = bestSquad.map(s => s.id === cheap.id ? p : s);
+              const teamDefCount = newSquad.filter(s => s.teamId === p.teamId && (s.position === 'GKP' || s.position === 'DEF')).length;
+              if (teamDefCount <= 2) return true;
+              const next3 = (p.upcomingFixtures || []).slice(0, 3);
+              if (next3.length === 0) return false;
+              const avgFdr = next3.reduce((s, f) => s + (f.fdr || 3), 0) / next3.length;
+              return avgFdr <= 2.0;
+            })
             .sort((a, b) => adjustedScore(b, strategy) - adjustedScore(a, strategy))[0];
           if (upgrade) {
             const costDiff = upgrade.cost - cheap.cost;

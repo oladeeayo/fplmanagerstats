@@ -57,6 +57,7 @@ export function App() {
     if (!ready || !window.FPL) return;
     window.FPL.state.activeTab = activeTab;
     void window.FPL.loadTabData(activeTab);
+    window.FPL.initSidebar();
 
     document.querySelectorAll<HTMLElement>('.sidebar-nav-item').forEach(el => {
       el.classList.toggle('active', el.dataset.tab === activeTab);

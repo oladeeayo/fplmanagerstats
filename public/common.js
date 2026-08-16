@@ -25,7 +25,8 @@ const FPL = {
         activeTab: 'general',
         managerId: localStorage.getItem('fplManagerId') || null,
         leagueId: localStorage.getItem('fplLeagueId') || null,
-        theme: 'dark'
+        theme: 'dark',
+        aiTeamGWView: 1
     },
 
     // Client-side tab data cache (avoids re-fetching when switching tabs)
@@ -529,15 +530,33 @@ const FPL = {
         } catch (e) { console.error('Reset error:', e); }
     },
 
+    setAITeamGWView(gws) {
+        this.state.aiTeamGWView = gws;
+        document.querySelectorAll('.aiteam-gw-toggle-btn').forEach(btn => {
+            btn.classList.toggle('active', parseInt(btn.dataset.gw) === gws);
+        });
+        const data = this.state.aiTeamData;
+        if (data) this.paintAITeam(data);
+    },
+
     paintAITeam(data) {
         const { squad, lineup, meta, chips, transfers, teamCost, teamXpts, formation, isLocked } = data;
+        const gwView = this.state.aiTeamGWView || 1;
+
+        function sumPlayerXPts(player, count) {
+            if (!player?.weekly) return 0;
+            return player.weekly.slice(0, count).reduce((s, w) => s + (w.xPts || 0), 0);
+        }
 
         // --- Summary Cards ---
         const summaryEl = document.getElementById('aiteam-summary');
         if (summaryEl) {
-            const nextGWxPts = lineup.starters.reduce((s, p) => s + (p.weekly?.[0]?.xPts || 0), 0) + (lineup.captain?.weekly?.[0]?.xPts || 0);
+            const startersXPts = lineup.starters.reduce((s, p) => s + sumPlayerXPts(p, gwView), 0);
+            const captainBonus = lineup.captain ? sumPlayerXPts(lineup.captain, gwView) : 0;
+            const nextGWxPts = startersXPts + captainBonus;
             const remaining = Math.round((100 - teamCost) * 10) / 10;
             const autoLocked = Boolean(isLocked ?? meta?.isAutoLocked);
+            const gwLabel = gwView === 1 ? 'Next GW' : `Next ${gwView} GWs`;
             summaryEl.innerHTML = `
                 <div class="aiteam-card">
                     <div class="aiteam-card-icon" style="background:rgba(0,255,133,0.12);color:#00FF85;"><span class="material-symbols-outlined">payments</span></div>
@@ -545,7 +564,7 @@ const FPL = {
                 </div>
                 <div class="aiteam-card">
                     <div class="aiteam-card-icon" style="background:rgba(79,195,247,0.12);color:#4FC3F7;"><span class="material-symbols-outlined">trending_up</span></div>
-                    <div class="aiteam-card-data"><span class="aiteam-card-value">${nextGWxPts.toFixed(1)}</span><span class="aiteam-card-label">Next GW xPts</span></div>
+                    <div class="aiteam-card-data"><span class="aiteam-card-value">${nextGWxPts.toFixed(1)}</span><span class="aiteam-card-label">${gwLabel} xPts</span></div>
                 </div>
                 <div class="aiteam-card">
                     <div class="aiteam-card-icon" style="background:rgba(192,132,252,0.12);color:#c084fc;"><span class="material-symbols-outlined">emoji_events</span></div>
@@ -572,7 +591,7 @@ const FPL = {
                 </div>
                 <div style="font-weight:700;color:#fff;font-size:14px;">${cap.name} <span style="color:#FFD700;">(C)</span></div>
                 <div style="font-size:12px;color:#8ba396;">${cap.teamFull || cap.team} \u00B7 ${cap.position} \u00B7 \u00A3${cap.cost?.toFixed(1)}m</div>
-                <div style="font-size:13px;color:#00FF85;font-weight:600;margin-top:4px;">${(cap.weekly?.[0]?.xPts || 0).toFixed(1)} xPts (GW) \u00B7 ${cap.totalXpts?.toFixed(1)} xPts (Horizon)</div>`;
+                <div style="font-size:13px;color:#00FF85;font-weight:600;margin-top:4px;">${sumPlayerXPts(cap, gwView).toFixed(1)} xPts (${gwView === 1 ? 'GW' : gwView + ' GWs'}) \u00B7 ${cap.totalXpts?.toFixed(1)} xPts (Horizon)</div>`;
         }
 
         // --- Pitch (Tactics-style with club shirts) ---
@@ -600,7 +619,7 @@ const FPL = {
                 const shirt = shirtUrl(player);
                 const cap = isCaptain(player);
                 const vice = isVice(player);
-                const gwXPts = (player.weekly?.[0]?.xPts || 0).toFixed(1);
+                const gwXPts = sumPlayerXPts(player, gwView).toFixed(1);
                 const badge = cap ? ' (C)' : vice ? ' (V)' : '';
                 const borderStyle = cap ? 'border:2px solid #FFD700;box-shadow:0 0 12px rgba(255,215,0,0.4);' : vice ? 'border:2px solid rgba(255,255,255,0.5);' : 'border:1px solid rgba(255,255,255,0.28);';
 
@@ -639,7 +658,7 @@ const FPL = {
             html += '<div class="aiteam-bench"><div class="aiteam-bench-label"><span class="material-symbols-outlined">event_seat</span> BENCH</div><div class="aiteam-bench-players">';
              lineup.bench.slice(0, 4).forEach((p, benchIndex) => {
                 const shirt = shirtUrl(p);
-                const gwXPts = (p.weekly?.[0]?.xPts || 0).toFixed(1);
+                const gwXPts = sumPlayerXPts(p, gwView).toFixed(1);
                  const shirtImg = shirt ? `<img src="${shirt}" alt="" loading="lazy" decoding="async" onerror="this.closest('.aiteam-bench-shirt-img').classList.add('is-missing');this.remove();" style="width:100%;height:100%;object-fit:contain;">` : '';
                  html += `<div class="aiteam-bench-slot">
                     <div class="aiteam-bench-order">${benchIndex + 1}</div><div class="aiteam-bench-shirt-img" style="width:36px;height:40px;overflow:hidden;flex-shrink:0;display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;">${shirtImg}<span class="aiteam-shirt-fallback" aria-hidden="true">${FPL.playerTeamShort(p)}</span></div>
@@ -667,7 +686,7 @@ const FPL = {
              const orderedSquad = [...lineup.starters, ...lineup.bench].filter((player, index, list) => player && list.findIndex(item => item.id === player.id) === index);
              tbody.innerHTML = orderedSquad.map((p, i) => {
                 const s = statusIcons[p.status] || statusIcons.a;
-                const gwXPts = (p.weekly?.[0]?.xPts || 0).toFixed(1);
+                const gwXPts = sumPlayerXPts(p, gwView).toFixed(1);
                  const role = isCap(p) ? '<span style="color:#FFD700;font-weight:700;">Captain</span>' : isVice(p) ? '<span style="color:#C0C0C0;font-weight:600;">Vice-Captain</span>' : benchIds.has(p.id) ? '<span style="color:#8ba396;">Bench</span>' : starterIds.has(p.id) ? '<span style="color:#00FF85;">Starter</span>' : '<span style="color:#ff4d4d;">Invalid</span>';
                 const clubName = p.teamFull || p.team;
                 const news = p.news ? `<span style="color:#FFA726;font-size:10px;margin-left:4px;" title="${this.escapeHTML(p.news)}">\u26A0</span>` : '';
@@ -693,6 +712,10 @@ const FPL = {
                 </tr>`;
             }).join('');
         }
+
+        // --- Update table header to reflect GW view ---
+        const squadHeaderTh = document.querySelector('#aiteam-squad-tbody')?.closest('table')?.querySelector('th:nth-child(6)');
+        if (squadHeaderTh) squadHeaderTh.textContent = gwView === 1 ? 'xPts (Next GW)' : `xPts (${gwView} GWs)`;
 
         // --- Position Legend ---
         const legend = document.getElementById('aiteam-position-legend');
