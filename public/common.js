@@ -37,7 +37,8 @@ const FPL = {
             sort: 'xpts',
             importMatches: [],
             importView: 'pitch',
-            importGW: null
+            importGW: null,
+            lastAdvice: null
         }
     },
 
@@ -917,12 +918,62 @@ const FPL = {
     paintTeamBuilderAdvice(data) {
         const results = document.getElementById('tb-advisor-results');
         if (!results) return;
+        this.state.teamBuilder.lastAdvice = data;
         const lineup = data.lineup;
         const decisions = data.critiques.map(item => `<article class="tb-critique-row ${item.priority}"><div class="tb-critique-verdict"><span>${item.verdict}</span><strong>${this.escapeHTML(item.player.name)}</strong><small>${item.player.position} · ${item.player.team} · £${item.player.cost.toFixed(1)}m</small></div><div class="tb-critique-evidence">${item.reasons.map(reason => `<span>${this.escapeHTML(reason)}</span>`).join('')}</div>${item.replacement ? `<div class="tb-replacement"><span class="material-symbols-outlined">swap_horiz</span><div><small>Model alternative</small><b>${this.escapeHTML(item.replacement.name)}</b><span>£${item.replacement.cost.toFixed(1)}m · +${item.replacement.netGain.toFixed(1)} net xPts</span></div></div>` : '<div class="tb-replacement is-hold"><span class="material-symbols-outlined">verified</span><span>No clear upgrade</span></div>'}</article>`).join('');
-        const transferPlans = data.transfers.plans.slice(0, 4).map(plan => `<article class="tb-advice-plan"><div>${plan.transfers.map(move => `<span><del>${this.escapeHTML(move.out.name)}</del><i class="material-symbols-outlined">arrow_forward</i><b>${this.escapeHTML(move.in.name)}</b></span>`).join('')}</div><strong>+${plan.netGain.toFixed(1)} net xPts</strong><small>${plan.hitCost ? `Includes -${plan.hitCost} hit · ` : ''}£${plan.bankAfter.toFixed(1)}m bank · ${plan.risk} risk</small><p>${this.escapeHTML(plan.rationale)}</p></article>`).join('');
+        const transferPlans = data.transfers.plans.slice(0, 4).map((plan, planIndex) => `<article class="tb-advice-plan" onclick="FPL.applyTransferPlan(${planIndex})" role="button" tabindex="0" title="Click to apply this plan"><div>${plan.transfers.map(move => `<span><del>${this.escapeHTML(move.out.name)}</del><i class="material-symbols-outlined">arrow_forward</i><b>${this.escapeHTML(move.in.name)}</b></span>`).join('')}</div><strong>+${plan.netGain.toFixed(1)} net xPts</strong><small>${plan.hitCost ? `Includes -${plan.hitCost} hit · ` : ''}£${plan.bankAfter.toFixed(1)}m bank · ${plan.risk} risk</small><p>${this.escapeHTML(plan.rationale)}</p><span class="tb-apply-hint"><span class="material-symbols-outlined">touch_app</span> Click to apply</span></article>`).join('');
         const chips = data.chips.recommendations.map(chip => `<article class="tb-chip-advice ${chip.recommendation.toLowerCase()}"><span>${chip.recommendation}</span><div><b>${chip.chip}</b><small>Best window GW${chip.gameweek}</small></div><strong>${chip.expectedGain.toFixed(1)}</strong><p>${this.escapeHTML(chip.reason)} ${chip.confidence === 'Wait' ? 'The evidence does not justify using it yet.' : `${chip.confidence} confidence.`}</p></article>`).join('');
         const lineupHtml = lineup ? `<div class="tb-advisor-lineup"><div><span>Captain</span><b>${this.escapeHTML(lineup.captain?.name || '--')}</b><small>${lineup.captain?.weekly[0]?.xPts.toFixed(1) || '0.0'} xPts</small></div><div><span>Vice</span><b>${this.escapeHTML(lineup.viceCaptain?.name || '--')}</b><small>${lineup.viceCaptain?.weekly[0]?.xPts.toFixed(1) || '0.0'} xPts</small></div><div><span>Projected XI</span><b>${lineup.expectedPoints.toFixed(1)}</b><small>including captain</small></div><div><span>Bench</span><b>${lineup.bench.map(player => this.escapeHTML(player.name)).join(', ')}</b><small>ordered by model score</small></div></div>` : '';
         results.innerHTML = `<div class="tb-advisor-summary ${data.summary.legal ? 'is-legal' : 'is-incomplete'}"><div><span>${data.summary.legal ? 'Legal squad' : 'Incomplete squad'}</span><h3>${this.escapeHTML(data.summary.headline)}</h3><p>${data.summary.horizonXpts.toFixed(1)} squad xPts across GW${data.meta.gameweeks[0]}-${data.meta.gameweeks.at(-1)} · £${data.summary.squadCost.toFixed(1)}m value · £${data.summary.bank.toFixed(1)}m bank</p></div><strong>${data.summary.urgentPlayers}<small>priority players</small></strong></div>${lineupHtml}<div class="tb-advice-section"><h3>Player verdicts</h3><div class="tb-critique-list">${decisions}</div></div><div class="tb-advice-grid"><section><h3>Transfer plan</h3>${transferPlans || '<div class="tb-advice-empty">Roll the transfer. No modeled move clears the threshold.</div>'}</section><section><h3>Chip discipline</h3><div class="tb-chip-list">${chips || '<div class="tb-advice-empty">Complete the squad to assess chips.</div>'}</div></section></div><footer class="tb-advisor-notes">${data.meta.warnings.map(warning => `<span><i class="material-symbols-outlined">info</i>${this.escapeHTML(warning)}</span>`).join('')}</footer>`;
+    },
+
+    applyTransferPlan(planIndex) {
+        const data = this.state.teamBuilder.lastAdvice;
+        if (!data) return;
+        const plan = data.transfers?.plans?.[planIndex];
+        if (!plan || !plan.transfers?.length) return;
+        const builder = this.state.teamBuilder;
+        const currentIds = new Set(builder.selectedIds);
+        const outIds = plan.transfers.map(m => m.out.id);
+        const inIds = plan.transfers.map(m => m.in.id);
+        if (!outIds.every(id => currentIds.has(id))) {
+            const msg = document.getElementById('tb-market-message');
+            if (msg) msg.textContent = 'Some players in this plan are no longer in your squad.';
+            return;
+        }
+        if (inIds.some(id => currentIds.has(id))) {
+            const msg = document.getElementById('tb-market-message');
+            if (msg) msg.textContent = 'Some incoming players are already in your squad.';
+            return;
+        }
+        const moves = plan.transfers.map(m => `${m.out.name} → ${m.in.name}`).join(', ');
+        if (!window.confirm(`Apply transfer plan?\n\n${moves}\n\n+${plan.netGain.toFixed(1)} net xPts`)) return;
+        let newIds = builder.selectedIds.filter(id => !outIds.includes(id));
+        const tempSelected = new Set(newIds);
+        const tempCounts = { GKP: 0, DEF: 0, MID: 0, FWD: 0 };
+        const tempClubs = {};
+        newIds.forEach(id => {
+            const p = builder.players.find(pl => pl.id === id);
+            if (p) {
+                tempCounts[p.position] = (tempCounts[p.position] || 0) + 1;
+                tempClubs[p.team] = (tempClubs[p.team] || 0) + 1;
+            }
+        });
+        plan.transfers.forEach(m => {
+            const player = builder.players.find(p => p.id === m.in.id);
+            if (!player || tempSelected.has(m.in.id)) return;
+            if ((tempCounts[player.position] || 0) >= { GKP: 2, DEF: 5, MID: 5, FWD: 3 }[player.position]) return;
+            if ((tempClubs[player.team] || 0) >= 3) return;
+            newIds.push(m.in.id);
+            tempSelected.add(m.in.id);
+            tempCounts[player.position] = (tempCounts[player.position] || 0) + 1;
+            tempClubs[player.team] = (tempClubs[player.team] || 0) + 1;
+        });
+        builder.selectedIds = newIds.slice(0, 15);
+        this.saveTeamBuilderDraft();
+        this.paintTeamBuilder();
+        const msg = document.getElementById('tb-market-message');
+        if (msg) msg.textContent = `Applied plan: ${moves}. +${plan.netGain.toFixed(1)} net xPts projected.`;
     },
 
     optimalTeamBuilderLineup(squad, gameweek) {

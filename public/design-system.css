@@ -3255,6 +3255,11 @@ select option {
 .tb-advice-plan > strong { display: block; margin-top: 7px; color: #fff; font: 800 14px var(--font-mono); }
 .tb-advice-plan small, .tb-advice-plan p { color: #7e9b89; font-size: 9px; }
 .tb-advice-plan p { margin: 6px 0 0; line-height: 1.45; }
+.tb-advice-plan { cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.tb-advice-plan:hover { border-color: #315443; background: #1a2e28; }
+.tb-apply-hint { display: flex; align-items: center; gap: 4px; margin-top: 8px; color: #557261; font: 600 9px var(--font-mono); text-transform: uppercase; opacity: 0; transition: opacity 0.15s; }
+.tb-advice-plan:hover .tb-apply-hint { opacity: 1; color: #00ff85; }
+.tb-apply-hint .material-symbols-outlined { font-size: 12px; }
 .tb-chip-advice { display: grid; grid-template-columns: 48px minmax(100px,1fr) 40px; gap: 8px; align-items: center; }
 .tb-chip-advice > span { color: #ffbc69; font: 700 8px var(--font-mono); text-transform: uppercase; }
 .tb-chip-advice.hold > span { color: #8ba396; }
