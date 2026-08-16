@@ -788,8 +788,10 @@ const FPL = {
         const view = this.state.teamBuilder.importView || 'pitch';
         const isPitch = view === 'pitch';
 
-        // Always render both views' data, then show/hide
-        preview.innerHTML = matches.map((match, index) => `<label class="tb-import-match"><span><small>Detected text</small><b>${this.escapeHTML(match.line)}</b></span><select onchange="FPL.updateTeamScreenshotMatch(${index}, this.value)" aria-label="Player matched to ${this.escapeHTML(match.line)}">${match.alternatives.map(option => `<option value="${option.id}"${option.id === match.playerId ? ' selected' : ''}>${this.escapeHTML(option.name)} · ${option.position} · ${option.team}</option>`).join('')}</select><i class="${match.confidence}">${match.confidence} ${match.score}%</i></label>`).join('') || '<div class="tb-import-working"><span class="material-symbols-outlined">image_search</span><b>No names found</b><small>Use the full Pick Team screen at a readable resolution, then try again.</small></div>';
+        const listBtn = `<button type="button" class="tb-import-view-switch" onclick="FPL.setImportView('list')"><span class="material-symbols-outlined">list</span> List view</button>`;
+        const pitchBtn = `<button type="button" class="tb-import-view-switch" onclick="FPL.setImportView('pitch')"><span class="material-symbols-outlined">sports_soccer</span> Pitch view</button>`;
+
+        preview.innerHTML = (isPitch ? '' : listBtn) + matches.map((match, index) => `<label class="tb-import-match"><span><small>Detected text</small><b>${this.escapeHTML(match.line)}</b></span><select onchange="FPL.updateTeamScreenshotMatch(${index}, this.value)" aria-label="Player matched to ${this.escapeHTML(match.line)}">${match.alternatives.map(option => `<option value="${option.id}"${option.id === match.playerId ? ' selected' : ''}>${this.escapeHTML(option.name)} · ${option.position} · ${option.team}</option>`).join('')}</select><i class="${match.confidence}">${match.confidence} ${match.score}%</i></label>`).join('') || '<div class="tb-import-working"><span class="material-symbols-outlined">image_search</span><b>No names found</b><small>Use the full Pick Team screen at a readable resolution, then try again.</small></div>';
 
         if (pitch) {
             if (isPitch) {
@@ -889,6 +891,9 @@ const FPL = {
 
         // Legend
         html += `<div class="tb-import-legend"><span><i style="background:#00ff85;"></i>High</span><span><i style="background:#FFA726;"></i>Medium</span><span><i style="background:#ff8e8e;"></i>Low</span><span>Click player to correct</span></div>`;
+
+        // Switch to list button
+        html += `<div style="text-align:center;padding-top:8px;"><button type="button" class="tb-import-view-switch" onclick="FPL.setImportView('list')"><span class="material-symbols-outlined">list</span> Edit as list</button></div>`;
 
         pitch.innerHTML = html;
     },

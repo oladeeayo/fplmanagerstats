@@ -3260,6 +3260,9 @@ select option {
 .tb-apply-hint { display: flex; align-items: center; gap: 4px; margin-top: 8px; color: #557261; font: 600 9px var(--font-mono); text-transform: uppercase; opacity: 0; transition: opacity 0.15s; }
 .tb-advice-plan:hover .tb-apply-hint { opacity: 1; color: #00ff85; }
 .tb-apply-hint .material-symbols-outlined { font-size: 12px; }
+.tb-import-view-switch { display: inline-flex; align-items: center; gap: 5px; padding: 7px 14px; border: 1px solid #315443; border-radius: 6px; background: #141916; color: #8ba396; font: 600 11px var(--font-mono); cursor: pointer; transition: all 0.15s; }
+.tb-import-view-switch .material-symbols-outlined { font-size: 16px; }
+.tb-import-view-switch:hover { border-color: #00ff85; color: #00ff85; background: rgba(0,255,133,0.06); }
 .tb-chip-advice { display: grid; grid-template-columns: 48px minmax(100px,1fr) 40px; gap: 8px; align-items: center; }
 .tb-chip-advice > span { color: #ffbc69; font: 700 8px var(--font-mono); text-transform: uppercase; }
 .tb-chip-advice.hold > span { color: #8ba396; }
