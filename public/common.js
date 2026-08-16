@@ -688,12 +688,37 @@ const FPL = {
         confirm.disabled = true;
         try {
             if (!window.createFplOcrWorker) throw new Error('The OCR engine is not ready. Reload the page and try again.');
-            const worker = await window.createFplOcrWorker('eng', 1, { logger: event => {
-                if (event.status === 'recognizing text') status.textContent = `Reading screenshot · ${Math.round((event.progress || 0) * 100)}%`;
-            }});
-            const result = await worker.recognize(file);
+            const preprocessed = await this.preprocessScreenshot(file);
+            status.textContent = 'Initializing OCR engine...';
+            const worker = await window.createFplOcrWorker('eng', 1, {
+                logger: event => {
+                    if (event.status === 'recognizing text') status.textContent = `Reading screenshot · ${Math.round((event.progress || 0) * 100)}%`;
+                }
+            });
+            await worker.setParameters({
+                tessedit_pageseg_mode: '7',
+                tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .\'-',
+                preserve_interword_spaces: '1',
+            });
+            const result = await worker.recognize(preprocessed);
             await worker.terminate();
-            this.state.teamBuilder.importMatches = window.FPLSquadImport.matchPlayers(result.data.text, this.state.teamBuilder.players);
+            const rawText = result.data.text || '';
+            let allMatches = window.FPLSquadImport.matchPlayers(rawText, this.state.teamBuilder.players);
+            if (allMatches.length < 8) {
+                const preprocessed2 = await this.preprocessScreenshot(file, 'aggressive');
+                const worker2 = await window.createFplOcrWorker('eng', 1, { logger: () => {} });
+                await worker2.setParameters({
+                    tessedit_pageseg_mode: '6',
+                    tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .\'-',
+                    preserve_interword_spaces: '1',
+                });
+                const result2 = await worker2.recognize(preprocessed2);
+                await worker2.terminate();
+                const matches2 = window.FPLSquadImport.matchPlayers(result2.data.text || '', this.state.teamBuilder.players);
+                if (matches2.length > allMatches.length) allMatches = matches2;
+            }
+            this.state.teamBuilder.importMatches = allMatches;
+            this.state.teamBuilder.importView = 'pitch';
             this.paintTeamScreenshotMatches();
         } catch (error) {
             status.textContent = 'Screenshot could not be read';
@@ -702,6 +727,42 @@ const FPL = {
             const input = document.getElementById('tb-screenshot-input');
             if (input) input.value = '';
         }
+    },
+
+    preprocessScreenshot(file, mode = 'normal') {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const scale = Math.max(1, 1200 / Math.max(img.width, img.height));
+                canvas.width = Math.round(img.width * scale);
+                canvas.height = Math.round(img.height * scale);
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+                for (let i = 0; i < data.length; i += 4) {
+                    let gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+                    if (mode === 'aggressive') {
+                        gray = gray < 100 ? 0 : 255;
+                    } else {
+                        const contrast = 1.6;
+                        gray = Math.min(255, Math.max(0, (gray - 128) * contrast + 128));
+                        gray = gray < 140 ? 0 : 255;
+                    }
+                    data[i] = gray;
+                    data[i + 1] = gray;
+                    data[i + 2] = gray;
+                }
+                ctx.putImageData(imageData, 0, 0);
+                canvas.toBlob(blob => {
+                    if (blob) resolve(blob);
+                    else reject(new Error('Image preprocessing failed'));
+                }, 'image/png');
+            };
+            img.onerror = () => reject(new Error('Could not load screenshot image'));
+            img.src = URL.createObjectURL(file);
+        });
     },
 
     paintTeamScreenshotMatches() {
@@ -727,9 +788,19 @@ const FPL = {
         const view = this.state.teamBuilder.importView || 'pitch';
         const isPitch = view === 'pitch';
 
-        // Toggle views
-        preview.classList.toggle('hidden', isPitch);
-        if (pitch) pitch.classList.toggle('hidden', !isPitch);
+        // Always render both views' data, then show/hide
+        preview.innerHTML = matches.map((match, index) => `<label class="tb-import-match"><span><small>Detected text</small><b>${this.escapeHTML(match.line)}</b></span><select onchange="FPL.updateTeamScreenshotMatch(${index}, this.value)" aria-label="Player matched to ${this.escapeHTML(match.line)}">${match.alternatives.map(option => `<option value="${option.id}"${option.id === match.playerId ? ' selected' : ''}>${this.escapeHTML(option.name)} · ${option.position} · ${option.team}</option>`).join('')}</select><i class="${match.confidence}">${match.confidence} ${match.score}%</i></label>`).join('') || '<div class="tb-import-working"><span class="material-symbols-outlined">image_search</span><b>No names found</b><small>Use the full Pick Team screen at a readable resolution, then try again.</small></div>';
+
+        if (pitch) {
+            if (isPitch) {
+                pitch.style.display = '';
+                this.paintImportPitch();
+            } else {
+                pitch.style.display = 'none';
+            }
+        }
+
+        preview.style.display = isPitch ? 'none' : '';
 
         // Update view toggle buttons
         document.querySelectorAll('.tb-import-view-btn').forEach(btn => {
@@ -737,12 +808,6 @@ const FPL = {
             btn.classList.toggle('active', isActive);
             btn.setAttribute('aria-pressed', String(isActive));
         });
-
-        if (isPitch) {
-            this.paintImportPitch();
-        } else {
-            preview.innerHTML = matches.map((match, index) => `<label class="tb-import-match"><span><small>Detected text</small><b>${this.escapeHTML(match.line)}</b></span><select onchange="FPL.updateTeamScreenshotMatch(${index}, this.value)" aria-label="Player matched to ${this.escapeHTML(match.line)}">${match.alternatives.map(option => `<option value="${option.id}"${option.id === match.playerId ? ' selected' : ''}>${this.escapeHTML(option.name)} · ${option.position} · ${option.team}</option>`).join('')}</select><i class="${match.confidence}">${match.confidence} ${match.score}%</i></label>`).join('') || '<div class="tb-import-working"><span class="material-symbols-outlined">image_search</span><b>No names found</b><small>Use the full Pick Team screen at a readable resolution, then try again.</small></div>';
-        }
 
         status.textContent = matches.length ? (isPitch ? 'Review the pitch layout. Click a player to correct.' : 'Check each match before filling the squad.') : 'No player names were matched.';
         const unique = new Set(matches.map(match => match.playerId)).size;

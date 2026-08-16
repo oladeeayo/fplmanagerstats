@@ -11,6 +11,10 @@
         return String(value || '').toUpperCase().replace(/[^A-Z ]/g, ' ').replace(/\s+/g, ' ').trim();
     }
 
+    function stripSpaces(value) {
+        return String(value || '').toUpperCase().replace(/[^A-Z]/g, '');
+    }
+
     function editDistance(first, second) {
         const a = normalize(first);
         const b = normalize(second);
@@ -52,14 +56,17 @@
         /^(FORWARD|MIDFIELDER|DEFENDER|GOALKEEPER)/i,
         /^(\d+\s*(pts?|points?))$/i,
         /^(GW\d+|GAMEWEEK\s*\d+)/i,
-        /^\d{1,2}\.\d{1,2}$/m, // price patterns like "8.1"
+        /^\d{1,2}\.\d{1,2}$/m,
         /^£\d/,
         /^(SUB|AUTOSUB)/i,
         /^(HOME|AWAY)/i,
         /^(NEXT|PREV)/i,
         /^(INFO|DETAILS|STATS)/i,
-        /^[A-Z]{1,2}$/, // very short uppercase (likely noise)
-        /^\d+$/, // pure numbers
+        /^[A-Z]{1,2}$/,
+        /^\d+$/,
+        /^(PICK|SELECT|CHOOSE)/i,
+        /^(AND|THE|FOR|WITH)/i,
+        /^(EDIT|SAVE|LOAD|BACK|NEXT)/i,
     ];
 
     function isFPLScreenshot(text) {
@@ -86,17 +93,12 @@
 
     function isPlayerName(text) {
         const trimmed = String(text).trim();
-        if (trimmed.length < 2 || trimmed.length > 25) return false;
+        if (trimmed.length < 2 || trimmed.length > 30) return false;
         const upper = trimmed.toUpperCase();
-        // Must contain at least one letter
         if (!/[A-Z]/.test(upper)) return false;
-        // Skip noise patterns
         if (FPL_NOISE_PATTERNS.some(pattern => pattern.test(trimmed))) return false;
-        // Skip if it's just a price
         if (/^[£$]?\s*\d{1,2}\.\d{1,2}/.test(trimmed)) return false;
-        // Skip position labels
         if (FPL_POSITIONS.includes(upper)) return false;
-        // Skip captain indicators
         if (/^\(C\)|^\(VC\)|^CAPTAIN|^VICE/i.test(upper)) return false;
         return true;
     }
@@ -109,15 +111,13 @@
             const line = lines[i].trim();
             if (!line) continue;
 
-            const upper = line.toUpperCase();
-
-            // Check if this line contains a player name
             if (isPlayerName(line)) {
                 const price = extractPrice(line);
                 const position = extractPosition(line);
                 candidates.push({
                     text: line,
                     normalized: normalizeUpper(line),
+                    stripped: stripSpaces(line),
                     price,
                     position,
                     lineIndex: i,
@@ -129,19 +129,85 @@
         return candidates;
     }
 
+    function scoreCandidate(candidate, player) {
+        const candidateName = candidate.normalized;
+        const candidateStripped = candidate.stripped;
+        const playerName = normalizeUpper(player.name);
+        const playerStripped = stripSpaces(player.name);
+        const playerFullName = normalizeUpper(player.fullName || '');
+        const playerFullStripped = stripSpaces(player.fullName || '');
+
+        let score = 0;
+
+        // Exact match (with or without spaces)
+        if (candidateName === playerName || candidateStripped === playerStripped) {
+            score = 1.0;
+        } else if (candidateName === playerFullName || candidateStripped === playerFullStripped) {
+            score = 1.0;
+        }
+        // Containment
+        else if (candidateStripped.includes(playerStripped) || playerStripped.includes(candidateStripped)) {
+            score = Math.min(candidateStripped.length, playerStripped.length) / Math.max(candidateStripped.length, playerStripped.length);
+        }
+        else if (candidateName.includes(playerName) || playerName.includes(candidateName)) {
+            score = Math.min(candidateName.length, playerName.length) / Math.max(candidateName.length, playerName.length);
+        }
+        // Fuzzy match on spaceless string (handles OCR splitting names)
+        else {
+            const distance = editDistance(candidateStripped, playerStripped);
+            score = 1 - distance / Math.max(candidateStripped.length, playerStripped.length, 1);
+
+            // Also try full name
+            if (playerFullStripped) {
+                const fullDist = editDistance(candidateStripped, playerFullStripped);
+                const fullScore = 1 - fullDist / Math.max(candidateStripped.length, playerFullStripped.length, 1);
+                score = Math.max(score, fullScore);
+            }
+        }
+
+        // Surname match boost
+        const playerSurname = playerName.split(' ').at(-1);
+        if (playerSurname && playerSurname.length >= 3) {
+            const surnameStripped = stripSpaces(playerSurname);
+            if (candidateStripped.includes(surnameStripped) || candidateName.includes(playerSurname)) {
+                score = Math.max(score, 0.88);
+            }
+        }
+
+        // First name match boost
+        const playerFirstName = playerName.split(' ')[0];
+        if (playerFirstName && playerFirstName.length >= 3) {
+            if (candidateStripped.startsWith(stripSpaces(playerFirstName)) || candidateName.startsWith(playerFirstName)) {
+                score = Math.max(score, 0.82);
+            }
+        }
+
+        // Position hint bonus
+        if (candidate.position && player.position && candidate.position === player.position) {
+            score = Math.min(1, score + 0.06);
+        }
+
+        // Price hint bonus
+        if (candidate.price && player.costValue) {
+            const priceDiff = Math.abs(candidate.price - player.costValue);
+            if (priceDiff < 0.5) score = Math.min(1, score + 0.04);
+            else if (priceDiff < 1.0) score = Math.min(1, score + 0.02);
+        }
+
+        return score;
+    }
+
     function matchPlayersFPL(text, players, limit = 15) {
         const candidates = extractPlayerCandidates(text);
         const used = new Set();
         const matches = [];
 
-        // Score each candidate against all players
         for (const candidate of candidates) {
             let bestMatch = null;
             let bestScore = 0;
 
             for (const player of players) {
                 if (used.has(player.id)) continue;
-
                 const score = scoreCandidate(candidate, player);
                 if (score > bestScore) {
                     bestScore = score;
@@ -149,18 +215,17 @@
                 }
             }
 
-            if (bestMatch && bestScore >= 0.55) {
+            if (bestMatch && bestScore >= 0.50) {
                 used.add(bestMatch.id);
 
-                // Calculate confidence
                 const secondBest = players
                     .filter(p => !used.has(p.id) && p.id !== bestMatch.id)
                     .map(p => ({ player: p, score: scoreCandidate(candidate, p) }))
                     .sort((a, b) => b.score - a.score)[0];
 
-                const confidence = bestScore >= 0.9 && (!secondBest || bestScore - secondBest.score >= 0.1)
+                const confidence = bestScore >= 0.92 && (!secondBest || bestScore - secondBest.score >= 0.12)
                     ? 'high'
-                    : bestScore >= 0.75
+                    : bestScore >= 0.72
                         ? 'medium'
                         : 'low';
 
@@ -189,67 +254,10 @@
         return matches.sort((a, b) => b.score - a.score).slice(0, limit);
     }
 
-    function scoreCandidate(candidate, player) {
-        const candidateName = candidate.normalized;
-        const playerName = normalizeUpper(player.name);
-        const playerFullName = normalizeUpper(player.fullName || '');
-
-        let score = 0;
-
-        // Exact match
-        if (candidateName === playerName || candidateName === playerFullName) {
-            score = 1.0;
-        }
-        // Containment
-        else if (candidateName.includes(playerName) || playerName.includes(candidateName)) {
-            score = Math.min(candidateName.length, playerName.length) / Math.max(candidateName.length, playerName.length);
-        }
-        // Fuzzy match
-        else {
-            const distance = editDistance(candidateName, playerName);
-            score = 1 - distance / Math.max(candidateName.length, playerName.length, 1);
-        }
-
-        // Boost if surname matches (common in FPL)
-        const playerSurname = playerName.split(' ').at(-1);
-        if (playerSurname && playerSurname.length >= 3 && candidateName.includes(playerSurname)) {
-            score = Math.max(score, 0.85);
-        }
-
-        // Also check full name
-        if (playerFullName) {
-            const fullDistance = editDistance(candidateName, playerFullName);
-            const fullScore = 1 - fullDistance / Math.max(candidateName.length, playerFullName.length, 1);
-            score = Math.max(score, fullScore);
-        }
-
-        // Position hint bonus
-        if (candidate.position && player.position) {
-            if (candidate.position === player.position) {
-                score = Math.min(1, score + 0.05);
-            }
-        }
-
-        // Price hint bonus (price should be close)
-        if (candidate.price && player.costValue) {
-            const priceDiff = Math.abs(candidate.price - player.costValue);
-            if (priceDiff < 0.5) {
-                score = Math.min(1, score + 0.03);
-            } else if (priceDiff < 1.0) {
-                score = Math.min(1, score + 0.01);
-            }
-        }
-
-        return score;
-    }
-
     function matchPlayers(text, players, limit = 15) {
-        // Detect if this is an FPL screenshot
         if (isFPLScreenshot(text)) {
             return matchPlayersFPL(text, players, limit);
         }
-
-        // Fallback to generic matching for non-FPL screenshots
         return matchPlayersGeneric(text, players, limit);
     }
 
@@ -272,6 +280,7 @@
     return {
         normalize,
         normalizeUpper,
+        stripSpaces,
         scoreLine,
         matchPlayers,
         matchPlayersFPL,

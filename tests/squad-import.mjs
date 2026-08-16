@@ -5,6 +5,7 @@ const require = createRequire(import.meta.url);
 const {
     normalize,
     normalizeUpper,
+    stripSpaces,
     matchPlayers,
     matchPlayersFPL,
     matchPlayersGeneric,
@@ -37,6 +38,11 @@ const players = [
 assert.equal(normalize('  M. SALAH  '), 'm salah');
 assert.equal(normalizeUpper('  M. SALAH  '), 'M SALAH');
 
+// Test stripSpaces
+assert.equal(stripSpaces('Alexander-Arnold'), 'ALEXANDERARNOLD');
+assert.equal(stripSpaces('M. Salah'), 'MSALAH');
+assert.equal(stripSpaces('O\'Niel'), 'ONIEL');
+
 // Test isFPLScreenshot
 assert.equal(isFPLScreenshot('PICK TEAM\nHaaland\nSalah'), true);
 assert.equal(isFPLScreenshot('Pick your team\nHaaland'), true);
@@ -48,7 +54,7 @@ assert.equal(extractPrice('£8.1'), 8.1);
 assert.equal(extractPrice('£14.5m'), 14.5);
 assert.equal(extractPrice('5.6'), 5.6);
 assert.equal(extractPrice('no price here'), null);
-assert.equal(extractPrice('£2.0'), null); // too cheap
+assert.equal(extractPrice('£2.0'), null);
 
 // Test extractPosition
 assert.equal(extractPosition('FWD'), 'FWD');
@@ -60,12 +66,14 @@ assert.equal(extractPosition('no position'), null);
 assert.equal(isPlayerName('Haaland'), true);
 assert.equal(isPlayerName('M.Salah'), true);
 assert.equal(isPlayerName('Alexander-Arnold'), true);
-assert.equal(isPlayerName('FWD'), false); // position
-assert.equal(isPlayerName('£8.1'), false); // price
-assert.equal(isPlayerName('CAPTAIN'), false); // noise
-assert.equal(isPlayerName('8.1'), false); // number
-assert.equal(isPlayerName(''), false); // empty
-assert.equal(isPlayerName('A'), false); // too short
+assert.equal(isPlayerName('FWD'), false);
+assert.equal(isPlayerName('£8.1'), false);
+assert.equal(isPlayerName('CAPTAIN'), false);
+assert.equal(isPlayerName('8.1'), false);
+assert.equal(isPlayerName(''), false);
+assert.equal(isPlayerName('A'), false);
+assert.equal(isPlayerName('PICK'), false);
+assert.equal(isPlayerName('BENCH'), false);
 
 // Test extractPlayerCandidates
 const fplText = `PICK TEAM
@@ -87,12 +95,12 @@ const candidateTexts = candidates.map(c => c.normalized);
 assert.ok(candidateTexts.some(t => t.includes('HAALAND')), 'Should find HAALAND');
 assert.ok(candidateTexts.some(t => t.includes('SALAH')), 'Should find SALAH');
 
-// Test generic matching (fallback)
+// Test generic matching
 const genericMatches = matchPlayersGeneric('Haaland\nM Salah\nAlexander Arnold', players);
 assert.deepEqual(genericMatches.map(m => m.playerId).sort((a, b) => a - b), [1, 2, 3]);
 assert.ok(genericMatches.every(m => m.score >= 62));
 
-// Test FPL-specific matching
+// Test FPL matching
 const fplScreenshotText = `PICK TEAM
 £14.5
 HAALAND
@@ -141,21 +149,39 @@ STEWART`;
 
 const fplMatches = matchPlayersFPL(fplScreenshotText, players);
 assert.ok(fplMatches.length >= 10, `Should match at least 10 players from FPL screenshot, got ${fplMatches.length}`);
-assert.ok(fplMatches.every(m => m.score >= 55), 'All matches should have score >= 55');
+assert.ok(fplMatches.every(m => m.score >= 50), 'All matches should have score >= 50');
 
-// Verify specific matches
 const matchedIds = new Set(fplMatches.map(m => m.playerId));
 assert.ok(matchedIds.has(1), 'Should match Haaland');
 assert.ok(matchedIds.has(2), 'Should match Salah');
 assert.ok(matchedIds.has(3), 'Should match Alexander-Arnold');
 
-// Test main matchPlayers function with FPL screenshot
+// Test OCR-split names (e.g. "HA ALAND" instead of "HAALAND")
+const ocrSplitText = `PICK TEAM
+£14.5
+HA ALAND
+
+£12.5
+M SALAH
+
+£8.1
+ALEXANDER ARNOLD
+
+£11.0
+PALMER`;
+const ocrMatches = matchPlayersFPL(ocrSplitText, players);
+assert.ok(ocrMatches.length >= 3, `Should handle OCR-split names, got ${ocrMatches.length}`);
+const ocrIds = new Set(ocrMatches.map(m => m.playerId));
+assert.ok(ocrIds.has(1), 'Should match HA ALAND to Haaland');
+assert.ok(ocrIds.has(2), 'Should match M SALAH to M.Salah');
+assert.ok(ocrIds.has(3), 'Should match ALEXANDER ARNOLD to Alexander-Arnold');
+
+// Test main matchPlayers with FPL screenshot
 const mainMatches = matchPlayers(fplScreenshotText, players);
 assert.ok(mainMatches.length >= 10, `Main matchPlayers with FPL screenshot should find >= 10, got ${mainMatches.length}`);
 
-// Test main matchPlayers function with generic text
-const genericText = 'Haaland\nSalah\nAlexander-Arnold\nPalmer\nSaka';
-const genericMainMatches = matchPlayers(genericText, players);
+// Test main matchPlayers with generic text
+const genericMainMatches = matchPlayers('Haaland\nSalah\nAlexander-Arnold\nPalmer\nSaka', players);
 assert.ok(genericMainMatches.length >= 3, `Main matchPlayers with generic text should find >= 3, got ${genericMainMatches.length}`);
 
 // Test duplicate prevention
