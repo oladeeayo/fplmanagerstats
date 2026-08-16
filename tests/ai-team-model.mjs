@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { VALID_FORMATIONS, selectOptimalLineup, hasEconomicalReserveGoalkeeper } = require('../src/aiTeamModel.js');
+const { VALID_FORMATIONS, selectOptimalLineup, hasEconomicalReserveGoalkeeper, nextGameweekScore, horizonScore } = require('../src/aiTeamModel.js');
 
 const makePlayers = (position, scores) => scores.map((score, index) => ({
   id: `${position}-${index}`,
@@ -37,6 +37,12 @@ const expectedBest = VALID_FORMATIONS.map(shape => ({
 assert.equal(result.formation, expectedBest.formation);
 assert.ok(result.starters.some(player => player.id === 'MID-0'), 'Highest projected midfielder should start');
 assert.ok(!result.starters.some(player => player.id === 'DEF-4'), 'Lower projected defender should not displace a legal higher projected midfielder');
+assert.equal(result.bench.at(-1).position, 'GKP', 'Reserve goalkeeper should be displayed after the outfield substitutes');
+
+const nextWeekSpecialist = { weekly: [{ xPts: 8 }, { xPts: 0 }, { xPts: 0 }] };
+const futureSpecialist = { weekly: [{ xPts: 7 }, { xPts: 20 }, { xPts: 20 }] };
+assert.ok(nextGameweekScore(nextWeekSpecialist) > nextGameweekScore(futureSpecialist), 'The displayed XI must prioritize the actual next gameweek');
+assert.ok(horizonScore(futureSpecialist) > horizonScore(nextWeekSpecialist), 'Squad planning should still value the wider horizon');
 
 const horizonResult = selectOptimalLineup(squad, player => player.position === 'MID' ? player.score * 2 : player.score);
 assert.notEqual(horizonResult.formation, '5-3-2', 'Formation must remain an optimizer output');

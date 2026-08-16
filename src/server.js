@@ -4,7 +4,7 @@ const axios = require('axios');
 const { neon } = require('@neondatabase/serverless');
 const { buildDecisionCentre } = require('./decisionModel');
 const { buildPlayerProjections, buildCaptaincyModel } = require('./captaincyModel');
-const { selectOptimalLineup, hasEconomicalReserveGoalkeeper } = require('./aiTeamModel');
+const { selectOptimalLineup, hasEconomicalReserveGoalkeeper, nextGameweekScore, horizonScore } = require('./aiTeamModel');
 
 // Upstash Redis (optional — falls back to in-memory Map if not configured)
 let redis = null;
@@ -473,7 +473,7 @@ app.post('/api/v1/decision-centre', async (req, res) => {
 });
 
 // ---- AI Team: Autonomous Season Manager ----
-const AI_TEAM_MODEL_VERSION = 'AI Team Engine 5.0';
+const AI_TEAM_MODEL_VERSION = 'AI Team Engine 6.0';
 const AI_TEAM_POSITION_LIMITS = { GKP: 2, DEF: 5, MID: 5, FWD: 3 };
 
 function isValidAITeamPayload(payload) {
@@ -493,7 +493,7 @@ function isValidAITeamPayload(payload) {
     && Object.values(clubs).every(count => count <= 3)
     && costTenths <= 1000
     && payload?.lineup?.quality?.reserveGoalkeeperEconomical === true
-    && payload?.lineup?.quality?.optimizerVersion === 5
+    && payload?.lineup?.quality?.optimizerVersion === 6
     && starters.every(player => ids.includes(Number(player.id)))
     && bench.every(player => ids.includes(Number(player.id)));
 }
@@ -684,64 +684,21 @@ app.post('/api/ai-team', async (req, res) => {
       };
     });
 
-    const availablePlayers = enrichedPlayers.filter(p => p.availability > 10);
+    const minimumAvailability = strategy === 'chase' ? 25 : 50;
+    const availablePlayers = enrichedPlayers.filter(player => player.availability >= minimumAvailability && (player.weekly?.[0]?.xMins || 0) >= 20);
 
     // ---- SMART SQUAD BUILDER ----
     const POSITION_LIMITS = AI_TEAM_POSITION_LIMITS;
     const MAX_PER_TEAM = 3;
 
     function adjustedScore(player, strat) {
-      const base = player.totalXpts || 0;
-      const xPtsPerM = player.xPtsPerMillion || 0;
-      const avail = (player.availability || 0) / 100;
-      const mins = player.minutesReliability || 0.5;
-      const form = player.formBoost || 0;
-      const isDef = player.position === 'GKP' || player.position === 'DEF';
-      const isMid = player.position === 'MID';
-      const isFwd = player.position === 'FWD';
-
-      // Clean sheet probability based on FDR of upcoming fixtures
-      const nextFixtures = (player.upcomingFixtures || []).slice(0, 3);
-      const avgFdr = nextFixtures.length > 0 ? nextFixtures.reduce((s, f) => s + (f.fdr || 3), 0) / nextFixtures.length : 3;
-      const csProb = isDef ? Math.max(0, (4 - avgFdr) / 3) : 0.05;
-      const csValue = csProb * (isDef ? 4.5 : 1.0);
-
-      // Bonus point potential (attackers & creative midfielders get more)
-      const bonusPer90 = player.bonusPer90 || 0;
-      const bonusValue = isDef ? bonusPer90 * 1.2 : bonusPer90 * 2.0;
-
-      // Set piece value
-      const setPieceValue = (player.setPieceBonus || 0) * (isDef ? 1.5 : 1.0);
-
-      // xGI contribution for attacking players
-      const xGI = player.xGI90 || 0;
-      const xGIValue = isFwd ? xGI * 2.5 : isMid ? xGI * 1.8 : xGI * 0.4;
-
-      // ICT index (overall threat)
-      const ictValue = Math.min((player.ictIndex || 0) / 250, 0.8);
-
-      // Fixture run bonus
-      const runLen = player.consecutiveGoodFixtures || 0;
-      const fixtureRunBonus = runLen >= 4 ? (runLen - 3) * 1.0 : 0;
-
-      // Easy fixture boost (single GW FDR <= 2)
-      const nextFdr = nextFixtures[0]?.fdr || 3;
-      const easyFixtureBoost = nextFdr <= 2 ? (isDef ? 1.5 : 0.8) : 0;
-
-      // Rotation penalty
-      const rotPenalty = (player.rotationRisk || 1) < 1 ? -2.0 : 0;
-
-      // Captain upside
-      const captainScore = bonusValue + setPieceValue + xGIValue + ictValue;
-
-      if (strat === 'protect') {
-        return base * 0.7 + Math.min(player.ownership || 0, 50) * 0.06 + avail * 2.5 + mins * 3 + csValue + bonusValue + fixtureRunBonus + easyFixtureBoost + rotPenalty;
-      }
-      if (strat === 'chase') {
-        return base * 0.65 + (100 - Math.min(player.ownership || 0, 80)) * 0.03 + (player.range?.high || base) * 0.2 + form + captainScore * 1.2 + fixtureRunBonus + easyFixtureBoost + rotPenalty;
-      }
-      // Balanced
-      return base * 0.55 + xPtsPerM * 0.15 + avail * 1.5 + mins * 2.0 + form + csValue * 0.8 + bonusValue * 0.7 + xGIValue * 0.5 + setPieceValue * 0.4 + captainScore * 0.3 + fixtureRunBonus + easyFixtureBoost + rotPenalty;
+      const horizon = horizonScore(player);
+      const next = nextGameweekScore(player);
+      const value = horizon / Math.max(Number(player.cost || player.enhancedCost) || 0.1, 0.1);
+      const ownership = Math.min(Number(player.ownership) || 0, 80);
+      if (strat === 'protect') return horizon + next * 0.2 + ownership * 0.008;
+      if (strat === 'chase') return horizon + next * 0.2 + (80 - ownership) * 0.008;
+      return horizon + next * 0.2 + value * 0.04;
     }
 
     function isLegalSquad(players) {
@@ -756,8 +713,7 @@ app.post('/api/ai-team', async (req, res) => {
     const costTenths = player => Math.round(Number(player.cost || player.enhancedCost || 0) * 10);
     const goalkeeperCosts = availablePlayers.filter(player => player.position === 'GKP').map(costTenths).sort((a, b) => a - b);
     const reserveGoalkeeperCeilingTenths = (goalkeeperCosts[0] || 40) + 5;
-    const lineupWeights = [0.75, 0.18, 0.07];
-    const lineupScore = player => lineupWeights.reduce((score, weight, index) => score + (player.weekly?.[index]?.xPts || 0) * weight, 0);
+    const lineupScore = nextGameweekScore;
     const easyDefensiveTriple = (players, teamId) => {
       const defensivePlayers = players.filter(player => player.teamId === teamId && ['GKP', 'DEF'].includes(player.position));
       if (defensivePlayers.length <= 2) return true;
@@ -768,13 +724,14 @@ app.post('/api/ai-team', async (req, res) => {
     };
     const respectsDefensiveStack = players => [...new Set(players.map(player => player.teamId))].every(teamId => easyDefensiveTriple(players, teamId));
     const squadObjective = players => {
-      const selection = selectOptimalLineup(players, lineupScore);
-      const starterIds = new Set(selection.starters.map(player => player.id));
-      const xi = selection.starters.reduce((sum, player) => sum + lineupScore(player), 0);
-      const benchValue = players.filter(player => !starterIds.has(player.id)).reduce((sum, player) => sum + lineupScore(player), 0) * 0.08;
-      const horizonValue = players.reduce((sum, player) => sum + (player.totalXpts || 0), 0) * 0.035;
-      const riskPenalty = players.reduce((sum, player) => sum + Math.max(0, 70 - (player.availability || 0)) * 0.025, 0);
-      return xi + benchValue + horizonValue - riskPenalty;
+      const weeklyXI = projectionData.gameweeks.reduce((total, gameweek, index) => {
+        const scoreWeek = player => Number(player.weekly?.[index]?.xPts) || 0;
+        const selection = selectOptimalLineup(players, scoreWeek);
+        return total + selection.starters.reduce((sum, player) => sum + scoreWeek(player), 0) * (0.9 ** index);
+      }, 0);
+      const benchDepth = players.reduce((sum, player) => sum + horizonScore(player), 0) * 0.025;
+      const riskPenalty = players.reduce((sum, player) => sum + Math.max(0, 75 - (player.availability || 0)) * 0.02, 0);
+      return weeklyXI + benchDepth - riskPenalty;
     };
 
     // Bounded beam search keeps alternative budget structures alive, then scores complete squads by their best XI.
@@ -810,11 +767,11 @@ app.post('/api/ai-team', async (req, res) => {
       }
       const signatures = new Set();
       beam = next.sort((a, b) => b.score - a.score || b.spent - a.spent).filter(state => {
-        const signature = `${state.spent}:${Object.entries(state.teamCounts).sort().map(([team, count]) => `${team}-${count}`).join(',')}`;
+        const signature = state.players.map(player => player.id).sort((a, b) => a - b).join(',');
         if (signatures.has(signature)) return false;
         signatures.add(signature);
         return true;
-      }).slice(0, 650);
+      }).slice(0, 1000);
     }
     const finalists = beam.filter(state => isLegalSquad(state.players) && respectsDefensiveStack(state.players)).map(state => ({ ...state, objective: squadObjective(state.players) })).sort((a, b) => b.objective - a.objective || b.spent - a.spent);
     if (!finalists.length) throw new Error('The optimizer could not produce a legal 15-player squad within £100m');
@@ -828,17 +785,9 @@ app.post('/api/ai-team', async (req, res) => {
     const { starters, bench } = lineupSelection;
 
     // Captain: highest ceiling + reliable minutes + fixture quality
-    const captainPool = starters.filter(p => p.position !== 'GKP').sort((a, b) => {
-      const aNext = a.weekly?.[0]?.xPts || 0;
-      const bNext = b.weekly?.[0]?.xPts || 0;
-      const aHigh = a.range?.high || aNext;
-      const bHigh = b.range?.high || bNext;
-      const aFixture = a.upcomingFixtures?.[0]?.fdr || 3;
-      const bFixture = b.upcomingFixtures?.[0]?.fdr || 3;
-      const aScore = aNext * 0.5 + aHigh * 0.2 + (a.bonusPer90 || 0) * 1.5 + (a.setPieceBonus || 0) * 0.8 + (a.ictIndex || 0) / 200 + (5 - aFixture) * 0.5 + (a.minutesReliability || 0.5) * 1.5;
-      const bScore = bNext * 0.5 + bHigh * 0.2 + (b.bonusPer90 || 0) * 1.5 + (b.setPieceBonus || 0) * 0.8 + (b.ictIndex || 0) / 200 + (5 - bFixture) * 0.5 + (b.minutesReliability || 0.5) * 1.5;
-      return bScore - aScore;
-    });
+    const captainPool = starters.filter(p => p.position !== 'GKP').sort((a, b) => nextGameweekScore(b) - nextGameweekScore(a)
+      || (b.weekly?.[0]?.xMins || 0) - (a.weekly?.[0]?.xMins || 0)
+      || String(a.name).localeCompare(String(b.name)));
     const captain = captainPool[0] || starters[0];
     const viceCaptain = captainPool[1] || starters[1];
 
@@ -847,9 +796,12 @@ app.post('/api/ai-team', async (req, res) => {
     const expectedPoints = starters.reduce((s, p) => s + (p.weekly?.[0]?.xPts || 0), 0) + captainXPts;
     const formation = lineupSelection.formation;
     const teamCost = selected.reduce((s, p) => s + (p.cost || p.enhancedCost), 0);
-    const teamXptsRaw = selected.reduce((s, p) => s + (p.totalXpts || 0), 0);
-    const captainHorizonBonus = captain ? captain.weekly?.reduce((s, w) => s + (w.xPts || 0), 0) || 0 : 0;
-    const teamXpts = teamXptsRaw + captainHorizonBonus;
+    const teamXpts = projectionData.gameweeks.reduce((total, gameweek, index) => {
+      const scoreWeek = player => Number(player.weekly?.[index]?.xPts) || 0;
+      const weeklySelection = selectOptimalLineup(selected, scoreWeek);
+      const weeklyCaptain = weeklySelection.starters.filter(player => player.position !== 'GKP').sort((a, b) => scoreWeek(b) - scoreWeek(a))[0];
+      return total + weeklySelection.starters.reduce((sum, player) => sum + scoreWeek(player), 0) + scoreWeek(weeklyCaptain);
+    }, 0);
 
     // ---- AUTONOMOUS TRANSFER PLAN ----
     // Plan transfers for each GW in the horizon
@@ -950,8 +902,8 @@ app.post('/api/ai-team', async (req, res) => {
       lineupComplete: starters.length === 11 && bench.length === 4,
       reserveGoalkeeperEconomical: hasEconomicalReserveGoalkeeper(selected, reserveGoalkeeperCeilingTenths),
       reserveGoalkeeperCeiling: reserveGoalkeeperCeilingTenths / 10,
-      optimizerVersion: 5,
-      optimizer: 'bounded beam search with best-XI objective',
+      optimizerVersion: 6,
+      optimizer: 'bounded beam search with weekly best-XI objective',
       ...lineupSelection.audit,
     };
 

@@ -704,14 +704,14 @@ const FPL = {
                     return `<div class="aiteam-fixture-row"><span class="aiteam-fixture-opp" style="color:${col};">${oppLabel}</span><span class="aiteam-fixture-xpts">${g.xPts.toFixed(1)}</span></div>`;
                 }).join('');
 
-                html += `<div class="aiteam-bench-slot">
+                html += `<div class="aiteam-bench-slot${p.position === 'GKP' ? ' is-goalkeeper' : ''}">
                     <div class="aiteam-bench-order">${benchIndex + 1}</div>
-                    <div class="aiteam-bench-shirt-img" style="width:36px;height:40px;overflow:hidden;flex-shrink:0;display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;">${shirtImg}<span class="aiteam-shirt-fallback" aria-hidden="true">${FPL.playerTeamShort(p)}</span></div>
+                    <div class="aiteam-bench-shirt-img">${shirtImg}<span class="aiteam-shirt-fallback" aria-hidden="true">${FPL.playerTeamShort(p)}</span></div>
                     <div class="aiteam-bench-info">
-                        <div class="aiteam-bench-name">${p.name}</div>
-                        <div class="aiteam-bench-club">${p.teamFull || p.team} \u00B7 \u00A3${p.cost?.toFixed(1)}m</div>
-                        <div class="aiteam-bench-xpts" style="color:#00FF85;">${xPts} xPts</div>
-                        <div class="aiteam-fixture-block" style="margin-top:2px;">${fixtureRows}</div>
+                        <div class="aiteam-bench-heading"><div class="aiteam-bench-name">${p.name}</div><span class="aiteam-bench-position">${p.position}</span></div>
+                        <div class="aiteam-bench-club">${p.teamFull || p.team}</div>
+                        <div class="aiteam-bench-metrics"><span>\u00A3${p.cost?.toFixed(1)}m</span><strong>${xPts} xPts</strong></div>
+                        <div class="aiteam-fixture-block">${fixtureRows}</div>
                     </div>
                 </div>`;
             });
@@ -744,9 +744,9 @@ const FPL = {
                 }).join('');
                 const runLen = p.consecutiveGoodFixtures || 0;
                 const runBadge = runLen >= 4 ? `<span style="color:#00FF85;font-size:9px;font-weight:700;margin-left:4px;" title="${runLen} consecutive easy fixtures">\u25B2${runLen}</span>` : '';
-                return `<tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
-                    <td style="text-align:center;color:#8ba396;font-family:var(--font-mono);font-size:12px;">${i + 1}</td>
-                    <td style="text-align:left;"><div style="display:flex;align-items:center;gap:10px;">${this.teamBadge(p.team, 24)}<div><span style="font-weight:600;color:#fff;font-size:13px;">${p.name}</span>${news}<div style="font-size:11px;color:#8ba396;">${clubName}</div></div></div></td>
+                return `<tr>
+                    <td class="aiteam-rank-cell">${i + 1}</td>
+                    <td class="aiteam-player-cell"><div class="aiteam-table-player">${this.teamBadge(p.team, 24)}<div><span class="aiteam-table-player-name">${p.name}</span>${news}<div class="aiteam-table-player-club">${clubName}</div></div></div></td>
                     <td style="text-align:center;"><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:${posColors[p.position]}22;color:${posColors[p.position]};">${p.position}</span></td>
                     <td style="text-align:center;font-family:var(--font-mono);font-size:12px;color:#fff;">\u00A3${p.cost?.toFixed(1)}m</td>
                     <td style="text-align:center;font-family:var(--font-mono);font-size:12px;color:#B0B0B0;">${p.form?.toFixed(1) || '-'}</td>
@@ -778,8 +778,8 @@ const FPL = {
         const gwHeader = document.getElementById('aiteam-gw-header');
         const gwBody = document.getElementById('aiteam-gw-tbody');
         if (gwHeader && gwBody && lineup.starters[0]?.weekly) {
-            const gws = lineup.starters[0].weekly.slice(0, gwView);
-            gwHeader.innerHTML = '<th style="text-align:left;">Player</th>' + gws.map(w => `<th>GW${w.gameweek}</th>`).join('') + '<th style="background:rgba(0,255,133,0.1);">Total</th>';
+            const gws = (meta?.gameweeks || lineup.starters[0].weekly.map(week => week.gameweek)).slice(0, gwView);
+            gwHeader.innerHTML = '<th class="aiteam-player-cell">Player</th>' + gws.map(gameweek => `<th>GW${gameweek}</th>`).join('') + '<th class="aiteam-total-cell">Total</th>';
             const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
             const allPlayers = [...lineup.starters, ...lineup.bench];
             gwBody.innerHTML = allPlayers.map((p, i) => {
@@ -788,21 +788,22 @@ const FPL = {
                 const clubName = p.teamFull || p.team;
                 const runLen = p.consecutiveGoodFixtures || 0;
                 const runIcon = runLen >= 4 ? `<span style="color:#00FF85;font-size:9px;font-weight:700;margin-left:4px;" title="${runLen} consecutive easy fixtures">\u25B2${runLen}</span>` : '';
-                return `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);${rowStyle}">
-                    <td style="text-align:left;"><span style="display:inline-flex;align-items:center;gap:6px;"><span style="color:${posColors[p.position]};font-size:10px;font-weight:700;">${p.position}</span> ${p.name} <span style="color:#8ba396;font-size:10px;">${clubName}</span>${runIcon}${isB ? ' <span style="color:#8ba396;font-size:10px;">(B)</span>' : ''}</span></td>
-                    ${p.weekly.slice(0, gwView).map(w => {
+                return `<tr class="${isB ? 'is-bench' : ''}" style="${rowStyle}">
+                    <td class="aiteam-player-cell"><div class="aiteam-gw-player"><span class="aiteam-gw-position" style="color:${posColors[p.position]};">${p.position}</span><span class="aiteam-gw-player-copy"><strong>${p.name}</strong><small>${clubName}${isB ? ' · Bench' : ''}</small></span>${runIcon}</div></td>
+                    ${gws.map(gameweek => {
+                        const w = p.weekly.find(week => week.gameweek === gameweek) || { gameweek, xPts: 0, xMins: 0 };
                         // Show opponent fixture + xPts for each GW
-                        const fx = p.upcomingFixtures?.find(f => f.gw === w.gameweek);
-                        const fxStr = fx ? `${fx.home ? '' : '@'}${fx.opponent}` : '';
+                        const fx = p.upcomingFixtures?.find(f => f.gw === gameweek);
+                        const fxStr = fx ? `${fx.opponent}(${fx.home ? 'H' : 'A'})` : 'BLANK';
                         const fdr = fx?.fdr || 3;
                         const fdrBg = fdr <= 2 ? 'rgba(0,255,133,0.08)' : fdr <= 3 ? 'rgba(255,167,38,0.08)' : 'rgba(255,77,77,0.08)';
                         const fxColor = fdr <= 2 ? '#00FF85' : fdr <= 3 ? '#FFA726' : '#ff4d4d';
-                        return `<td style="text-align:center;font-family:var(--font-mono);font-size:12px;color:${w.xPts >= 5 ? '#00FF85' : w.xPts >= 3 ? '#fff' : '#8ba396'};background:${fdrBg};padding:4px 2px;">
-                            <div style="font-size:9px;color:${fxColor};margin-bottom:1px;">${fxStr}</div>
-                            <div>${w.xPts.toFixed(1)}</div>
+                        return `<td class="aiteam-gw-cell" style="color:${w.xPts >= 5 ? '#00FF85' : w.xPts >= 3 ? '#fff' : '#8ba396'};background:${fdrBg};">
+                            <span class="aiteam-gw-fixture" style="color:${fx ? fxColor : '#718279'};">${fxStr}</span>
+                            <strong>${w.xPts.toFixed(1)}</strong>
                         </td>`;
                     }).join('')}
-                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#00FF85;background:rgba(0,255,133,0.05);">${sumPlayerXPts(p, gwView).toFixed(1)}</td>
+                    <td class="aiteam-total-cell">${gws.reduce((sum, gameweek) => sum + (p.weekly.find(week => week.gameweek === gameweek)?.xPts || 0), 0).toFixed(1)}</td>
                 </tr>`;
             }).join('');
         }

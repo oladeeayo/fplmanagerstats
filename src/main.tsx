@@ -19,7 +19,7 @@ function mountApp() {
 mountApp();
 
 const legacyScript = document.createElement('script');
-legacyScript.src = '/common.js?v=10';
+legacyScript.src = '/common.js?v=11';
 legacyScript.defer = true;
 legacyScript.addEventListener('load', () => {
   window.dispatchEvent(new CustomEvent('fpl-ready'));

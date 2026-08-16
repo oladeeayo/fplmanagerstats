@@ -13,6 +13,14 @@ function round(value, precision = 1) {
   return Math.round(value * multiplier) / multiplier;
 }
 
+function nextGameweekScore(player) {
+  return Number(player?.weekly?.[0]?.xPts) || 0;
+}
+
+function horizonScore(player) {
+  return (player?.weekly || []).reduce((sum, week, index) => sum + (Number(week?.xPts) || 0) * (0.9 ** index), 0);
+}
+
 function selectOptimalLineup(squad, scorePlayer) {
   if (!Array.isArray(squad) || squad.length !== 15) throw new Error('A legal 15-player squad is required');
 
@@ -47,7 +55,7 @@ function selectOptimalLineup(squad, scorePlayer) {
   const bench = squad
     .filter(player => !starterIds.has(player.id))
     .sort((a, b) => {
-      if ((a.position === 'GKP') !== (b.position === 'GKP')) return a.position === 'GKP' ? -1 : 1;
+      if ((a.position === 'GKP') !== (b.position === 'GKP')) return a.position === 'GKP' ? 1 : -1;
       return lineupScore(b) - lineupScore(a);
     });
 
@@ -73,4 +81,4 @@ function hasEconomicalReserveGoalkeeper(squad, reserveCeilingTenths) {
   return goalkeeperCosts.length === 2 && goalkeeperCosts[0] <= reserveCeilingTenths;
 }
 
-module.exports = { VALID_FORMATIONS, selectOptimalLineup, hasEconomicalReserveGoalkeeper };
+module.exports = { VALID_FORMATIONS, selectOptimalLineup, hasEconomicalReserveGoalkeeper, nextGameweekScore, horizonScore };
