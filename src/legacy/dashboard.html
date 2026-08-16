@@ -1142,8 +1142,12 @@
                                 <p>Build a legal 15-player squad and compare projected returns across up to eight gameweeks.</p>
                             </div>
                             <div class="tb-heading-actions">
-                                <input id="tb-screenshot-input" class="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onchange="FPL.importTeamScreenshot(this.files?.[0])">
-                                <button type="button" class="tb-btn tb-btn-secondary" onclick="document.getElementById('tb-screenshot-input').click()"><span class="material-symbols-outlined">image</span> Import screenshot</button>
+                                <div class="tb-upload-zone" id="tb-upload-zone" role="button" tabindex="0" onclick="document.getElementById('tb-screenshot-input').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="event.preventDefault();this.classList.remove('drag-over');FPL.importTeamScreenshot(event.dataTransfer.files?.[0])">
+                                    <input id="tb-screenshot-input" class="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onchange="FPL.importTeamScreenshot(this.files?.[0])">
+                                    <span class="material-symbols-outlined">upload</span>
+                                    <span class="tb-upload-label">Import screenshot</span>
+                                    <span class="tb-upload-hint">Drop image or click</span>
+                                </div>
                                 <button type="button" class="tb-btn tb-btn-secondary" onclick="FPL.loadBuilderCurrentSquad()"><span class="material-symbols-outlined">download</span> Current squad</button>
                                 <button type="button" class="tb-icon-btn" onclick="FPL.clearTeamBuilder()" title="Clear squad" aria-label="Clear squad"><span class="material-symbols-outlined">delete_sweep</span></button>
                             </div>

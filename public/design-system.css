@@ -3263,6 +3263,16 @@ select option {
 .tb-import-view-switch { display: inline-flex; align-items: center; gap: 5px; padding: 7px 14px; border: 1px solid #315443; border-radius: 6px; background: #141916; color: #8ba396; font: 600 11px var(--font-mono); cursor: pointer; transition: all 0.15s; }
 .tb-import-view-switch .material-symbols-outlined { font-size: 16px; }
 .tb-import-view-switch:hover { border-color: #00ff85; color: #00ff85; background: rgba(0,255,133,0.06); }
+
+/* File upload zone */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.tb-upload-zone { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 14px 20px; border: 1px dashed #315443; border-radius: 8px; background: #101b15; color: #8ba396; cursor: pointer; transition: all 0.2s; user-select: none; }
+.tb-upload-zone .material-symbols-outlined { font-size: 22px; color: #557261; transition: color 0.2s; }
+.tb-upload-zone:hover, .tb-upload-zone.drag-over { border-color: #00ff85; background: rgba(0,255,133,0.04); }
+.tb-upload-zone:hover .material-symbols-outlined, .tb-upload-zone.drag-over .material-symbols-outlined { color: #00ff85; }
+.tb-upload-zone:hover .tb-upload-label, .tb-upload-zone.drag-over .tb-upload-label { color: #00ff85; }
+.tb-upload-label { font: 600 11px var(--font-mono); text-transform: uppercase; letter-spacing: 0.5px; }
+.tb-upload-hint { font: 400 9px var(--font-mono); color: #557261; }
 .tb-chip-advice { display: grid; grid-template-columns: 48px minmax(100px,1fr) 40px; gap: 8px; align-items: center; }
 .tb-chip-advice > span { color: #ffbc69; font: 700 8px var(--font-mono); text-transform: uppercase; }
 .tb-chip-advice.hold > span { color: #8ba396; }
