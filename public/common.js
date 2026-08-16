@@ -654,21 +654,21 @@ const FPL = {
 
                 const shirtImg = shirt ? `<img src="${shirt}" alt="" loading="lazy" decoding="async" onerror="this.closest('.tactics-player-shirt').classList.add('is-missing');this.remove();" style="width:100%;height:100%;object-fit:contain;">` : '';
 
-                // Fixture detail rows (one per GW in view)
+                // Fixture detail rows - opponent with FDR color + individual xPts
                 const fixtureRows = gwDetail.map(g => {
                     const fx = g.fixture;
                     if (!fx) return '';
                     const col = fdrColor(fx.fdr);
-                    const opp = fx.home ? `${fx.opponent}(H)` : `@${fx.opponent}`;
-                    return `<div style="display:flex;align-items:center;gap:3px;justify-content:center;"><span style="font-size:8px;font-weight:700;color:${col};">${opp}</span><span style="font-size:8px;color:#00FF85;font-weight:700;">${g.xPts.toFixed(1)}</span></div>`;
+                    const oppLabel = fx.home ? `${fx.opponent}(H)` : `${fx.opponent}(A)`;
+                    return `<div class="aiteam-fixture-row"><span class="aiteam-fixture-opp" style="color:${col};">${oppLabel}</span><span class="aiteam-fixture-xpts">${g.xPts.toFixed(1)}</span></div>`;
                 }).join('');
 
-                return `<div class="tactics-player-card home" style="${borderStyle}position:relative;text-align:center;" title="${player.name}${badge} - \u00A3${(player.cost || 0).toFixed(1)}m - ${xPts} xPts">
+                return `<div class="tactics-player-card home aiteam-pitch-card" style="${borderStyle}position:relative;" title="${player.name}${badge} - \u00A3${(player.cost || 0).toFixed(1)}m - ${xPts} xPts">
                     <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;">${shirtImg}<span class="aiteam-shirt-fallback" aria-hidden="true">${FPL.playerTeamShort(player)}</span></div>
-                    <div class="tactics-player-copy" style="text-align:center;"><b style="${cap ? 'color:#FFD700;' : ''}font-size:11px;">${player.name}${badge}</b></div>
-                    <div style="font:700 10px var(--font-mono);color:#B0B0B0;text-align:center;">\u00A3${(player.cost || 0).toFixed(1)}m</div>
-                    <div style="font:700 11px var(--font-mono);color:#00FF85;text-align:center;margin:2px 0;">${xPts} xPts</div>
-                    <div style="display:flex;flex-direction:column;gap:1px;">${fixtureRows}</div>
+                    <div class="tactics-player-copy"><b class="aiteam-pitch-name${cap ? ' is-captain' : ''}">${player.name}${badge}</b></div>
+                    <div class="aiteam-pitch-cost">\u00A3${(player.cost || 0).toFixed(1)}m</div>
+                    <div class="aiteam-pitch-xpts">${xPts} xPts</div>
+                    <div class="aiteam-fixture-block">${fixtureRows}</div>
                     ${runBadge}
                 </div>`;
             }
@@ -700,9 +700,9 @@ const FPL = {
                     const fx = g.fixture;
                     if (!fx) return '';
                     const col = fdrColor(fx.fdr);
-                    const opp = fx.home ? `${fx.opponent}(H)` : `@${fx.opponent}`;
-                    return `<span style="font-size:8px;font-weight:700;color:${col};">${opp}</span> <span style="font-size:8px;color:#00FF85;font-weight:700;">${g.xPts.toFixed(1)}</span>`;
-                }).join(' \u00B7 ');
+                    const oppLabel = fx.home ? `${fx.opponent}(H)` : `${fx.opponent}(A)`;
+                    return `<div class="aiteam-fixture-row"><span class="aiteam-fixture-opp" style="color:${col};">${oppLabel}</span><span class="aiteam-fixture-xpts">${g.xPts.toFixed(1)}</span></div>`;
+                }).join('');
 
                 html += `<div class="aiteam-bench-slot">
                     <div class="aiteam-bench-order">${benchIndex + 1}</div>
@@ -711,7 +711,7 @@ const FPL = {
                         <div class="aiteam-bench-name">${p.name}</div>
                         <div class="aiteam-bench-club">${p.teamFull || p.team} \u00B7 \u00A3${p.cost?.toFixed(1)}m</div>
                         <div class="aiteam-bench-xpts" style="color:#00FF85;">${xPts} xPts</div>
-                        <div style="margin-top:2px;display:flex;flex-wrap:wrap;gap:3px;">${fixtureRows}</div>
+                        <div class="aiteam-fixture-block" style="margin-top:2px;">${fixtureRows}</div>
                     </div>
                 </div>`;
             });

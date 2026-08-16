@@ -18,10 +18,16 @@ function mountApp() {
 
 mountApp();
 
-const legacyScript = '/common.js?v=10';
-void import(/* @vite-ignore */ legacyScript).then(() => {
+const legacyScript = document.createElement('script');
+legacyScript.src = '/common.js?v=10';
+legacyScript.defer = true;
+legacyScript.addEventListener('load', () => {
   window.dispatchEvent(new CustomEvent('fpl-ready'));
 });
+legacyScript.addEventListener('error', () => {
+  console.error('Failed to load the FPL dashboard data client.');
+});
+document.head.appendChild(legacyScript);
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {

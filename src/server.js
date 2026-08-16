@@ -756,7 +756,7 @@ app.post('/api/ai-team', async (req, res) => {
     const costTenths = player => Math.round(Number(player.cost || player.enhancedCost || 0) * 10);
     const goalkeeperCosts = availablePlayers.filter(player => player.position === 'GKP').map(costTenths).sort((a, b) => a - b);
     const reserveGoalkeeperCeilingTenths = (goalkeeperCosts[0] || 40) + 5;
-    const lineupWeights = [0.58, 0.27, 0.15];
+    const lineupWeights = [0.75, 0.18, 0.07];
     const lineupScore = player => lineupWeights.reduce((score, weight, index) => score + (player.weekly?.[index]?.xPts || 0) * weight, 0);
     const easyDefensiveTriple = (players, teamId) => {
       const defensivePlayers = players.filter(player => player.teamId === teamId && ['GKP', 'DEF'].includes(player.position));
