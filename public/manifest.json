@@ -1,6 +1,6 @@
 {
     "name": "FPL Manager Stats",
-    "short_name": "FPL Stats",
+    "short_name": "FPL Manager Stats",
     "description": "Advanced analytics and insights for Fantasy Premier League managers",
     "start_url": "/",
     "display": "standalone",
