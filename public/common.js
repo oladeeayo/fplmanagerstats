@@ -218,7 +218,7 @@ const FPL = {
             // Update manager ID display in sidebar
             const display = document.getElementById('manager-id-display');
             if (display) {
-                display.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:8px;height:8px;border-radius:50%;background:#00FF85;box-shadow:0 0 6px #00FF85;"></span> ${data.managerInfo?.name || 'Manager ' + managerId}</span>`;
+                display.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:8px;height:8px;border-radius:50%;background:#00FF85;box-shadow:0 0 6px #00FF85;"></span> ${this.escapeHTML(data.managerInfo?.name || 'Manager ' + managerId)}</span>`;
             }
 
             // Update topbar connect button to show connected state
@@ -732,11 +732,15 @@ const FPL = {
         const players = builder.players.filter(player => (player.nextFixtures || []).some(fixture => builder.selectedGWs.includes(fixture.gw)));
         const quotas = { GKP: 2, DEF: 5, MID: 5, FWD: 3 };
         const rand = this._mulberry32(seed * 7919 + 13);
-        // Composite score: projected points dominate, with seeded jitter and a value tiebreak
+        // Composite score: projected points dominate, with seeded jitter, a value tiebreak,
+        // and a starter-viability weight so auto-fill favours proven first-choice players.
         const score = player => {
             const xpts = this.teamBuilderXPts(player);
             const value = player.costValue > 0 ? xpts / player.costValue : 0;
-            return xpts * (0.82 + 0.35 * value) * (seed === 0 ? 1 : 0.86 + rand() * 0.28);
+            const starter = typeof player.starterScore === 'number' ? player.starterScore : 50;
+            const starterWeight = 0.6 + starter / 250;
+            const gkWeight = player.position === 'GKP' ? (starter >= 40 ? 1 : 0.72) : 1;
+            return xpts * (0.82 + 0.35 * value) * (seed === 0 ? 1 : 0.86 + rand() * 0.28) * starterWeight * gkWeight;
         };
         const ranked = [...players].sort((a, b) => score(b) - score(a));
         const selected = [];
@@ -804,27 +808,35 @@ const FPL = {
                     if (event.status === 'recognizing text') status.textContent = `Reading screenshot · ${Math.round((event.progress || 0) * 100)}%`;
                 }
             });
-            await worker.setParameters({
-                tessedit_pageseg_mode: '7',
-                tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .\'-',
-                preserve_interword_spaces: '1',
-            });
-            const result = await worker.recognize(preprocessed);
-            await worker.terminate();
-            const rawText = result.data.text || '';
-            let allMatches = window.FPLSquadImport.matchPlayers(rawText, this.state.teamBuilder.players);
-            if (allMatches.length < 8) {
-                const preprocessed2 = await this.preprocessScreenshot(file, 'aggressive');
-                const worker2 = await window.createFplOcrWorker('eng', 1, { logger: () => {} });
-                await worker2.setParameters({
-                    tessedit_pageseg_mode: '6',
+            let rawText = '';
+            try {
+                await worker.setParameters({
+                    tessedit_pageseg_mode: '7',
                     tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .\'-',
                     preserve_interword_spaces: '1',
                 });
-                const result2 = await worker2.recognize(preprocessed2);
-                await worker2.terminate();
-                const matches2 = window.FPLSquadImport.matchPlayers(result2.data.text || '', this.state.teamBuilder.players);
-                if (matches2.length > allMatches.length) allMatches = matches2;
+                const result = await worker.recognize(preprocessed);
+                rawText = result.data.text || '';
+            } finally {
+                try { await worker.terminate(); } catch (_) { /* worker already gone */ }
+            }
+            let allMatches = window.FPLSquadImport.matchPlayers(rawText, this.state.teamBuilder.players);
+            if (allMatches.length < 8) {
+                const preprocessed2 = await this.preprocessScreenshot(file, 'aggressive');
+                let worker2 = null;
+                try {
+                    worker2 = await window.createFplOcrWorker('eng', 1, { logger: () => {} });
+                    await worker2.setParameters({
+                        tessedit_pageseg_mode: '6',
+                        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .\'-',
+                        preserve_interword_spaces: '1',
+                    });
+                    const result2 = await worker2.recognize(preprocessed2);
+                    const matches2 = window.FPLSquadImport.matchPlayers(result2.data.text || '', this.state.teamBuilder.players);
+                    if (matches2.length > allMatches.length) allMatches = matches2;
+                } finally {
+                    if (worker2) { try { await worker2.terminate(); } catch (_) { /* worker already gone */ } }
+                }
             }
             this.state.teamBuilder.importMatches = allMatches;
             this.state.teamBuilder.importView = 'pitch';
@@ -841,6 +853,8 @@ const FPL = {
     preprocessScreenshot(file, mode = 'normal') {
         return new Promise((resolve, reject) => {
             const img = new Image();
+            const objectUrl = URL.createObjectURL(file);
+            const release = () => URL.revokeObjectURL(objectUrl);
             img.onload = () => {
                 const canvas = document.createElement('canvas');
                 const scale = Math.max(1, 1200 / Math.max(img.width, img.height));
@@ -848,6 +862,7 @@ const FPL = {
                 canvas.height = Math.round(img.height * scale);
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                release();
                 const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 const data = imageData.data;
                 for (let i = 0; i < data.length; i += 4) {
@@ -869,8 +884,8 @@ const FPL = {
                     else reject(new Error('Image preprocessing failed'));
                 }, 'image/png');
             };
-            img.onerror = () => reject(new Error('Could not load screenshot image'));
-            img.src = URL.createObjectURL(file);
+            img.onerror = () => { release(); reject(new Error('Could not load screenshot image')); };
+            img.src = objectUrl;
         });
     },
 
@@ -967,7 +982,7 @@ const FPL = {
             const confClass = player.matchConfidence === 'high' || player.matchConfidence === 'confirmed' ? ' is-high' : player.matchConfidence === 'medium' ? ' is-medium' : ' is-low';
 
             return `<div class="tactics-player-card home aiteam-pitch-card tb-import-pitch-card${confClass}" onclick="FPL.editImportMatch(${player.matchIndex})" role="button" tabindex="0" title="${self.escapeHTML(player.name)} · ${player.position} · ${player.team} · £${player.costValue.toFixed(1)}m">
-                <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;"><span class="aiteam-shirt-fallback" aria-hidden="true">${player.team}</span></div>
+                <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;">${self.pitchShirtMarkup(player, player.team)}</div>
                 <div class="tactics-player-copy"><b class="aiteam-pitch-name">${self.escapeHTML(player.name)}</b></div>
                 <div class="aiteam-pitch-cost">£${player.costValue.toFixed(1)}m</div>
                 <div class="aiteam-pitch-xpts">${xPts} xPts</div>
@@ -1254,7 +1269,7 @@ const FPL = {
             const borderStyle = cap ? 'border:2px solid #FFD700;box-shadow:0 0 12px rgba(255,215,0,0.4);' : 'border:1px solid rgba(255,255,255,0.28);';
 
             return `<div class="tactics-player-card home aiteam-pitch-card" style="${borderStyle}" title="${self.escapeHTML(player.name)}${badge} · ${player.team} · £${player.costValue.toFixed(1)}m · ${xPts} xPts">
-                <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;"><span class="aiteam-shirt-fallback" aria-hidden="true">${player.team}</span></div>
+                <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;">${self.pitchShirtMarkup(player, player.team)}</div>
                 <div class="tactics-player-copy"><b class="aiteam-pitch-name${cap ? ' is-captain' : ''}">${self.escapeHTML(player.name)}${badge}</b></div>
                 <div class="aiteam-pitch-cost">£${player.costValue.toFixed(1)}m</div>
                 <div class="aiteam-pitch-xpts">${xPts} xPts</div>
@@ -1855,8 +1870,8 @@ const FPL = {
                             <span class="material-symbols-outlined" style="color:${statusColor};font-size:18px;">${p.statusKey === 'i' ? 'healing' : p.statusKey === 's' ? 'block' : 'help_outline'}</span>
                         </div>
                         <div style="flex:1;min-width:0;">
-                            <div style="font-size:13px;font-weight:700;color:#ffffff;">${p.name} <span style="font-size:10px;color:#8ba396;font-family:var(--font-mono);">${p.team} • ${p.pos}</span></div>
-                            <div style="font-size:11px;color:${statusColor};margin-top:2px;">${p.status}: ${p.news}</div>
+                            <div style="font-size:13px;font-weight:700;color:#ffffff;">${this.escapeHTML(p.name)} <span style="font-size:10px;color:#8ba396;font-family:var(--font-mono);">${this.escapeHTML(p.team)} • ${this.escapeHTML(p.pos)}</span></div>
+                            <div style="font-size:11px;color:${statusColor};margin-top:2px;">${this.escapeHTML(p.status)}: ${this.escapeHTML(p.news)}</div>
                         </div>
                     </div>`;
                 }).join('') : '<div style="text-align:center;padding:16px;font-size:13px;color:#8ba396;">No injury or suspension news</div>';
@@ -2036,8 +2051,8 @@ const FPL = {
                     <span class="material-symbols-outlined" style="font-size:24px;color:var(--md-sys-color-primary);">person</span>
                 </div>
                 <div>
-                    <div style="font-weight:600;font-size:1rem;">${info.name || 'Unknown'}</div>
-                    <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">Team: ${info.teamName || '--'}</div>
+                    <div style="font-weight:600;font-size:1rem;">${this.escapeHTML(info.name || 'Unknown')}</div>
+                    <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">Team: ${this.escapeHTML(info.teamName || '--')}</div>
                 </div>
             </div>
             <div class="divider"></div>
@@ -2442,7 +2457,7 @@ const FPL = {
                                 ${this.playerPhotoMarkup(p, `${p.name || p.web_name || 'FPL Player'} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}
                             </div>
                             <div style="min-width:0;overflow:hidden;">
-                                <div style="font-weight:700;font-size:11px;color:#E0E0E0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.web_name}</div>
+                                <div style="font-weight:700;font-size:11px;color:#E0E0E0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(p.web_name)}</div>
                                 <div class="players-table-player-meta" style="display:flex;align-items:center;gap:3px;font-size:9px;color:#8ba396;white-space:nowrap;">
                                     <span style="padding:1px 3px;border-radius:2px;font-weight:700;background:${posColor}20;color:${posColor};font-size:8px;">${posStr}</span>
                                     <span>${teamShort}</span>
@@ -2568,8 +2583,8 @@ const FPL = {
                         ${m.rank}
                     </td>
                     <td style="padding:4px 6px;background:${isEven ? 'rgba(2,43,30,0.5)' : '#022B1E'};max-width:140px;overflow:hidden;">
-                        <div style="font-weight:700;color:var(--md-sys-color-on-surface);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.managerName}</div>
-                        <div style="font-size:9px;color:var(--md-sys-color-on-surface-variant);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.entryName}</div>
+                        <div style="font-weight:700;color:var(--md-sys-color-on-surface);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(m.managerName)}</div>
+                        <div style="font-size:9px;color:var(--md-sys-color-on-surface-variant);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(m.entryName)}</div>
                     </td>
                     <td style="padding:4px 6px;text-align:center;color:var(--md-sys-color-on-surface);font-weight:600;">${m.eventTotal}</td>
                     <td class="mono" style="padding:4px 6px;text-align:center;color:var(--fdr-1);font-weight:800;">${this.formatNumber(m.total)}</td>
@@ -2996,7 +3011,7 @@ const FPL = {
         return String(player?.teamShort || player?.team || 'FPL').slice(0, 4).toUpperCase();
     },
 
-    playerTeamShirtUrl(player) {
+playerTeamShirtUrl(player) {
         const current = this.resolvePlayer(player);
         const teamId = current?.team || Number(player?.teamId);
         const team = this.state.teamMap[teamId];
@@ -3004,6 +3019,15 @@ const FPL = {
         return Number.isFinite(teamCode) && teamCode > 0
             ? `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${teamCode}-110.webp`
             : '';
+    },
+
+    pitchShirtMarkup(player, teamShort = '') {
+        const shirt = this.playerTeamShirtUrl(player);
+        const fallback = this.escapeHTML(teamShort || this.playerTeamShort(player));
+        const img = shirt
+            ? `<img src="${shirt}" alt="" loading="lazy" decoding="async" onerror="this.closest('.tactics-player-shirt').classList.add('is-missing');this.remove();" style="width:100%;height:100%;object-fit:contain;">`
+            : '';
+        return `${img}<span class="aiteam-shirt-fallback" aria-hidden="true">${fallback}</span>`;
     },
 
     playerPhotoMarkup(player, alt = 'FPL player', className = '', style = '', alwaysShow = false) {

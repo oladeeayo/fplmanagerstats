@@ -1,12 +1,14 @@
-const express = require('express');
+﻿const express = require('express');
 const path = require('path');
 const axios = require('axios');
+const helmet = require('helmet');
+const { rateLimit } = require('express-rate-limit');
 const { neon } = require('@neondatabase/serverless');
 const { buildDecisionCentre, buildSquadAdvice } = require('./decisionModel');
 const { buildPlayerProjections, buildCaptaincyModel } = require('./captaincyModel');
 const { selectOptimalLineup, hasEconomicalReserveGoalkeeper, nextGameweekScore, horizonScore } = require('./aiTeamModel');
 
-// Upstash Redis (optional — falls back to in-memory Map if not configured)
+// Upstash Redis (optional â€” falls back to in-memory Map if not configured)
 let redis = null;
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -111,6 +113,13 @@ async function initDatabase() {
       `.then(() => sql`CREATE INDEX IF NOT EXISTS idx_ds_date ON admin_daily_stats(date)`),
 
       sql`
+        CREATE TABLE IF NOT EXISTS ownership_snapshot_lock (
+          id BOOLEAN PRIMARY KEY DEFAULT TRUE,
+          last_timestamp BIGINT NOT NULL
+        )
+      `.then(() => sql`INSERT INTO ownership_snapshot_lock (id, last_timestamp) VALUES (TRUE, 0) ON CONFLICT (id) DO NOTHING`),
+
+      sql`
         CREATE TABLE IF NOT EXISTS ai_team (
           id SERIAL PRIMARY KEY,
           session_id VARCHAR(64) NOT NULL,
@@ -144,10 +153,22 @@ async function initDatabase() {
 }
 initDatabase();
 
+const ALLOWED_ORIGINS = new Set([
+  'https://fplmanagerstats.vercel.app',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+]);
+
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-key, x-session-id');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
@@ -167,6 +188,17 @@ app.use(express.static(path.join(__dirname, '../public'), {
 }));
 app.use(express.json());
 
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: { policy: 'same-origin' },
+}));
+app.use((req, res, next) => {
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+  next();
+});
+
 function requireDatabase(req, res) {
   if (sql) return true;
   res.status(503).json({ error: 'Database features are not configured' });
@@ -181,6 +213,8 @@ function parsePositiveId(value) {
 const crypto = require('crypto');
 const geoCache = new Map();
 const GEO_CACHE_TTL = 24 * 60 * 60 * 1000;
+const GEO_RATE_MAX = 30; // max outbound geo lookups per rolling minute (guards against spoofed IP spam)
+let geoLookupTimes = [];
 
 function parseUserAgent(ua) {
   if (!ua) return { deviceType: 'Unknown', browser: 'Unknown', os: 'Unknown', osVersion: '' };
@@ -212,13 +246,18 @@ async function lookupGeo(ip) {
   if (!ip || ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1') {
     return { country: 'Local', city: 'Local', continent: 'Local' };
   }
+  if (!/^(?:\d{1,3}\.){3}\d{1,3}$|^[0-9a-fA-F:]+$/.test(ip)) return { country: 'XX', city: '', continent: '' };
   const cached = geoCache.get(ip);
   if (cached && Date.now() - cached.ts < GEO_CACHE_TTL) return cached.data;
+  const now = Date.now();
+  geoLookupTimes = geoLookupTimes.filter(t => now - t < 60000);
+  if (geoLookupTimes.length >= GEO_RATE_MAX) return { country: 'XX', city: '', continent: '' };
+  geoLookupTimes.push(now);
   try {
-    const res = await axios.get(`http://ip-api.com/json/${ip}?fields=status,country,countryCode,city,continent`, { timeout: 3000 });
+    const res = await axios.get(`https://ip-api.com/json/${ip}?fields=status,country,countryCode,city,continent`, { timeout: 3000 });
     if (res.data.status === 'success') {
       const geo = { country: res.data.countryCode || 'XX', city: res.data.city || '', continent: res.data.continent || '' };
-      geoCache.set(ip, { data: geo, ts: Date.now() });
+      geoCache.set(ip, { data: geo, ts: now });
       return geo;
     }
   } catch (e) { /* geo lookup failed */ }
@@ -233,7 +272,7 @@ function generateSessionId() {
   return crypto.randomBytes(16).toString('hex');
 }
 
-function getSessionId(req, res) {
+function sessionMiddleware(req, res, next) {
   const cookies = String(req.headers.cookie || '').split(';').reduce((all, part) => {
     const separator = part.indexOf('=');
     if (separator > 0) all[part.slice(0, separator).trim()] = part.slice(separator + 1).trim();
@@ -241,11 +280,15 @@ function getSessionId(req, res) {
   }, {});
   const existing = cookies.fpl_analytics_session;
   const sessionId = /^[a-f0-9]{32}$/.test(existing || '') ? existing : generateSessionId();
-  if (!existing && !res.headersSent) {
-    res.setHeader('Set-Cookie', `fpl_analytics_session=${sessionId}; Max-Age=31536000; Path=/; SameSite=Lax`);
+  if (!existing) {
+    const secure = req.secure || req.headers['x-forwarded-proto'] === 'https';
+    res.setHeader('Set-Cookie', `fpl_analytics_session=${sessionId}; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax${secure ? '; Secure' : ''}`);
   }
-  return sessionId;
+  req.fplSessionId = sessionId;
+  next();
 }
+
+app.use(sessionMiddleware);
 
 // Tracking middleware
 app.use(async (req, res, next) => {
@@ -266,10 +309,11 @@ app.use(async (req, res, next) => {
     (async () => {
       try {
         const forwarded = req.headers['x-forwarded-for'];
-        const ip = forwarded ? forwarded.split(',')[0].trim() : (req.socket?.remoteAddress || '');
+        const rawIp = forwarded ? forwarded.split(',')[0].trim() : (req.socket?.remoteAddress || '');
+        const ip = /^(?:\d{1,3}\.){3}\d{1,3}$|^[0-9a-fA-F:]+$/.test(rawIp) ? rawIp : (req.socket?.remoteAddress || '');
         const ua = req.headers['user-agent'] || '';
         const referrer = req.headers['referer'] || req.headers['referrer'] || '';
-         const sessionId = req.headers['x-session-id'] || getSessionId(req, res);
+        const sessionId = req.fplSessionId;
 
         const { deviceType, browser, os, osVersion } = parseUserAgent(ua);
         const geo = await lookupGeo(ip);
@@ -308,7 +352,7 @@ app.use(async (req, res, next) => {
             VALUES (${sessionId}, ${ipHash}, ${geo.country}, ${geo.city.slice(0, 128)}, ${geo.continent}, ${deviceType}, ${browser}, ${os}, ${osVersion}, ${path.slice(0, 512)}, ${path.slice(0, 512)}, 1, FALSE, ${referrer.slice(0, 1024)}, ${deviceFP}, 1, 1)
           `;
         }
-      } catch (e) { /* tracking error — don't break the app */ }
+      } catch (e) { /* tracking error â€” don't break the app */ }
     })();
 
     return originalEnd.apply(this, args);
@@ -336,6 +380,29 @@ async function apiGet(url) {
 }
 const upstreamCache = new Map(); // fallback in-memory cache
 const globalPlayerHistoryCache = new Map(); // fallback in-memory player history
+const CACHE_MAX_ENTRIES = 500;
+
+function pruneCache(cache, isStale, maxEntries = CACHE_MAX_ENTRIES) {
+  if (cache.size <= maxEntries) {
+    for (const [key, value] of cache) {
+      if (isStale(value)) cache.delete(key);
+    }
+    return;
+  }
+  let removed = 0;
+  for (const [key, value] of cache) {
+    if (isStale(value)) { cache.delete(key); removed += 1; }
+    else if (cache.size - removed > maxEntries) { cache.delete(key); removed += 1; }
+  }
+}
+
+setInterval(() => {
+  const now = Date.now();
+  pruneCache(globalPlayerHistoryCache, v => now - v.timestamp > PLAYER_HISTORY_TTL * 1000);
+  pruneCache(upstreamCache, v => now - v.timestamp > 24 * 60 * 60 * 1000);
+  pruneCache(geoCache, v => now - v.ts > GEO_CACHE_TTL);
+}, 5 * 60 * 1000);
+setInterval(() => { geoLookupTimes = geoLookupTimes.filter(t => Date.now() - t < 60000); }, 60000);
 
 // Global player history cache
 const PLAYER_HISTORY_TTL = 5 * 60; // 5 minutes (Redis uses seconds)
@@ -418,6 +485,36 @@ async function optionalApiGet(url, fallback = null) {
   }
 }
 
+// ---- Rate limiting (in-memory; per-instance on serverless, still raises the bar) ----
+const generalApiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 600,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many requests â€” slow down.' },
+});
+const heavyEndpointLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many requests â€” please wait before trying again.' },
+});
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 120,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many admin requests.' },
+});
+const keyGenerator = req => req.fplSessionId || req.ip || 'unknown';
+generalApiLimiter.keyGenerator = keyGenerator;
+heavyEndpointLimiter.keyGenerator = keyGenerator;
+adminLimiter.keyGenerator = keyGenerator;
+
+app.use('/api', generalApiLimiter);
+app.use('/api/admin', adminLimiter);
+
 app.get('/api/health', (req, res) => res.json({ status: 'healthy' }));
 
 app.get('/api/bootstrap-static', async (req, res) => {
@@ -434,7 +531,7 @@ app.get('/api/fixtures', async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Failed to fetch fixtures' }); }
 });
 
-app.post('/api/v1/decision-centre', async (req, res) => {
+app.post('/api/v1/decision-centre', heavyEndpointLimiter, async (req, res) => {
   const managerId = parsePositiveId(req.body?.managerId);
   if (!managerId) return res.status(400).json({ error: 'A valid managerId is required' });
   const requestedGW = Math.max(1, Math.min(38, Number.parseInt(req.body?.targetGW, 10) || 1));
@@ -501,7 +598,7 @@ function isValidAITeamPayload(payload) {
 // GET saved AI team + transfer plan + chip schedule
 app.get('/api/ai-team', async (req, res) => {
   if (!sql) return res.json({ saved: false, persistenceAvailable: false });
-  const sessionId = req.headers['x-session-id'] || getSessionId(req, res);
+  const sessionId = req.fplSessionId;
   try {
     const rows = await sql`SELECT * FROM ai_team WHERE session_id = ${sessionId} ORDER BY updated_at DESC LIMIT 1`;
     if (!rows.length) return res.json({ saved: false });
@@ -548,7 +645,7 @@ app.get('/api/ai-team', async (req, res) => {
 // Reset/unlock AI team (only for WC)
 app.delete('/api/ai-team', async (req, res) => {
   if (!requireDatabase(req, res)) return;
-  const sessionId = req.headers['x-session-id'] || getSessionId(req, res);
+  const sessionId = req.fplSessionId;
   try {
     await sql`DELETE FROM ai_team WHERE session_id = ${sessionId}`;
     res.json({ success: true });
@@ -559,11 +656,11 @@ app.delete('/api/ai-team', async (req, res) => {
 });
 
 // ---- Core AI Team Builder ----
-app.post('/api/ai-team', async (req, res) => {
+app.post('/api/ai-team', heavyEndpointLimiter, async (req, res) => {
   const budget = 100;
   const horizon = Math.max(3, Math.min(8, Number(req.body?.horizon) || 8));
   const strategy = ['balanced', 'protect', 'chase'].includes(req.body?.strategy) ? req.body.strategy : 'balanced';
-  const sessionId = req.headers['x-session-id'] || getSessionId(req, res);
+  const sessionId = req.fplSessionId;
 
   try {
     if (sql && !req.body?.reset) {
@@ -691,14 +788,16 @@ app.post('/api/ai-team', async (req, res) => {
     const POSITION_LIMITS = AI_TEAM_POSITION_LIMITS;
     const MAX_PER_TEAM = 3;
 
-    function adjustedScore(player, strat) {
+function adjustedScore(player, strat) {
       const horizon = horizonScore(player);
       const next = nextGameweekScore(player);
       const value = horizon / Math.max(Number(player.cost || player.enhancedCost) || 0.1, 0.1);
       const ownership = Math.min(Number(player.ownership) || 0, 80);
-      if (strat === 'protect') return horizon + next * 0.2 + ownership * 0.008;
-      if (strat === 'chase') return horizon + next * 0.2 + (80 - ownership) * 0.008;
-      return horizon + next * 0.2 + value * 0.04;
+      // Favour proven first-choice starters; discount unknowns and rotation risks.
+      const starter = (Number(player.starterScore) || 0) - 50;
+      if (strat === 'protect') return horizon + next * 0.2 + ownership * 0.008 + starter * 0.03;
+      if (strat === 'chase') return horizon + next * 0.2 + (80 - ownership) * 0.008 + starter * 0.02;
+      return horizon + next * 0.2 + value * 0.04 + starter * 0.03;
     }
 
     function isLegalSquad(players) {
@@ -723,7 +822,7 @@ app.post('/api/ai-team', async (req, res) => {
       return avgFdr <= 2 && projected >= 10.5;
     };
     const respectsDefensiveStack = players => [...new Set(players.map(player => player.teamId))].every(teamId => easyDefensiveTriple(players, teamId));
-    const squadObjective = players => {
+const squadObjective = players => {
       const weeklyXI = projectionData.gameweeks.reduce((total, gameweek, index) => {
         const scoreWeek = player => Number(player.weekly?.[index]?.xPts) || 0;
         const selection = selectOptimalLineup(players, scoreWeek);
@@ -731,7 +830,9 @@ app.post('/api/ai-team', async (req, res) => {
       }, 0);
       const benchDepth = players.reduce((sum, player) => sum + horizonScore(player), 0) * 0.025;
       const riskPenalty = players.reduce((sum, player) => sum + Math.max(0, 75 - (player.availability || 0)) * 0.02, 0);
-      return weeklyXI + benchDepth - riskPenalty;
+      // Prefer squads built from first-choice starters; penalize unknown/rotation-heavy picks.
+      const starterPenalty = players.reduce((sum, player) => sum + Math.max(0, 55 - (Number(player.starterScore) || 0)) * 0.04, 0);
+      return weeklyXI + benchDepth - riskPenalty - starterPenalty;
     };
 
     // Bounded beam search keeps alternative budget structures alive, then scores complete squads by their best XI.
@@ -774,7 +875,7 @@ app.post('/api/ai-team', async (req, res) => {
       }).slice(0, 1000);
     }
     const finalists = beam.filter(state => isLegalSquad(state.players) && respectsDefensiveStack(state.players)).map(state => ({ ...state, objective: squadObjective(state.players) })).sort((a, b) => b.objective - a.objective || b.spent - a.spent);
-    if (!finalists.length) throw new Error('The optimizer could not produce a legal 15-player squad within £100m');
+    if (!finalists.length) throw new Error('The optimizer could not produce a legal 15-player squad within Â£100m');
     const bestSquad = finalists[0].players;
     const bestCost = finalists[0].spent / 10;
 
@@ -861,7 +962,7 @@ app.post('/api/ai-team', async (req, res) => {
       }
     }
 
-    // ---- AUTONOMOUS CHIP SCHEDULE ----
+// ---- AUTONOMOUS CHIP SCHEDULE ----
     const chipSchedule = [];
     // Analyze each GW for chip opportunities
     const chipCandidates = [];
@@ -878,9 +979,14 @@ app.post('/api/ai-team', async (req, res) => {
       chipCandidates.push(
         { gw, chip: 'BB', score: benchXPts, expectedGain: benchXPts, reason: `Bench projects ${benchXPts.toFixed(1)} xPts.` },
         { gw, chip: 'TC', score: capXPts, expectedGain: capXPts, reason: `${captain?.name || 'Captain'} projects ${capXPts.toFixed(1)} xPts.` },
-        { gw, chip: 'WC', score: injured * 2 + blanks * 1.5, expectedGain: injured * 2 + blanks * 1.5, reason: `${injured} availability concerns and ${blanks} blanks.` },
-        { gw, chip: 'FH', score: blanks * 2, expectedGain: blanks * 2, reason: `${blanks} projected blanks in the squad.` },
       );
+      // FPL rule: Wildcard and Free Hit cannot be played in Gameweek 1.
+      if (gw !== 1) {
+        chipCandidates.push(
+          { gw, chip: 'WC', score: injured * 2 + blanks * 1.5, expectedGain: injured * 2 + blanks * 1.5, reason: `${injured} availability concerns and ${blanks} blanks.` },
+          { gw, chip: 'FH', score: blanks * 2, expectedGain: blanks * 2, reason: `${blanks} projected blanks in the squad.` },
+        );
+      }
     }
     const occupiedGameweeks = new Set();
     ['WC', 'FH', 'BB', 'TC'].forEach(chip => {
@@ -940,11 +1046,13 @@ app.post('/api/ai-team', async (req, res) => {
       try {
         await sql`INSERT INTO ai_team (session_id, squad, lineup, formation, team_cost, team_xpts, strategy, budget, horizon, is_locked, locked_at, transfers, chips)
           VALUES (${sessionId}, ${JSON.stringify(result.squad)}, ${JSON.stringify(result.lineup)}, ${result.formation}, ${result.teamCost}, ${result.teamXpts}, ${strategy}, ${budget}, ${projectionData.horizon}, ${Boolean(shouldAutoLock)}, ${shouldAutoLock ? new Date() : null}, ${JSON.stringify(result.transfers)}, ${JSON.stringify(result.chips)})
-          ON CONFLICT (session_id) DO UPDATE SET
+ON CONFLICT (session_id) DO UPDATE SET
             squad = EXCLUDED.squad, lineup = EXCLUDED.lineup, formation = EXCLUDED.formation,
             team_cost = EXCLUDED.team_cost, team_xpts = EXCLUDED.team_xpts, strategy = EXCLUDED.strategy,
-            budget = EXCLUDED.budget, horizon = EXCLUDED.horizon, is_locked = EXCLUDED.is_locked,
-            locked_at = EXCLUDED.locked_at, transfers = EXCLUDED.transfers, chips = EXCLUDED.chips, updated_at = NOW()`;
+            budget = EXCLUDED.budget, horizon = EXCLUDED.horizon,
+            is_locked = ai_team.is_locked OR EXCLUDED.is_locked,
+            locked_at = CASE WHEN ai_team.is_locked THEN ai_team.locked_at ELSE EXCLUDED.locked_at END,
+            transfers = EXCLUDED.transfers, chips = EXCLUDED.chips, updated_at = NOW()`;
       } catch (saveErr) {
         console.error('AI Team auto-save error:', saveErr.message);
       }
@@ -964,8 +1072,8 @@ async function analyzeManager(managerId, playerData, leagueId = 314) {
     getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/history/`),
     getCachedApiData(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/`)
   ]);
-  const currentGameweek = playerData.events.find(event => event.is_current).id;
-  const topManagerPoints = leagueData.standings.results[0].total;
+  const currentGameweek = playerData.events.find(event => event.is_current)?.id || playerData.events.find(event => event.is_next)?.id || 1;
+  const topManagerPoints = leagueData.standings.results[0]?.total || 0;
 
   let totalCaptaincyPoints = 0, totalPointsActive = 0, totalPointsLostOnBench = 0, totalCaptaincyAttempts = 0;
   const playerStats = {}, positionPoints = { GKP: {}, DEF: {}, MID: {}, FWD: {} };
@@ -1210,7 +1318,7 @@ async function analyzeManager(managerId, playerData, leagueId = 314) {
 
 const managerCache = {};
 
-app.get('/api/analyze-manager/:managerId', async (req, res) => {
+app.get('/api/analyze-manager/:managerId', heavyEndpointLimiter, async (req, res) => {
   const managerId = parsePositiveId(req.params.managerId);
   if (!managerId) return res.status(400).json({ error: 'Invalid manager ID' });
   try {
@@ -1221,7 +1329,7 @@ app.get('/api/analyze-manager/:managerId', async (req, res) => {
   } catch (e) { console.error('Error:', e.message); res.status(500).json({ error: 'Failed to analyze manager' }); }
 });
 
-app.get('/api/compare-managers/:id1/:id2', async (req, res) => {
+app.get('/api/compare-managers/:id1/:id2', heavyEndpointLimiter, async (req, res) => {
   const id1 = parsePositiveId(req.params.id1);
   const id2 = parsePositiveId(req.params.id2);
   if (!id1 || !id2) return res.status(400).json({ error: 'Invalid manager ID' });
@@ -1242,7 +1350,7 @@ app.get('/api/price-changes', async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Failed' }); }
 });
 
-app.get('/api/league-standings/:leagueId', async (req, res) => {
+app.get('/api/league-standings/:leagueId', heavyEndpointLimiter, async (req, res) => {
   const requestedLeagueId = parsePositiveId(req.params.leagueId);
   if (!requestedLeagueId) return res.status(400).json({ error: 'Invalid league ID' });
   try {
@@ -1307,14 +1415,14 @@ app.get('/api/league-standings/:leagueId', async (req, res) => {
         enriched.push({
           rank: entry.rank, entry: entry.entry,
           playerName: entry.player_name, teamName: entry.entry_name,
-          totalPoints: entry.total, overallRank: overallRank?.toLocaleString() || '—',
+          totalPoints: entry.total, overallRank: overallRank?.toLocaleString() || 'â€”',
           lastRank: entry.last_rank, rankChange: (entry.last_rank || entry.rank) - entry.rank,
-          gwPoints: gwPoints?.toLocaleString() || '—',
-          lastSeasonRank: lastSeasonRank?.toLocaleString() || '—',
-          seasonBeforeLastRank: seasonBeforeLastRank?.toLocaleString() || '—',
+          gwPoints: gwPoints?.toLocaleString() || 'â€”',
+          lastSeasonRank: lastSeasonRank?.toLocaleString() || 'â€”',
+          seasonBeforeLastRank: seasonBeforeLastRank?.toLocaleString() || 'â€”',
           chipsUsed: chipLabels.length ? chipLabels.join(', ') : 'None',
-          immediateGain: '—',
-          totalImmediateGain: '—'
+          immediateGain: 'â€”',
+          totalImmediateGain: 'â€”'
         });
       });
     }
@@ -1708,7 +1816,7 @@ app.get('/api/zone-analysis', async (req, res) => {
         {
           key: 'value', label: 'Minutes + value', icon: 'savings',
           picks: ranked('value', () => true, p =>
-            `${p.minutesSecurity}% minutes security at £${(p.nowCost / 10).toFixed(1)}m.`)
+            `${p.minutesSecurity}% minutes security at Â£${(p.nowCost / 10).toFixed(1)}m.`)
         }
       ].filter(group => group.picks.length > 0);
     };
@@ -2011,7 +2119,7 @@ app.get('/api/fixtures-detail', async (req, res) => {
 
       // FDR sum for next 5
       const fdrSum = nextFixtures.reduce((s, f) => s + f.difficulty, 0);
-      const avgFDR = nextFixtures.length > 0 ? (fdrSum / nextFixtures.length).toFixed(1) : '—';
+      const avgFDR = nextFixtures.length > 0 ? (fdrSum / nextFixtures.length).toFixed(1) : 'â€”';
 
       return {
         teamId: team.id, teamName: team.short_name, teamFullName: team.name,
@@ -2084,21 +2192,27 @@ app.get('/api/ownership/history', async (req, res) => {
   }
 });
 
-app.post('/api/ownership/snapshot', async (req, res) => {
+app.post('/api/ownership/snapshot', heavyEndpointLimiter, async (req, res) => {
   if (!requireDatabase(req, res)) return;
   try {
-    // Check throttle - get last snapshot
-    const lastResult = await sql`SELECT timestamp FROM ownership_snapshots ORDER BY timestamp DESC LIMIT 1`;
     const now = Date.now();
     const THROTTLE = 60 * 60 * 1000; // 1 hour throttle
-    
-    if (lastResult.length > 0 && (now - lastResult[0].timestamp) < THROTTLE) {
-      // Return existing sparkline data
+
+    // Atomic compare-and-swap: claim the throttle slot. The row lock serialises
+    // concurrent requests, so exactly one wins the right to write a snapshot.
+    const claimed = await sql`
+      INSERT INTO ownership_snapshot_lock (id, last_timestamp) VALUES (TRUE, ${now})
+      ON CONFLICT (id) DO UPDATE SET last_timestamp = EXCLUDED.last_timestamp
+      WHERE ownership_snapshot_lock.last_timestamp < ${now - THROTTLE}
+      RETURNING last_timestamp
+    `;
+
+    if (claimed.length === 0) {
       const recentForSparkline = await sql`SELECT timestamp, players FROM ownership_snapshots ORDER BY timestamp DESC LIMIT 14`;
-      return res.json({ 
-        ok: true, 
-        message: 'Snapshot already recent, skipping', 
-        skipped: true, 
+      return res.json({
+        ok: true,
+        message: 'Snapshot already recent, skipping',
+        skipped: true,
         sparklineData: recentForSparkline.reverse(),
         snapshotCount: (await sql`SELECT COUNT(*) as count FROM ownership_snapshots`)[0].count
       });
@@ -2251,7 +2365,7 @@ app.get('/api/ownership/trends', async (req, res) => {
           teamFull: getTeam(p.team)?.name || '',
           position: POSITION_MAP[p.element_type - 1],
           cost: p.now_cost,
-          costStr: '£' + (p.now_cost / 10).toFixed(1) + 'm',
+          costStr: 'Â£' + (p.now_cost / 10).toFixed(1) + 'm',
           code: p.code,
           ownership: currentOwn,
           transfersIn,
@@ -2322,7 +2436,7 @@ app.get('/api/price-predictions', async (req, res) => {
           id: p.id, name: p.web_name, code: p.code,
           team: getTeam(p.team)?.short_name || '',
           position: POSITION_MAP[p.element_type - 1],
-          cost: cost, costStr: '£' + (cost / 10).toFixed(1) + 'm',
+          cost: cost, costStr: 'Â£' + (cost / 10).toFixed(1) + 'm',
           netTransfers, velocity: Math.round(velocity * 10) / 10,
           hoursUntilChange,
           ownership,
@@ -2355,9 +2469,10 @@ app.get('/api/price-predictions', async (req, res) => {
 });
 
 // ---- League Standings ----
-app.get('/api/leagues-classic/:leagueId/standings', async (req, res) => {
+app.get('/api/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (req, res) => {
+  const leagueId = parsePositiveId(req.params.leagueId);
+  if (!leagueId) return res.status(400).json({ error: 'A valid leagueId is required' });
   try {
-    const { leagueId } = req.params;
     const page = Math.min(5, Math.max(1, parseInt(req.query.page) || 1));
     
     const data = await getCachedApiData(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/?page_standings=${page}`);
@@ -2526,13 +2641,13 @@ app.get('/api/dashboard/overview', async (req, res) => {
       ...priceRisers.map(p => ({
         name: p.web_name,
         team: getTeam(p.team)?.short_name || 'FPL',
-        price: '£' + (p.now_cost / 10).toFixed(1) + 'm',
+        price: 'Â£' + (p.now_cost / 10).toFixed(1) + 'm',
         direction: 'up'
       })),
       ...priceFallers.map(p => ({
         name: p.web_name,
         team: getTeam(p.team)?.short_name || 'FPL',
-        price: '£' + (p.now_cost / 10).toFixed(1) + 'm',
+        price: 'Â£' + (p.now_cost / 10).toFixed(1) + 'm',
         direction: 'down'
       }))
     ];
@@ -2819,7 +2934,7 @@ app.get('/api/differentials', async (req, res) => {
           team: getTeam(p.team)?.short_name || '',
           teamFull: getTeam(p.team)?.name || '',
           position: POSITION_MAP[p.element_type - 1],
-          cost, costStr: '£' + (cost / 10).toFixed(1) + 'm',
+          cost, costStr: 'Â£' + (cost / 10).toFixed(1) + 'm',
           ownership, xGI, form, totalPts,
           xGI90: xGI90.toFixed(2),
           ptsPerMillion: ptsPerMillion.toFixed(1),
@@ -2953,10 +3068,12 @@ app.get('/api/set-pieces', async (req, res) => {
 });
 
 // ---- Manager ROI ----
-app.get('/api/manager-roi/:managerId', async (req, res) => {
+app.get('/api/manager-roi/:managerId', heavyEndpointLimiter, async (req, res) => {
+  const managerId = parsePositiveId(req.params.managerId);
+  if (!managerId) return res.status(400).json({ error: 'A valid managerId is required' });
   try {
     const bs = await getCachedApiData(BOOTSTRAP_URL);
-    const managerData = await analyzeManager(req.params.managerId, bs, 314);
+    const managerData = await analyzeManager(managerId, bs, 314);
     
     const players = managerData.playerStats || [];
     const totalValue = players.reduce((s, p) => s + (p.nowCost || 0), 0) / 10;
@@ -3085,69 +3202,44 @@ app.get('/api/xpts-projections', async (req, res) => {
     const currentGW = bs.events.find(e => e.is_next)?.id || bs.events.find(e => e.is_current)?.id || 1;
     const getTeam = id => teams.find(t => t.id === id);
 
-    // Project every player for up to eight upcoming GWs so squad tools can enforce
-    // official quotas without silently hiding low-form or newly added players.
-    const projections = elements
-      .map(p => {
-        const form = parseFloat(p.form) || 0;
-        const ppg = parseFloat(p.points_per_game) || 0;
-        const xGI = parseFloat(p.expected_goal_involvements) || 0;
-        const team = p.team;
-        
-        // Include blanks and aggregate doubles into one gameweek projection.
-        const nextFixtures = [];
-        let totalXpts = 0;
-        
-        for (let gw = currentGW; gw <= Math.min(currentGW + 7, 38); gw++) {
-          const gameweekFixtures = fixtures.filter(f => f.event === gw && (f.team_h === team || f.team_a === team));
-          let gameweekXpts = 0;
-          const fixtureLabels = [];
-          gameweekFixtures.forEach(fx => {
-            const isHome = fx.team_h === team;
-            const fdr = isHome ? (fx.team_h_difficulty || 3) : (fx.team_a_difficulty || 3);
-            const oppId = isHome ? fx.team_a : fx.team_h;
-            const opp = getTeam(oppId);
-            
-            // xPts calculation
-            const baseXpts = (xGI * 3 + form * 1.5 + ppg * 1) / 5;
-            const fdrMod = fdr === 1 ? 1.4 : fdr === 2 ? 1.2 : fdr === 3 ? 1.0 : fdr === 4 ? 0.8 : 0.6;
-            const homeMod = isHome ? 1.1 : 1.0;
-            const availabilityMod = p.status === 'a' ? 1 : Math.max(0, Number(p.chance_of_playing_next_round || 0) / 100);
-            const gwXpts = Math.round(baseXpts * fdrMod * homeMod * availabilityMod * 10) / 10;
-            
-            gameweekXpts += gwXpts;
-            fixtureLabels.push({ opponent: opp?.short_name || '?', isHome, fdr });
-          });
-          gameweekXpts = Math.round(gameweekXpts * 10) / 10;
-          totalXpts += gameweekXpts;
-          nextFixtures.push({
-            gw,
-            opponent: fixtureLabels.map(item => item.opponent).join(' + ') || 'BLANK',
-            isHome: fixtureLabels.length === 1 ? fixtureLabels[0].isHome : null,
-            fdr: fixtureLabels.length ? Math.round(fixtureLabels.reduce((sum, item) => sum + item.fdr, 0) / fixtureLabels.length) : null,
-            xpts: gameweekXpts,
-            fixtures: fixtureLabels,
-          });
-        }
-
+    // Route through the shared captaincy projection engine so the team builder uses
+    // the same starter-aware xPts model as the decision centre and AI team.
+    const projectionData = buildPlayerProjections({ bootstrap: bs, fixtures, startGW: currentGW, horizon: 8 });
+    const projections = projectionData.projections.map(p => {
+      const raw = elements.find(element => element.id === p.id) || {};
+      const nextFixtures = p.weekly.map(week => {
+        const labels = week.fixtures || [];
         return {
-          id: p.id, name: p.web_name, code: p.code,
-          team: getTeam(team)?.short_name || '',
-          position: POSITION_MAP[p.element_type - 1],
-          cost: p.now_cost, costStr: '£' + (p.now_cost / 10).toFixed(1) + 'm',
-          form, ppg, xGI,
-          totalXpts: Math.round(totalXpts * 10) / 10,
-          xptsPerMillion: p.now_cost > 0 ? (totalXpts / (p.now_cost / 10)).toFixed(1) : '0.0',
-          nextFixtures,
-          totalPoints: p.total_points || 0,
-          ownership: parseFloat(p.selected_by_percent) || 0,
-          status: p.status,
-          news: p.news || '',
-          teamId: p.team,
-          photoId: p.code,
+          gw: week.gameweek,
+          opponent: labels.map(item => item.opponent).join(' + ') || 'BLANK',
+          isHome: labels.length === 1 ? labels[0].isHome : null,
+          fdr: labels.length ? Math.round(labels.reduce((sum, item) => sum + (item.fdr || 3), 0) / labels.length) : null,
+          xpts: week.xPts,
+          fixtures: labels,
         };
-      })
-      .sort((a, b) => b.totalXpts - a.totalXpts);
+      });
+      return {
+        id: p.id, name: p.name, code: p.code,
+        team: p.team,
+        position: p.position,
+        cost: p.cost * 10, costStr: '£' + p.cost.toFixed(1) + 'm',
+        form: p.form, ppg: raw.points_per_game ? parseFloat(raw.points_per_game) : 0, xGI: raw.expected_goal_involvements ? parseFloat(raw.expected_goal_involvements) : 0,
+        totalXpts: p.totalXpts,
+        xptsPerMillion: p.xPtsPerMillion.toFixed(1),
+        nextFixtures,
+        totalPoints: raw.total_points || 0,
+        ownership: p.ownership,
+        status: p.status,
+        news: p.news || '',
+        teamId: p.teamId,
+        photoId: p.code,
+        availability: p.availability,
+        confidence: p.confidence,
+        starterScore: p.starterScore,
+        starterTier: p.starterTier,
+        isStarter: p.isStarter,
+      };
+    }).sort((a, b) => b.totalXpts - a.totalXpts);
 
     // Team projections (sum of all starters)
     const teamProjections = {};
@@ -3175,7 +3267,7 @@ app.get('/api/xpts-projections', async (req, res) => {
 });
 
 // ---- Team Builder Squad Advisor ----
-app.post('/api/team-builder/advice', async (req, res) => {
+app.post('/api/team-builder/advice', heavyEndpointLimiter, async (req, res) => {
   try {
     const playerIds = Array.isArray(req.body?.playerIds) ? req.body.playerIds.map(Number).filter(Number.isFinite) : [];
     if (!playerIds.length || playerIds.length > 15) return res.status(400).json({ error: 'Choose between 1 and 15 players for review' });
@@ -3195,9 +3287,9 @@ app.post('/api/team-builder/advice', async (req, res) => {
         usedChips: Array.isArray(req.body?.usedChips) ? req.body.usedChips : [],
       },
     }));
-  } catch (error) {
+} catch (error) {
     console.error('Team builder advice error:', error.message);
-    res.status(500).json({ error: error.message || 'Failed to review this squad' });
+    res.status(500).json({ error: 'Failed to review this squad' });
   }
 });
 
@@ -3253,7 +3345,7 @@ app.get('/api/injury-news', async (req, res) => {
         statusCode: p.status,
         news: p.news || 'No update',
         cost: p.now_cost,
-        costStr: '£' + (p.now_cost / 10).toFixed(1) + 'm',
+        costStr: 'Â£' + (p.now_cost / 10).toFixed(1) + 'm',
         ownership: parseFloat(p.selected_by_percent) || 0,
         form: parseFloat(p.form) || 0,
         totalPoints: p.total_points || 0,

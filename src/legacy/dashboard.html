@@ -323,7 +323,7 @@
                         <div style="background:#9ecfb7;border-radius:12px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;min-height:120px;">
                             <span class="mono" style="font-size:10px;font-weight:700;color:#2c4436;text-transform:uppercase;letter-spacing:0.08em;">MANAGER ID</span>
                             <div style="display:flex;align-items:center;background:#141f18;border-radius:6px;padding:4px 6px;margin-top:12px;">
-                                <input type="text" id="manager-id-input-field" value="1234567" style="background:transparent;border:none;outline:none;color:#ffffff;font-family:var(--font-mono);font-size:14px;font-weight:700;width:100%;padding:4px 8px;">
+                                <input type="text" id="manager-id-input-field" value="1234567" aria-label="Manager ID" style="background:transparent;border:none;outline:none;color:#ffffff;font-family:var(--font-mono);font-size:14px;font-weight:700;width:100%;padding:4px 8px;">
                                 <button type="button" aria-label="Analyze manager ID" onclick="FPL.connectManagerFromInput()" style="background:transparent;border:none;color:#00FF85;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:4px;">
                                     <span class="material-symbols-outlined" style="font-size:18px;">search</span>
                                 </button>
@@ -1238,7 +1238,7 @@
         </div>
     </div>
 
-    <script src="common.js?v=12"></script>
+    <script src="common.js?v=13"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams(window.location.search);
@@ -1254,7 +1254,9 @@
                 if (routeTab) FPL.loadTabData(routeTab);
                 if (FPL.state.managerId) {
                     const display = document.getElementById('manager-id-display');
-                    if (display) display.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:8px;height:8px;border-radius:50%;background:#00FF85;box-shadow:0 0 6px #00FF85;"></span> Manager ${FPL.state.managerId}</span>`;
+                    if (display) {
+                        display.textContent = `Manager ${FPL.state.managerId}`;
+                    }
                     const topbarBtn = document.querySelector('.topbar-right .btn-primary');
                     if (topbarBtn) {
                         topbarBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px;color:#00FF85;">check_circle</span> Connected`;

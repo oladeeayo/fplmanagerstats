@@ -4,10 +4,8 @@ import { createWorker } from 'tesseract.js';
 import { App } from './app/App';
 import './fonts.css';
 
-if (!document.cookie.split('; ').some((cookie) => cookie.startsWith('fpl_analytics_session='))) {
-  const sessionId = Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) => byte.toString(16).padStart(2, '0')).join('');
-  document.cookie = `fpl_analytics_session=${sessionId}; Max-Age=31536000; Path=/; SameSite=Lax`;
-}
+// The server issues an HttpOnly, SameSite=Lax session cookie via the session
+// middleware, so the client must not create one itself.
 
 function mountApp() {
   createRoot(document.getElementById('root')!).render(

@@ -145,15 +145,21 @@ function buildChipPlan({ squad, gameweeks, usedChips, strategy }) {
     return { gameweek, benchBoostGain: benchPoints, tripleCaptainGain: round(lineup.captain?.weekly[0].xPts || 0), freeHitNeed: round(blankCount * 1.6 + Math.max(0, 48 - lineup.expectedPoints) * 0.25), wildcardNeed: round(indexedSquad.filter(player => player.availability < 75 || player.totalXpts < 2.5 * gameweeks.length).length * 1.4), topCaptain: lineup.captain?.name || '--' };
   });
   const available = chip => !usedChips.some(used => String(used).toLowerCase().includes(chip));
+  // FPL rule: the Wildcard and Free Hit chips cannot be played in Gameweek 1.
+  const playableWeeks = (weeks, chip) => chip === 'Wildcard' || chip === 'Free Hit'
+    ? weeks.filter(week => week.gameweek !== 1)
+    : weeks;
   const recommendations = [
     available('bboost') && { chip: 'Bench Boost', metric: 'benchBoostGain' },
     available('3xc') && { chip: 'Triple Captain', metric: 'tripleCaptainGain' },
     available('freehit') && { chip: 'Free Hit', metric: 'freeHitNeed' },
     available('wildcard') && { chip: 'Wildcard', metric: 'wildcardNeed' },
   ].filter(Boolean).map(({ chip, metric }) => {
-    const best = [...weeks].sort((a, b) => b[metric] - a[metric])[0];
+    const candidateWeeks = playableWeeks(weeks, chip);
+    const best = [...candidateWeeks].sort((a, b) => b[metric] - a[metric])[0] || null;
     const labels = { benchBoostGain: 'Projected bench output', tripleCaptainGain: 'Extra captain projection', freeHitNeed: 'Blank and weak-lineup pressure', wildcardNeed: 'Squad repair pressure' };
-    return { chip, gameweek: best.gameweek, expectedGain: best[metric], confidence: best[metric] >= 8 ? 'High' : best[metric] >= 5 ? 'Medium' : 'Wait', reason: `${labels[metric]} peaks in GW${best.gameweek}.` };
+    const gated = !best ? ' Wildcard and Free Hit cannot be played in GW1.' : '';
+    return { chip, gameweek: best?.gameweek || null, expectedGain: best ? best[metric] : 0, confidence: best ? (best[metric] >= 8 ? 'High' : best[metric] >= 5 ? 'Medium' : 'Wait') : 'Wait', reason: best ? `${labels[metric]} peaks in GW${best.gameweek}.` : `${labels[metric]} has no playable window in this horizon.${gated}` };
   });
   return { weeks, recommendations };
 }

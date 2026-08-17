@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 
 const DISMISSED_KEY = 'fpl-install-dismissed';
 const DISMISSED_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -41,6 +41,22 @@ export function InstallPrompt() {
   const [show, setShow] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isIOSDevice, setIsIOS] = useState(false);
+  const showTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const lastTriggerRef = useRef<HTMLElement | null>(null);
+
+  const scheduleShow = useCallback(() => {
+    if (showTimer.current) clearTimeout(showTimer.current);
+    showTimer.current = setTimeout(() => setShow(true), 3000);
+  }, []);
+
+  const dismiss = useCallback(() => {
+    setShow(false);
+    if (showTimer.current) { clearTimeout(showTimer.current); showTimer.current = null; }
+    try {
+      localStorage.setItem(DISMISSED_KEY, String(Date.now()));
+    } catch {}
+  }, []);
 
   useEffect(() => {
     if (isStandalone() || !isMobile() || wasDismissed()) return;
@@ -50,24 +66,20 @@ export function InstallPrompt() {
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      setTimeout(() => setShow(true), 3000);
+      scheduleShow();
     };
 
     window.addEventListener('beforeinstallprompt', handler);
 
     if (isIOS() && !wasDismissed()) {
-      setTimeout(() => setShow(true), 3000);
+      scheduleShow();
     }
 
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
-
-  const dismiss = useCallback(() => {
-    setShow(false);
-    try {
-      localStorage.setItem(DISMISSED_KEY, String(Date.now()));
-    } catch {}
-  }, []);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+      if (showTimer.current) clearTimeout(showTimer.current);
+    };
+  }, [scheduleShow]);
 
   const handleInstall = useCallback(async () => {
     if (deferredPrompt) {
@@ -91,10 +103,44 @@ export function InstallPrompt() {
     }
   }, [deferredPrompt, dismiss]);
 
+  useEffect(() => {
+    if (!show) return;
+    lastTriggerRef.current = document.activeElement as HTMLElement | null;
+    const primary = overlayRef.current?.querySelector<HTMLButtonElement>('.install-prompt-btn-primary');
+    primary?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        dismiss();
+        return;
+      }
+      if (event.key !== 'Tab' || !overlayRef.current) return;
+      const focusable = [...overlayRef.current.querySelectorAll<HTMLElement>('button:not([disabled])')];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      lastTriggerRef.current?.focus?.();
+      lastTriggerRef.current = null;
+    };
+  }, [show, dismiss]);
+
   if (!show) return null;
 
   return (
-    <div className="install-prompt-overlay" onClick={dismiss}>
+    <div
+      ref={overlayRef}
+      className="install-prompt-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="install-prompt-title"
+      onClick={dismiss}
+    >
       <div className="install-prompt-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="install-prompt-handle" />
 
@@ -102,7 +148,7 @@ export function InstallPrompt() {
           <img src="/icon-192.png" alt="FPL Stats" width={72} height={72} />
         </div>
 
-        <h2 className="install-prompt-title">Install FPL Manager Stats</h2>
+        <h2 id="install-prompt-title" className="install-prompt-title">Install FPL Manager Stats</h2>
         <p className="install-prompt-tagline">Track. Analyse. Dominate.</p>
 
         {isIOSDevice ? (

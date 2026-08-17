@@ -38,7 +38,36 @@ function availabilityFor(player, useNextRoundChance) {
   return 1;
 }
 
-function estimateExpectedMinutes(player, referenceMatches, availability) {
+function buildTeamExperience(elements) {
+  const teamMinutes = new Map();
+  const teamCounts = new Map();
+  elements.forEach(player => {
+    const teamId = player.team;
+    if (!teamMinutes.has(teamId)) teamMinutes.set(teamId, 0);
+    if (!teamCounts.has(teamId)) teamCounts.set(teamId, 0);
+    teamMinutes.set(teamId, teamMinutes.get(teamId) + number(player.minutes));
+    teamCounts.set(teamId, teamCounts.get(teamId) + 1);
+  });
+  const experience = new Map();
+  teamMinutes.forEach((total, teamId) => {
+    const count = Math.max(teamCounts.get(teamId) || 1, 1);
+    const avg = total / count;
+    experience.set(teamId, { total, avg, promoted: avg < 900 });
+  });
+  return experience;
+}
+
+function buildTeamPositionCosts(elements) {
+  const map = new Map();
+  elements.forEach(player => {
+    const key = `${player.team}:${player.element_type}`;
+    const cost = number(player.now_cost);
+    if (!map.has(key) || cost > map.get(key)) map.set(key, cost);
+  });
+  return map;
+}
+
+function estimateExpectedMinutes(player, referenceMatches, availability, context = {}) {
   if (availability <= 0) return 0;
 
   const minutes = number(player.minutes);
@@ -48,8 +77,18 @@ function estimateExpectedMinutes(player, referenceMatches, availability) {
   if (minutes === 0 && starts === 0 && points === 0) {
     const officialProjection = number(player.ep_next);
     const ownership = number(player.selected_by_percent);
-    const rolePrior = 58 + Math.min(officialProjection * 4, 16) + Math.min(ownership * 0.25, 8);
-    return round(clamp(rolePrior * availability, 35, 82), 0);
+    const teamInfo = context.teamExperience?.get ? context.teamExperience.get(player.team) : null;
+    const promotedTeam = Boolean(teamInfo?.promoted);
+    const position = context.position;
+    let rolePrior = 58 + Math.min(officialProjection * 4, 16) + Math.min(ownership * 0.25, 8);
+    if (position === 'GKP') {
+      if (promotedTeam) rolePrior -= 24;
+      if (number(player.now_cost) < 46) rolePrior -= 6;
+    } else if (promotedTeam) {
+      rolePrior -= 8;
+    }
+    const floor = position === 'GKP' ? 22 : 35;
+    return round(clamp(rolePrior * availability, floor, 82), 0);
   }
   const inferredAppearances = ppg > 0 ? points / ppg : Math.max(starts, Math.ceil(minutes / 90));
   const appearances = clamp(inferredAppearances, starts, Math.max(referenceMatches, starts, 1));
@@ -104,6 +143,68 @@ function describeRole(player) {
   if (number(player.direct_freekicks_order) === 1) roles.push('direct free-kicks');
   if (number(player.corners_and_indirect_freekicks_order) === 1) roles.push('corners and indirect free-kicks');
   return roles;
+}
+
+// 0-100 estimate of how likely a player is a first-choice FPL starter for the next
+// several gameweeks, so squad tools prefer proven starters and avoid unknowns.
+function estimateStarterScore(player, teamExperience, teamPositionCosts) {
+  const minutes = number(player.minutes);
+  const starts = number(player.starts);
+  const ppg = number(player.points_per_game);
+  const points = number(player.total_points);
+  const epNext = number(player.ep_next);
+  const ownership = number(player.selected_by_percent);
+  const price = number(player.now_cost) / 10;
+  const position = POSITION_MAP[player.element_type - 1];
+  const teamInfo = teamExperience.get(player.team) || { promoted: false };
+
+  let score = 0;
+
+  // Proven playing time last season is the strongest starter signal.
+  if (minutes >= 2800) score += 40;
+  else if (minutes >= 2300) score += 32;
+  else if (minutes >= 1800) score += 24;
+  else if (minutes >= 1200) score += 16;
+  else if (minutes >= 600) score += 8;
+  else if (minutes > 0) score += 4;
+
+  // Start frequency among appearances.
+  const appearances = ppg > 0 ? points / ppg : Math.max(starts, Math.ceil(minutes / 90));
+  const startRatio = appearances > 0 ? starts / appearances : 0;
+  if (startRatio >= 0.9) score += 12;
+  else if (startRatio >= 0.7) score += 8;
+  else if (startRatio >= 0.5) score += 4;
+
+  // Unknown/new players: price + official projection + community ownership stand in for role.
+  if (minutes === 0 && starts === 0 && points === 0) {
+    if (price >= 7.0) score += 15;
+    else if (price >= 5.5) score += 8;
+    else if (price >= 4.5) score += 2;
+    score += Math.min(epNext * 1.5, 12);
+    score += Math.min(ownership * 0.4, 10);
+    if (teamInfo.promoted && position === 'GKP') score -= 25;
+    else if (teamInfo.promoted && price < 5.0) score -= 10;
+  }
+
+  // "2nd fiddle" risk: a cheaper/newer player with a much more expensive teammate
+  // in the same position is often not the first-choice option.
+  const rivalMaxPrice = (teamPositionCosts.get(`${player.team}:${player.element_type}`) || 0) / 10;
+  if (rivalMaxPrice > price + 1.0 && price < 6.0) score -= 8;
+
+  // Availability drags viability.
+  if (player.status === 'i') score -= 20;
+  else if (player.status === 'd') score -= 10;
+  const chance = number(player.chance_of_playing_next_round, NaN);
+  if (Number.isFinite(chance) && chance < 100) score -= Math.max(0, 100 - chance) * 0.3;
+
+  return clamp(Math.round(score), 0, 100);
+}
+
+function starterTierFor(score) {
+  if (score >= 75) return 'Nailed starter';
+  if (score >= 55) return 'Likely starter';
+  if (score >= 35) return 'Rotation risk';
+  return 'Unknown role';
 }
 
 function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form, ppg, position, officialProjection }) {
@@ -169,12 +270,13 @@ function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form
   };
 }
 
-function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, baselines, useNextRoundChance, useOfficialProjection }) {
+function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, baselines, useNextRoundChance, useOfficialProjection, teamExperience, teamPositionCosts }) {
   const availability = availabilityFor(player, useNextRoundChance);
-  const xMins = estimateExpectedMinutes(player, referenceMatches, availability);
+  const xMins = estimateExpectedMinutes(player, referenceMatches, availability, { teamExperience, position: POSITION_MAP[player.element_type - 1] });
   if (!playerFixtures.length || xMins < 20) return null;
 
   const position = POSITION_MAP[player.element_type - 1];
+  const starterScore = estimateStarterScore(player, teamExperience || new Map(), teamPositionCosts || new Map());
   const form = number(player.form);
   const ppg = number(player.points_per_game);
   const effectiveForm = form > 0 ? form : ppg;
@@ -246,6 +348,9 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
     ownership: round(ownership),
     availability: round(availability * 100, 0),
     confidence,
+    starterScore,
+    starterTier: starterTierFor(starterScore),
+    isStarter: starterScore >= 55,
     roles,
     fixtures,
     fixtureSummary,
@@ -303,6 +408,8 @@ function buildCaptaincyModel({ bootstrap, fixtures, selectedGW }) {
   const baselines = buildPositionBaselines(elements);
   const useNextRoundChance = gameweek === nextGW;
   const useOfficialProjection = gameweek === nextGW;
+  const teamExperience = buildTeamExperience(elements);
+  const teamPositionCosts = buildTeamPositionCosts(elements);
 
   const candidates = elements
     .filter(player => fixturesByTeam.has(player.team) && player.special !== true)
@@ -316,6 +423,8 @@ function buildCaptaincyModel({ bootstrap, fixtures, selectedGW }) {
       baselines,
       useNextRoundChance,
       useOfficialProjection,
+      teamExperience,
+      teamPositionCosts,
     }))
     .filter(Boolean)
     .sort((a, b) => b.xPts - a.xPts || b.upside - a.upside || b.xMins - a.xMins);
@@ -380,6 +489,8 @@ function buildPlayerProjections({ bootstrap, fixtures, startGW, horizon = 5 }) {
     fixtures.filter(fixture => fixture.finished && (fixture.team_h === team.id || fixture.team_a === team.id)).length,
   ]));
   const baselines = buildPositionBaselines(elements);
+  const teamExperience = buildTeamExperience(elements);
+  const teamPositionCosts = buildTeamPositionCosts(elements);
 
   const projections = elements.map(player => {
     const buildForGameweek = gameweek => {
@@ -397,6 +508,8 @@ function buildPlayerProjections({ bootstrap, fixtures, startGW, horizon = 5 }) {
         baselines,
         useNextRoundChance: gameweek === nextGW,
         useOfficialProjection: gameweek === nextGW,
+        teamExperience,
+        teamPositionCosts,
       });
     };
     const candidates = gameweeks.map(buildForGameweek);
@@ -438,6 +551,9 @@ function buildPlayerProjections({ bootstrap, fixtures, startGW, horizon = 5 }) {
       returnProbability: round(clamp(1 - Math.exp(-Math.max(totalXpts - gameweeks.length, 0) / 4), 0.04, 0.88) * 100, 0),
       haulProbability: round(clamp((totalXpts / Math.max(gameweeks.length, 1) - 3) * 8 + number(player.expected_goal_involvements_per_90) * 18, 2, 58), 0),
       confidence: firstCandidate?.confidence || (availability === 0 ? 'Unavailable' : 'Low sample'),
+      starterScore: firstCandidate?.starterScore ?? estimateStarterScore(player, teamExperience, teamPositionCosts),
+      starterTier: firstCandidate?.starterTier || starterTierFor(firstCandidate?.starterScore ?? estimateStarterScore(player, teamExperience, teamPositionCosts)),
+      isStarter: firstCandidate?.isStarter ?? estimateStarterScore(player, teamExperience, teamPositionCosts) >= 55,
     };
   }).sort((a, b) => b.totalXpts - a.totalXpts || b.xPtsPerMillion - a.xPtsPerMillion);
 
@@ -448,4 +564,6 @@ module.exports = {
   buildCaptaincyModel,
   buildPlayerProjections,
   estimateExpectedMinutes,
+  estimateStarterScore,
+  starterTierFor,
 };

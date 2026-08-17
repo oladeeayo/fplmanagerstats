@@ -14,6 +14,9 @@ const Admin = (() => {
   };
 
   function getFlag(code) { return COUNTRY_FLAGS[code] || '\u{1F30D}'; }
+  function escapeHTML(value) {
+    return String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
+  }
   function formatNum(n) { return n == null ? '--' : n.toLocaleString(); }
   function timeAgo(date) {
     const s = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
@@ -82,7 +85,7 @@ const Admin = (() => {
           <td>${v.browser || '?'}</td>
           <td style="text-align:center;">1x</td>
           <td style="text-align:center;color:#00ff85;">1d</td>
-          <td style="color:#5a7a66;max-width:120px;overflow:hidden;text-overflow:ellipsis;" title="${v.referrer || ''}">${refDisplay}</td>
+          <td style="color:#5a7a66;max-width:120px;overflow:hidden;text-overflow:ellipsis;" title="${escapeHTML(v.referrer || '')}">${escapeHTML(refDisplay)}</td>
         </tr>`;
       }).join('');
     }
@@ -167,7 +170,7 @@ const Admin = (() => {
       return;
     }
     tbody.innerHTML = d.pages.slice(0, 20).map(p => `<tr>
-      <td style="font-family:'JetBrains Mono',monospace;max-width:300px;overflow:hidden;text-overflow:ellipsis;" title="${p.path}">${p.path}</td>
+      <td style="font-family:'JetBrains Mono',monospace;max-width:300px;overflow:hidden;text-overflow:ellipsis;" title="${escapeHTML(p.path)}">${escapeHTML(p.path)}</td>
       <td style="font-family:'JetBrains Mono',monospace;">${formatNum(parseInt(p.views))}</td>
       <td style="font-family:'JetBrains Mono',monospace;">${formatNum(parseInt(p.unique_visitors))}</td>
       <td style="font-family:'JetBrains Mono',monospace;">${p.avg_response_ms || '--'}ms</td>
@@ -192,7 +195,7 @@ const Admin = (() => {
         <td>${v.browser || '?'}</td>
         <td style="text-align:center;">${visitBadge}</td>
         <td style="text-align:center;color:#00ff85;">${v.unique_visit_days || 1}d</td>
-        <td style="color:#5a7a66;max-width:120px;overflow:hidden;text-overflow:ellipsis;" title="${v.last_referrer || ''}">${refDisplay}</td>
+        <td style="color:#5a7a66;max-width:120px;overflow:hidden;text-overflow:ellipsis;" title="${escapeHTML(v.last_referrer || '')}">${escapeHTML(refDisplay)}</td>
       </tr>`;
     }).join('');
 
@@ -229,14 +232,12 @@ const Admin = (() => {
     const key = input.value.trim();
     if (!key) return;
     adminKey = key;
-    localStorage.setItem('fpl_admin_key', key);
     document.getElementById('login-error').style.display = 'none';
     showDashboard();
   }
 
   function logout() {
     adminKey = '';
-    localStorage.removeItem('fpl_admin_key');
     document.getElementById('dashboard').style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('admin-key-input').value = '';
@@ -252,11 +253,8 @@ const Admin = (() => {
 
   function goPage(p) { visitorsPage = p; loadVisitors(); }
 
-  // Auto-login if key is stored
-  adminKey = localStorage.getItem('fpl_admin_key') || '';
-  if (adminKey) {
-    showDashboard();
-  }
+  // Key is held in memory only (never persisted to localStorage) to reduce
+  // exfiltration risk from XSS; the admin must re-enter it per browser session.
 
   // Enter key login
   document.addEventListener('keydown', e => {
