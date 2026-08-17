@@ -39,7 +39,8 @@ const FPL = {
             importView: 'pitch',
             importGW: null,
             lastAdvice: null,
-            squadView: 'list'
+            squadView: 'pitch',
+            autoFillSeed: 0
         }
     },
 
@@ -675,6 +676,113 @@ const FPL = {
         }
     },
 
+    // Auto-fill: greedy selection respecting position quotas, club max 3, and budget
+    autoFillTeamBuilder() {
+        const builder = this.state.teamBuilder;
+        if (!builder.players.length) return;
+        builder.autoFillSeed = 0;
+        const ids = this.buildAutoFillSquad(0);
+        if (!ids.length) return;
+        builder.autoFillSeed = 1;
+        builder.selectedIds = ids;
+        builder.captainId = this.pickAutoFillCaptain(ids);
+        this.saveTeamBuilderDraft();
+        this.paintTeamBuilder();
+        const reroll = document.getElementById('tb-autofill-reroll');
+        if (reroll) reroll.classList.remove('hidden');
+        const message = document.getElementById('tb-market-message');
+        if (message) message.textContent = `AI auto-filled ${ids.length} legal players for this horizon. Tap Re-roll to try a different draft.`;
+    },
+
+    reRollTeamBuilderAutoFill() {
+        const builder = this.state.teamBuilder;
+        if (!builder.players.length) return;
+        builder.autoFillSeed += 1;
+        const ids = this.buildAutoFillSquad(builder.autoFillSeed);
+        if (!ids.length) return;
+        builder.selectedIds = ids;
+        builder.captainId = this.pickAutoFillCaptain(ids);
+        this.saveTeamBuilderDraft();
+        this.paintTeamBuilder();
+        const message = document.getElementById('tb-market-message');
+        if (message) message.textContent = `Re-rolled draft ${builder.autoFillSeed} — ${ids.length} legal players. Keep refreshing for more alternatives.`;
+    },
+
+    // Deterministic pseudo-random from seed for stable re-rolls
+    _mulberry32(seed) {
+        let a = seed >>> 0;
+        return function () {
+            a |= 0;
+            a = (a + 0x6D2B79F5) | 0;
+            let t = Math.imul(a ^ (a >>> 15), 1 | a);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+    },
+
+    pickAutoFillCaptain(ids) {
+        const builder = this.state.teamBuilder;
+        const squad = builder.players.filter(player => ids.includes(player.id));
+        if (!squad.length) return null;
+        return squad.reduce((best, player) => (!best || this.teamBuilderXPts(player) > this.teamBuilderXPts(best) ? player : best), null).id;
+    },
+
+    buildAutoFillSquad(seed = 0) {
+        const builder = this.state.teamBuilder;
+        const players = builder.players.filter(player => (player.nextFixtures || []).some(fixture => builder.selectedGWs.includes(fixture.gw)));
+        const quotas = { GKP: 2, DEF: 5, MID: 5, FWD: 3 };
+        const rand = this._mulberry32(seed * 7919 + 13);
+        // Composite score: projected points dominate, with seeded jitter and a value tiebreak
+        const score = player => {
+            const xpts = this.teamBuilderXPts(player);
+            const value = player.costValue > 0 ? xpts / player.costValue : 0;
+            return xpts * (0.82 + 0.35 * value) * (seed === 0 ? 1 : 0.86 + rand() * 0.28);
+        };
+        const ranked = [...players].sort((a, b) => score(b) - score(a));
+        const selected = [];
+        const used = new Set();
+        const clubs = {};
+        const positions = { GKP: 0, DEF: 0, MID: 0, FWD: 0 };
+        let cost = 0;
+
+        // Cheapest still-available player per position, for feasibility checks
+        const cheapestFill = (position, excluded, clubCounts) => {
+            return players
+                .filter(player => player.position === position && !excluded.has(player.id) && (clubCounts[player.team] || 0) < 3)
+                .sort((a, b) => a.costValue - b.costValue);
+        };
+        const canFinish = (pos, count, usedSet, curClubs, remainingBudget) => {
+            let needed = 0;
+            const tmp = { ...positions, [pos]: positions[pos] + count };
+            for (const key of Object.keys(quotas)) {
+                const gap = quotas[key] - tmp[key];
+                if (gap <= 0) continue;
+                const fill = cheapestFill(key, usedSet, curClubs).slice(0, gap);
+                if (fill.length < gap) return false;
+                needed += fill.reduce((sum, player) => sum + player.costValue, 0);
+            }
+            return needed <= remainingBudget;
+        };
+
+        for (const player of ranked) {
+            if (selected.length >= 15) break;
+            if (positions[player.position] >= quotas[player.position]) continue;
+            if ((clubs[player.team] || 0) >= 3) continue;
+            const nextCost = cost + player.costValue;
+            if (nextCost > 100.0001) continue;
+            const nextUsed = new Set(used);
+            nextUsed.add(player.id);
+            const nextClubs = { ...clubs, [player.team]: (clubs[player.team] || 0) + 1 };
+            if (!canFinish(player.position, 1, nextUsed, nextClubs, 100 - nextCost)) continue;
+            selected.push(player.id);
+            used.add(player.id);
+            clubs[player.team] = (clubs[player.team] || 0) + 1;
+            positions[player.position] += 1;
+            cost = nextCost;
+        }
+        return selected;
+    },
+
     async importTeamScreenshot(file) {
         const panel = document.getElementById('tb-import-panel');
         const status = document.getElementById('tb-import-status');
@@ -1088,6 +1196,10 @@ const FPL = {
             btn.classList.toggle('active', isActive);
             btn.setAttribute('aria-pressed', String(isActive));
         });
+
+        // Show re-roll only after auto-fill has run
+        const rerollBtn = document.getElementById('tb-autofill-reroll');
+        if (rerollBtn) rerollBtn.classList.toggle('hidden', !(builder.autoFillSeed > 0 && builder.selectedIds.length));
 
         const squadList = document.getElementById('tb-squad-list');
         const squadPitch = document.getElementById('tb-squad-pitch');
