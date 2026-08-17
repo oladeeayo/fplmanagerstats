@@ -1221,7 +1221,7 @@ const squadObjective = players => {
       }).slice(0, 1000);
     }
     const finalists = beam.filter(state => isLegalSquad(state.players) && respectsDefensiveStack(state.players)).map(state => ({ ...state, objective: squadObjective(state.players) })).sort((a, b) => b.objective - a.objective || b.spent - a.spent);
-    if (!finalists.length) throw new Error('The optimizer could not produce a legal 15-player squad within Â£100m');
+    if (!finalists.length) throw new Error('The optimizer could not produce a legal 15-player squad within £100m');
     const bestSquad = finalists[0].players;
     const bestCost = finalists[0].spent / 10;
 
@@ -2162,7 +2162,7 @@ app.get('/api/zone-analysis', async (req, res) => {
         {
           key: 'value', label: 'Minutes + value', icon: 'savings',
           picks: ranked('value', () => true, p =>
-            `${p.minutesSecurity}% minutes security at Â£${(p.nowCost / 10).toFixed(1)}m.`)
+            `${p.minutesSecurity}% minutes security at £${(p.nowCost / 10).toFixed(1)}m.`)
         }
       ].filter(group => group.picks.length > 0);
     };
@@ -2711,7 +2711,7 @@ app.get('/api/ownership/trends', async (req, res) => {
           teamFull: getTeam(p.team)?.name || '',
           position: POSITION_MAP[p.element_type - 1],
           cost: p.now_cost,
-          costStr: 'Â£' + (p.now_cost / 10).toFixed(1) + 'm',
+          costStr: '£' + (p.now_cost / 10).toFixed(1) + 'm',
           code: p.code,
           ownership: currentOwn,
           transfersIn,
@@ -2782,7 +2782,7 @@ app.get('/api/price-predictions', async (req, res) => {
           id: p.id, name: p.web_name, code: p.code,
           team: getTeam(p.team)?.short_name || '',
           position: POSITION_MAP[p.element_type - 1],
-          cost: cost, costStr: 'Â£' + (cost / 10).toFixed(1) + 'm',
+          cost: cost, costStr: '£' + (cost / 10).toFixed(1) + 'm',
           netTransfers, velocity: Math.round(velocity * 10) / 10,
           hoursUntilChange,
           ownership,
@@ -2987,13 +2987,13 @@ app.get('/api/dashboard/overview', async (req, res) => {
       ...priceRisers.map(p => ({
         name: p.web_name,
         team: getTeam(p.team)?.short_name || 'FPL',
-        price: 'Â£' + (p.now_cost / 10).toFixed(1) + 'm',
+        price: '£' + (p.now_cost / 10).toFixed(1) + 'm',
         direction: 'up'
       })),
       ...priceFallers.map(p => ({
         name: p.web_name,
         team: getTeam(p.team)?.short_name || 'FPL',
-        price: 'Â£' + (p.now_cost / 10).toFixed(1) + 'm',
+        price: '£' + (p.now_cost / 10).toFixed(1) + 'm',
         direction: 'down'
       }))
     ];
@@ -3280,7 +3280,7 @@ app.get('/api/differentials', async (req, res) => {
           team: getTeam(p.team)?.short_name || '',
           teamFull: getTeam(p.team)?.name || '',
           position: POSITION_MAP[p.element_type - 1],
-          cost, costStr: 'Â£' + (cost / 10).toFixed(1) + 'm',
+          cost, costStr: '£' + (cost / 10).toFixed(1) + 'm',
           ownership, xGI, form, totalPts,
           xGI90: xGI90.toFixed(2),
           ptsPerMillion: ptsPerMillion.toFixed(1),
@@ -3700,7 +3700,7 @@ app.get('/api/injury-news', async (req, res) => {
         statusCode: p.status,
         news: p.news || 'No update',
         cost: p.now_cost,
-        costStr: 'Â£' + (p.now_cost / 10).toFixed(1) + 'm',
+        costStr: '£' + (p.now_cost / 10).toFixed(1) + 'm',
         ownership: parseFloat(p.selected_by_percent) || 0,
         form: parseFloat(p.form) || 0,
         totalPoints: p.total_points || 0,

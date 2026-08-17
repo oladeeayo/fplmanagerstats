@@ -404,6 +404,20 @@ const FPL = {
         return 'own-none';
     },
 
+    formatPriceDisplay(costStr, cost) {
+        if (costStr && typeof costStr === 'string') {
+            const clean = costStr.replace(/^[^d£]+/, '£').replace(/^Â£/, '£');
+            if (clean.startsWith('£')) return clean;
+            if (/^\d/.test(clean)) return '£' + clean;
+            return clean;
+        }
+        if (typeof cost === 'number' && !isNaN(cost)) {
+            const val = cost > 30 ? cost / 10 : cost;
+            return `£${val.toFixed(1)}m`;
+        }
+        return '£0.0m';
+    },
+
     getPositionColor(pos) {
         const colors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
         return colors[pos] || '#B0BEC5';
@@ -3718,7 +3732,7 @@ const FPL = {
                             ${p.name}
                             <span style="padding:1px 6px;border-radius:var(--radius-pill);font-size:0.625rem;font-weight:700;background:${posColors[p.position]}20;color:${posColors[p.position]};">${p.position}</span>
                         </div>
-                        <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">${p.team} • ${p.costStr}</div>
+                        <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">${p.team} • ${this.formatPriceDisplay(p.costStr, p.cost)}</div>
                         <div class="mono" style="font-size:0.8125rem;font-weight:700;color:var(--fdr-1);margin-top:2px;">+${this.formatNumber(p.netTransfers)} net</div>
                     </div>
                 </div>
@@ -3744,7 +3758,7 @@ const FPL = {
                             ${p.name}
                             <span style="padding:1px 6px;border-radius:var(--radius-pill);font-size:0.625rem;font-weight:700;background:${posColors[p.position]}20;color:${posColors[p.position]};">${p.position}</span>
                         </div>
-                        <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">${p.team} • ${p.costStr}</div>
+                        <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">${p.team} • ${this.formatPriceDisplay(p.costStr, p.cost)}</div>
                         <div class="mono" style="font-size:0.8125rem;font-weight:700;color:var(--fdr-5);margin-top:2px;">${this.formatNumber(p.netTransfers)} net</div>
                     </div>
                 </div>
@@ -3769,7 +3783,7 @@ const FPL = {
                             ${p.name}
                             <span style="padding:1px 6px;border-radius:var(--radius-pill);font-size:0.625rem;font-weight:700;background:${posColors[p.position]}20;color:${posColors[p.position]};">${p.position}</span>
                         </div>
-                        <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">${p.team} • ${p.costStr}</div>
+                        <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">${p.team} • ${this.formatPriceDisplay(p.costStr, p.cost)}</div>
                         <div class="mono" style="font-size:0.8125rem;font-weight:700;color:var(--fdr-4);margin-top:2px;">${velSign}${p.velocityShift}% Δ (7d vs 24h)</div>
                     </div>
                 </div>
@@ -3879,7 +3893,7 @@ const FPL = {
                         </div>
                     </div>
                 </td>
-                <td style="padding:4px 6px;text-align:center;font-family:var(--font-mono);font-weight:600;color:#E0E0E0;">${p.costStr}</td>
+                <td style="padding:4px 6px;text-align:center;font-family:var(--font-mono);font-weight:600;color:#E0E0E0;">${this.formatPriceDisplay(p.costStr, p.cost)}</td>
                 <td style="padding:4px 6px;text-align:center;">
                     <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
                         <span style="font-weight:700;color:#E0E0E0;font-family:var(--font-mono);font-size:11px;">${p.ownership}%</span>
