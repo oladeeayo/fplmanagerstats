@@ -147,7 +147,9 @@ function describeRole(player) {
 
 // 0-100 estimate of how likely a player is a first-choice FPL starter for the next
 // several gameweeks, so squad tools prefer proven starters and avoid unknowns.
-function estimateStarterScore(player, teamExperience, teamPositionCosts) {
+// context optionally carries the projected minutes (xMins) and average fixture
+// difficulty (avgFdr) for the upcoming horizon so those also inform viability.
+function estimateStarterScore(player, teamExperience, teamPositionCosts, context = {}) {
   const minutes = number(player.minutes);
   const starts = number(player.starts);
   const ppg = number(player.points_per_game);
@@ -157,6 +159,8 @@ function estimateStarterScore(player, teamExperience, teamPositionCosts) {
   const price = number(player.now_cost) / 10;
   const position = POSITION_MAP[player.element_type - 1];
   const teamInfo = teamExperience.get(player.team) || { promoted: false };
+  const xMins = number(context.xMins, NaN);
+  const avgFdr = number(context.avgFdr, NaN);
 
   let score = 0;
 
@@ -185,6 +189,21 @@ function estimateStarterScore(player, teamExperience, teamPositionCosts) {
   else if (price >= 5.0) score += 3 * priceWeight;
   score += Math.min(epNext * (unknown ? 1.6 : 0.9), unknown ? 14 : 8);
   score += Math.min(ownership * (unknown ? 0.5 : 0.2), unknown ? 12 : 6);
+
+  // Projected minutes over the horizon corroborate who is expected to actually play.
+  if (Number.isFinite(xMins)) {
+    if (xMins >= 80) score += 10;
+    else if (xMins >= 70) score += 7;
+    else if (xMins >= 60) score += 4;
+    else if (xMins >= 45) score += 1;
+    else if (xMins > 0) score -= 4;
+  }
+
+  // Favourable upcoming fixtures modestly improve viability for rotation decisions.
+  if (Number.isFinite(avgFdr)) {
+    if (avgFdr <= 2.4) score += 3;
+    else if (avgFdr >= 3.6) score -= 2;
+  }
 
   // Promoted teams: unknown players are unproven, and GKs there are the least reliable.
   if (teamInfo.promoted && unknown) {
@@ -282,7 +301,10 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
   if (!playerFixtures.length || xMins < 20) return null;
 
   const position = POSITION_MAP[player.element_type - 1];
-  const starterScore = estimateStarterScore(player, teamExperience || new Map(), teamPositionCosts || new Map());
+  const avgFdr = playerFixtures.length
+    ? playerFixtures.reduce((sum, fixture) => sum + getFixtureDifficulty(fixture, player.team), 0) / playerFixtures.length
+    : NaN;
+  const starterScore = estimateStarterScore(player, teamExperience || new Map(), teamPositionCosts || new Map(), { xMins, avgFdr });
   const form = number(player.form);
   const ppg = number(player.points_per_game);
   const effectiveForm = form > 0 ? form : ppg;
@@ -557,7 +579,7 @@ function buildPlayerProjections({ bootstrap, fixtures, startGW, horizon = 5 }) {
       returnProbability: round(clamp(1 - Math.exp(-Math.max(totalXpts - gameweeks.length, 0) / 4), 0.04, 0.88) * 100, 0),
       haulProbability: round(clamp((totalXpts / Math.max(gameweeks.length, 1) - 3) * 8 + number(player.expected_goal_involvements_per_90) * 18, 2, 58), 0),
       confidence: firstCandidate?.confidence || (availability === 0 ? 'Unavailable' : 'Low sample'),
-      starterScore: firstCandidate?.starterScore ?? estimateStarterScore(player, teamExperience, teamPositionCosts),
+      starterScore: firstCandidate?.starterScore ?? estimateStarterScore(player, teamExperience, teamPositionCosts, { xMins: weekly[0]?.xMins || 0 }),
       starterTier: firstCandidate?.starterTier || starterTierFor(firstCandidate?.starterScore ?? estimateStarterScore(player, teamExperience, teamPositionCosts)),
       isStarter: firstCandidate?.isStarter ?? estimateStarterScore(player, teamExperience, teamPositionCosts) >= 55,
     };

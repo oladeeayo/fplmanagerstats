@@ -99,3 +99,11 @@ const promotedKeeperMinutes = estimateExpectedMinutes(unknownPromotedGk, 38, 1, 
 const nonPromotedKeeperMinutes = estimateExpectedMinutes(unknownPromotedGk, 38, 1, { teamExperience: new Map([[4, { promoted: false }]]), position: 'GKP' });
 assert.ok(promotedKeeperMinutes < nonPromotedKeeperMinutes, 'promoted-team unknowns must get fewer modeled minutes than proven-league teams');
 assert.ok(nonPromotedKeeperMinutes > 0);
+
+// Minutes and fixtures must also inform starter viability.
+const rotationRisk = player({ minutes: 1200, starts: 15, total_points: 90, points_per_game: '3.0', form: '3.0', now_cost: 55, selected_by_percent: '8.0', ep_next: '3.0' });
+const lowMinsScore = estimateStarterScore(rotationRisk, freshTeam, costs, { xMins: 30, avgFdr: 3.0 });
+const highMinsScore = estimateStarterScore(rotationRisk, freshTeam, costs, { xMins: 80, avgFdr: 2.0 });
+const hardFixturesScore = estimateStarterScore(rotationRisk, freshTeam, costs, { xMins: 80, avgFdr: 4.2 });
+assert.ok(highMinsScore > lowMinsScore, 'higher projected minutes must improve starter score');
+assert.ok(hardFixturesScore < highMinsScore, 'very difficult fixtures must reduce starter score');
