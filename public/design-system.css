@@ -3057,9 +3057,10 @@ select option {
     .aiteam-chips-grid { grid-template-columns: 1fr; }
     .aiteam-bench { padding: 12px 8px 14px; }
     .aiteam-bench-players { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
-    .aiteam-bench-slot { min-height: 126px; grid-template-columns: 20px minmax(0,1fr); gap: 6px; padding: 8px; }
+    .aiteam-bench-slot { min-height: 126px; grid-template-columns: 20px 32px minmax(0,1fr); gap: 6px; padding: 8px; }
     .aiteam-bench-order { width: 20px; height: 20px; }
-    .aiteam-bench-shirt-img { display: none; }
+    .aiteam-bench-shirt-img { display: grid; width: 32px; height: 36px; }
+    .aiteam-bench-shirt-img img, .tactics-player-shirt img { display: block; width: 100%; height: 100%; object-fit: contain; }
     .aiteam-bench-name { font-size: 11px; }
     .aiteam-bench-club { min-height: 22px; white-space: normal; line-height: 1.2; }
     .aiteam-bench-metrics { align-items: flex-start; flex-direction: column; gap: 1px; margin-top: 4px; }
@@ -3255,6 +3256,7 @@ select option {
 .tb-import-match > span { display: grid; min-width: 0; gap: 2px; }
 .tb-import-match small { color: #6f8f7d; font: 600 8px var(--font-mono); text-transform: uppercase; }
 .tb-import-match b { overflow: hidden; color: #fff; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.tb-import-match em { overflow: hidden; color: #7fd4a6; font: 500 9px var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
 .tb-import-match select { min-width: 0; height: 36px; border: 1px solid #294138; border-radius: 5px; background-color: #0e1a14; color: #e8f0eb; padding: 0 8px; font-size: 11px; }
 .tb-import-match i { color: #ffbc69; font: 700 8px var(--font-mono); font-style: normal; text-transform: uppercase; }
 .tb-import-match i.high, .tb-import-match i.confirmed { color: #00ff85; }
@@ -3296,7 +3298,7 @@ select option {
 .tb-import-gw-toggle { display: flex; gap: 3px; }
 
 /* Squad advisor */
-.tb-advisor { margin-top: 18px; border-top: 1px solid #315443; }
+.tb-advisor { margin: 18px 0; border-block: 1px solid #315443; }
 .tb-advisor-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 22px 0 15px; }
 .tb-advisor-heading h2 { margin: 0; color: #fff; font-size: 21px; }
 .tb-advisor-heading p { margin: 5px 0 0; color: #8ba396; font-size: 12px; }
@@ -3448,7 +3450,7 @@ select option {
     .tb-import-match { gap: 8px; padding: 10px 12px; }
     .tb-import-match select { height: 44px; font-size: 13px; }
 
-    .tb-advisor { margin-top: 20px; }
+    .tb-advisor { margin-block: 14px; }
     .tb-advisor-heading { gap: 14px; padding: 20px 0 14px; }
     .tb-advisor-heading h2 { font-size: 20px; }
     .tb-advisor-heading p { font-size: 13px; line-height: 1.45; }

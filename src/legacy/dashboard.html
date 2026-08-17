@@ -1165,6 +1165,19 @@
                             <div id="tb-gw-selector" class="tb-gw-selector" aria-label="Gameweek selection"></div>
                         </section>
 
+                        <section id="tb-advisor" class="tb-advisor hidden" aria-labelledby="tb-advisor-title">
+                            <div class="tb-advisor-heading"><div><h2 id="tb-advisor-title">Squad Advisor</h2><p>Evidence-led critique across players, transfers, lineup, captaincy and chips.</p></div><button type="button" class="tb-btn tb-btn-primary" onclick="FPL.reviewTeamBuilderSquad()"><span class="material-symbols-outlined">psychology</span> Review my squad</button></div>
+                            <div class="tb-advisor-settings">
+                                <label>Approach<select id="tb-advisor-strategy"><option value="balanced">Balanced</option><option value="protect">Protect rank</option><option value="chase">Chase rank</option></select></label>
+                                <label>Free transfers<input id="tb-advisor-transfers" type="number" min="1" max="5" value="1"></label>
+                                <label>Money in bank<input id="tb-advisor-bank" type="number" min="0" max="20" step="0.1" placeholder="Auto"></label>
+                                <fieldset><legend>Used chips</legend><label><input type="checkbox" value="wildcard"><span>Wildcard</span></label><label><input type="checkbox" value="freehit"><span>Free Hit</span></label><label><input type="checkbox" value="bboost"><span>Bench Boost</span></label><label><input type="checkbox" value="3xc"><span>Triple Captain</span></label></fieldset>
+                            </div>
+                            <div id="tb-advisor-loading" class="tb-loading hidden" role="status">Reviewing squad evidence...</div>
+                            <div id="tb-advisor-error" class="tb-message tb-message-error hidden" role="alert"></div>
+                            <div id="tb-advisor-results" class="tb-advisor-results hidden"></div>
+                        </section>
+
                         <section class="tb-preferences" aria-labelledby="tb-preferences-title">
                             <div class="tb-preferences-head">
                                 <div><h2 id="tb-preferences-title">Build around my preferences</h2><p>Tell the AI who you want, who to avoid, price limits, teams, or a formation. It will build the strongest squad that honours every request.</p></div>
@@ -1216,18 +1229,6 @@
                             <div class="tb-breakdown-scroll" tabindex="0" aria-label="Team projected points by gameweek"><table><caption class="sr-only">Team projected points by selected gameweek</caption><thead id="tb-breakdown-head"></thead><tbody id="tb-breakdown-body"></tbody></table></div>
                         </section>
 
-                        <section id="tb-advisor" class="tb-advisor hidden" aria-labelledby="tb-advisor-title">
-                            <div class="tb-advisor-heading"><div><h2 id="tb-advisor-title">Squad Advisor</h2><p>Evidence-led critique across players, transfers, lineup, captaincy and chips.</p></div><button type="button" class="tb-btn tb-btn-primary" onclick="FPL.reviewTeamBuilderSquad()"><span class="material-symbols-outlined">psychology</span> Review my squad</button></div>
-                            <div class="tb-advisor-settings">
-                                <label>Approach<select id="tb-advisor-strategy"><option value="balanced">Balanced</option><option value="protect">Protect rank</option><option value="chase">Chase rank</option></select></label>
-                                <label>Free transfers<input id="tb-advisor-transfers" type="number" min="1" max="5" value="1"></label>
-                                <label>Money in bank<input id="tb-advisor-bank" type="number" min="0" max="20" step="0.1" placeholder="Auto"></label>
-                                <fieldset><legend>Used chips</legend><label><input type="checkbox" value="wildcard"><span>Wildcard</span></label><label><input type="checkbox" value="freehit"><span>Free Hit</span></label><label><input type="checkbox" value="bboost"><span>Bench Boost</span></label><label><input type="checkbox" value="3xc"><span>Triple Captain</span></label></fieldset>
-                            </div>
-                            <div id="tb-advisor-loading" class="tb-loading hidden" role="status">Reviewing squad evidence...</div>
-                            <div id="tb-advisor-error" class="tb-message tb-message-error hidden" role="alert"></div>
-                            <div id="tb-advisor-results" class="tb-advisor-results hidden"></div>
-                        </section>
                     </div>
                 </div>
 
@@ -1287,7 +1288,7 @@
     </div>
 
     <script src="team-preferences.js?v=1"></script>
-    <script src="common.js?v=17"></script>
+    <script src="common.js?v=18"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams(window.location.search);

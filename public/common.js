@@ -1152,6 +1152,17 @@ const FPL = {
         return payload && payload.text ? payload.text : null;
     },
 
+    async serverFplVisionOcr(file) {
+        const response = await fetch('/api/ocr/fpl', {
+            method: 'POST',
+            headers: { 'Content-Type': file.type || 'image/png' },
+            body: file,
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || `Structured FPL OCR failed (${response.status})`);
+        return payload;
+    },
+
     async importTeamScreenshot(file) {
         const panel = document.getElementById('tb-import-panel');
         const status = document.getElementById('tb-import-status');
@@ -1168,7 +1179,23 @@ const FPL = {
             status.textContent = 'Preparing image for reading...';
             const players = this.state.teamBuilder.players;
 
-            // Cloud OCR (Gemini) first — it reads stylized dark UI text far better than
+            // Structured cloud vision first — it combines names, shirts, club identity,
+            // price and pitch layout instead of treating the screenshot as loose text.
+            try {
+                status.textContent = 'Identifying players, shirts and positions...';
+                const vision = await this.serverFplVisionOcr(file);
+                if (vision?.players?.length >= 3) {
+                    this.state.teamBuilder.importMatches = vision.players;
+                    this.state.teamBuilder.importView = 'pitch';
+                    status.textContent = `FPL vision · ${vision.players.length} players identified${vision.model ? ` · ${vision.model}` : ''}`;
+                    this.paintTeamScreenshotMatches();
+                    return;
+                }
+            } catch (error) {
+                console.warn('Structured FPL vision unavailable, trying text OCR:', error.message);
+            }
+
+            // Cloud text OCR fallback — it reads stylized dark UI text far better than
             // local tesseract. Fall back to the local engine when the server is down,
             // the API key is missing, or the result is too weak.
             let cloudMatches = null;
@@ -1357,7 +1384,10 @@ const FPL = {
         const listBtn = `<button type="button" class="tb-import-view-switch" onclick="FPL.setImportView('list')"><span class="material-symbols-outlined">list</span> List view</button>`;
         const pitchBtn = `<button type="button" class="tb-import-view-switch" onclick="FPL.setImportView('pitch')"><span class="material-symbols-outlined">sports_soccer</span> Pitch view</button>`;
 
-        preview.innerHTML = (isPitch ? '' : listBtn) + matches.map((match, index) => `<label class="tb-import-match"><span><small>Detected text</small><b>${this.escapeHTML(match.line)}</b></span><select onchange="FPL.updateTeamScreenshotMatch(${index}, this.value)" aria-label="Player matched to ${this.escapeHTML(match.line)}">${match.alternatives.map(option => `<option value="${option.id}"${option.id === match.playerId ? ' selected' : ''}>${this.escapeHTML(option.name)} · ${option.position} · ${option.team}</option>`).join('')}</select><i class="${match.confidence}">${match.confidence} ${match.score}%</i></label>`).join('') || '<div class="tb-import-working"><span class="material-symbols-outlined">image_search</span><b>No names found</b><small>Use the full Pick Team screen at a readable resolution, then try again.</small></div>';
+        preview.innerHTML = (isPitch ? '' : listBtn) + matches.map((match, index) => {
+            const evidence = [match.team ? `shirt ${match.team}` : '', match.position || '', match.price != null ? `£${Number(match.price).toFixed(1)}m` : '', match.role && match.role !== 'UNKNOWN' ? match.role.toLowerCase() : '', match.captain ? 'captain' : match.viceCaptain ? 'vice-captain' : ''].filter(Boolean).join(' · ');
+            return `<label class="tb-import-match"><span><small>${evidence ? 'Vision evidence' : 'Detected text'}</small><b>${this.escapeHTML(match.line)}</b>${evidence ? `<em>${this.escapeHTML(evidence)}</em>` : ''}</span><select onchange="FPL.updateTeamScreenshotMatch(${index}, this.value)" aria-label="Player matched to ${this.escapeHTML(match.line)}">${match.alternatives.map(option => `<option value="${option.id}"${option.id === match.playerId ? ' selected' : ''}>${this.escapeHTML(option.name)} · ${option.position} · ${option.team}</option>`).join('')}</select><i class="${match.confidence}">${match.confidence} ${match.score}%</i></label>`;
+        }).join('') || '<div class="tb-import-working"><span class="material-symbols-outlined">image_search</span><b>No names found</b><small>Use the full Pick Team screen at a readable resolution, then try again.</small></div>';
 
         if (pitch) {
             if (isPitch) {
@@ -1397,7 +1427,7 @@ const FPL = {
         const matchedPlayers = matches.map(match => {
             const player = players.find(p => p.id === match.playerId);
             if (!player) return null;
-            return { ...player, matchIndex: matches.indexOf(match), matchConfidence: match.confidence, matchScore: match.score };
+            return { ...player, matchIndex: matches.indexOf(match), matchConfidence: match.confidence, matchScore: match.score, detectedRole: match.role, detectedCaptain: match.captain, detectedViceCaptain: match.viceCaptain };
         }).filter(Boolean);
 
         const gkps = matchedPlayers.filter(p => p.position === 'GKP');
@@ -1423,9 +1453,10 @@ const FPL = {
             const fixtureHtml = fixture ? `<div class="aiteam-fixture-row"><span class="aiteam-fixture-opp" style="color:${fdrColor(fixture.fdr)};">${fixture.opponent}${fixture.isHome ? '(H)' : '(A)'}</span><span class="aiteam-fixture-xpts">${Number(fixture.xpts || 0).toFixed(1)}</span></div>` : '';
             const confClass = player.matchConfidence === 'high' || player.matchConfidence === 'confirmed' ? ' is-high' : player.matchConfidence === 'medium' ? ' is-medium' : ' is-low';
 
+            const roleBadge = player.detectedCaptain ? ' (C)' : player.detectedViceCaptain ? ' (VC)' : '';
             return `<div class="tactics-player-card home aiteam-pitch-card tb-import-pitch-card${confClass}" onclick="FPL.editImportMatch(${player.matchIndex})" role="button" tabindex="0" title="${self.escapeHTML(player.name)} · ${player.position} · ${player.team} · £${player.costValue.toFixed(1)}m">
                 <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;">${self.pitchShirtMarkup(player, player.team)}</div>
-                <div class="tactics-player-copy"><b class="aiteam-pitch-name">${self.escapeHTML(player.name)}</b></div>
+                <div class="tactics-player-copy"><b class="aiteam-pitch-name">${self.escapeHTML(player.name)}${roleBadge}</b></div>
                 <div class="aiteam-pitch-cost">£${player.costValue.toFixed(1)}m</div>
                 <div class="aiteam-pitch-xpts">${xPts} xPts</div>
                 <div class="aiteam-fixture-block">${fixtureHtml}</div>
