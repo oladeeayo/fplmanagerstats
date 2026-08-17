@@ -164,26 +164,32 @@ function estimateStarterScore(player, teamExperience, teamPositionCosts) {
   if (minutes >= 2800) score += 40;
   else if (minutes >= 2300) score += 32;
   else if (minutes >= 1800) score += 24;
-  else if (minutes >= 1200) score += 16;
-  else if (minutes >= 600) score += 8;
-  else if (minutes > 0) score += 4;
+  else if (minutes >= 1200) score += 17;
+  else if (minutes >= 600) score += 9;
+  else if (minutes > 0) score += 5;
 
   // Start frequency among appearances.
   const appearances = ppg > 0 ? points / ppg : Math.max(starts, Math.ceil(minutes / 90));
   const startRatio = appearances > 0 ? starts / appearances : 0;
-  if (startRatio >= 0.9) score += 12;
-  else if (startRatio >= 0.7) score += 8;
-  else if (startRatio >= 0.5) score += 4;
+  if (startRatio >= 0.9) score += 15;
+  else if (startRatio >= 0.7) score += 11;
+  else if (startRatio >= 0.5) score += 6;
 
-  // Unknown/new players: price + official projection + community ownership stand in for role.
-  if (minutes === 0 && starts === 0 && points === 0) {
-    if (price >= 7.0) score += 15;
-    else if (price >= 5.5) score += 8;
-    else if (price >= 4.5) score += 2;
-    score += Math.min(epNext * 1.5, 12);
-    score += Math.min(ownership * 0.4, 10);
-    if (teamInfo.promoted && position === 'GKP') score -= 25;
-    else if (teamInfo.promoted && price < 5.0) score -= 10;
+  // Price, official projection and community ownership corroborate role. They are the
+  // only signals for unknowns, and a smaller tail for proven players.
+  const unknown = minutes === 0 && starts === 0 && points === 0;
+  const priceWeight = unknown ? 1 : 0.5;
+  if (price >= 8.0) score += 16 * priceWeight;
+  else if (price >= 7.0) score += 12 * priceWeight;
+  else if (price >= 6.0) score += 7 * priceWeight;
+  else if (price >= 5.0) score += 3 * priceWeight;
+  score += Math.min(epNext * (unknown ? 1.6 : 0.9), unknown ? 14 : 8);
+  score += Math.min(ownership * (unknown ? 0.5 : 0.2), unknown ? 12 : 6);
+
+  // Promoted teams: unknown players are unproven, and GKs there are the least reliable.
+  if (teamInfo.promoted && unknown) {
+    if (position === 'GKP') score -= 25;
+    else if (price < 5.0) score -= 10;
   }
 
   // "2nd fiddle" risk: a cheaper/newer player with a much more expensive teammate

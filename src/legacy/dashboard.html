@@ -322,12 +322,12 @@
                         <!-- Card 1: Manager ID Search -->
                         <div style="background:#9ecfb7;border-radius:12px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;min-height:120px;">
                             <span class="mono" style="font-size:10px;font-weight:700;color:#2c4436;text-transform:uppercase;letter-spacing:0.08em;">MANAGER ID</span>
-                            <div style="display:flex;align-items:center;background:#141f18;border-radius:6px;padding:4px 6px;margin-top:12px;">
-                                <input type="text" id="manager-id-input-field" value="1234567" aria-label="Manager ID" style="background:transparent;border:none;outline:none;color:#ffffff;font-family:var(--font-mono);font-size:14px;font-weight:700;width:100%;padding:4px 8px;">
-                                <button type="button" aria-label="Analyze manager ID" onclick="FPL.connectManagerFromInput()" style="background:transparent;border:none;color:#00FF85;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:4px;">
+                            <form id="manager-id-form" style="display:flex;align-items:center;background:#141f18;border-radius:6px;padding:4px 6px;margin-top:12px;" onsubmit="event.preventDefault();FPL.connectManagerFromInput()">
+                                <input type="text" id="manager-id-input-field" value="1234567" aria-label="Manager ID" autocomplete="off" inputmode="numeric" style="background:transparent;border:none;outline:none;color:#ffffff;font-family:var(--font-mono);font-size:14px;font-weight:700;width:100%;padding:4px 8px;">
+                                <button type="submit" aria-label="Analyze manager ID" style="background:transparent;border:none;color:#00FF85;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:4px;">
                                     <span class="material-symbols-outlined" style="font-size:18px;">search</span>
                                 </button>
-                            </div>
+                            </form>
                         </div>
 
                         <!-- Card 2: Overall Rank -->
@@ -1223,6 +1223,33 @@
         <a href="/captaincy" class="bottom-nav-item" data-tab="captain" onclick="event.preventDefault();FPL.navigateTo('captain')"><span class="material-symbols-outlined">star</span><span>Captain</span></a>
         <a href="/team-builder" class="bottom-nav-item" data-tab="teambuilder" onclick="event.preventDefault();FPL.navigateTo('teambuilder')"><span class="material-symbols-outlined">edit_square</span><span>Build</span></a>
     </nav>
+
+    <!-- History Dialog -->
+    <div id="history-dialog" class="dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="history-dialog-title" aria-hidden="true">
+        <div class="dialog dialog-wide">
+            <div class="dialog-header"><h3 id="history-dialog-title" style="font-family:var(--font-display);font-weight:700;">History</h3><button class="btn btn-ghost btn-icon" type="button" aria-label="Close dialog" onclick="FPL.hideDialog('history-dialog')"><span class="material-symbols-outlined" aria-hidden="true">close</span></button></div>
+            <div class="dialog-body" id="history-section"></div>
+            <div class="dialog-footer"><button class="btn btn-outline" onclick="FPL.hideDialog('history-dialog')">Close</button></div>
+        </div>
+    </div>
+
+    <!-- Settings Dialog -->
+    <div id="settings-dialog" class="dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="settings-dialog-title" aria-hidden="true">
+        <div class="dialog dialog-wide">
+            <div class="dialog-header"><h3 id="settings-dialog-title" style="font-family:var(--font-display);font-weight:700;">Settings</h3><button class="btn btn-ghost btn-icon" type="button" aria-label="Close dialog" onclick="FPL.hideDialog('settings-dialog')"><span class="material-symbols-outlined" aria-hidden="true">close</span></button></div>
+            <div class="dialog-body" id="settings-section"></div>
+            <div class="dialog-footer"><button class="btn btn-outline" onclick="FPL.hideDialog('settings-dialog')">Close</button></div>
+        </div>
+    </div>
+
+    <!-- Confirm Dialog -->
+    <div id="confirm-dialog" class="dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title" aria-hidden="true">
+        <div class="dialog">
+            <div class="dialog-header"><h3 id="confirm-dialog-title" style="font-family:var(--font-display);font-weight:700;">Confirm</h3><button class="btn btn-ghost btn-icon" type="button" aria-label="Close dialog" onclick="FPL.hideDialog('confirm-dialog')"><span class="material-symbols-outlined" aria-hidden="true">close</span></button></div>
+            <div class="dialog-body" id="confirm-dialog-message"></div>
+            <div class="dialog-footer"><button class="btn btn-outline" id="confirm-dialog-cancel" type="button">Cancel</button><button class="btn btn-primary" id="confirm-dialog-ok" type="button">Confirm</button></div>
+        </div>
+    </div>
 
     <!-- Connect Dialog -->
     <div id="connect-dialog" class="dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="connect-dialog-title" aria-hidden="true">

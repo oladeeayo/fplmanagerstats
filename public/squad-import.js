@@ -91,8 +91,15 @@
         return null;
     }
 
+    function stripCaptainMarkers(value) {
+        return String(value || '')
+            .replace(/\s*[\(\[]\s*[CVCV]{1,2}\s*[\)\]]\s*$/i, '')
+            .replace(/\s*\([^)]*\)\s*$/i, '')
+            .trim();
+    }
+
     function isPlayerName(text) {
-        const trimmed = String(text).trim();
+        const trimmed = stripCaptainMarkers(text).trim();
         if (trimmed.length < 2 || trimmed.length > 30) return false;
         const upper = trimmed.toUpperCase();
         if (!/[A-Z]/.test(upper)) return false;
@@ -108,16 +115,23 @@
         const candidates = [];
 
         for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) continue;
+            const rawLine = lines[i].trim();
+            if (!rawLine) continue;
 
-            if (isPlayerName(line)) {
-                const price = extractPrice(line);
-                const position = extractPosition(line);
+            // A line may pack "NAME £X.Xm POS" or "NAME (C)" — pull the name portion out.
+            const cleaned = stripCaptainMarkers(rawLine)
+                .replace(/^[£$]\s*\d{1,2}\.\d{1,2}\s*/i, '')
+                .replace(/\s*[£$]\s*\d{1,2}\.\d{1,2}m?\s*$/i, '')
+                .replace(/\s+(GKP|DEF|MID|FWD)\s*$/i, '')
+                .replace(/\s+£\s*\d{1,2}\.\d{1,2}m?\s*$/i, '');
+
+            if (isPlayerName(cleaned)) {
+                const price = extractPrice(rawLine);
+                const position = extractPosition(rawLine);
                 candidates.push({
-                    text: line,
-                    normalized: normalizeUpper(line),
-                    stripped: stripSpaces(line),
+                    text: cleaned,
+                    normalized: normalizeUpper(cleaned),
+                    stripped: stripSpaces(cleaned),
                     price,
                     position,
                     lineIndex: i,
@@ -202,16 +216,38 @@
         const used = new Set();
         const matches = [];
 
-        for (const candidate of candidates) {
+        for (let i = 0; i < candidates.length; i++) {
+            const candidate = candidates[i];
+
             let bestMatch = null;
             let bestScore = 0;
+            let bestLine = candidate;
 
-            for (const player of players) {
-                if (used.has(player.id)) continue;
-                const score = scoreCandidate(candidate, player);
-                if (score > bestScore) {
-                    bestScore = score;
-                    bestMatch = player;
+            const rankFor = (line) => players
+                .map(player => ({ player, score: scoreCandidate(line, player) }))
+                .sort((a, b) => b.score - a.score)
+                .find(item => !used.has(item.player.id)) || null;
+
+            const primary = rankFor(candidate);
+            if (primary && primary.score > bestScore) {
+                bestScore = primary.score;
+                bestMatch = primary.player;
+                bestLine = candidate;
+            }
+
+            // OCR often splits a name across lines ("TRENT" + "ALEXANDER-ARNOLD").
+            // When a standalone line scores poorly, try merging it with its neighbours.
+            if (bestScore < 0.60) {
+                const neighbors = [candidates[i - 1], candidates[i + 1]].filter(Boolean);
+                for (const other of neighbors) {
+                    if (other.lineIndex === candidate.lineIndex) continue;
+                    const mergedText = `${candidate.text} ${other.text}`.trim();
+                    const merged = rankFor({ ...candidate, text: mergedText, normalized: normalizeUpper(mergedText), stripped: stripSpaces(mergedText) });
+                    if (merged && merged.score > bestScore) {
+                        bestScore = merged.score;
+                        bestMatch = merged.player;
+                        bestLine = { ...candidate, text: mergedText, normalized: normalizeUpper(mergedText), stripped: stripSpaces(mergedText) };
+                    }
                 }
             }
 
@@ -220,7 +256,7 @@
 
                 const secondBest = players
                     .filter(p => !used.has(p.id) && p.id !== bestMatch.id)
-                    .map(p => ({ player: p, score: scoreCandidate(candidate, p) }))
+                    .map(p => ({ player: p, score: scoreCandidate(bestLine, p) }))
                     .sort((a, b) => b.score - a.score)[0];
 
                 const confidence = bestScore >= 0.92 && (!secondBest || bestScore - secondBest.score >= 0.12)
@@ -230,14 +266,14 @@
                         : 'low';
 
                 matches.push({
-                    line: candidate.text,
+                    line: bestLine.text,
                     playerId: bestMatch.id,
                     confidence,
                     score: Math.round(bestScore * 100),
                     position: candidate.position,
                     price: candidate.price,
                     alternatives: players
-                        .map(p => ({ player: p, score: scoreCandidate(candidate, p) }))
+                        .map(p => ({ player: p, score: scoreCandidate(bestLine, p) }))
                         .sort((a, b) => b.score - a.score)
                         .slice(0, 4)
                         .map(item => ({
@@ -281,6 +317,7 @@
         normalize,
         normalizeUpper,
         stripSpaces,
+        stripCaptainMarkers,
         scoreLine,
         matchPlayers,
         matchPlayersFPL,

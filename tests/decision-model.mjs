@@ -91,4 +91,19 @@ assert.ok(advice.critiques.every(item => item.verdict && item.reasons.length >= 
 assert.ok(advice.chips.recommendations.every(item => ['Hold', 'Consider'].includes(item.recommendation)));
 assert.ok(advice.meta.warnings.length >= 2);
 
+// FPL chip rule: Wildcard and Free Hit must never be recommended for GW1.
+const gw1Fixtures = [];
+for (let gw = 1; gw <= 5; gw += 1) {
+  for (let team = 1; team <= 8; team += 2) {
+    gw1Fixtures.push({ id: gw1Fixtures.length + 1, event: gw, team_h: team, team_a: team + 1, team_h_difficulty: 2, team_a_difficulty: 3, kickoff_time: `2026-08-${gw}T12:00:00Z`, started: false, finished: false });
+  }
+}
+const gw1Bootstrap = { events: [{ id: 1, is_current: true }, { id: 2, is_next: true }], teams, elements };
+const gw1Picks = { picks: squadPlayers.map((player, index) => ({ element: player.id, position: index + 1, purchase_price: player.now_cost, selling_price: player.now_cost })), entry_history: { bank: 50 } };
+const gw1Decision = buildDecisionCentre({ bootstrap: gw1Bootstrap, fixtures: gw1Fixtures, manager, picks: gw1Picks, history, rivals: [], liveData: { elements: [] }, options: { targetGW: 1, horizon: 5, strategy: 'balanced', freeTransfers: 1 } });
+const wcRec = gw1Decision.chips.recommendations.find(item => item.chip === 'Wildcard');
+const fhRec = gw1Decision.chips.recommendations.find(item => item.chip === 'Free Hit');
+assert.ok(!wcRec || wcRec.gameweek !== 1, 'Wildcard must not be scheduled in GW1');
+assert.ok(!fhRec || fhRec.gameweek !== 1, 'Free Hit must not be scheduled in GW1');
+
 console.log('Decision model tests passed');

@@ -13,7 +13,8 @@ const {
     extractPrice,
     extractPosition,
     isPlayerName,
-    extractPlayerCandidates
+    extractPlayerCandidates,
+    stripCaptainMarkers
 } = require('../public/squad-import.js');
 
 const players = [
@@ -183,6 +184,46 @@ assert.ok(mainMatches.length >= 10, `Main matchPlayers with FPL screenshot shoul
 // Test main matchPlayers with generic text
 const genericMainMatches = matchPlayers('Haaland\nSalah\nAlexander-Arnold\nPalmer\nSaka', players);
 assert.ok(genericMainMatches.length >= 3, `Main matchPlayers with generic text should find >= 3, got ${genericMainMatches.length}`);
+
+// Test OCR-split names across separate lines ("Trent" then "Alexander-Arnold")
+const ocrSplitLinesText = `PICK TEAM
+TRENT
+
+ALEXANDER-ARNOLD
+
+SALAH`;
+const ocrSplitLinesMatches = matchPlayersFPL(ocrSplitLinesText, players);
+assert.ok(ocrSplitLinesMatches.length >= 2, `Should merge split name lines, got ${ocrSplitLinesMatches.length}`);
+const ocrSplitLinesIds = new Set(ocrSplitLinesMatches.map(m => m.playerId));
+assert.ok(ocrSplitLinesIds.has(3), 'Should merge TRENT + ALEXANDER-ARNOLD into one match');
+assert.ok(ocrSplitLinesIds.has(2), 'Should still match SALAH');
+
+// Test captain/vice markers are stripped from names
+const captainMarkedText = `PICK TEAM
+£14.5
+HAALAND (C)
+
+£12.5
+M.SALAH (VC)`;
+const captainMarkedMatches = matchPlayersFPL(captainMarkedText, players);
+const captainMarkedIds = new Set(captainMarkedMatches.map(m => m.playerId));
+assert.ok(captainMarkedIds.has(1), 'Should strip (C) marker and match Haaland');
+assert.ok(captainMarkedIds.has(2), 'Should strip (VC) marker and match Salah');
+
+// Test name plus inline price on same line
+const inlinePriceText = `PICK TEAM
+HAALAND £14.5m FWD
+M.SALAH £12.5m MID
+PALMER £11.0m MID`;
+const inlinePriceMatches = matchPlayersFPL(inlinePriceText, players);
+const inlinePriceIds = new Set(inlinePriceMatches.map(m => m.playerId));
+assert.ok(inlinePriceIds.has(1), 'Should extract HAALAND from inline price line');
+assert.ok(inlinePriceIds.has(2), 'Should extract M.SALAH from inline price line');
+assert.ok(inlinePriceIds.has(4), 'Should extract PALMER from inline price line');
+
+// Test stripCaptainMarkers export
+assert.equal(stripCaptainMarkers('HAALAND (C)'), 'HAALAND');
+assert.equal(stripCaptainMarkers('M.SALAH (VC)'), 'M.SALAH');
 
 // Test duplicate prevention
 const matchesWithDupes = matchPlayersFPL('HAALAND\nHAALAND\nHAALAND', players);

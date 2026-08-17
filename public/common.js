@@ -647,7 +647,21 @@ const FPL = {
     },
 
     clearTeamBuilder() {
-        if (this.state.teamBuilder.selectedIds.length && !window.confirm('Clear all players from this draft?')) return;
+        if (this.state.teamBuilder.selectedIds.length) {
+            this.confirmDialog({
+                title: 'Clear team builder?',
+                message: 'Remove every player from this draft and start fresh. Your saved draft will be reset.',
+                confirmLabel: 'Clear squad',
+                danger: true
+            }).then(confirmed => {
+                if (!confirmed) return;
+                this.state.teamBuilder.selectedIds = [];
+                this.state.teamBuilder.captainId = null;
+                this.saveTeamBuilderDraft();
+                this.paintTeamBuilder();
+            });
+            return;
+        }
         this.state.teamBuilder.selectedIds = [];
         this.state.teamBuilder.captainId = null;
         this.saveTeamBuilderDraft();
@@ -801,43 +815,48 @@ const FPL = {
         confirm.disabled = true;
         try {
             if (!window.createFplOcrWorker) throw new Error('The OCR engine is not ready. Reload the page and try again.');
-            const preprocessed = await this.preprocessScreenshot(file);
-            status.textContent = 'Initializing OCR engine...';
+            status.textContent = 'Preparing image for reading...';
+            const players = this.state.teamBuilder.players;
             const worker = await window.createFplOcrWorker('eng', 1, {
                 logger: event => {
                     if (event.status === 'recognizing text') status.textContent = `Reading screenshot · ${Math.round((event.progress || 0) * 100)}%`;
                 }
             });
-            let rawText = '';
-            try {
+            const merged = new Map();
+            const OCR_WHITELIST = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .'-";
+            const runPass = async (blob, psm, label) => {
                 await worker.setParameters({
-                    tessedit_pageseg_mode: '7',
-                    tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .\'-',
+                    tessedit_pageseg_mode: String(psm),
+                    tessedit_char_whitelist: OCR_WHITELIST,
                     preserve_interword_spaces: '1',
                 });
-                const result = await worker.recognize(preprocessed);
-                rawText = result.data.text || '';
+                const result = await worker.recognize(blob);
+                const matches = window.FPLSquadImport.matchPlayers(result.data.text || '', players);
+                status.textContent = `${label} · ${matches.length} names found`;
+                matches.forEach(m => {
+                    const existing = merged.get(m.playerId);
+                    if (!existing || m.score > existing.score) merged.set(m.playerId, m);
+                });
+                return matches.length;
+            };
+            try {
+                // Pass 1: sparse text (best for the pitch view — names on cards).
+                const preprocessed = await this.preprocessScreenshot(file, 'normal');
+                await runPass(preprocessed, 11, 'Reading pitch names');
+                // Pass 2: uniform block (best for the list view).
+                if (merged.size < 12) {
+                    const preprocessed2 = await this.preprocessScreenshot(file, 'aggressive');
+                    await runPass(preprocessed2, 6, 'Reading list names');
+                }
+                // Pass 3: automatic layout (catches anything the two passes missed).
+                if (merged.size < 12) {
+                    const preprocessed3 = await this.preprocessScreenshot(file, 'light');
+                    await runPass(preprocessed3, 4, 'Verifying names');
+                }
             } finally {
                 try { await worker.terminate(); } catch (_) { /* worker already gone */ }
             }
-            let allMatches = window.FPLSquadImport.matchPlayers(rawText, this.state.teamBuilder.players);
-            if (allMatches.length < 8) {
-                const preprocessed2 = await this.preprocessScreenshot(file, 'aggressive');
-                let worker2 = null;
-                try {
-                    worker2 = await window.createFplOcrWorker('eng', 1, { logger: () => {} });
-                    await worker2.setParameters({
-                        tessedit_pageseg_mode: '6',
-                        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .\'-',
-                        preserve_interword_spaces: '1',
-                    });
-                    const result2 = await worker2.recognize(preprocessed2);
-                    const matches2 = window.FPLSquadImport.matchPlayers(result2.data.text || '', this.state.teamBuilder.players);
-                    if (matches2.length > allMatches.length) allMatches = matches2;
-                } finally {
-                    if (worker2) { try { await worker2.terminate(); } catch (_) { /* worker already gone */ } }
-                }
-            }
+            const allMatches = [...merged.values()].sort((a, b) => b.score - a.score).slice(0, 15);
             this.state.teamBuilder.importMatches = allMatches;
             this.state.teamBuilder.importView = 'pitch';
             this.paintTeamScreenshotMatches();
@@ -856,33 +875,66 @@ const FPL = {
             const objectUrl = URL.createObjectURL(file);
             const release = () => URL.revokeObjectURL(objectUrl);
             img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const scale = Math.max(1, 1200 / Math.max(img.width, img.height));
-                canvas.width = Math.round(img.width * scale);
-                canvas.height = Math.round(img.height * scale);
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                release();
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const data = imageData.data;
-                for (let i = 0; i < data.length; i += 4) {
-                    let gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-                    if (mode === 'aggressive') {
-                        gray = gray < 100 ? 0 : 255;
-                    } else {
-                        const contrast = 1.6;
-                        gray = Math.min(255, Math.max(0, (gray - 128) * contrast + 128));
-                        gray = gray < 140 ? 0 : 255;
+                try {
+                    const canvas = document.createElement('canvas');
+                    const scale = Math.max(1, 1600 / Math.max(img.width, img.height));
+                    canvas.width = Math.round(img.width * scale);
+                    canvas.height = Math.round(img.height * scale);
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    release();
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const data = imageData.data;
+                    const luma = new Float32Array(canvas.width * canvas.height);
+                    const hist = new Array(256).fill(0);
+                    for (let p = 0, i = 0; p < data.length; p += 4, i++) {
+                        const gray = data[p] * 0.299 + data[p + 1] * 0.587 + data[p + 2] * 0.114;
+                        luma[i] = gray;
+                        hist[Math.round(gray)]++;
                     }
-                    data[i] = gray;
-                    data[i + 1] = gray;
-                    data[i + 2] = gray;
+                    const total = luma.length;
+                    const otsu = () => {
+                        let sum = 0;
+                        for (let t = 0; t < 256; t++) sum += t * hist[t];
+                        let sumB = 0, wB = 0, maxVar = 0, threshold = 127;
+                        for (let t = 0; t < 256; t++) {
+                            wB += hist[t];
+                            if (wB === 0) continue;
+                            const wF = total - wB;
+                            if (wF === 0) break;
+                            sumB += t * hist[t];
+                            const mB = sumB / wB;
+                            const mF = (sum - sumB) / wF;
+                            const between = wB * wF * (mB - mF) * (mB - mF);
+                            if (between > maxVar) { maxVar = between; threshold = t; }
+                        }
+                        return threshold;
+                    };
+                    const threshold = otsu();
+                    for (let p = 0, i = 0; p < data.length; p += 4, i++) {
+                        let gray = luma[i];
+                        let out;
+                        if (mode === 'light') {
+                            const contrast = 1.8;
+                            out = Math.max(0, Math.min(255, Math.round((gray - 128) * contrast + 128)));
+                        } else if (mode === 'aggressive') {
+                            out = gray < threshold * 0.85 ? 0 : 255;
+                        } else {
+                            out = gray < threshold * 1.08 ? 0 : 255;
+                        }
+                        data[p] = out;
+                        data[p + 1] = out;
+                        data[p + 2] = out;
+                    }
+                    ctx.putImageData(imageData, 0, 0);
+                    canvas.toBlob(blob => {
+                        if (blob) resolve(blob);
+                        else reject(new Error('Image preprocessing failed'));
+                    }, 'image/png');
+                } catch (err) {
+                    release();
+                    reject(err);
                 }
-                ctx.putImageData(imageData, 0, 0);
-                canvas.toBlob(blob => {
-                    if (blob) resolve(blob);
-                    else reject(new Error('Image preprocessing failed'));
-                }, 'image/png');
             };
             img.onerror = () => { release(); reject(new Error('Could not load screenshot image')); };
             img.src = objectUrl;
@@ -1121,7 +1173,7 @@ const FPL = {
         results.innerHTML = `<div class="tb-advisor-summary ${data.summary.legal ? 'is-legal' : 'is-incomplete'}"><div><span>${data.summary.legal ? 'Legal squad' : 'Incomplete squad'}</span><h3>${this.escapeHTML(data.summary.headline)}</h3><p>${data.summary.horizonXpts.toFixed(1)} squad xPts across GW${data.meta.gameweeks[0]}-${data.meta.gameweeks.at(-1)} · £${data.summary.squadCost.toFixed(1)}m value · £${data.summary.bank.toFixed(1)}m bank</p></div><strong>${data.summary.urgentPlayers}<small>priority players</small></strong></div>${lineupHtml}<div class="tb-advice-section"><h3>Player verdicts</h3><div class="tb-critique-list">${decisions}</div></div><div class="tb-advice-grid"><section><h3>Transfer plan</h3>${transferPlans || '<div class="tb-advice-empty">Roll the transfer. No modeled move clears the threshold.</div>'}</section><section><h3>Chip discipline</h3><div class="tb-chip-list">${chips || '<div class="tb-advice-empty">Complete the squad to assess chips.</div>'}</div></section></div><footer class="tb-advisor-notes">${data.meta.warnings.map(warning => `<span><i class="material-symbols-outlined">info</i>${this.escapeHTML(warning)}</span>`).join('')}</footer>`;
     },
 
-    applyTransferPlan(planIndex) {
+    async applyTransferPlan(planIndex) {
         const data = this.state.teamBuilder.lastAdvice;
         if (!data) return;
         const plan = data.transfers?.plans?.[planIndex];
@@ -1141,7 +1193,13 @@ const FPL = {
             return;
         }
         const moves = plan.transfers.map(m => `${m.out.name} → ${m.in.name}`).join(', ');
-        if (!window.confirm(`Apply transfer plan?\n\n${moves}\n\n+${plan.netGain.toFixed(1)} net xPts`)) return;
+        const confirmed = await this.confirmDialog({
+            title: 'Apply transfer plan?',
+            message: `<div class="confirm-plan-moves">${plan.transfers.map(m => `<span><del>${this.escapeHTML(m.out.name)}</del><i class="material-symbols-outlined" aria-hidden="true">arrow_forward</i><b>${this.escapeHTML(m.in.name)}</b></span>`).join('')}</div><p class="confirm-plan-net">+${plan.netGain.toFixed(1)} net xPts</p>`,
+            confirmLabel: 'Apply plan',
+            danger: false
+        });
+        if (!confirmed) return;
         let newIds = builder.selectedIds.filter(id => !outIds.includes(id));
         const tempSelected = new Set(newIds);
         const tempCounts = { GKP: 0, DEF: 0, MID: 0, FWD: 0 };
@@ -1244,7 +1302,7 @@ const FPL = {
         squadList.innerHTML = Object.keys(quotas).map(position => {
             const players = squad.filter(player => player.position === position).sort((a, b) => this.teamBuilderXPts(b) - this.teamBuilderXPts(a));
             const slots = [...players, ...Array(Math.max(0, quotas[position] - players.length)).fill(null)];
-            return `<div class="tb-position-group"><div class="tb-position-title"><span>${position}</span><small>${players.length} of ${quotas[position]}</small></div>${slots.map(player => player ? `<div class="tb-squad-player"><button type="button" class="tb-captain-btn${builder.captainId === player.id ? ' active' : ''}" onclick="FPL.setTeamBuilderCaptain(${player.id})" title="${builder.captainId === player.id ? 'Captain selected' : 'Set captain'}" aria-pressed="${builder.captainId === player.id}" aria-label="${builder.captainId === player.id ? `${this.escapeHTML(player.name)} is captain` : `Set ${this.escapeHTML(player.name)} as captain`}"><span class="material-symbols-outlined">star</span></button><div class="tb-player-identity">${this.teamBadge(player.team, 28)}<span><b>${this.escapeHTML(player.name)}</b><small>${player.team} · £${player.costValue.toFixed(1)}m</small></span></div><div class="tb-player-output"><strong>${this.teamBuilderXPts(player).toFixed(1)}</strong><small>xPts</small></div><button type="button" class="tb-remove-btn" onclick="FPL.toggleTeamBuilderPlayer(${player.id})" title="Remove ${this.escapeHTML(player.name)}" aria-label="Remove ${this.escapeHTML(player.name)}"><span class="material-symbols-outlined">close</span></button></div>` : `<div class="tb-empty-slot"><span class="material-symbols-outlined">add</span><span>Add ${position}</span></div>`).join('')}</div>`;
+            return `<div class="tb-position-group"><div class="tb-position-title"><span>${position}</span><small>${players.length} of ${quotas[position]}</small></div>${slots.map(player => player ? `<div class="tb-squad-player"><button type="button" class="tb-captain-btn${builder.captainId === player.id ? ' active' : ''}" onclick="FPL.setTeamBuilderCaptain(${player.id})" title="${builder.captainId === player.id ? 'Captain selected' : 'Set captain'}" aria-pressed="${builder.captainId === player.id}" aria-label="${builder.captainId === player.id ? `${this.escapeHTML(player.name)} is captain` : `Set ${this.escapeHTML(player.name)} as captain`}"><span class="material-symbols-outlined">star</span></button><div class="tb-player-identity">${this.teamBadge(player.team, 28)}<span><b>${this.escapeHTML(player.name)}</b><small>${player.team} · £${player.costValue.toFixed(1)}m</small>${this.starterBadge(player)}</span></div><div class="tb-player-output"><strong>${this.teamBuilderXPts(player).toFixed(1)}</strong><small>xPts</small></div><button type="button" class="tb-remove-btn" onclick="FPL.toggleTeamBuilderPlayer(${player.id})" title="Remove ${this.escapeHTML(player.name)}" aria-label="Remove ${this.escapeHTML(player.name)}"><span class="material-symbols-outlined">close</span></button></div>` : `<div class="tb-empty-slot"><span class="material-symbols-outlined">add</span><span>Add ${position}</span></div>`).join('')}</div>`;
         }).join('');
     },
 
@@ -1313,7 +1371,7 @@ const FPL = {
             const isSelected = selected.has(player.id);
             const blocked = !isSelected && this.canAddTeamBuilderPlayer(player);
             const fixtures = player.nextFixtures.filter(fixture => builder.selectedGWs.includes(fixture.gw));
-            return `<article class="tb-market-player${isSelected ? ' selected' : ''}${blocked ? ' blocked' : ''}"><button type="button" class="tb-market-main" onclick="FPL.toggleTeamBuilderPlayer(${player.id})" aria-pressed="${isSelected}" ${blocked ? `aria-disabled="true" aria-describedby="tb-market-message" title="${this.escapeHTML(blocked)}"` : ''}><span class="tb-add-state material-symbols-outlined">${isSelected ? 'check' : 'add'}</span><span class="tb-player-identity">${this.teamBadge(player.team, 32)}<span><b>${this.escapeHTML(player.name)}</b><small>${player.position} · ${player.team} · £${player.costValue.toFixed(1)}m${blocked ? ` · ${this.escapeHTML(blocked)}` : ''}</small></span></span><span class="tb-fixture-run">${fixtures.map(fixture => `<i class="${fixture.fdr ? `fdr-${fixture.fdr}` : 'blank'}" title="GW${fixture.gw}: ${fixture.opponent}">${fixture.opponent === 'BLANK' ? '-' : fixture.opponent}${fixture.isHome === null ? '' : fixture.isHome ? ' H' : ' A'}</i>`).join('')}</span><span class="tb-player-output"><strong>${this.teamBuilderXPts(player).toFixed(1)}</strong><small>xPts</small></span></button></article>`;
+            return `<article class="tb-market-player${isSelected ? ' selected' : ''}${blocked ? ' blocked' : ''}"><button type="button" class="tb-market-main" onclick="FPL.toggleTeamBuilderPlayer(${player.id})" aria-pressed="${isSelected}" ${blocked ? `aria-disabled="true" aria-describedby="tb-market-message" title="${this.escapeHTML(blocked)}"` : ''}><span class="tb-add-state material-symbols-outlined">${isSelected ? 'check' : 'add'}</span><span class="tb-player-identity">${this.teamBadge(player.team, 32)}<span><b>${this.escapeHTML(player.name)}</b><small>${player.position} · ${player.team} · £${player.costValue.toFixed(1)}m${blocked ? ` · ${this.escapeHTML(blocked)}` : ''}</small>${this.starterBadge(player)}</span></span><span class="tb-fixture-run">${fixtures.map(fixture => `<i class="${fixture.fdr ? `fdr-${fixture.fdr}` : 'blank'}" title="GW${fixture.gw}: ${fixture.opponent}">${fixture.opponent === 'BLANK' ? '-' : fixture.opponent}${fixture.isHome === null ? '' : fixture.isHome ? ' H' : ' A'}</i>`).join('')}</span><span class="tb-player-output"><strong>${this.teamBuilderXPts(player).toFixed(1)}</strong><small>xPts</small></span></button></article>`;
         }).join('') || '<div class="tb-no-results">No players match these filters.</div>';
     },
 
@@ -1401,7 +1459,13 @@ const FPL = {
     },
 
     async resetAITeam() {
-        if (!window.confirm('Reset the AI squad and rebuild it from current FPL data?')) return;
+        const confirmed = await this.confirmDialog({
+            title: 'Reset the AI squad?',
+            message: 'The current AI squad will be discarded and rebuilt from live FPL data. This cannot be undone.',
+            confirmLabel: 'Reset & rebuild',
+            danger: true
+        });
+        if (!confirmed) return;
         try {
             await fetch(this.API.aiTeam, { method: 'DELETE' });
             this.state.aiTeamData = null;
@@ -1983,6 +2047,55 @@ const FPL = {
         }
     },
 
+    confirmDialog({ title = 'Are you sure?', message = '', confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger = false } = {}) {
+        return new Promise((resolve) => {
+            const overlay = document.getElementById('confirm-dialog');
+            if (!overlay) {
+                resolve(window.confirm(`${title}\n\n${message}`));
+                return;
+            }
+            const titleEl = document.getElementById('confirm-dialog-title');
+            const msgEl = document.getElementById('confirm-dialog-message');
+            const okBtn = document.getElementById('confirm-dialog-ok');
+            const cancelBtn = document.getElementById('confirm-dialog-cancel');
+            const closeBtn = overlay.querySelector('.dialog-header .btn-icon');
+            let settled = false;
+            const cleanup = () => {
+                okBtn?.removeEventListener('click', onOk);
+                cancelBtn?.removeEventListener('click', onCancel);
+                closeBtn?.removeEventListener('click', onCancel);
+                overlay.removeEventListener('click', onOverlayClick);
+                overlay.removeEventListener('keydown', onKey);
+                this.hideDialog('confirm-dialog');
+            };
+            const settle = (value) => {
+                if (settled) return;
+                settled = true;
+                cleanup();
+                resolve(value);
+            };
+            const onOk = () => settle(true);
+            const onCancel = () => settle(false);
+            const onKey = (event) => { if (event.key === 'Escape') settle(false); };
+            const onOverlayClick = (event) => { if (event.target === overlay) settle(false); };
+            if (titleEl) titleEl.textContent = title;
+            if (msgEl) msgEl.innerHTML = message || '';
+            if (okBtn) {
+                okBtn.textContent = confirmLabel;
+                okBtn.classList.toggle('btn-danger', Boolean(danger));
+                okBtn.classList.toggle('btn-primary', !danger);
+            }
+            if (cancelBtn) cancelBtn.textContent = cancelLabel;
+            okBtn?.addEventListener('click', onOk);
+            cancelBtn?.addEventListener('click', onCancel);
+            closeBtn?.addEventListener('click', onCancel);
+            overlay.addEventListener('click', onOverlayClick);
+            overlay.addEventListener('keydown', onKey);
+            this.showDialog('confirm-dialog');
+            setTimeout(() => okBtn?.focus(), 60);
+        });
+    },
+
     // ==================== RENDER: DASHBOARD ====================
     renderDashboard() {
         const s = this.state;
@@ -2274,7 +2387,7 @@ const FPL = {
                 </td>
                 <td style="padding:var(--space-sm);text-align:center;font-family:var(--font-mono);font-weight:600;">${data.count}</td>
                 <td style="padding:var(--space-sm);text-align:center;font-family:var(--font-mono);">${(data.totalPts / data.count).toFixed(1)}</td>
-                <td style="padding:var(--space-sm);text-align:right;font-family:var(--font-mono);">£${data.totalValue.toFixed(1)}m</td>
+                <td style="padding:var(--space-sm);text-align:center;font-family:var(--font-mono);">£${data.totalValue.toFixed(1)}m</td>
             </tr>
         `).join('');
     },
@@ -3011,7 +3124,7 @@ const FPL = {
         return String(player?.teamShort || player?.team || 'FPL').slice(0, 4).toUpperCase();
     },
 
-playerTeamShirtUrl(player) {
+    playerTeamShirtUrl(player) {
         const current = this.resolvePlayer(player);
         const teamId = current?.team || Number(player?.teamId);
         const team = this.state.teamMap[teamId];
@@ -3029,6 +3142,15 @@ playerTeamShirtUrl(player) {
             : '';
         return `${img}<span class="aiteam-shirt-fallback" aria-hidden="true">${fallback}</span>`;
     },
+
+    starterBadge(player) {
+        if (!player) return '';
+        const tier = player.starterTier || 'Unknown role';
+        const score = Number(player.starterScore);
+        const cls = score >= 75 ? 'is-nailed' : score >= 55 ? 'is-likely' : score >= 35 ? 'is-rotation' : 'is-unknown';
+        return `<span class="tb-starter-badge ${cls}" title="${this.escapeHTML(tier)} (${Number.isFinite(score) ? score : '?'}/100)">${this.escapeHTML(tier)}</span>`;
+    },
+
 
     playerPhotoMarkup(player, alt = 'FPL player', className = '', style = '', alwaysShow = false) {
         const src = this.playerPhotoUrl(player, '110x140', alwaysShow);
@@ -3665,9 +3787,9 @@ playerTeamShirtUrl(player) {
             <th style="padding:var(--space-sm) var(--space-md);text-align:left;">Player</th>
             <th style="padding:var(--space-sm) var(--space-md);text-align:left;">Team</th>
             <th style="padding:var(--space-sm) var(--space-md);text-align:center;">Pos</th>
-            <th style="padding:var(--space-sm) var(--space-md);text-align:right;">Transfers In</th>
-            <th style="padding:var(--space-sm) var(--space-md);text-align:right;">Price</th>
-            <th style="padding:var(--space-sm) var(--space-md);text-align:right;">Points</th>
+            <th style="padding:var(--space-sm) var(--space-md);text-align:center;">Transfers In</th>
+            <th style="padding:var(--space-sm) var(--space-md);text-align:center;">Price</th>
+            <th style="padding:var(--space-sm) var(--space-md);text-align:center;">Points</th>
         </tr></thead><tbody>${players.map((p, i) => {
             const team = bootstrap.teams.find(t => t.id === p.team);
             return `<tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);">
@@ -3675,9 +3797,9 @@ playerTeamShirtUrl(player) {
                 <td style="padding:var(--space-sm) var(--space-md);font-weight:600;">${p.web_name}</td>
                 <td style="padding:var(--space-sm) var(--space-md);display:flex;align-items:center;gap:4px;">${this.teamBadge(team?.short_name, 16)} ${team?.short_name || '???'}</td>
                 <td style="padding:var(--space-sm) var(--space-md);text-align:center;"><span style="padding:2px 8px;border-radius:var(--radius-pill);font-size:0.6875rem;font-weight:700;background:${posColors[p.element_type]}20;color:${posColors[p.element_type]};">${posNames[p.element_type]}</span></td>
-                <td style="padding:var(--space-sm) var(--space-md);text-align:right;font-family:var(--font-mono);font-weight:700;color:var(--md-sys-color-primary);">+${this.formatNumber(p.transfers_in_event || 0)}</td>
-                <td style="padding:var(--space-sm) var(--space-md);text-align:right;font-family:var(--font-mono);">£${(p.now_cost / 10).toFixed(1)}m</td>
-                <td style="padding:var(--space-sm) var(--space-md);text-align:right;font-family:var(--font-mono);">${p.total_points}</td>
+                <td style="padding:var(--space-sm) var(--space-md);text-align:center;font-family:var(--font-mono);font-weight:700;color:var(--md-sys-color-primary);">+${this.formatNumber(p.transfers_in_event || 0)}</td>
+                <td style="padding:var(--space-sm) var(--space-md);text-align:center;font-family:var(--font-mono);">£${(p.now_cost / 10).toFixed(1)}m</td>
+                <td style="padding:var(--space-sm) var(--space-md);text-align:center;font-family:var(--font-mono);">${p.total_points}</td>
             </tr>`;
         }).join('')}</tbody></table></div></div>`;
     },
@@ -3697,9 +3819,9 @@ playerTeamShirtUrl(player) {
             <th style="padding:var(--space-sm) var(--space-md);text-align:left;">Player</th>
             <th style="padding:var(--space-sm) var(--space-md);text-align:left;">Team</th>
             <th style="padding:var(--space-sm) var(--space-md);text-align:center;">Pos</th>
-            <th style="padding:var(--space-sm) var(--space-md);text-align:right;">Transfers Out</th>
-            <th style="padding:var(--space-sm) var(--space-md);text-align:right;">Price</th>
-            <th style="padding:var(--space-sm) var(--space-md);text-align:right;">Points</th>
+            <th style="padding:var(--space-sm) var(--space-md);text-align:center;">Transfers Out</th>
+            <th style="padding:var(--space-sm) var(--space-md);text-align:center;">Price</th>
+            <th style="padding:var(--space-sm) var(--space-md);text-align:center;">Points</th>
         </tr></thead><tbody>${players.map((p, i) => {
             const team = bootstrap.teams.find(t => t.id === p.team);
             return `<tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);">
@@ -3707,9 +3829,9 @@ playerTeamShirtUrl(player) {
                 <td style="padding:var(--space-sm) var(--space-md);font-weight:600;">${p.web_name}</td>
                 <td style="padding:var(--space-sm) var(--space-md);display:flex;align-items:center;gap:4px;">${this.teamBadge(team?.short_name, 16)} ${team?.short_name || '???'}</td>
                 <td style="padding:var(--space-sm) var(--space-md);text-align:center;"><span style="padding:2px 8px;border-radius:var(--radius-pill);font-size:0.6875rem;font-weight:700;background:${posColors[p.element_type]}20;color:${posColors[p.element_type]};">${posNames[p.element_type]}</span></td>
-                <td style="padding:var(--space-sm) var(--space-md);text-align:right;font-family:var(--font-mono);font-weight:700;color:var(--md-sys-color-error);">-${this.formatNumber(p.transfers_out_event || 0)}</td>
-                <td style="padding:var(--space-sm) var(--space-md);text-align:right;font-family:var(--font-mono);">£${(p.now_cost / 10).toFixed(1)}m</td>
-                <td style="padding:var(--space-sm) var(--space-md);text-align:right;font-family:var(--font-mono);">${p.total_points}</td>
+                <td style="padding:var(--space-sm) var(--space-md);text-align:center;font-family:var(--font-mono);font-weight:700;color:var(--md-sys-color-error);">-${this.formatNumber(p.transfers_out_event || 0)}</td>
+                <td style="padding:var(--space-sm) var(--space-md);text-align:center;font-family:var(--font-mono);">£${(p.now_cost / 10).toFixed(1)}m</td>
+                <td style="padding:var(--space-sm) var(--space-md);text-align:center;font-family:var(--font-mono);">${p.total_points}</td>
             </tr>`;
         }).join('')}</tbody></table></div></div>`;
     },
@@ -3895,6 +4017,19 @@ playerTeamShirtUrl(player) {
         }
     },
 
+    connectManagerFromInput() {
+        const input = document.getElementById('manager-id-input-field');
+        const id = input?.value?.trim();
+        if (!/^\d+$/.test(id || '') || Number(id) < 1) {
+            this.showError('Enter a valid Manager ID');
+            input?.focus();
+            return;
+        }
+        this.state.managerId = id;
+        localStorage.setItem('fplManagerId', id);
+        this.loadManagerData(id).then(() => this.renderTeamAnalysis());
+    },
+
     connectManager() {
         const input = document.getElementById('connect-manager-id');
         const id = input?.value?.trim();
@@ -3945,17 +4080,30 @@ playerTeamShirtUrl(player) {
     },
 
     clearData() {
-        localStorage.removeItem('fplManagerId');
-        localStorage.removeItem('fplLeagueId');
-        this.state.managerId = null;
-        this.state.managerData = null;
-        this.state.leagueData = null;
-        location.reload();
+        this.confirmDialog({
+            title: 'Clear all data?',
+            message: 'Your saved manager ID, league ID and local preferences will be permanently removed and the page will reload.',
+            confirmLabel: 'Clear everything',
+            danger: true
+        }).then(confirmed => {
+            if (!confirmed) return;
+            localStorage.removeItem('fplManagerId');
+            localStorage.removeItem('fplLeagueId');
+            this.state.managerId = null;
+            this.state.managerData = null;
+            this.state.leagueData = null;
+            location.reload();
+        });
     },
 
     initHistory() {
         const container = document.getElementById('history-section');
-        if (!container || !this.state.managerData) return;
+        if (!container) return;
+        if (!this.state.managerData) {
+            container.innerHTML = '<div class="card"><div class="card-body"><div class="empty-state"><span class="material-symbols-outlined">history</span><p>Connect an FPL ID to see your gameweek history.</p><button class="btn btn-primary" onclick="FPL.hideDialog(\'history-dialog\');FPL.showDialog(\'connect-dialog\')">Connect ID</button></div></div></div>';
+            this.showDialog('history-dialog');
+            return;
+        }
         const m = this.state.managerData;
         const weeklyPts = m.weeklyPoints || [];
         const weeklyRanks = m.weeklyRanks || [];
@@ -3966,6 +4114,7 @@ playerTeamShirtUrl(player) {
 
         if (weeklyPts.length === 0) {
             container.innerHTML = '<div class="card"><div class="card-body"><div class="empty-state"><span class="material-symbols-outlined">history</span><p>No gameweek history available yet.</p></div></div></div>';
+            this.showDialog('history-dialog');
             return;
         }
 
@@ -4075,6 +4224,7 @@ playerTeamShirtUrl(player) {
                 </div>
             </div>` : ''}
         </div>`;
+        this.showDialog('history-dialog');
     },
 
     initSettings() {
@@ -4192,6 +4342,7 @@ playerTeamShirtUrl(player) {
                 </div>
             </div>
         </div>`;
+        this.showDialog('settings-dialog');
     },
 
     getSetting(key) {

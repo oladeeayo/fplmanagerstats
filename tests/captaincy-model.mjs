@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { buildCaptaincyModel, estimateExpectedMinutes } = require('../src/captaincyModel');
+const { buildCaptaincyModel, estimateExpectedMinutes, estimateStarterScore, starterTierFor } = require('../src/captaincyModel');
 
 const teams = [
   { id: 1, name: 'Alpha', short_name: 'ALP' },
@@ -81,3 +81,21 @@ assert.ok(doubtfulMinutes < availableMinutes, 'availability must reduce expected
 const blank = buildCaptaincyModel({ bootstrap, fixtures, selectedGW: 11 });
 assert.equal(blank.bestPick, null);
 assert.deepEqual(blank.topPicks, []);
+
+// Starter viability: proven minutes produce high scores, unknown promoted GKs collapse.
+const established = player({ minutes: 2900, starts: 34, total_points: 210, points_per_game: '6.5', form: '6.5', now_cost: 105, selected_by_percent: '55.0', ep_next: '8.0' });
+const unknownPromotedGk = player({ element_type: 1, minutes: 0, starts: 0, total_points: 0, points_per_game: '0.0', form: '0.0', now_cost: 45, selected_by_percent: '0.5', ep_next: '2.0', team: 4 });
+const freshTeam = new Map();
+const costs = new Map();
+const establishedScore = estimateStarterScore(established, freshTeam, costs);
+const unknownGkScore = estimateStarterScore(unknownPromotedGk, new Map([[4, { promoted: true }]]), costs);
+assert.ok(establishedScore >= 75, `proven starter should be Nailed starter, got ${establishedScore}`);
+assert.ok(unknownGkScore < 55, `promoted-team unknown GK should not be treated as a starter, got ${unknownGkScore}`);
+assert.equal(starterTierFor(establishedScore), 'Nailed starter');
+assert.equal(starterTierFor(20), 'Unknown role');
+assert.equal(starterTierFor(unknownGkScore), 'Unknown role');
+
+const promotedKeeperMinutes = estimateExpectedMinutes(unknownPromotedGk, 38, 1, { teamExperience: new Map([[4, { promoted: true }]]), position: 'GKP' });
+const nonPromotedKeeperMinutes = estimateExpectedMinutes(unknownPromotedGk, 38, 1, { teamExperience: new Map([[4, { promoted: false }]]), position: 'GKP' });
+assert.ok(promotedKeeperMinutes < nonPromotedKeeperMinutes, 'promoted-team unknowns must get fewer modeled minutes than proven-league teams');
+assert.ok(nonPromotedKeeperMinutes > 0);
