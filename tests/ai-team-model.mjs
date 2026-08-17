@@ -2,12 +2,14 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { VALID_FORMATIONS, selectOptimalLineup, hasEconomicalReserveGoalkeeper, nextGameweekScore, horizonScore } = require('../src/aiTeamModel.js');
+const { VALID_FORMATIONS, selectOptimalLineup, hasEconomicalReserveGoalkeeper, nextGameweekScore, horizonScore, scorePlayerForSquad, buildOptimalSquadFromConstraints } = require('../src/aiTeamModel.js');
 
 const makePlayers = (position, scores) => scores.map((score, index) => ({
   id: `${position}-${index}`,
   position,
   score,
+  cost: 5.0,
+  team: `${position}_TEAM_${index}`,
   weekly: [{ xPts: score }],
 }));
 
@@ -55,4 +57,19 @@ assert.equal(hasEconomicalReserveGoalkeeper([
   { position: 'GKP', cost: 5.0 },
 ], 45), false);
 
+// Test buildOptimalSquadFromConstraints
+const pool = [
+  ...makePlayers('GKP', [5, 4, 3]),
+  ...makePlayers('DEF', [8, 7, 6, 5, 4, 3]),
+  ...makePlayers('MID', [9, 8, 7, 6, 5, 4]),
+  ...makePlayers('FWD', [10, 9, 8, 7]),
+];
+const opt = buildOptimalSquadFromConstraints(pool, { mustInclude: ['MID-0'], mustExclude: ['FWD-0'] });
+assert.equal(opt.squad.length, 15);
+assert.ok(opt.squad.some(p => p.id === 'MID-0'));
+assert.ok(!opt.squad.some(p => p.id === 'FWD-0'));
+assert.ok(opt.lineup);
+assert.equal(opt.lineup.starters.length, 11);
+
 console.log('AI Team formation tests passed');
+

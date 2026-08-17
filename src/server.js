@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const path = require('path');
 const axios = require('axios');
 const helmet = require('helmet');
@@ -704,7 +704,7 @@ ${JSON.stringify(players)}`;
             properties: {
               constraints: {
                 type: 'OBJECT',
-                required: ['mustInclude', 'mustExclude', 'benchIds', 'starterIds', 'teamIncludeMin', 'teamIncludeMax', 'teamExclude', 'priceMax', 'priceMin', 'playerPriceMax', 'playerPriceMin', 'metricRules', 'playerRequirements', 'optimizationMetric', 'prioritizeSetPieces', 'starterMinScore', 'preferGoodFixtures', 'balancedSquad', 'formation', 'horizon', 'budget', 'captainId', 'avoidInjured'],
+                required: ['mustInclude', 'mustExclude', 'benchIds', 'starterIds', 'teamIncludeMin', 'teamIncludeMax', 'teamExclude', 'priceMax', 'priceMin', 'playerPriceMax', 'playerPriceMin', 'metricRules', 'playerRequirements', 'optimizationMetric', 'prioritizeSetPieces', 'starterMinScore', 'preferGoodFixtures', 'balancedSquad', 'formation', 'horizon', 'budget', 'captainId', 'viceCaptainId', 'benchStyle', 'structurePreference', 'templateStyle', 'avoidInjured'],
                 properties: {
                   mustInclude: { type: 'ARRAY', items: { type: 'INTEGER' } },
                   mustExclude: { type: 'ARRAY', items: { type: 'INTEGER' } },
@@ -742,6 +742,10 @@ ${JSON.stringify(players)}`;
                   horizon: { type: 'INTEGER', nullable: true },
                   budget: { type: 'NUMBER', nullable: true },
                   captainId: { type: 'INTEGER', nullable: true },
+                  viceCaptainId: { type: 'INTEGER', nullable: true },
+                  benchStyle: { type: 'STRING', nullable: true, enum: ['fodder', 'strong'] },
+                  structurePreference: { type: 'STRING', nullable: true, enum: ['big_at_back', 'heavy_mid', 'heavy_fwd'] },
+                  templateStyle: { type: 'STRING', nullable: true, enum: ['template', 'differential', 'ultra_differential'] },
                   avoidInjured: { type: 'BOOLEAN' },
                 },
               },
@@ -778,6 +782,8 @@ ${JSON.stringify(players)}`;
     [...benchIds, ...starterIds].forEach(id => { if (!mustInclude.includes(id)) mustInclude.push(id); });
     const captainId = playerById.has(Number(source.captainId)) ? Number(source.captainId) : null;
     if (captainId && !mustExclude.includes(captainId) && !mustInclude.includes(captainId)) mustInclude.push(captainId);
+    const viceCaptainId = playerById.has(Number(source.viceCaptainId)) ? Number(source.viceCaptainId) : null;
+    if (viceCaptainId && !mustExclude.includes(viceCaptainId) && !mustInclude.includes(viceCaptainId)) mustInclude.push(viceCaptainId);
     const formation = Array.isArray(source.formation) && ['3-4-3', '3-5-2', '4-3-3', '4-4-2', '4-5-1', '5-3-2', '5-4-1'].includes(source.formation.map(Number).join('-')) ? source.formation.map(Number) : null;
     const metricNames = new Set(['xPts', 'xG', 'xA', 'xGI', 'xMins', 'ownership', 'form', 'price']);
     const metricRules = (Array.isArray(source.metricRules) ? source.metricRules : []).map(rule => ({
@@ -830,6 +836,10 @@ ${JSON.stringify(players)}`;
         horizon: Number.isInteger(Number(source.horizon)) && Number(source.horizon) >= 1 && Number(source.horizon) <= 8 ? Number(source.horizon) : null,
         budget: Number.isFinite(Number(source.budget)) && Number(source.budget) >= 50 && Number(source.budget) <= 100 ? Number(source.budget) : null,
         captainId: captainId && !ambiguousIds.has(captainId) && !mustExclude.includes(captainId) ? captainId : null,
+        viceCaptainId: viceCaptainId && !ambiguousIds.has(viceCaptainId) && !mustExclude.includes(viceCaptainId) ? viceCaptainId : null,
+        benchStyle: ['fodder', 'strong'].includes(source.benchStyle) ? source.benchStyle : null,
+        structurePreference: ['big_at_back', 'heavy_mid', 'heavy_fwd'].includes(source.structurePreference) ? source.structurePreference : null,
+        templateStyle: ['template', 'differential', 'ultra_differential'].includes(source.templateStyle) ? source.templateStyle : null,
         avoidInjured: source.avoidInjured === true,
       },
       understood: (Array.isArray(parsed.understood) ? parsed.understood : []).map(String).map(value => value.slice(0, 160)).slice(0, 30),

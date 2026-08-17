@@ -222,17 +222,69 @@ assert.equal(VALID_FORMATIONS.length, 7);
     assert.deepEqual(parsed.unclear, []);
 }
 
-// Captain-only clause ("make Palmer captain")
+// Vice-captain parsing ("Captain Haaland, VC Salah")
 {
-    const parsed = parseTeamPreferences('Make Palmer captain', { players });
-    assert.equal(parsed.constraints.captainId, 4);
+    const parsed = parseTeamPreferences('Captain Haaland, VC Salah', { players });
+    assert.equal(parsed.constraints.captainId, 1);
+    assert.equal(parsed.constraints.viceCaptainId, 2);
 }
 
-// Unclear input is reported for clarification
+// Double up and Triple up phrasing
 {
-    const parsed = parseTeamPreferences('I want the purple llama strategy', { players });
-    assert.ok(parsed.unclear.length > 0);
-    assert.ok(parsed.unclear.some(u => u.includes('purple')));
+    const parsed = parseTeamPreferences('Double up Arsenal. Triple up Man City.', { players });
+    assert.equal(parsed.constraints.teamIncludeMin.ARS, 2);
+    assert.equal(parsed.constraints.teamIncludeMin.MCI, 3);
+}
+
+// Bench style and Structural preferences
+{
+    const parsed = parseTeamPreferences('Big at the back with a cheap bench and template squad', { players });
+    assert.equal(parsed.constraints.structurePreference, 'big_at_back');
+    assert.equal(parsed.constraints.benchStyle, 'fodder');
+    assert.equal(parsed.constraints.templateStyle, 'template');
+}
+
+// Expanded vocabulary, team nicknames & position aliases
+{
+    const parsed = parseTeamPreferences('Ditch Spurs. Lock in Haaland. Wingers under 9.0. 2 from Gunners.', { players });
+    assert.deepEqual(parsed.constraints.teamExclude, ['TOT']);
+    assert.ok(parsed.constraints.mustInclude.includes(1));
+    assert.equal(parsed.constraints.priceMax.MID, 9);
+    assert.equal(parsed.constraints.teamIncludeMin.ARS, 2);
+}
+
+// Hot streaks and Form metrics
+{
+    const parsed = parseTeamPreferences('Focus on players in form and hot streaks with rotation proof minutes', { players });
+    assert.equal(parsed.constraints.optimizationMetric, 'form');
+    assert.equal(parsed.constraints.starterMinScore, 55);
+}
+
+// Bench fodder & Heavy midfield
+{
+    const parsed = parseTeamPreferences('Heavy midfield with bench fodder and easy fixtures', { players });
+    assert.equal(parsed.constraints.structurePreference, 'heavy_mid');
+    assert.equal(parsed.constraints.benchStyle, 'fodder');
+    assert.equal(parsed.constraints.preferGoodFixtures, true);
+}
+
+// Player qualification by team & position (e.g. Palmer CHE, Palmer MID)
+{
+    const testPlayers = [
+        ...players,
+        { id: 101, name: 'Alex Palmer', web_name: 'Palmer', team: 'WBA', position: 'GKP' },
+    ];
+    const parsedTeam = parseTeamPreferences('Palmer CHE', { players: testPlayers });
+    assert.deepEqual(parsedTeam.constraints.mustInclude, [4]);
+    assert.deepEqual(parsedTeam.ambiguities, []);
+
+    const parsedPos = parseTeamPreferences('Palmer MID', { players: testPlayers });
+    assert.deepEqual(parsedPos.constraints.mustInclude, [4]);
+    assert.deepEqual(parsedPos.ambiguities, []);
+
+    const parsedCap = parseTeamPreferences('Cap Haaland. (VC) Palmer', { players });
+    assert.equal(parsedCap.constraints.captainId, 1);
+    assert.equal(parsedCap.constraints.viceCaptainId, 4);
 }
 
 // The full sample sentence parses into everything
@@ -250,3 +302,6 @@ assert.equal(VALID_FORMATIONS.length, 7);
 }
 
 console.log('team-preferences.mjs: all tests passed');
+
+
+
