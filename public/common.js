@@ -1531,7 +1531,8 @@ const FPL = {
     },
 
     confirmTeamScreenshotImport() {
-        const ids = [...new Set((this.state.teamBuilder.importMatches || []).map(match => Number(match.playerId)).filter(Number.isFinite))];
+        const matches = this.state.teamBuilder.importMatches || [];
+        const ids = [...new Set(matches.map(match => Number(match.playerId)).filter(Number.isFinite))];
         const candidates = this.state.teamBuilder.players.filter(player => ids.includes(player.id));
         const originalIds = this.state.teamBuilder.selectedIds;
         const validIds = [];
@@ -1540,7 +1541,8 @@ const FPL = {
             if (!this.canAddTeamBuilderPlayer(player)) validIds.push(player.id);
         });
         this.state.teamBuilder.selectedIds = validIds.slice(0, 15);
-        this.state.teamBuilder.captainId = null;
+        const detectedCaptain = matches.find(match => match.captain && validIds.includes(Number(match.playerId)));
+        this.state.teamBuilder.captainId = detectedCaptain ? Number(detectedCaptain.playerId) : null;
         void originalIds;
         this.saveTeamBuilderDraft();
         this.closeTeamScreenshotImport();

@@ -35,6 +35,7 @@ const players = [
     { id: 13, name: 'Pedersen', fullName: 'Mads Pedersen', team: 'IPS', position: 'DEF', costValue: 4.0 },
     { id: 14, name: 'Dibling', fullName: 'Tyler Dibling', team: 'SOU', position: 'MID', costValue: 4.5 },
     { id: 15, name: 'Stewart', fullName: 'Ross Stewart', team: 'SOU', position: 'FWD', costValue: 5.5 },
+    { id: 16, name: 'Martinez', fullName: 'Lisandro Martinez', team: 'MUN', position: 'DEF', costValue: 4.5 },
 ];
 
 // Test normalize
@@ -240,6 +241,12 @@ const teamHintMatches = matchPlayersFPL('PICK TEAM\nHAALAND MCI\nM.SALAH LIV', p
 const teamHintIds = new Set(teamHintMatches.map(m => m.playerId));
 assert.ok(teamHintIds.has(1), 'Team hint MCI should help match Haaland');
 assert.ok(teamHintIds.has(2), 'Team hint LIV should help match Salah');
+
+// Shirt/team and position evidence disambiguate identical screenshot surnames
+const duplicateSurnameMatches = matchPlayersFPL('PICK TEAM\nMARTINEZ AVL GKP £5.0\nMARTINEZ MUN DEF £4.5', players);
+assert.equal(duplicateSurnameMatches.length, 2, 'Both Martinez players should be identified');
+assert.ok(duplicateSurnameMatches.some(match => match.playerId === 12), 'AVL goalkeeper shirt should resolve Emiliano Martinez');
+assert.ok(duplicateSurnameMatches.some(match => match.playerId === 16), 'MUN defender shirt should resolve Lisandro Martinez');
 
 // Test a garbled name is rescued by exact price + position hints
 const garbledHintsText = `PICK TEAM
