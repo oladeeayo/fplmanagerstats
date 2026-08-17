@@ -534,7 +534,10 @@ app.get('/api/fixtures', async (req, res) => {
 // ---- Cloud OCR (Gemini) for squad screenshots ----
 // Free tier (Gemini Flash) handles vision/OCR with no billing; set GEMINI_API_KEY
 // in Vercel. The client falls back to local tesseract.js when this is unavailable.
-const GEMINI_MODEL = 'gemini-2.5-flash';
+// One API key serves both workloads. Keep high-volume text parsing on the Lite
+// quota pool and reserve full Flash models for screenshot understanding.
+const GEMINI_OCR_MODELS = ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash'];
+const GEMINI_PREFERENCE_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-2.5-flash-lite', 'gemini-2.5-flash'];
 const GEMINI_OCR_PROMPT = `You are reading a screenshot of a Fantasy Premier League (FPL) squad screen.
 Extract every player shown (starting XI and bench) and output a plain-text list, one player per line.
 Use no markdown, no code fences, no numbering and no extra explanation. Format each line exactly as:
@@ -563,9 +566,7 @@ app.post('/api/ocr', express.raw({ type: ['image/png', 'image/jpeg', 'image/webp
   if (!Buffer.isBuffer(image) || image.length === 0) return res.status(400).json({ error: 'An image upload is required' });
   const mimeType = (req.get('content-type') || 'image/png').split(';')[0];
   try {
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`,
-      {
+    const { response, model } = await generateWithGeminiFallback(apiKey, GEMINI_OCR_MODELS, {
         contents: [{
           parts: [
             { text: GEMINI_OCR_PROMPT },
@@ -573,12 +574,10 @@ app.post('/api/ocr', express.raw({ type: ['image/png', 'image/jpeg', 'image/webp
           ],
         }],
         generationConfig: { temperature: 0.2, maxOutputTokens: 2048 },
-      },
-      { timeout: 30000 }
-    );
+      });
     const text = (response.data?.candidates?.[0]?.content?.parts || []).map(part => part.text || '').join('\n').trim();
     if (!text) return res.status(502).json({ error: 'Cloud OCR returned no text' });
-    res.json({ text: stripCodeFences(text), engine: 'gemini', model: GEMINI_MODEL });
+    res.json({ text: stripCodeFences(text), engine: 'gemini', model });
   } catch (error) {
     console.error('Cloud OCR error:', error.message);
     const status = error.response?.status === 429 ? 429 : 502;
@@ -622,9 +621,7 @@ PLAYER CATALOG:
 ${JSON.stringify(players)}`;
 
   try {
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`,
-      {
+    const { response, model } = await generateWithGeminiFallback(apiKey, GEMINI_PREFERENCE_MODELS, {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0,
@@ -677,9 +674,7 @@ ${JSON.stringify(players)}`;
             },
           },
         },
-      },
-      { timeout: 30000 }
-    );
+      });
     const raw = (response.data?.candidates?.[0]?.content?.parts || []).map(part => part.text || '').join('').trim();
     if (!raw) return res.status(502).json({ error: 'Smart preference parsing returned no result' });
     const parsed = JSON.parse(stripCodeFences(raw));
@@ -734,7 +729,7 @@ ${JSON.stringify(players)}`;
       unclear: (Array.isArray(parsed.unclear) ? parsed.unclear : []).map(String).map(value => value.slice(0, 200)).slice(0, 20),
       ambiguities,
       engine: 'gemini',
-      model: GEMINI_MODEL,
+      model,
     });
   } catch (error) {
     console.error('Gemini preference parsing error:', error.message);
@@ -805,6 +800,28 @@ function isValidAITeamPayload(payload) {
     && payload?.lineup?.quality?.optimizerVersion === 6
     && starters.every(player => ids.includes(Number(player.id)))
     && bench.every(player => ids.includes(Number(player.id)));
+}
+
+async function generateWithGeminiFallback(apiKey, models, payload) {
+  let lastError;
+  for (const model of models) {
+    try {
+      const response = await axios.post(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+        payload,
+        { timeout: 30000 }
+      );
+      return { response, model };
+    } catch (error) {
+      lastError = error;
+      const status = error.response?.status;
+      if (status === 401 || status === 403) throw error;
+      const retryable = status == null || status === 400 || status === 404 || status === 408 || status === 429 || status >= 500;
+      if (!retryable) throw error;
+      console.warn(`Gemini model ${model} unavailable (${status || error.code || error.message}); trying fallback.`);
+    }
+  }
+  throw lastError || new Error('No Gemini model was available');
 }
 
 // GET saved AI team + transfer plan + chip schedule
