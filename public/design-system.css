@@ -3191,9 +3191,9 @@ select option {
 .tb-player-output strong { color: #00ff85; font: 800 12px var(--font-mono); }
 .tb-player-output small { color: #6d8c7a; font: 700 8px var(--font-mono); }
 .tb-save-status { min-height: 30px; padding: 8px 16px; color: #64816f; font: 600 9px var(--font-mono); }
-.tb-market-controls { display: grid; grid-template-columns: minmax(0,1fr) 130px 145px; gap: 7px; padding: 12px; border-bottom: 1px solid #1a2e28; }
+.tb-market-controls { display: grid; grid-template-columns: minmax(0,1fr) 110px 110px 145px; gap: 7px; padding: 12px; border-bottom: 1px solid #1a2e28; }
 .tb-search { display: flex; align-items: center; gap: 7px; min-width: 0; padding: 0 10px; border: 1px solid #294138; border-radius: 5px; background: #0e1a14; color: #6e8d7b; }
-.tb-search input, .tb-market-controls select { min-width: 0; height: 36px; border: 0; outline: 0; background: transparent; color: #e8f0eb; font: 600 11px var(--font-body); }
+.tb-search input, .tb-market-controls select { min-width: 0; height: 36px; border: 0; outline: 0; background: transparent; color: #e8f0eb; font: 600 11px var(--font-body); text-align: center; }
 .tb-search input { width: 100%; }
 .tb-market-controls select { padding: 0 8px; border: 1px solid #294138; border-radius: 5px; background: #0e1a14; }
 .tb-market-message { min-height: 25px; padding: 7px 12px 0; color: #ffbc69; font: 600 10px var(--font-mono); }

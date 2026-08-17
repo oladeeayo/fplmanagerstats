@@ -24,7 +24,7 @@ importScript.src = '/squad-import.js?v=1';
 importScript.defer = true;
 importScript.addEventListener('load', () => {
   const legacyScript = document.createElement('script');
-  legacyScript.src = '/common.js?v=13';
+  legacyScript.src = '/common.js?v=14';
   legacyScript.defer = true;
   legacyScript.addEventListener('load', () => window.dispatchEvent(new CustomEvent('fpl-ready')));
   legacyScript.addEventListener('error', () => console.error('Failed to load the FPL dashboard data client.'));
