@@ -562,6 +562,8 @@ function buildPlayerProjections({ bootstrap, fixtures, startGW, horizon = 5 }) {
       cost: number(player.now_cost) / 10,
       ownership: round(number(player.selected_by_percent)),
       form: round(number(player.form)),
+      xG90: firstCandidate?.xG90 || round(number(player.expected_goals_per_90), 2),
+      xA90: firstCandidate?.xA90 || round(number(player.expected_assists_per_90), 2),
       xGI90: firstCandidate?.xGI90 || round(number(player.expected_goal_involvements_per_90), 2),
       defensiveContributionPer90: round(number(player.defensive_contribution_per_90), 2),
       roles: firstCandidate?.roles || describeRole(player),

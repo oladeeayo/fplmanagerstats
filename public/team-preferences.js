@@ -57,8 +57,8 @@
         ['wolverhampton', 'WOL'], ['wolves', 'WOL'], ['wanderers', 'WOL'],
     ].sort((a, b) => b[0].length - a[0].length);
 
-    const NEGATIVES = ['no', 'not', 'avoid', 'without', 'don\'t', 'dont', 'do not', 'exclude', 'minus', 'drop', 'never', 'keep out', 'stay away', 'steer clear'];
-    const POSITIVES = ['want', 'must', 'need', 'include', 'have', 'add', 'start', 'pick', 'keep', 'definitely', 'please', 'get', 'with', 'and', 'plus', 'prefer', 'like'];
+    const NEGATIVES = ['no', 'not', 'avoid', 'avoids', 'avoided', 'avoiding', 'without', 'don\'t', 'dont', 'do not', 'exclude', 'excludes', 'excluded', 'excluding', 'remove', 'removes', 'removed', 'removing', 'minus', 'drop', 'drops', 'dropped', 'dropping', 'never', 'keep out', 'kept out', 'stay away', 'steer clear'];
+    const POSITIVES = ['want', 'wants', 'wanted', 'wanting', 'must', 'need', 'needs', 'needed', 'include', 'includes', 'included', 'including', 'have', 'has', 'add', 'adds', 'added', 'adding', 'start', 'starts', 'started', 'starting', 'pick', 'picks', 'picked', 'picking', 'keep', 'keeps', 'kept', 'definitely', 'please', 'get', 'gets', 'got', 'with', 'and', 'plus', 'prefer', 'prefers', 'preferred', 'preferring', 'like', 'likes', 'liked'];
 
     const COUNT_WORDS = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, 'a couple of': 2, 'a few': 2, both: 2 };
 
@@ -105,15 +105,20 @@
     }
 
     function buildNameMatchers(players) {
-        const matchers = [];
+        const grouped = new Map();
         (players || []).forEach(player => {
             const keys = new Set();
             keys.add(normalize(player.name || ''));
             keys.add(normalize(player.web_name || ''));
+            keys.add(normalize(player.fullName || ''));
             if (player.first_name) keys.add(normalize(`${player.first_name} ${player.second_name || ''}`));
             keys.delete('');
-            keys.forEach(key => matchers.push({ key, player }));
+            keys.forEach(key => {
+                if (!grouped.has(key)) grouped.set(key, []);
+                grouped.get(key).push(player);
+            });
         });
+        const matchers = [...grouped].map(([key, candidates]) => ({ key, candidates, player: candidates[0] }));
         matchers.sort((a, b) => b.key.length - a.key.length);
         return matchers;
     }
@@ -136,6 +141,8 @@
         const constraints = {
             mustInclude: [],      // player ids the user explicitly wants
             mustExclude: [],      // player ids the user explicitly rejects
+            benchIds: [],
+            starterIds: [],
             teamIncludeMin: {},   // { ARS: 2 }
             teamIncludeMax: {},   // { LIV: 1 }
             teamExclude: [],      // [CHE, ...]
@@ -144,12 +151,15 @@
             playerPriceMax: {},   // { playerId: 12.5 }
             playerPriceMin: {},   // { playerId: 9.0 }
             formation: null,      // [3,4,3]
+            horizon: null,
+            metricRules: [],
             budget: null,         // 100
             captainId: null,
             avoidInjured: false,
         };
         const understood = [];
         const unclear = [];
+        const ambiguities = [];
 
         const nameMatchers = buildNameMatchers(players);
         const playerById = new Map((players || []).map(p => [p.id, p]));
@@ -189,10 +199,20 @@
             // 2) Player names (must include / exclude / captain)
             const seen = new Set();
             for (const matcher of nameMatchers) {
-                if (seen.has(matcher.player.id)) continue;
+                if (matcher.candidates.some(player => seen.has(player.id))) continue;
                 if (!matcher.key || matcher.key.length < 3) continue;
                 const idx = cursor.toLowerCase().indexOf(matcher.key);
                 if (idx < 0) continue;
+                if (matcher.candidates.length > 1) {
+                    ambiguities.push({
+                        name: cursor.slice(idx, idx + matcher.key.length),
+                        players: matcher.candidates.map(player => ({ id: player.id, name: `${player.first_name || ''} ${player.second_name || player.name || ''}`.trim() || player.name, team: player.team, position: player.position })),
+                    });
+                    matched = true;
+                    matcher.candidates.forEach(player => seen.add(player.id));
+                    cursor = cursor.replace(new RegExp(escapeRegExp(matcher.key), 'gi'), ' ');
+                    continue;
+                }
                 const neg = isNegativeContext(cursor.toLowerCase(), idx);
                 const isCaptain = /captain/i.test(cursor.slice(Math.max(0, idx - 30), idx + matcher.key.length + 30));
                 if (neg) {
@@ -367,6 +387,7 @@
             constraints,
             understood: [...new Set(understood)],
             unclear: [...new Set(unclear)],
+            ambiguities: [...new Map(ambiguities.map(item => [normalize(item.name), item])).values()],
             playerById,
         };
     }

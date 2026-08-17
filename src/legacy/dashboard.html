@@ -1176,7 +1176,7 @@
                             </div>
                             <div class="tb-preferences-row">
                                 <textarea id="tb-preferences-input" class="tb-preferences-input" rows="2" placeholder="e.g. I want Haaland and Salah. No Chelsea players. Midfielders under 8.0. 2 from Arsenal. Play 4-4-2. Keep 1.0 in the bank." aria-label="Team building preferences"></textarea>
-                                <button type="button" class="tb-btn tb-btn-primary" onclick="FPL.buildTeamBuilderFromPreferences()"><span class="material-symbols-outlined">psychology_alt</span> Build with preferences</button>
+                                <button type="button" id="tb-preferences-build" class="tb-btn tb-btn-primary" onclick="FPL.buildTeamBuilderFromPreferences()"><span class="material-symbols-outlined">psychology_alt</span> Build with preferences</button>
                             </div>
                             <div id="tb-preferences-feedback" class="tb-preferences-feedback" aria-live="polite"></div>
                         </section>
@@ -1186,7 +1186,7 @@
                         <div id="tb-workspace" class="tb-workspace hidden">
                             <section class="tb-squad-panel" aria-labelledby="tb-squad-title">
                                 <div class="tb-panel-heading"><div><h2 id="tb-squad-title">Your squad</h2><span id="tb-squad-count">0 / 15 selected</span></div><div class="tb-squad-tools"><div class="tb-import-view-toggle" role="radiogroup" aria-label="Squad view"><button type="button" class="tb-import-view-btn" data-view="list" onclick="FPL.setSquadView('list')" aria-pressed="false"><span class="material-symbols-outlined">list</span> List</button><button type="button" class="tb-import-view-btn" data-view="pitch" onclick="FPL.setSquadView('pitch')" aria-pressed="true"><span class="material-symbols-outlined">sports_soccer</span> Pitch</button></div><strong id="tb-horizon-total">0.0 xPts</strong></div></div>
-                                <div class="tb-squad-actions"><button type="button" class="tb-btn tb-btn-autofill" onclick="FPL.autoFillTeamBuilder()" title="Auto-fill a legal 15-player squad with the highest projected points"><span class="material-symbols-outlined">auto_awesome</span> AI Auto-fill</button><button type="button" id="tb-autofill-reroll" class="tb-btn tb-btn-secondary hidden" onclick="FPL.reRollTeamBuilderAutoFill()" title="Generate an alternative auto-filled draft"><span class="material-symbols-outlined">refresh</span> Re-roll</button></div>
+                                <div class="tb-squad-actions"><button type="button" class="tb-btn tb-btn-autofill" onclick="FPL.autoFillTeamBuilder()" title="Auto-fill a legal 15-player squad with the highest projected points"><span class="material-symbols-outlined">auto_awesome</span> AI Auto-fill</button><button type="button" id="tb-autofill-reroll" class="tb-btn tb-btn-secondary hidden" onclick="FPL.reRollTeamBuilderAutoFill()" title="Generate an alternative auto-filled draft"><span class="material-symbols-outlined">refresh</span> Re-roll</button><button type="button" class="tb-btn tb-btn-secondary" onclick="FPL.clearTeamBuilder()" title="Remove all players and preferences"><span class="material-symbols-outlined">delete_sweep</span> Empty team</button></div>
                                 <div id="tb-budget-meter" class="tb-budget-meter"></div>
                                 <div id="tb-rule-strip" class="tb-rule-strip"></div>
                                 <div id="tb-squad-list" class="tb-squad-list"></div>

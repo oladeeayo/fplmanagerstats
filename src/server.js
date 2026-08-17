@@ -186,7 +186,7 @@ app.use(express.static(path.join(__dirname, '../public'), {
     if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
   }
 }));
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 app.use(helmet({
   contentSecurityPolicy: false,
@@ -534,7 +534,7 @@ app.get('/api/fixtures', async (req, res) => {
 // ---- Cloud OCR (Gemini) for squad screenshots ----
 // Free tier (Gemini Flash) handles vision/OCR with no billing; set GEMINI_API_KEY
 // in Vercel. The client falls back to local tesseract.js when this is unavailable.
-const GEMINI_OCR_MODEL = process.env.GEMINI_OCR_MODEL || 'gemini-2.5-flash';
+const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_OCR_PROMPT = `You are reading a screenshot of a Fantasy Premier League (FPL) squad screen.
 Extract every player shown (starting XI and bench) and output a plain-text list, one player per line.
 Use no markdown, no code fences, no numbering and no extra explanation. Format each line exactly as:
@@ -564,7 +564,7 @@ app.post('/api/ocr', express.raw({ type: ['image/png', 'image/jpeg', 'image/webp
   const mimeType = (req.get('content-type') || 'image/png').split(';')[0];
   try {
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_OCR_MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`,
       {
         contents: [{
           parts: [
@@ -578,11 +578,168 @@ app.post('/api/ocr', express.raw({ type: ['image/png', 'image/jpeg', 'image/webp
     );
     const text = (response.data?.candidates?.[0]?.content?.parts || []).map(part => part.text || '').join('\n').trim();
     if (!text) return res.status(502).json({ error: 'Cloud OCR returned no text' });
-    res.json({ text: stripCodeFences(text), engine: 'gemini', model: GEMINI_OCR_MODEL });
+    res.json({ text: stripCodeFences(text), engine: 'gemini', model: GEMINI_MODEL });
   } catch (error) {
     console.error('Cloud OCR error:', error.message);
     const status = error.response?.status === 429 ? 429 : 502;
     res.status(status).json({ error: 'Cloud OCR failed', detail: error.response?.data?.error?.message || error.message });
+  }
+});
+
+app.post('/api/team-builder/preferences', heavyEndpointLimiter, async (req, res) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'Smart preference parsing is not configured' });
+  const text = typeof req.body?.text === 'string' ? req.body.text.trim().slice(0, 1000) : '';
+  const players = Array.isArray(req.body?.players) ? req.body.players.slice(0, 1000).map(player => ({
+    id: Number(player?.id),
+    name: String(player?.name || '').slice(0, 80),
+    fullName: (String(player?.fullName || '').trim() || `${String(player?.first_name || '').trim()} ${String(player?.second_name || '').trim()}`.trim()).slice(0, 120),
+    team: String(player?.team || '').slice(0, 8).toUpperCase(),
+    position: String(player?.position || '').slice(0, 3).toUpperCase(),
+    price: Number(player?.price),
+    status: String(player?.status || '').slice(0, 2),
+    gameweeks: Array.isArray(player?.gameweeks) ? player.gameweeks.slice(0, 8).map(Number).filter(Number.isInteger) : [],
+    xPts: Number(player?.xPts), xG: Number(player?.xG), xA: Number(player?.xA), xMins: Number(player?.xMins),
+    ownership: Number(player?.ownership), form: Number(player?.form),
+  })).filter(player => Number.isInteger(player.id) && player.id > 0 && player.name) : [];
+  if (!text) return res.status(400).json({ error: 'A preference is required' });
+  if (!players.length) return res.status(400).json({ error: 'A player catalog is required' });
+
+  const prompt = `Interpret a user's Fantasy Premier League team-building request into strict constraints. The request may be in any language. Understand idioms, slang, abbreviations, spelling mistakes, negation, and verb inflections.
+You are an FPL expert. Understand nailed players, minutes security, rotation, punts, differentials, premiums, enablers, fodder, bench, starting XI, captaincy, ownership, form, xPts, xG, xA, xGI, expected minutes/xMins, price, budget, money in the bank, clubs, positions, formations, and optimization over upcoming gameweeks.
+Add/include/want/keep/lock means include. Remove/exclude/avoid/drop/sell means exclude. "Bench X" means include X and put the ID in benchIds. "Start X" means include X and put the ID in starterIds.
+Resolve players only against the supplied catalog. Never guess an ID. A named captain must also be in mustInclude.
+If a name can refer to multiple catalog players and the user did not disambiguate with a full name, club, or position, put every candidate in ambiguities and do not include or exclude any of them.
+Team values are the catalog's three-letter team codes. Positions are only GKP, DEF, MID, FWD. Prices and budget are in millions. Valid formations are 3-4-3, 3-5-2, 4-3-3, 4-4-2, 4-5-1, 5-3-2, 5-4-1.
+Set horizon to an explicitly requested count of upcoming gameweeks from 1 to 8, otherwise null.
+Convert numeric pool requirements into metricRules. Metrics are xPts, xG, xA, xGI, xMins, ownership, form, price. xPts/xG/xA/xGI/xMins are totals across the horizon. positions is empty for all positions. Set min/max only when stated. For "nailed" or minutes-security language, infer a sensible xMins threshold from the catalog and horizon.
+Put unsupported or genuinely unclear requests in unclear. Keep understood labels short and in the user's language. Do not invent constraints from general praise.
+
+USER PREFERENCE:
+${text}
+
+PLAYER CATALOG:
+${JSON.stringify(players)}`;
+
+  try {
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+      {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0,
+          maxOutputTokens: 4096,
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'OBJECT',
+            required: ['constraints', 'understood', 'unclear', 'ambiguities'],
+            properties: {
+              constraints: {
+                type: 'OBJECT',
+                required: ['mustInclude', 'mustExclude', 'benchIds', 'starterIds', 'teamIncludeMin', 'teamIncludeMax', 'teamExclude', 'priceMax', 'priceMin', 'playerPriceMax', 'playerPriceMin', 'metricRules', 'formation', 'horizon', 'budget', 'captainId', 'avoidInjured'],
+                properties: {
+                  mustInclude: { type: 'ARRAY', items: { type: 'INTEGER' } },
+                  mustExclude: { type: 'ARRAY', items: { type: 'INTEGER' } },
+                  benchIds: { type: 'ARRAY', items: { type: 'INTEGER' } },
+                  starterIds: { type: 'ARRAY', items: { type: 'INTEGER' } },
+                  teamIncludeMin: { type: 'OBJECT', additionalProperties: { type: 'INTEGER' } },
+                  teamIncludeMax: { type: 'OBJECT', additionalProperties: { type: 'INTEGER' } },
+                  teamExclude: { type: 'ARRAY', items: { type: 'STRING' } },
+                  priceMax: { type: 'OBJECT', additionalProperties: { type: 'NUMBER' } },
+                  priceMin: { type: 'OBJECT', additionalProperties: { type: 'NUMBER' } },
+                  playerPriceMax: { type: 'OBJECT', additionalProperties: { type: 'NUMBER' } },
+                  playerPriceMin: { type: 'OBJECT', additionalProperties: { type: 'NUMBER' } },
+                  metricRules: { type: 'ARRAY', items: { type: 'OBJECT', required: ['metric', 'positions', 'min', 'max'], properties: {
+                    metric: { type: 'STRING', enum: ['xPts', 'xG', 'xA', 'xGI', 'xMins', 'ownership', 'form', 'price'] },
+                    positions: { type: 'ARRAY', items: { type: 'STRING', enum: ['GKP', 'DEF', 'MID', 'FWD'] } },
+                    min: { type: 'NUMBER', nullable: true }, max: { type: 'NUMBER', nullable: true },
+                  } } },
+                  formation: { type: 'ARRAY', nullable: true, items: { type: 'INTEGER' } },
+                  horizon: { type: 'INTEGER', nullable: true },
+                  budget: { type: 'NUMBER', nullable: true },
+                  captainId: { type: 'INTEGER', nullable: true },
+                  avoidInjured: { type: 'BOOLEAN' },
+                },
+              },
+              understood: { type: 'ARRAY', items: { type: 'STRING' } },
+              unclear: { type: 'ARRAY', items: { type: 'STRING' } },
+              ambiguities: {
+                type: 'ARRAY',
+                items: {
+                  type: 'OBJECT',
+                  required: ['name', 'playerIds'],
+                  properties: {
+                    name: { type: 'STRING' },
+                    playerIds: { type: 'ARRAY', items: { type: 'INTEGER' } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      { timeout: 30000 }
+    );
+    const raw = (response.data?.candidates?.[0]?.content?.parts || []).map(part => part.text || '').join('').trim();
+    if (!raw) return res.status(502).json({ error: 'Smart preference parsing returned no result' });
+    const parsed = JSON.parse(stripCodeFences(raw));
+    const playerById = new Map(players.map(player => [player.id, player]));
+    const validIds = values => [...new Set((Array.isArray(values) ? values : []).map(Number).filter(id => playerById.has(id)))];
+    const validTeams = new Set(players.map(player => player.team));
+    const validPositions = new Set(['GKP', 'DEF', 'MID', 'FWD']);
+    const cleanMap = (value, keys, min, max) => Object.fromEntries(Object.entries(value && typeof value === 'object' && !Array.isArray(value) ? value : {}).filter(([key, amount]) => keys.has(String(key).toUpperCase()) && Number.isFinite(Number(amount)) && Number(amount) >= min && Number(amount) <= max).map(([key, amount]) => [String(key).toUpperCase(), Number(amount)]));
+    const source = parsed.constraints || {};
+    const mustExclude = validIds(source.mustExclude);
+    const mustInclude = validIds(source.mustInclude).filter(id => !mustExclude.includes(id));
+    const benchIds = validIds(source.benchIds).filter(id => !mustExclude.includes(id));
+    const starterIds = validIds(source.starterIds).filter(id => !mustExclude.includes(id) && !benchIds.includes(id));
+    [...benchIds, ...starterIds].forEach(id => { if (!mustInclude.includes(id)) mustInclude.push(id); });
+    const captainId = playerById.has(Number(source.captainId)) ? Number(source.captainId) : null;
+    if (captainId && !mustExclude.includes(captainId) && !mustInclude.includes(captainId)) mustInclude.push(captainId);
+    const formation = Array.isArray(source.formation) && ['3-4-3', '3-5-2', '4-3-3', '4-4-2', '4-5-1', '5-3-2', '5-4-1'].includes(source.formation.map(Number).join('-')) ? source.formation.map(Number) : null;
+    const metricNames = new Set(['xPts', 'xG', 'xA', 'xGI', 'xMins', 'ownership', 'form', 'price']);
+    const metricRules = (Array.isArray(source.metricRules) ? source.metricRules : []).map(rule => ({
+      metric: String(rule?.metric || ''),
+      positions: [...new Set((Array.isArray(rule?.positions) ? rule.positions : []).map(String).map(position => position.toUpperCase()).filter(position => validPositions.has(position)))],
+      min: rule?.min == null || !Number.isFinite(Number(rule.min)) ? null : Number(rule.min),
+      max: rule?.max == null || !Number.isFinite(Number(rule.max)) ? null : Number(rule.max),
+    })).filter(rule => metricNames.has(rule.metric) && (rule.min != null || rule.max != null));
+    const ambiguities = (Array.isArray(parsed.ambiguities) ? parsed.ambiguities : []).map(item => ({
+      name: String(item?.name || '').slice(0, 100),
+      players: validIds(item?.playerIds).map(id => ({ id, name: players.find(player => player.id === id).fullName || players.find(player => player.id === id).name, team: players.find(player => player.id === id).team, position: players.find(player => player.id === id).position })),
+    })).filter(item => item.name && item.players.length > 1);
+    const ambiguousIds = new Set(ambiguities.flatMap(item => item.players.map(player => player.id)));
+
+    res.json({
+      constraints: {
+        mustInclude: mustInclude.filter(id => !ambiguousIds.has(id)),
+        mustExclude: mustExclude.filter(id => !ambiguousIds.has(id)),
+        benchIds: benchIds.filter(id => !ambiguousIds.has(id)).slice(0, 4),
+        starterIds: starterIds.filter(id => !ambiguousIds.has(id)).slice(0, 11),
+        teamIncludeMin: cleanMap(source.teamIncludeMin, validTeams, 1, 3),
+        teamIncludeMax: cleanMap(source.teamIncludeMax, validTeams, 0, 3),
+        teamExclude: [...new Set((Array.isArray(source.teamExclude) ? source.teamExclude : []).map(String).map(team => team.toUpperCase()).filter(team => validTeams.has(team)))],
+        priceMax: cleanMap(source.priceMax, validPositions, 3, 20),
+        priceMin: cleanMap(source.priceMin, validPositions, 3, 20),
+        playerPriceMax: cleanMap(source.playerPriceMax, new Set(players.map(player => String(player.id))), 3, 20),
+        playerPriceMin: cleanMap(source.playerPriceMin, new Set(players.map(player => String(player.id))), 3, 20),
+        metricRules,
+        formation,
+        horizon: Number.isInteger(Number(source.horizon)) && Number(source.horizon) >= 1 && Number(source.horizon) <= 8 ? Number(source.horizon) : null,
+        budget: Number.isFinite(Number(source.budget)) && Number(source.budget) >= 50 && Number(source.budget) <= 100 ? Number(source.budget) : null,
+        captainId: captainId && !ambiguousIds.has(captainId) && !mustExclude.includes(captainId) ? captainId : null,
+        avoidInjured: source.avoidInjured === true,
+      },
+      understood: (Array.isArray(parsed.understood) ? parsed.understood : []).map(String).map(value => value.slice(0, 160)).slice(0, 30),
+      unclear: (Array.isArray(parsed.unclear) ? parsed.unclear : []).map(String).map(value => value.slice(0, 200)).slice(0, 20),
+      ambiguities,
+      engine: 'gemini',
+      model: GEMINI_MODEL,
+    });
+  } catch (error) {
+    console.error('Gemini preference parsing error:', error.message);
+    const status = error.response?.status === 429 ? 429 : 502;
+    res.status(status).json({ error: 'Smart preference parsing failed', detail: error.response?.data?.error?.message || error.message });
   }
 });
 
@@ -3270,15 +3427,19 @@ app.get('/api/xpts-projections', async (req, res) => {
           isHome: labels.length === 1 ? labels[0].isHome : null,
           fdr: labels.length ? Math.round(labels.reduce((sum, item) => sum + (item.fdr || 3), 0) / labels.length) : null,
           xpts: week.xPts,
+          xmins: week.xMins,
+          xg: p.xG90 * week.xMins / 90,
+          xa: p.xA90 * week.xMins / 90,
           fixtures: labels,
         };
       });
       return {
-        id: p.id, name: p.name, code: p.code,
+        id: p.id, name: p.name, fullName: p.fullName, code: p.code,
         team: p.team,
         position: p.position,
         cost: p.cost * 10, costStr: '£' + p.cost.toFixed(1) + 'm',
-        form: p.form, ppg: raw.points_per_game ? parseFloat(raw.points_per_game) : 0, xGI: raw.expected_goal_involvements ? parseFloat(raw.expected_goal_involvements) : 0,
+        form: p.form, ppg: raw.points_per_game ? parseFloat(raw.points_per_game) : 0,
+        xG90: p.xG90, xA90: p.xA90, xGI90: p.xGI90,
         totalXpts: p.totalXpts,
         xptsPerMillion: p.xPtsPerMillion.toFixed(1),
         nextFixtures,

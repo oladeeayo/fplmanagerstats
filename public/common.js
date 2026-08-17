@@ -91,6 +91,7 @@ const FPL = {
         decisionCentre: '/api/v1/decision-centre',
         aiTeam: '/api/ai-team',
         teamBuilderAdvice: '/api/team-builder/advice',
+        teamBuilderPreferences: '/api/team-builder/preferences',
     },
 
     async apiFetch(url) {
@@ -587,6 +588,19 @@ const FPL = {
         return (player?.nextFixtures || []).filter(fixture => gameweeks.includes(fixture.gw)).reduce((sum, fixture) => sum + Number(fixture.xpts || 0), 0);
     },
 
+    teamBuilderMetric(player, metric, gameweeks = this.state.teamBuilder.selectedGWs) {
+        const fixtures = (player?.nextFixtures || []).filter(fixture => gameweeks.includes(fixture.gw));
+        if (metric === 'xPts') return fixtures.reduce((sum, fixture) => sum + Number(fixture.xpts || 0), 0);
+        if (metric === 'xG') return fixtures.reduce((sum, fixture) => sum + Number(fixture.xg || 0), 0);
+        if (metric === 'xA') return fixtures.reduce((sum, fixture) => sum + Number(fixture.xa || 0), 0);
+        if (metric === 'xGI') return this.teamBuilderMetric(player, 'xG', gameweeks) + this.teamBuilderMetric(player, 'xA', gameweeks);
+        if (metric === 'xMins') return fixtures.reduce((sum, fixture) => sum + Number(fixture.xmins || 0), 0);
+        if (metric === 'ownership') return Number(player?.ownership || 0);
+        if (metric === 'form') return Number(player?.form || 0);
+        if (metric === 'price') return Number(player?.costValue || 0);
+        return 0;
+    },
+
     teamBuilderSquad() {
         const ids = new Set(this.state.teamBuilder.selectedIds);
         return this.state.teamBuilder.players.filter(player => ids.has(player.id));
@@ -681,8 +695,15 @@ const FPL = {
             builder.selectedIds = [];
             builder.captainId = null;
             builder.autoFillSeed = 0;
+            builder.autoFillFormation = null;
+            builder.autoFillStarters = [];
+            builder.preferences = null;
             const reroll = document.getElementById('tb-autofill-reroll');
             if (reroll) reroll.classList.add('hidden');
+            const input = document.getElementById('tb-preferences-input');
+            const feedback = document.getElementById('tb-preferences-feedback');
+            if (input) input.value = '';
+            if (feedback) feedback.textContent = '';
             this.saveTeamBuilderDraft();
             this.paintTeamBuilder();
             const message = document.getElementById('tb-market-message');
@@ -704,7 +725,7 @@ const FPL = {
 
     // Natural-language preferences: parse what the user typed, show what was understood,
     // ask for clarification on anything unclear, then build the best squad around it.
-    buildTeamBuilderFromPreferences() {
+    async buildTeamBuilderFromPreferences() {
         const input = document.getElementById('tb-preferences-input');
         const feedback = document.getElementById('tb-preferences-feedback');
         const text = (input?.value || '').trim();
@@ -717,7 +738,49 @@ const FPL = {
             return;
         }
         const builder = this.state.teamBuilder;
-        const parsed = window.FPLTeamPreferences.parseTeamPreferences(text, { players: builder.players });
+        const localParsed = window.FPLTeamPreferences.parseTeamPreferences(text, { players: builder.players });
+        const button = document.getElementById('tb-preferences-build');
+        if (button) {
+            button.disabled = true;
+            button.innerHTML = '<span class="material-symbols-outlined">progress_activity</span> Understanding...';
+        }
+        if (feedback) feedback.textContent = 'Understanding your preferences...';
+        let parsed = localParsed;
+        try {
+            const playerCatalog = builder.players.map(player => {
+                const fixtures = (player.nextFixtures || []).filter(fixture => builder.selectedGWs.includes(fixture.gw));
+                return {
+                    id: player.id, name: player.name, fullName: player.fullName,
+                    team: player.team, position: player.position, price: player.costValue, status: player.status,
+                    gameweeks: fixtures.map(fixture => fixture.gw),
+                    xPts: fixtures.reduce((sum, fixture) => sum + Number(fixture.xpts || 0), 0),
+                    xG: fixtures.reduce((sum, fixture) => sum + Number(fixture.xg || 0), 0),
+                    xA: fixtures.reduce((sum, fixture) => sum + Number(fixture.xa || 0), 0),
+                    xMins: fixtures.reduce((sum, fixture) => sum + Number(fixture.xmins || 0), 0),
+                    ownership: Number(player.ownership || 0), form: Number(player.form || 0),
+                };
+            });
+            parsed = await this.apiPost(this.API.teamBuilderPreferences, { text, players: playerCatalog });
+        } catch (error) {
+            console.warn('Gemini preference parsing unavailable; using local parser:', error.message);
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.innerHTML = '<span class="material-symbols-outlined">psychology_alt</span> Build with preferences';
+            }
+        }
+        if (parsed.ambiguities?.length) {
+            const choices = parsed.ambiguities.map(item => `<p><b>${this.escapeHTML(item.name)}</b> could mean ${item.players.map(player => `${this.escapeHTML(player.name)} (${this.escapeHTML(player.team)}, ${this.escapeHTML(player.position)})`).join(' or ')}.</p>`).join('');
+            if (feedback) feedback.innerHTML = '<span class="tb-pref-warn">Choose the exact player before building.</span>';
+            await this.confirmDialog({
+                title: 'Which player do you mean?',
+                message: `${choices}<p style="margin-bottom:0;">Use the full name, club, or position in your preference.</p>`,
+                confirmLabel: 'Edit preference',
+                cancelLabel: 'Cancel',
+            });
+            input?.focus();
+            return;
+        }
         const constraints = parsed.constraints;
         if (feedback) {
             const understood = parsed.understood.length
@@ -746,6 +809,10 @@ const FPL = {
 
     applyTeamBuilderPreferences(constraints, parsed) {
         const builder = this.state.teamBuilder;
+        if (constraints.horizon) {
+            const available = [...new Set(builder.players.flatMap(player => (player.nextFixtures || []).map(fixture => fixture.gw)))].sort((a, b) => a - b);
+            builder.selectedGWs = available.slice(0, constraints.horizon);
+        }
         builder.preferences = constraints;
         builder.autoFillSeed = 0;
         const result = this.buildAutoFillSquad(0);
@@ -910,6 +977,12 @@ const FPL = {
         if ((constraints.playerPriceMin || {})[player.id] != null && player.costValue < constraints.playerPriceMin[player.id]) return false;
         if ((constraints.priceMax || {})[player.position] != null && player.costValue > constraints.priceMax[player.position]) return false;
         if ((constraints.priceMin || {})[player.position] != null && player.costValue < constraints.priceMin[player.position]) return false;
+        for (const rule of constraints.metricRules || []) {
+            if (rule.positions?.length && !rule.positions.includes(player.position)) continue;
+            const value = this.teamBuilderMetric(player, rule.metric);
+            if (rule.min != null && value < rule.min) return false;
+            if (rule.max != null && value > rule.max) return false;
+        }
         if (constraints.avoidInjured && player.status && player.status !== 'a') return false;
         return true;
     },
@@ -1001,10 +1074,13 @@ const FPL = {
 
         // Starting XI: for the chosen formation the top-projected players per position start
         // (never a lower-xPts player ahead of a higher one within a position).
+        const benchIds = new Set(constraints.benchIds || []);
+        const starterIds = new Set(constraints.starterIds || []);
+        const priority = player => starterIds.has(player.id) ? 2 : benchIds.has(player.id) ? 0 : 1;
         const byPosition = pos => selected
             .map(id => pool.find(player => player.id === id))
             .filter(player => player.position === pos)
-            .sort((a, b) => this.teamBuilderXPts(b) - this.teamBuilderXPts(a));
+            .sort((a, b) => priority(b) - priority(a) || this.teamBuilderXPts(b) - this.teamBuilderXPts(a));
         const starters = [
             byPosition('GKP')[0],
             ...byPosition('DEF').slice(0, starterCounts.DEF),
@@ -1012,6 +1088,8 @@ const FPL = {
             ...byPosition('FWD').slice(0, starterCounts.FWD),
         ].filter(Boolean);
         if (starters.length !== 11) return null;
+        if ([...starterIds].some(id => selected.includes(id) && !starters.some(player => player.id === id))) return null;
+        if ([...benchIds].some(id => starters.some(player => player.id === id))) return null;
         const xiScore = starters.reduce((sum, player) => sum + this.teamBuilderXPts(player), 0);
         return { ids: selected, starters: starters.map(player => player.id), formation: formation.join('-'), xiScore, cost };
     },
@@ -1499,7 +1577,11 @@ const FPL = {
 
     optimalTeamBuilderLineup(squad, gameweek) {
         const score = player => this.teamBuilderXPts(player, [gameweek]);
-        const byPosition = position => squad.filter(player => player.position === position).sort((a, b) => score(b) - score(a));
+        const preferences = this.state.teamBuilder.preferences || {};
+        const benchIds = new Set(preferences.benchIds || []);
+        const starterIds = new Set(preferences.starterIds || []);
+        const priority = player => starterIds.has(player.id) ? 2 : benchIds.has(player.id) ? 0 : 1;
+        const byPosition = position => squad.filter(player => player.position === position).sort((a, b) => priority(b) - priority(a) || score(b) - score(a));
         const groups = { GKP: byPosition('GKP'), DEF: byPosition('DEF'), MID: byPosition('MID'), FWD: byPosition('FWD') };
         if (groups.GKP.length < 1 || groups.DEF.length < 3 || groups.MID.length < 2 || groups.FWD.length < 1 || squad.length < 11) return [];
         const formations = [[3, 4, 3], [3, 5, 2], [4, 3, 3], [4, 4, 2], [4, 5, 1], [5, 3, 2], [5, 4, 1]];
@@ -1509,7 +1591,9 @@ const FPL = {
         const preferredShape = preferred ? formations.find(shape => shape.join('-') === preferred) : null;
         const ordered = preferredShape ? [preferredShape, ...formations.filter(shape => shape.join('-') !== preferred)] : formations;
         const candidates = ordered.map(([def, mid, fwd]) => [groups.GKP[0], ...groups.DEF.slice(0, def), ...groups.MID.slice(0, mid), ...groups.FWD.slice(0, fwd)])
-            .filter(lineup => lineup.length === 11);
+            .filter(lineup => lineup.length === 11)
+            .filter(lineup => [...starterIds].every(id => !squad.some(player => player.id === id) || lineup.some(player => player.id === id)))
+            .filter(lineup => [...benchIds].every(id => !lineup.some(player => player.id === id)));
         const best = candidates.reduce((bestLineup, lineup) => {
             const total = lineup.reduce((sum, player) => sum + score(player), 0);
             return total > bestLineup.total ? { lineup, total } : bestLineup;

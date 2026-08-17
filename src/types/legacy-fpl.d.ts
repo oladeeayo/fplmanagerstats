@@ -41,6 +41,7 @@ declare global {
       setSquadView(view: string): void;
       autoFillTeamBuilder(): void;
       reRollTeamBuilderAutoFill(): void;
+      clearTeamBuilder(): void;
     };
   }
 }

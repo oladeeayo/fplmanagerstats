@@ -27,6 +27,7 @@ const players = [
     { id: 13, name: 'Pedersen', web_name: 'Pedersen', first_name: 'Mads', second_name: 'Pedersen', team: 'IPS', position: 'DEF', costValue: 4.0, status: 'a' },
     { id: 14, name: 'Dibling', web_name: 'Dibling', first_name: 'Tyler', second_name: 'Dibling', team: 'SOU', position: 'MID', costValue: 4.5, status: 'a' },
     { id: 15, name: 'Stewart', web_name: 'Stewart', first_name: 'Ross', second_name: 'Stewart', team: 'SOU', position: 'FWD', costValue: 5.5, status: 'd' },
+    { id: 16, name: 'Martinez', web_name: 'Martinez', first_name: 'Lisandro', second_name: 'Martinez', team: 'MUN', position: 'DEF', costValue: 4.5, status: 'a' },
 ];
 
 // normalize
@@ -69,6 +70,25 @@ assert.equal(VALID_FORMATIONS.length, 7);
     assert.equal(parsed.constraints.priceMax.MID, 8);
     assert.ok(parsed.understood.some(u => u.includes('No players from CHE')));
     assert.ok(parsed.understood.some(u => u.includes('Exclude Watkins')));
+}
+
+// Verb inflections carry the same include/exclude intent
+{
+    const removed = parseTeamPreferences('Removing Watkins and excluded Palmer', { players });
+    assert.deepEqual(removed.constraints.mustExclude.sort(), [4, 6]);
+    const added = parseTeamPreferences('Added Haaland and including Salah', { players });
+    assert.deepEqual(added.constraints.mustInclude.sort(), [1, 2]);
+}
+
+// Shared display names require the user to identify the actual player
+{
+    const ambiguous = parseTeamPreferences('Remove Martinez', { players });
+    assert.equal(ambiguous.constraints.mustExclude.length, 0);
+    assert.equal(ambiguous.ambiguities.length, 1);
+    assert.deepEqual(ambiguous.ambiguities[0].players.map(player => player.id).sort(), [12, 16]);
+    const exact = parseTeamPreferences('Remove Emiliano Martinez', { players });
+    assert.deepEqual(exact.constraints.mustExclude, [12]);
+    assert.equal(exact.ambiguities.length, 0);
 }
 
 // Team counts: at least / at most
