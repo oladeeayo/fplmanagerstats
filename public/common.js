@@ -41,7 +41,10 @@ const FPL = {
             importGW: null,
             lastAdvice: null,
             squadView: 'pitch',
-            autoFillSeed: 0
+            autoFillSeed: 0,
+            autoFillFormation: null,
+            autoFillStarters: [],
+            preferences: null
         }
     },
 
