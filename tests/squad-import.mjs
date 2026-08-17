@@ -14,7 +14,9 @@ const {
     extractPosition,
     isPlayerName,
     extractPlayerCandidates,
-    stripCaptainMarkers
+    stripCaptainMarkers,
+    tokenize,
+    extractTeamCode
 } = require('../public/squad-import.js');
 
 const players = [
@@ -224,6 +226,145 @@ assert.ok(inlinePriceIds.has(4), 'Should extract PALMER from inline price line')
 // Test stripCaptainMarkers export
 assert.equal(stripCaptainMarkers('HAALAND (C)'), 'HAALAND');
 assert.equal(stripCaptainMarkers('M.SALAH (VC)'), 'M.SALAH');
+
+// Test tokenize
+assert.deepEqual(tokenize('Trent Alexander-Arnold'), ['TRENT', 'ALEXANDER', 'ARNOLD']);
+
+// Test extractTeamCode
+assert.equal(extractTeamCode('HAALAND MCI'), 'MCI');
+assert.equal(extractTeamCode('M.SALAH LIV £12.5m'), 'LIV');
+assert.equal(extractTeamCode('HAALAND'), null);
+
+// Test team hint helps match
+const teamHintMatches = matchPlayersFPL('PICK TEAM\nHAALAND MCI\nM.SALAH LIV', players);
+const teamHintIds = new Set(teamHintMatches.map(m => m.playerId));
+assert.ok(teamHintIds.has(1), 'Team hint MCI should help match Haaland');
+assert.ok(teamHintIds.has(2), 'Team hint LIV should help match Salah');
+
+// Test a garbled name is rescued by exact price + position hints
+const garbledHintsText = `PICK TEAM
+HAAL4ND £14.5 FWD
+M.SALAH £12.5 MID
+PALMER £11.0 MID`;
+const garbledMatches = matchPlayersFPL(garbledHintsText, players);
+const garbledIds = new Set(garbledMatches.map(m => m.playerId));
+assert.ok(garbledIds.has(1), 'HAAL4ND with £14.5 FWD should still resolve to Haaland');
+assert.ok(garbledIds.has(2), 'M.SALAH should resolve to Salah');
+assert.ok(garbledIds.has(4), 'PALMER should resolve to Palmer');
+
+// Test a lone token ("ALEXANDER") matches via token overlap
+const loneTokenMatches = matchPlayersFPL('PICK TEAM\nALEXANDER\nSALAH', players);
+const loneTokenIds = new Set(loneTokenMatches.map(m => m.playerId));
+assert.ok(loneTokenIds.has(3), 'Lone ALEXANDER token should resolve to Alexander-Arnold');
+assert.ok(loneTokenIds.has(2), 'SALAH should resolve to Salah');
+
+// Test noise/header lines never become candidates
+assert.equal(extractPlayerCandidates('PICK TEAM\nMY TEAM\nBENCH\n£10.0').length, 0, 'Header and noise lines must be excluded');
+
+// Test a full 15-man squad screenshot fills all 15 players
+const fullSquadText = `PICK TEAM
+£14.5
+HAALAND
+
+£12.5
+M.SALAH
+
+£8.1
+ALEXANDER-ARNOLD
+
+£11.0
+PALMER
+
+£10.0
+SAKA
+
+£8.5
+WATKINS
+
+£5.5
+GABRIEL
+
+£5.5
+RAYA
+
+£5.5
+PORRO
+
+£8.0
+MBEUMO
+
+£7.5
+WOOD
+
+£5.0
+MARTINEZ
+
+£4.0
+PEDERSEN
+
+£4.5
+DLIBLING
+
+£5.5
+STEWART`;
+const fullSquadMatches = matchPlayersFPL(fullSquadText, players);
+assert.equal(fullSquadMatches.length, 15, `Should fill all 15 squad members, got ${fullSquadMatches.length}`);
+const fullSquadIds = new Set(fullSquadMatches.map(m => m.playerId));
+assert.equal(fullSquadIds.size, 15, 'All 15 matches should be distinct players');
+assert.ok(fullSquadIds.has(1) && fullSquadIds.has(2) && fullSquadIds.has(3) && fullSquadIds.has(15), 'Key squad members must be present');
+
+// Test a realistic noisy OCR dump (pitch view: numbers, positions, captains,
+// garbled punctuation) still fills all 15 players.
+const noisyPitchText = `MY TEAM
+HAALAND
+14.5
+FWD
+M SALAH
+12.5
+(C)
+ALEXANDER ARNOLD
+8.1
+DEF
+PALMER
+11.0
+MID
+SAKA
+10.0
+MID
+WATKINS
+8.5
+FWD
+GABRIEL
+5.5
+DEF
+RAYA
+5.5
+GKP
+PORRO
+5.5
+DEF
+MBEUMO
+8.0
+MID
+WOOD
+7.5
+FWD
+MARTINEZ
+5.0
+GKP
+PEDERSEN
+4.0
+DEF
+DLIBLING
+4.5
+MID
+STEWART
+5.5
+FWD`;
+const noisyMatches = matchPlayersFPL(noisyPitchText, players);
+const noisyIds = new Set(noisyMatches.map(m => m.playerId));
+assert.ok(noisyIds.has(1) && noisyIds.has(2) && noisyIds.has(3) && noisyIds.has(4), 'Noisy OCR should still resolve key players');
+assert.ok(noisyMatches.length >= 13, `Noisy pitch-view OCR should fill most of the squad, got ${noisyMatches.length}`);
 
 // Test duplicate prevention
 const matchesWithDupes = matchPlayersFPL('HAALAND\nHAALAND\nHAALAND', players);

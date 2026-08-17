@@ -647,25 +647,30 @@ const FPL = {
     },
 
     clearTeamBuilder() {
+        const reset = () => {
+            const builder = this.state.teamBuilder;
+            builder.selectedIds = [];
+            builder.captainId = null;
+            builder.autoFillSeed = 0;
+            const reroll = document.getElementById('tb-autofill-reroll');
+            if (reroll) reroll.classList.add('hidden');
+            this.saveTeamBuilderDraft();
+            this.paintTeamBuilder();
+            const message = document.getElementById('tb-market-message');
+            if (message) message.textContent = 'Draft cleared — start fresh.';
+        };
         if (this.state.teamBuilder.selectedIds.length) {
             this.confirmDialog({
-                title: 'Clear team builder?',
+                title: 'Reset team builder?',
                 message: 'Remove every player from this draft and start fresh. Your saved draft will be reset.',
-                confirmLabel: 'Clear squad',
+                confirmLabel: 'Reset & remove all',
                 danger: true
             }).then(confirmed => {
-                if (!confirmed) return;
-                this.state.teamBuilder.selectedIds = [];
-                this.state.teamBuilder.captainId = null;
-                this.saveTeamBuilderDraft();
-                this.paintTeamBuilder();
+                if (confirmed) reset();
             });
             return;
         }
-        this.state.teamBuilder.selectedIds = [];
-        this.state.teamBuilder.captainId = null;
-        this.saveTeamBuilderDraft();
-        this.paintTeamBuilder();
+        reset();
     },
 
     async loadBuilderCurrentSquad() {
@@ -831,7 +836,9 @@ const FPL = {
                     preserve_interword_spaces: '1',
                 });
                 const result = await worker.recognize(blob);
-                const matches = window.FPLSquadImport.matchPlayers(result.data.text || '', players);
+                // Always use the FPL-specific matcher — the screenshot is by definition
+                // an FPL squad screen, so price/team/position hints always apply.
+                const matches = window.FPLSquadImport.matchPlayersFPL(result.data.text || '', players);
                 status.textContent = `${label} · ${matches.length} names found`;
                 matches.forEach(m => {
                     const existing = merged.get(m.playerId);
@@ -840,18 +847,23 @@ const FPL = {
                 return matches.length;
             };
             try {
-                // Pass 1: sparse text (best for the pitch view — names on cards).
-                const preprocessed = await this.preprocessScreenshot(file, 'normal');
-                await runPass(preprocessed, 11, 'Reading pitch names');
-                // Pass 2: uniform block (best for the list view).
-                if (merged.size < 12) {
-                    const preprocessed2 = await this.preprocessScreenshot(file, 'aggressive');
-                    await runPass(preprocessed2, 6, 'Reading list names');
-                }
-                // Pass 3: automatic layout (catches anything the two passes missed).
-                if (merged.size < 12) {
-                    const preprocessed3 = await this.preprocessScreenshot(file, 'light');
-                    await runPass(preprocessed3, 4, 'Verifying names');
+                // Sparse text is best for the pitch view (names scattered on cards);
+                // automatic layout and block modes cover list/dense layouts. Each pass
+                // runs on a different preprocessing so a noisy screenshot gets more
+                // chances. We keep going until 15 distinct players are matched.
+                const passes = [
+                    { psm: 11, mode: 'normal', label: 'Reading pitch names' },
+                    { psm: 3, mode: 'normal', label: 'Reading full layout' },
+                    { psm: 6, mode: 'aggressive', label: 'Reading list names' },
+                    { psm: 11, mode: 'grayscale', label: 'Reading soft contrast' },
+                    { psm: 11, mode: 'original', label: 'Reading raw image' },
+                    { psm: 3, mode: 'aggressive', label: 'Verifying layout' },
+                    { psm: 4, mode: 'light', label: 'Verifying names' },
+                ];
+                for (const pass of passes) {
+                    if (merged.size >= 15) break;
+                    const blob = await this.preprocessScreenshot(file, pass.mode);
+                    await runPass(blob, pass.psm, pass.label);
                 }
             } finally {
                 try { await worker.terminate(); } catch (_) { /* worker already gone */ }
@@ -877,7 +889,7 @@ const FPL = {
             img.onload = () => {
                 try {
                     const canvas = document.createElement('canvas');
-                    const scale = Math.max(1, 1600 / Math.max(img.width, img.height));
+                    const scale = Math.max(1, 2000 / Math.max(img.width, img.height));
                     canvas.width = Math.round(img.width * scale);
                     canvas.height = Math.round(img.height * scale);
                     const ctx = canvas.getContext('2d');
@@ -914,8 +926,17 @@ const FPL = {
                     for (let p = 0, i = 0; p < data.length; p += 4, i++) {
                         let gray = luma[i];
                         let out;
-                        if (mode === 'light') {
+                        if (mode === 'original') {
+                            // No thresholding — hand tesseract the raw grayscale so
+                            // colourful/low-contrast text isn't destroyed by binarization.
+                            out = Math.round(gray);
+                        } else if (mode === 'light') {
                             const contrast = 1.8;
+                            out = Math.max(0, Math.min(255, Math.round((gray - 128) * contrast + 128)));
+                        } else if (mode === 'grayscale') {
+                            // No threshold — keep continuous tones so thin coloured
+                            // text survives OCR; only a mild contrast stretch.
+                            const contrast = 1.35;
                             out = Math.max(0, Math.min(255, Math.round((gray - 128) * contrast + 128)));
                         } else if (mode === 'aggressive') {
                             out = gray < threshold * 0.85 ? 0 : 255;

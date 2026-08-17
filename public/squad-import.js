@@ -15,6 +15,10 @@
         return String(value || '').toUpperCase().replace(/[^A-Z]/g, '');
     }
 
+    function tokenize(value) {
+        return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+    }
+
     function editDistance(first, second) {
         const a = normalize(first);
         const b = normalize(second);
@@ -48,6 +52,7 @@
 
     // FPL-specific patterns
     const FPL_POSITIONS = ['GKP', 'DEF', 'MID', 'FWD'];
+    const FPL_TEAM_CODES = ['ARS', 'AVL', 'BOU', 'BRE', 'BHA', 'CHE', 'CRY', 'EVE', 'FUL', 'IPS', 'LEI', 'LIV', 'MCI', 'MUN', 'NEW', 'NFO', 'SOU', 'TOT', 'WHU', 'WOL', 'LEE', 'SHU', 'BUR', 'WAT', 'NOR', 'CAR', 'BIR', 'LDN'];
     const FPL_HEADER_PATTERNS = ['PICK TEAM', 'PICK YOUR TEAM', 'MY TEAM', 'SQUAD', 'TEAM SELECTION'];
     const FPL_NOISE_PATTERNS = [
         /^(BENCH|SUBSTITUTE|RESERVE)/i,
@@ -110,6 +115,22 @@
         return true;
     }
 
+    function extractTeamCode(text) {
+        const tokens = String(text || '').toUpperCase().replace(/[^A-Z ]/g, ' ').replace(/\s+/g, ' ').trim().split(' ');
+        const hit = tokens.find(token => FPL_TEAM_CODES.includes(token));
+        return hit || null;
+    }
+
+    function scanNearby(lines, index, extractor) {
+        for (let offset = 1; offset <= 3; offset++) {
+            const below = extractor(lines[index + offset]);
+            if (below) return below;
+            const above = extractor(lines[index - offset]);
+            if (above) return above;
+        }
+        return null;
+    }
+
     function extractPlayerCandidates(text) {
         const lines = String(text || '').split(/\r?\n/);
         const candidates = [];
@@ -118,26 +139,40 @@
             const rawLine = lines[i].trim();
             if (!rawLine) continue;
 
-            // A line may pack "NAME £X.Xm POS" or "NAME (C)" — pull the name portion out.
+            // Pull the name portion out of "NAME £X.Xm POS", "NAME (C)", "CAPTAIN NAME", etc.
             const cleaned = stripCaptainMarkers(rawLine)
+                .replace(/^(CAPTAIN|VICE\s*CAPTAIN|VICE-CAPTAIN|\(?C\)?|\(?VC\)?)[\s\-:.]*/i, '')
                 .replace(/^[£$]\s*\d{1,2}\.\d{1,2}\s*/i, '')
                 .replace(/\s*[£$]\s*\d{1,2}\.\d{1,2}m?\s*$/i, '')
                 .replace(/\s+(GKP|DEF|MID|FWD)\s*$/i, '')
-                .replace(/\s+£\s*\d{1,2}\.\d{1,2}m?\s*$/i, '');
+                .replace(/\s+£\s*\d{1,2}\.\d{1,2}m?\s*$/i, '')
+                .replace(/\s*\d{1,2}\.\d{1,2}\s*$/i, '')
+                .replace(/\s{2,}/g, ' ')
+                .trim();
 
-            if (isPlayerName(cleaned)) {
-                const price = extractPrice(rawLine);
-                const position = extractPosition(rawLine);
-                candidates.push({
-                    text: cleaned,
-                    normalized: normalizeUpper(cleaned),
-                    stripped: stripSpaces(cleaned),
-                    price,
-                    position,
-                    lineIndex: i,
-                    confidence: 0
-                });
-            }
+            // Stay permissive: keep anything that still looks like a name token.
+            if (cleaned.length < 2 || !/[A-Za-z]/.test(cleaned)) continue;
+            const upper = cleaned.toUpperCase();
+            if (FPL_POSITIONS.includes(upper)) continue;
+            if (/^[A-Z]{1,2}$/.test(upper)) continue;
+            if (/^\d+$/.test(upper)) continue;
+            if (/^(BENCH|SUBSTITUTE|RESERVE|CAPTAIN|VICE|POINTS|TOTAL|SCORE|BUDGET|VALUE|COST|FORWARD|MIDFIELDER|DEFENDER|GOALKEEPER|GAMEWEEK|HOME|AWAY|NEXT|PREV|INFO|DETAILS|STATS|PICK|SELECT|CHOOSE|AND|THE|FOR|WITH|EDIT|SAVE|LOAD|BACK|TEAM|SQUAD|MY TEAM|PICK TEAM|PICK YOUR TEAM|TEAM SELECTION|FIRST XI|STARTING XI)$/i.test(upper)) continue;
+
+            const price = extractPrice(rawLine) || scanNearby(lines, i, extractPrice);
+            const position = extractPosition(rawLine) || scanNearby(lines, i, extractPosition);
+            const team = extractTeamCode(rawLine) || scanNearby(lines, i, extractTeamCode);
+
+            candidates.push({
+                text: cleaned,
+                normalized: normalizeUpper(cleaned),
+                stripped: stripSpaces(cleaned),
+                tokens: tokenize(cleaned),
+                price,
+                position,
+                team,
+                lineIndex: i,
+                confidence: 0
+            });
         }
 
         return candidates;
@@ -158,24 +193,40 @@
             score = 1.0;
         } else if (candidateName === playerFullName || candidateStripped === playerFullStripped) {
             score = 1.0;
-        }
-        // Containment
-        else if (candidateStripped.includes(playerStripped) || playerStripped.includes(candidateStripped)) {
-            score = Math.min(candidateStripped.length, playerStripped.length) / Math.max(candidateStripped.length, playerStripped.length);
-        }
-        else if (candidateName.includes(playerName) || playerName.includes(candidateName)) {
-            score = Math.min(candidateName.length, playerName.length) / Math.max(candidateName.length, playerName.length);
-        }
-        // Fuzzy match on spaceless string (handles OCR splitting names)
-        else {
+        } else {
+            // Containment
+            if (candidateStripped.includes(playerStripped) || playerStripped.includes(candidateStripped)) {
+                score = Math.max(score, Math.min(candidateStripped.length, playerStripped.length) / Math.max(candidateStripped.length, playerStripped.length));
+            }
+            if (candidateName.includes(playerName) || playerName.includes(candidateName)) {
+                score = Math.max(score, Math.min(candidateName.length, playerName.length) / Math.max(candidateName.length, playerName.length));
+            }
+            // Fuzzy match on spaceless string (handles OCR splitting names)
             const distance = editDistance(candidateStripped, playerStripped);
-            score = 1 - distance / Math.max(candidateStripped.length, playerStripped.length, 1);
-
-            // Also try full name
+            score = Math.max(score, 1 - distance / Math.max(candidateStripped.length, playerStripped.length, 1));
             if (playerFullStripped) {
                 const fullDist = editDistance(candidateStripped, playerFullStripped);
-                const fullScore = 1 - fullDist / Math.max(candidateStripped.length, playerFullStripped.length, 1);
-                score = Math.max(score, fullScore);
+                score = Math.max(score, 1 - fullDist / Math.max(candidateStripped.length, playerFullStripped.length, 1));
+            }
+
+            // Token overlap: a garbled or partial line still wins if its words line up
+            // with the player's web name or full name ("TRENT" + "ALEXANDER-ARNOLD").
+            const candidateTokens = (candidate.tokens || []).filter(t => t.length >= 3);
+            const playerTokens = [...new Set([...tokenize(player.name), ...tokenize(player.fullName || '')].filter(t => t.length >= 3))];
+            if (candidateTokens.length && playerTokens.length) {
+                let covered = 0;
+                let totalSim = 0;
+                candidateTokens.forEach(ct => {
+                    const bestTokenSim = playerTokens.reduce((best, pt) => {
+                        const sim = 1 - editDistance(ct, pt) / Math.max(ct.length, pt.length, 1);
+                        return Math.max(best, sim);
+                    }, 0);
+                    totalSim += bestTokenSim;
+                    if (bestTokenSim >= 0.6) covered++;
+                });
+                if (covered > 0) {
+                    score = Math.max(score, 0.5 * (covered / candidateTokens.length) + 0.4 * (totalSim / candidateTokens.length));
+                }
             }
         }
 
@@ -196,19 +247,28 @@
             }
         }
 
-        // Position hint bonus
-        if (candidate.position && player.position && candidate.position === player.position) {
-            score = Math.min(1, score + 0.06);
+        // Position hint
+        if (candidate.position && player.position) {
+            if (candidate.position === player.position) score = Math.min(1, score + 0.06);
+            else score = Math.max(0, score - 0.05);
         }
 
-        // Price hint bonus
+        // Team hint
+        if (candidate.team && player.team) {
+            if (candidate.team === player.team) score = Math.min(1, score + 0.15);
+            else score = Math.max(0, score - 0.05);
+        }
+
+        // Price hint — prices are small integers on FPL screenshots and very reliable.
         if (candidate.price && player.costValue) {
             const priceDiff = Math.abs(candidate.price - player.costValue);
-            if (priceDiff < 0.5) score = Math.min(1, score + 0.04);
-            else if (priceDiff < 1.0) score = Math.min(1, score + 0.02);
+            if (priceDiff < 0.05) score = Math.min(1, score + 0.18);
+            else if (priceDiff < 0.5) score = Math.min(1, score + 0.10);
+            else if (priceDiff < 1.0) score = Math.min(1, score + 0.04);
+            else score = Math.max(0, score - 0.03);
         }
 
-        return score;
+        return Math.max(0, Math.min(1, score));
     }
 
     function matchPlayersFPL(text, players, limit = 15) {
@@ -216,75 +276,75 @@
         const used = new Set();
         const matches = [];
 
+        const rankFor = (line) => players
+            .map(player => ({ player, score: scoreCandidate(line, player) }))
+            .sort((a, b) => b.score - a.score);
+
+        // Phase 1: resolve OCR-split names by merging a weak line with its neighbour.
+        const consumed = new Set();
+        const resolved = [];
         for (let i = 0; i < candidates.length; i++) {
+            if (consumed.has(i)) continue;
             const candidate = candidates[i];
+            let line = candidate;
+            const top = rankFor(candidate)[0];
+            let bestScore = top ? top.score : 0;
 
-            let bestMatch = null;
-            let bestScore = 0;
-            let bestLine = candidate;
-
-            const rankFor = (line) => players
-                .map(player => ({ player, score: scoreCandidate(line, player) }))
-                .sort((a, b) => b.score - a.score)
-                .find(item => !used.has(item.player.id)) || null;
-
-            const primary = rankFor(candidate);
-            if (primary && primary.score > bestScore) {
-                bestScore = primary.score;
-                bestMatch = primary.player;
-                bestLine = candidate;
-            }
-
-            // OCR often splits a name across lines ("TRENT" + "ALEXANDER-ARNOLD").
-            // When a standalone line scores poorly, try merging it with its neighbours.
             if (bestScore < 0.60) {
-                const neighbors = [candidates[i - 1], candidates[i + 1]].filter(Boolean);
-                for (const other of neighbors) {
-                    if (other.lineIndex === candidate.lineIndex) continue;
-                    const mergedText = `${candidate.text} ${other.text}`.trim();
-                    const merged = rankFor({ ...candidate, text: mergedText, normalized: normalizeUpper(mergedText), stripped: stripSpaces(mergedText) });
-                    if (merged && merged.score > bestScore) {
-                        bestScore = merged.score;
-                        bestMatch = merged.player;
-                        bestLine = { ...candidate, text: mergedText, normalized: normalizeUpper(mergedText), stripped: stripSpaces(mergedText) };
+                const next = candidates[i + 1];
+                if (next && !consumed.has(i + 1)) {
+                    const mergedText = `${candidate.text} ${next.text}`.trim();
+                    const mergedLine = {
+                        ...candidate,
+                        text: mergedText,
+                        normalized: normalizeUpper(mergedText),
+                        stripped: stripSpaces(mergedText),
+                        tokens: tokenize(mergedText)
+                    };
+                    const mergedTop = rankFor(mergedLine)[0];
+                    if (mergedTop && mergedTop.score > bestScore + 0.02) {
+                        bestScore = mergedTop.score;
+                        line = mergedLine;
+                        consumed.add(i + 1);
                     }
                 }
             }
+            resolved.push({ line, bestScore });
+        }
 
-            if (bestMatch && bestScore >= 0.50) {
-                used.add(bestMatch.id);
+        // Phase 2: greedy fill — strongest lines first, best unused player each time,
+        // then fill the rest with low-confidence guesses so a full 15-man squad is
+        // produced even from imperfect OCR.
+        resolved.sort((a, b) => b.bestScore - a.bestScore);
+        for (const entry of resolved) {
+            const ranked = rankFor(entry.line);
+            const best = ranked.find(item => !used.has(item.player.id));
+            if (!best || best.score < 0.45) continue;
 
-                const secondBest = players
-                    .filter(p => !used.has(p.id) && p.id !== bestMatch.id)
-                    .map(p => ({ player: p, score: scoreCandidate(bestLine, p) }))
-                    .sort((a, b) => b.score - a.score)[0];
+            used.add(best.player.id);
 
-                const confidence = bestScore >= 0.92 && (!secondBest || bestScore - secondBest.score >= 0.12)
-                    ? 'high'
-                    : bestScore >= 0.72
-                        ? 'medium'
-                        : 'low';
+            const secondBest = ranked.find(item => !used.has(item.player.id) && item.player.id !== best.player.id);
+            const confidence = best.score >= 0.92 && (!secondBest || best.score - secondBest.score >= 0.12)
+                ? 'high'
+                : best.score >= 0.72
+                    ? 'medium'
+                    : 'low';
 
-                matches.push({
-                    line: bestLine.text,
-                    playerId: bestMatch.id,
-                    confidence,
-                    score: Math.round(bestScore * 100),
-                    position: candidate.position,
-                    price: candidate.price,
-                    alternatives: players
-                        .map(p => ({ player: p, score: scoreCandidate(bestLine, p) }))
-                        .sort((a, b) => b.score - a.score)
-                        .slice(0, 4)
-                        .map(item => ({
-                            id: item.player.id,
-                            name: item.player.name,
-                            team: item.player.team,
-                            position: item.player.position,
-                            score: Math.round(item.score * 100)
-                        }))
-                });
-            }
+            matches.push({
+                line: entry.line.text,
+                playerId: best.player.id,
+                confidence,
+                score: Math.round(best.score * 100),
+                position: entry.line.position,
+                price: entry.line.price,
+                alternatives: ranked.slice(0, 4).map(item => ({
+                    id: item.player.id,
+                    name: item.player.name,
+                    team: item.player.team,
+                    position: item.player.position,
+                    score: Math.round(item.score * 100)
+                }))
+            });
         }
 
         return matches.sort((a, b) => b.score - a.score).slice(0, limit);
@@ -317,6 +377,7 @@
         normalize,
         normalizeUpper,
         stripSpaces,
+        tokenize,
         stripCaptainMarkers,
         scoreLine,
         matchPlayers,
@@ -325,6 +386,7 @@
         isFPLScreenshot,
         extractPrice,
         extractPosition,
+        extractTeamCode,
         isPlayerName,
         extractPlayerCandidates
     };
