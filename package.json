@@ -8,8 +8,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "update:fotmob-ids": "node scripts/update-fotmob-player-ids.mjs",
-    "check": "node --check src/server.js && node --check src/decisionModel.js && node --check public/common.js && node --check public/squad-import.js && tsc -b",
-    "test": "node tests/captaincy-model.mjs && node tests/decision-model.mjs && node tests/ai-team-model.mjs && node tests/squad-import.mjs",
+    "check": "node --check src/server.js && node --check src/decisionModel.js && node --check public/common.js && node --check public/squad-import.js && node --check public/team-preferences.js && tsc -b",
+    "test": "node tests/captaincy-model.mjs && node tests/decision-model.mjs && node tests/ai-team-model.mjs && node tests/squad-import.mjs && node tests/team-preferences.mjs",
     "test:smoke": "node tests/smoke.mjs"
   },
   "dependencies": {

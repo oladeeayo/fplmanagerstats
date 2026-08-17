@@ -531,6 +531,61 @@ app.get('/api/fixtures', async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Failed to fetch fixtures' }); }
 });
 
+// ---- Cloud OCR (Gemini) for squad screenshots ----
+// Free tier (Gemini Flash) handles vision/OCR with no billing; set GEMINI_API_KEY
+// in Vercel. The client falls back to local tesseract.js when this is unavailable.
+const GEMINI_OCR_MODEL = process.env.GEMINI_OCR_MODEL || 'gemini-2.5-flash';
+const GEMINI_OCR_PROMPT = `You are reading a screenshot of a Fantasy Premier League (FPL) squad screen.
+Extract every player shown (starting XI and bench) and output a plain-text list, one player per line.
+Use no markdown, no code fences, no numbering and no extra explanation. Format each line exactly as:
+
+NAME PRICE POSITION TEAMCODE
+
+- NAME: the full name exactly as shown (first name + surname, keep hyphens and spaces).
+- PRICE: the price in millions without a pound sign (e.g. 10.4).
+- POSITION: one of GKP, DEF, MID, FWD.
+- TEAMCODE: the 3-letter club code (e.g. ARS, MCI, LIV).
+
+Mark the captain by appending " (C)" and the vice-captain with " (VC)" at the end of the line if visible.
+If a value is unclear, omit it instead of guessing. Only include real player names — ignore UI chrome, buttons, scores, chip icons and other interface text.`;
+
+function stripCodeFences(text) {
+  return String(text || '')
+    .replace(/```[a-z]*\n?/gi, '')
+    .replace(/```/g, '')
+    .trim();
+}
+
+app.post('/api/ocr', express.raw({ type: ['image/png', 'image/jpeg', 'image/webp', 'image/*'], limit: '8mb' }), heavyEndpointLimiter, async (req, res) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'Cloud OCR is not configured (set GEMINI_API_KEY)' });
+  const image = req.body;
+  if (!Buffer.isBuffer(image) || image.length === 0) return res.status(400).json({ error: 'An image upload is required' });
+  const mimeType = (req.get('content-type') || 'image/png').split(';')[0];
+  try {
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_OCR_MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+      {
+        contents: [{
+          parts: [
+            { text: GEMINI_OCR_PROMPT },
+            { inline_data: { mime_type: mimeType, data: image.toString('base64') } },
+          ],
+        }],
+        generationConfig: { temperature: 0.2, maxOutputTokens: 2048 },
+      },
+      { timeout: 30000 }
+    );
+    const text = (response.data?.candidates?.[0]?.content?.parts || []).map(part => part.text || '').join('\n').trim();
+    if (!text) return res.status(502).json({ error: 'Cloud OCR returned no text' });
+    res.json({ text: stripCodeFences(text), engine: 'gemini', model: GEMINI_OCR_MODEL });
+  } catch (error) {
+    console.error('Cloud OCR error:', error.message);
+    const status = error.response?.status === 429 ? 429 : 502;
+    res.status(status).json({ error: 'Cloud OCR failed', detail: error.response?.data?.error?.message || error.message });
+  }
+});
+
 app.post('/api/v1/decision-centre', heavyEndpointLimiter, async (req, res) => {
   const managerId = parsePositiveId(req.body?.managerId);
   if (!managerId) return res.status(400).json({ error: 'A valid managerId is required' });

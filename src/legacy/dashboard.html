@@ -1165,6 +1165,22 @@
                             <div id="tb-gw-selector" class="tb-gw-selector" aria-label="Gameweek selection"></div>
                         </section>
 
+                        <section class="tb-preferences" aria-labelledby="tb-preferences-title">
+                            <div class="tb-preferences-head">
+                                <div><h2 id="tb-preferences-title">Build around my preferences</h2><p>Tell the AI who you want, who to avoid, price limits, teams, or a formation. It will build the strongest squad that honours every request.</p></div>
+                                <div class="tb-preferences-samples">
+                                    <span>Try:</span>
+                                    <button type="button" class="tb-pref-sample" data-pref="I want Haaland and Salah. No Chelsea players. Midfielders under 8.0. 2 from Arsenal. Play 4-4-2.">Include stars + exclude club</button>
+                                    <button type="button" class="tb-pref-sample" data-pref="Defenders under 5.5. Keep 1.0 in the bank. Avoid injured players. Captain Palmer.">Budget + captain</button>
+                                </div>
+                            </div>
+                            <div class="tb-preferences-row">
+                                <textarea id="tb-preferences-input" class="tb-preferences-input" rows="2" placeholder="e.g. I want Haaland and Salah. No Chelsea players. Midfielders under 8.0. 2 from Arsenal. Play 4-4-2. Keep 1.0 in the bank." aria-label="Team building preferences"></textarea>
+                                <button type="button" class="tb-btn tb-btn-primary" onclick="FPL.buildTeamBuilderFromPreferences()"><span class="material-symbols-outlined">psychology_alt</span> Build with preferences</button>
+                            </div>
+                            <div id="tb-preferences-feedback" class="tb-preferences-feedback" aria-live="polite"></div>
+                        </section>
+
                         <div id="tb-loading" class="tb-loading" role="status">Loading player projections...</div>
                         <div id="tb-error" class="tb-message tb-message-error hidden" role="alert"></div>
                         <div id="tb-workspace" class="tb-workspace hidden">
@@ -1266,7 +1282,8 @@
         </div>
     </div>
 
-    <script src="common.js?v=15"></script>
+    <script src="team-preferences.js?v=1"></script>
+    <script src="common.js?v=17"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams(window.location.search);

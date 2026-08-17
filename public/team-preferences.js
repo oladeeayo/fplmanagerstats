@@ -20,8 +20,9 @@
 
     function splitClauses(text) {
         return String(text || '')
-            .split(/[\n;.?!/]+/)
-            .map(clause => clause.replace(/[\u00a0\u2013\u2014]/g, ' ').trim())
+            .replace(/(?<=\d)\.(?=\d)/g, '\u0001')
+            .split(/[\n;?!.]+/)
+            .map(clause => clause.replace(/\u0001/g, '.').replace(/[\u00a0\u2013\u2014]/g, ' ').trim())
             .filter(Boolean);
     }
 
@@ -86,13 +87,15 @@
     function teamCodeFromName(name, knownTeams) {
         const normalized = normalize(name);
         if (!normalized) return null;
-        for (const [alias, code] of TEAM_ALIASES) {
-            if (normalized.includes(alias) || alias.includes(normalized)) return code;
-        }
+        // Exact 3-letter FPL codes first (e.g. "CHE", "NFO") so they are not swallowed by
+        // longer aliases that contain the code as a substring ("manchester" contains "che").
         if (/^[a-z]{3}$/.test(normalized)) {
             const upper = normalized.toUpperCase();
             if (knownTeams && knownTeams.some(t => stripNonAlpha(t.code) === upper)) return upper;
-            if (/^(ars|avl|bou|bre|bha|che|cry|eve|ful|ips|lei|l iv|liv|mci|mun|new|nfo|sou|tot|whu|wol)$/.test(normalized)) return upper;
+            if (/^(ars|avl|bou|bre|bha|che|cry|eve|ful|ips|lei|liv|mci|mun|new|nfo|sou|tot|whu|wol)$/.test(normalized)) return upper;
+        }
+        for (const [alias, code] of TEAM_ALIASES) {
+            if (normalized.includes(alias) || alias.includes(normalized)) return code;
         }
         if (knownTeams) {
             const hit = knownTeams.find(t => normalize(t.name) === normalized || normalize(t.code).toLowerCase() === normalized);
@@ -205,6 +208,19 @@
                 }
                 seen.add(matcher.player.id);
                 cursor = cursor.replace(new RegExp(escapeRegExp(matcher.key), 'gi'), ' ');
+                // Player-scoped price right after the name ("Salah under 12.0")
+                const after = cursor.trim().toLowerCase().slice(0, 60);
+                const underPrice = after.match(/^(?:under|below|less than|max|maximum|up to|at most)\s*(?:£|\$)?\s*(\d+(?:\.\d)?)/);
+                const overPrice = after.match(/^(?:over|above|more than|at least|minimum)\s*(?:£|\$)?\s*(\d+(?:\.\d)?)/);
+                if (underPrice) {
+                    constraints.playerPriceMax[matcher.player.id] = Number(underPrice[1]);
+                    markUnderstood(`${matcher.player.name} under £${underPrice[1]}m`);
+                    cursor = cursor.slice(underPrice[0].length);
+                } else if (overPrice) {
+                    constraints.playerPriceMin[matcher.player.id] = Number(overPrice[1]);
+                    markUnderstood(`${matcher.player.name} over £${overPrice[1]}m`);
+                    cursor = cursor.slice(overPrice[0].length);
+                }
             }
             cursor = cursor.replace(/\s+/g, ' ').trim();
 

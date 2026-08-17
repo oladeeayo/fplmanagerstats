@@ -23,12 +23,19 @@ const importScript = document.createElement('script');
 importScript.src = '/squad-import.js?v=1';
 importScript.defer = true;
 importScript.addEventListener('load', () => {
-  const legacyScript = document.createElement('script');
-  legacyScript.src = '/common.js?v=16';
-  legacyScript.defer = true;
-  legacyScript.addEventListener('load', () => window.dispatchEvent(new CustomEvent('fpl-ready')));
-  legacyScript.addEventListener('error', () => console.error('Failed to load the FPL dashboard data client.'));
-  document.head.appendChild(legacyScript);
+  const prefScript = document.createElement('script');
+  prefScript.src = '/team-preferences.js?v=1';
+  prefScript.defer = true;
+  prefScript.addEventListener('load', () => {
+    const legacyScript = document.createElement('script');
+    legacyScript.src = '/common.js?v=17';
+    legacyScript.defer = true;
+    legacyScript.addEventListener('load', () => window.dispatchEvent(new CustomEvent('fpl-ready')));
+    legacyScript.addEventListener('error', () => console.error('Failed to load the FPL dashboard data client.'));
+    document.head.appendChild(legacyScript);
+  });
+  prefScript.addEventListener('error', () => console.error('Failed to load the team preferences helper.'));
+  document.head.appendChild(prefScript);
 });
 importScript.addEventListener('error', () => console.error('Failed to load the squad import helper.'));
 document.head.appendChild(importScript);

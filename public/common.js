@@ -540,10 +540,20 @@ const FPL = {
             const playerIds = new Set(builder.players.map(player => player.id));
             builder.selectedIds = (saved?.selectedIds || builder.selectedIds).filter(id => playerIds.has(id)).slice(0, 15);
             builder.captainId = builder.selectedIds.includes(saved?.captainId) ? saved.captainId : (builder.selectedIds.includes(builder.captainId) ? builder.captainId : null);
+            builder.autoFillFormation = saved?.autoFillFormation || null;
+            builder.autoFillStarters = (saved?.autoFillStarters || []).filter(id => playerIds.has(id));
+            builder.preferences = saved?.preferences || null;
             this.paintTeamBuilder();
             workspace?.classList.remove('hidden');
             breakdown?.classList.remove('hidden');
             document.getElementById('tb-advisor')?.classList.remove('hidden');
+            document.querySelectorAll('.tb-pref-sample').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const input = document.getElementById('tb-preferences-input');
+                    if (input) input.value = btn.dataset.pref || '';
+                    input?.focus();
+                });
+            });
         } catch (err) {
             if (error) {
                 error.innerHTML = `${this.escapeHTML(err.message || 'Player projections could not be loaded.')} <button type="button" class="tb-btn tb-btn-secondary" onclick="FPL.renderTeamBuilder()"><span class="material-symbols-outlined">refresh</span> Try again</button>`;
@@ -561,7 +571,14 @@ const FPL = {
 
     saveTeamBuilderDraft() {
         const builder = this.state.teamBuilder;
-        localStorage.setItem('fplTeamBuilderDraft', JSON.stringify({ selectedIds: builder.selectedIds, selectedGWs: builder.selectedGWs, captainId: builder.captainId }));
+        localStorage.setItem('fplTeamBuilderDraft', JSON.stringify({
+            selectedIds: builder.selectedIds,
+            selectedGWs: builder.selectedGWs,
+            captainId: builder.captainId,
+            autoFillFormation: builder.autoFillFormation,
+            autoFillStarters: builder.autoFillStarters,
+            preferences: builder.preferences
+        }));
         const status = document.getElementById('tb-save-status');
         if (status) status.textContent = `Draft saved locally · ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     },
@@ -596,7 +613,14 @@ const FPL = {
     canAddTeamBuilderPlayer(player) {
         const squad = this.teamBuilderSquad();
         const validation = this.teamBuilderValidation(squad);
+        const prefs = this.state.teamBuilder.preferences;
         if (squad.length >= 15) return 'Squad already has 15 players';
+        if (prefs && (prefs.mustExclude || []).includes(player.id)) return 'Excluded by your preferences';
+        if (prefs && (prefs.teamExclude || []).includes(player.team)) return `No players from ${player.team} per your preferences`;
+        if (prefs && (prefs.playerPriceMax || {})[player.id] != null && player.costValue > prefs.playerPriceMax[player.id]) return 'Over your requested price for this player';
+        if (prefs && (prefs.priceMax || {})[player.position] != null && player.costValue > prefs.priceMax[player.position]) return `${player.position} price cap of £${prefs.priceMax[player.position].toFixed(1)}m`;
+        if (prefs && (prefs.priceMin || {})[player.position] != null && player.costValue < prefs.priceMin[player.position]) return `${player.position} price floor of £${prefs.priceMin[player.position].toFixed(1)}m`;
+        if (prefs?.avoidInjured && player.status && player.status !== 'a') return 'Unavailable per your preferences';
         if (validation.positions[player.position] >= validation.quotas[player.position]) return `${player.position} quota is full`;
         if ((validation.clubs[player.team] || 0) >= 3) return `Maximum 3 players from ${player.team}`;
         if (validation.cost + player.costValue > 100.0001) return 'This pick exceeds the £100.0m budget';
@@ -678,6 +702,75 @@ const FPL = {
         reset();
     },
 
+    // Natural-language preferences: parse what the user typed, show what was understood,
+    // ask for clarification on anything unclear, then build the best squad around it.
+    buildTeamBuilderFromPreferences() {
+        const input = document.getElementById('tb-preferences-input');
+        const feedback = document.getElementById('tb-preferences-feedback');
+        const text = (input?.value || '').trim();
+        if (!window.FPLTeamPreferences) {
+            if (feedback) feedback.textContent = 'The preference parser is not loaded yet. Reload the page and try again.';
+            return;
+        }
+        if (!text) {
+            if (feedback) feedback.textContent = 'Type a preference first — e.g. "I want Haaland and Salah, no Chelsea players, midfielders under 8.0."';
+            return;
+        }
+        const builder = this.state.teamBuilder;
+        const parsed = window.FPLTeamPreferences.parseTeamPreferences(text, { players: builder.players });
+        const constraints = parsed.constraints;
+        if (feedback) {
+            const understood = parsed.understood.length
+                ? `<span class="tb-pref-ok">Understood:</span> ${this.escapeHTML(parsed.understood.join(' · '))}`
+                : '<span class="tb-pref-warn">No explicit requests understood — using your text as general guidance.</span>';
+            feedback.innerHTML = understood;
+        }
+        if (parsed.unclear.length) {
+            const detail = this.escapeHTML(parsed.unclear.join(' · '));
+            this.confirmDialog({
+                title: 'Clarify your preferences',
+                message: `<p style="margin-bottom:10px;">I understood ${parsed.understood.length ? '<b>' + this.escapeHTML(parsed.understood.join(' · ')) + '</b>' : 'nothing specific'}.</p><p style="margin-bottom:10px;color:#ffbc69;">I couldn't make sense of these parts — please rephrase them or ignore and build anyway:</p><p style="margin-bottom:0;font-family:var(--font-mono);font-size:12px;">${detail}</p>`,
+                confirmLabel: 'Build anyway',
+                cancelLabel: 'Let me fix it',
+            }).then(confirmed => {
+                if (!confirmed) {
+                    input?.focus();
+                    return;
+                }
+                this.applyTeamBuilderPreferences(constraints, parsed);
+            });
+            return;
+        }
+        this.applyTeamBuilderPreferences(constraints, parsed);
+    },
+
+    applyTeamBuilderPreferences(constraints, parsed) {
+        const builder = this.state.teamBuilder;
+        builder.preferences = constraints;
+        builder.autoFillSeed = 0;
+        const result = this.buildAutoFillSquad(0);
+        if (!result?.ids?.length) {
+            const feedback = document.getElementById('tb-preferences-feedback');
+            if (feedback) feedback.textContent = 'No legal squad could be built with those constraints — loosen a price cap, exclude, or budget request.';
+            return;
+        }
+        builder.selectedIds = result.ids;
+        builder.autoFillStarters = result.starters || [];
+        builder.autoFillFormation = result.formation;
+        builder.captainId = constraints.captainId && result.ids.includes(constraints.captainId)
+            ? constraints.captainId
+            : this.pickAutoFillCaptain(result.ids);
+        this.saveTeamBuilderDraft();
+        this.paintTeamBuilder();
+        const reroll = document.getElementById('tb-autofill-reroll');
+        if (reroll) reroll.classList.remove('hidden');
+        const message = document.getElementById('tb-market-message');
+        const understood = parsed?.understood?.length ? ` Honoured: ${parsed.understood.join(' · ')}` : '';
+        if (message) message.textContent = `Built a ${result.formation} squad for your preferences.${understood}`;
+        const input = document.getElementById('tb-preferences-input');
+        if (input) input.value = '';
+    },
+
     async loadBuilderCurrentSquad() {
         const builder = this.state.teamBuilder;
         const message = document.getElementById('tb-market-message');
@@ -700,36 +793,54 @@ const FPL = {
         }
     },
 
-    // Auto-fill: greedy selection respecting position quotas, club max 3, and budget
+    // Auto-fill: formation-aware greedy selection respecting position quotas, club
+    // max 3, budget, and any parsed user preferences. Every legal FPL formation is
+    // explored and the best one wins; re-roll cycles through formations.
     autoFillTeamBuilder() {
         const builder = this.state.teamBuilder;
         if (!builder.players.length) return;
         builder.autoFillSeed = 0;
-        const ids = this.buildAutoFillSquad(0);
-        if (!ids.length) return;
+        const result = this.buildAutoFillSquad(0);
+        if (!result?.ids?.length) return;
         builder.autoFillSeed = 1;
-        builder.selectedIds = ids;
-        builder.captainId = this.pickAutoFillCaptain(ids);
+        builder.selectedIds = result.ids;
+        builder.autoFillStarters = result.starters || [];
+        builder.autoFillFormation = result.formation;
+        builder.captainId = builder.preferences?.captainId && builder.selectedIds.includes(builder.preferences.captainId)
+            ? builder.preferences.captainId
+            : this.pickAutoFillCaptain(result.ids);
         this.saveTeamBuilderDraft();
         this.paintTeamBuilder();
         const reroll = document.getElementById('tb-autofill-reroll');
         if (reroll) reroll.classList.remove('hidden');
         const message = document.getElementById('tb-market-message');
-        if (message) message.textContent = `AI auto-filled ${ids.length} legal players for this horizon. Tap Re-roll to try a different draft.`;
+        if (message) message.textContent = this.describeAutoFillResult(result);
     },
 
     reRollTeamBuilderAutoFill() {
         const builder = this.state.teamBuilder;
         if (!builder.players.length) return;
         builder.autoFillSeed += 1;
-        const ids = this.buildAutoFillSquad(builder.autoFillSeed);
-        if (!ids.length) return;
-        builder.selectedIds = ids;
-        builder.captainId = this.pickAutoFillCaptain(ids);
+        const result = this.buildAutoFillSquad(builder.autoFillSeed);
+        if (!result?.ids?.length) return;
+        builder.selectedIds = result.ids;
+        builder.autoFillStarters = result.starters || [];
+        builder.autoFillFormation = result.formation;
+        builder.captainId = builder.preferences?.captainId && builder.selectedIds.includes(builder.preferences.captainId)
+            ? builder.preferences.captainId
+            : this.pickAutoFillCaptain(result.ids);
         this.saveTeamBuilderDraft();
         this.paintTeamBuilder();
         const message = document.getElementById('tb-market-message');
-        if (message) message.textContent = `Re-rolled draft ${builder.autoFillSeed} — ${ids.length} legal players. Keep refreshing for more alternatives.`;
+        if (message) message.textContent = this.describeAutoFillResult(result, true);
+    },
+
+    describeAutoFillResult(result, isReRoll = false) {
+        const builder = this.state.teamBuilder;
+        const parts = [];
+        parts.push(`${isReRoll ? 'Re-rolled' : 'AI auto-filled'} ${result.ids.length} legal players in a ${result.formation}.`);
+        if (builder.preferences?.captainId && result.ids.includes(builder.preferences.captainId)) parts.push('Requested captain set.');
+        return parts.join(' ');
     },
 
     // Deterministic pseudo-random from seed for stable re-rolls
@@ -751,64 +862,173 @@ const FPL = {
         return squad.reduce((best, player) => (!best || this.teamBuilderXPts(player) > this.teamBuilderXPts(best) ? player : best), null).id;
     },
 
-    buildAutoFillSquad(seed = 0) {
+    buildAutoFillSquad(seed = 0, constraints = null) {
         const builder = this.state.teamBuilder;
-        const players = builder.players.filter(player => (player.nextFixtures || []).some(fixture => builder.selectedGWs.includes(fixture.gw)));
-        const quotas = { GKP: 2, DEF: 5, MID: 5, FWD: 3 };
+        constraints = constraints || this.state.teamBuilder.preferences || {};
+        const formations = [[3, 4, 3], [3, 5, 2], [4, 3, 3], [4, 4, 2], [4, 5, 1], [5, 3, 2], [5, 4, 1]];
+        // Cycle formations on re-roll; seed 0 evaluates every shape and keeps the best.
+        const candidateShapes = constraints.formation ? [constraints.formation]
+            : seed > 0 ? [formations[(seed - 1) % formations.length]]
+            : formations;
+
+        const pool = builder.players.filter(player => (player.nextFixtures || []).some(fixture => builder.selectedGWs.includes(fixture.gw)) && this.preferenceAllowsPlayer(player, constraints));
+        const mustInclude = (constraints.mustInclude || []).filter(id => pool.some(player => player.id === id));
+        const mustExclude = new Set(constraints.mustExclude || []);
         const rand = this._mulberry32(seed * 7919 + 13);
-        // Composite score: projected points dominate, with seeded jitter, a value tiebreak,
-        // and a starter-viability weight so auto-fill favours proven first-choice players.
+        const jitter = seed === 0 ? 1 : 0.9 + rand() * 0.2;
+        // xPts dominates the ranking so the highest-projected players are never left on the
+        // bench for weaker ones; tiny value/starter nudges only break ties.
         const score = player => {
             const xpts = this.teamBuilderXPts(player);
             const value = player.costValue > 0 ? xpts / player.costValue : 0;
             const starter = typeof player.starterScore === 'number' ? player.starterScore : 50;
-            const starterWeight = 0.6 + starter / 250;
-            const gkWeight = player.position === 'GKP' ? (starter >= 40 ? 1 : 0.72) : 1;
-            return xpts * (0.82 + 0.35 * value) * (seed === 0 ? 1 : 0.86 + rand() * 0.28) * starterWeight * gkWeight;
+            const teamBoost = (constraints.teamIncludeMin || {})[player.team] ? 1.12 : 1;
+            return (xpts * (1 + value * 0.02 + (starter - 50) * 0.0004) * teamBoost * jitter);
         };
-        const ranked = [...players].sort((a, b) => score(b) - score(a));
+
+        const bestResult = { score: -Infinity, ids: [], starters: [], formation: null };
+        for (const formation of candidateShapes) {
+            const attempt = this.buildSquadForFormation(pool, formation, mustInclude, mustExclude, constraints, score);
+            if (!attempt) continue;
+            if (attempt.xiScore > bestResult.score) {
+                bestResult.score = attempt.xiScore;
+                bestResult.ids = attempt.ids;
+                bestResult.starters = attempt.starters;
+                bestResult.formation = attempt.formation;
+            }
+        }
+        if (!bestResult.ids.length) return { ids: [], starters: [], formation: null };
+        return bestResult;
+    },
+
+    // Constraint guards shared by auto-fill and manual market picks.
+    preferenceAllowsPlayer(player, constraints = this.state.teamBuilder.preferences || {}) {
+        if (!player) return false;
+        if ((constraints.mustExclude || []).includes(player.id)) return false;
+        if ((constraints.teamExclude || []).includes(player.team)) return false;
+        if ((constraints.playerPriceMax || {})[player.id] != null && player.costValue > constraints.playerPriceMax[player.id]) return false;
+        if ((constraints.playerPriceMin || {})[player.id] != null && player.costValue < constraints.playerPriceMin[player.id]) return false;
+        if ((constraints.priceMax || {})[player.position] != null && player.costValue > constraints.priceMax[player.position]) return false;
+        if ((constraints.priceMin || {})[player.position] != null && player.costValue < constraints.priceMin[player.position]) return false;
+        if (constraints.avoidInjured && player.status && player.status !== 'a') return false;
+        return true;
+    },
+
+    buildSquadForFormation(pool, formation, mustInclude, mustExclude, constraints, score) {
+        const quotas = { GKP: 2, DEF: 5, MID: 5, FWD: 3 };
+        const starterCounts = { GKP: 1, DEF: formation[0], MID: formation[1], FWD: formation[2] };
+        const teamMin = constraints.teamIncludeMin || {};
+        const teamMax = constraints.teamIncludeMax || {};
+        const budget = constraints.budget || 100;
         const selected = [];
         const used = new Set();
         const clubs = {};
         const positions = { GKP: 0, DEF: 0, MID: 0, FWD: 0 };
         let cost = 0;
 
-        // Cheapest still-available player per position, for feasibility checks
-        const cheapestFill = (position, excluded, clubCounts) => {
-            return players
-                .filter(player => player.position === position && !excluded.has(player.id) && (clubCounts[player.team] || 0) < 3)
+        const cheapestFill = (position, excluded, clubCounts, curPositions) => {
+            return pool
+                .filter(player => player.position === position && !excluded.has(player.id) && (clubCounts[player.team] || 0) < (teamMax[player.team] ?? 3))
                 .sort((a, b) => a.costValue - b.costValue);
         };
-        const canFinish = (pos, count, usedSet, curClubs, remainingBudget) => {
+        const canFinish = (pos, count, usedSet, curClubs, curPositions, remainingBudget) => {
             let needed = 0;
-            const tmp = { ...positions, [pos]: positions[pos] + count };
+            const tmp = { ...curPositions, [pos]: curPositions[pos] + count };
             for (const key of Object.keys(quotas)) {
                 const gap = quotas[key] - tmp[key];
                 if (gap <= 0) continue;
-                const fill = cheapestFill(key, usedSet, curClubs).slice(0, gap);
+                const fill = cheapestFill(key, usedSet, curClubs, tmp).slice(0, gap);
                 if (fill.length < gap) return false;
                 needed += fill.reduce((sum, player) => sum + player.costValue, 0);
             }
             return needed <= remainingBudget;
         };
 
-        for (const player of ranked) {
+        // Required players go in first (cheapest club-wide requirement checks are skipped
+        // for them so a preference can never be silently dropped).
+        const rankedRequired = [...mustInclude].map(id => pool.find(player => player.id === id)).filter(Boolean).sort((a, b) => score(b) - score(a));
+        for (const player of rankedRequired) {
             if (selected.length >= 15) break;
             if (positions[player.position] >= quotas[player.position]) continue;
-            if ((clubs[player.team] || 0) >= 3) continue;
+            if ((clubs[player.team] || 0) >= (teamMax[player.team] ?? 3)) continue;
             const nextCost = cost + player.costValue;
-            if (nextCost > 100.0001) continue;
-            const nextUsed = new Set(used);
-            nextUsed.add(player.id);
-            const nextClubs = { ...clubs, [player.team]: (clubs[player.team] || 0) + 1 };
-            if (!canFinish(player.position, 1, nextUsed, nextClubs, 100 - nextCost)) continue;
+            if (nextCost > budget + 0.0001) continue;
             selected.push(player.id);
             used.add(player.id);
             clubs[player.team] = (clubs[player.team] || 0) + 1;
             positions[player.position] += 1;
             cost = nextCost;
         }
-        return selected;
+
+        // Team minimums: force in the best scorers of any team the user asked for.
+        for (const [teamCode, min] of Object.entries(teamMin)) {
+            let current = selected.filter(id => pool.find(player => player.id === id)?.team === teamCode).length;
+            const candidates = pool.filter(player => player.team === teamCode && !used.has(player.id)).sort((a, b) => score(b) - score(a));
+            for (const player of candidates) {
+                if (current >= min) break;
+                if (selected.length >= 15) break;
+                if (positions[player.position] >= quotas[player.position]) continue;
+                if ((clubs[player.team] || 0) >= (teamMax[player.team] ?? 3)) continue;
+                const nextCost = cost + player.costValue;
+                if (nextCost > budget + 0.0001) continue;
+                selected.push(player.id);
+                used.add(player.id);
+                clubs[player.team] = (clubs[player.team] || 0) + 1;
+                positions[player.position] += 1;
+                cost = nextCost;
+                current += 1;
+            }
+        }
+
+        const ranked = [...pool].filter(player => !used.has(player.id)).sort((a, b) => score(b) - score(a));
+        for (const player of ranked) {
+            if (selected.length >= 15) break;
+            if (positions[player.position] >= quotas[player.position]) continue;
+            if ((clubs[player.team] || 0) >= (teamMax[player.team] ?? 3)) continue;
+            const nextCost = cost + player.costValue;
+            if (nextCost > budget + 0.0001) continue;
+            const nextUsed = new Set(used);
+            nextUsed.add(player.id);
+            const nextClubs = { ...clubs, [player.team]: (clubs[player.team] || 0) + 1 };
+            if (!canFinish(player.position, 1, nextUsed, nextClubs, positions, budget - nextCost)) continue;
+            selected.push(player.id);
+            used.add(player.id);
+            clubs[player.team] = (clubs[player.team] || 0) + 1;
+            positions[player.position] += 1;
+            cost = nextCost;
+        }
+        if (selected.length !== 15) return null;
+
+        // Starting XI: for the chosen formation the top-projected players per position start
+        // (never a lower-xPts player ahead of a higher one within a position).
+        const byPosition = pos => selected
+            .map(id => pool.find(player => player.id === id))
+            .filter(player => player.position === pos)
+            .sort((a, b) => this.teamBuilderXPts(b) - this.teamBuilderXPts(a));
+        const starters = [
+            byPosition('GKP')[0],
+            ...byPosition('DEF').slice(0, starterCounts.DEF),
+            ...byPosition('MID').slice(0, starterCounts.MID),
+            ...byPosition('FWD').slice(0, starterCounts.FWD),
+        ].filter(Boolean);
+        if (starters.length !== 11) return null;
+        const xiScore = starters.reduce((sum, player) => sum + this.teamBuilderXPts(player), 0);
+        return { ids: selected, starters: starters.map(player => player.id), formation: formation.join('-'), xiScore, cost };
+    },
+
+    async serverOcrText(file) {
+        const response = await fetch('/api/ocr', {
+            method: 'POST',
+            headers: { 'Content-Type': file.type || 'image/png' },
+            body: file,
+        });
+        if (!response.ok) {
+            let detail = null;
+            try { detail = await response.json(); } catch (_) { /* non-JSON error body */ }
+            throw new Error((detail && detail.error) || `Server OCR failed (${response.status})`);
+        }
+        const payload = await response.json();
+        return payload && payload.text ? payload.text : null;
     },
 
     async importTeamScreenshot(file) {
@@ -824,9 +1044,32 @@ const FPL = {
         summary.textContent = '';
         confirm.disabled = true;
         try {
-            if (!window.createFplOcrWorker) throw new Error('The OCR engine is not ready. Reload the page and try again.');
             status.textContent = 'Preparing image for reading...';
             const players = this.state.teamBuilder.players;
+
+            // Cloud OCR (Gemini) first — it reads stylized dark UI text far better than
+            // local tesseract. Fall back to the local engine when the server is down,
+            // the API key is missing, or the result is too weak.
+            let cloudMatches = null;
+            try {
+                status.textContent = 'Reading screenshot with cloud OCR...';
+                const cloudText = await this.serverOcrText(file);
+                if (cloudText) {
+                    const candidates = window.FPLSquadImport.matchPlayersFPL(cloudText, players);
+                    if (candidates.length >= 3) cloudMatches = candidates;
+                }
+            } catch (error) {
+                console.warn('Cloud OCR unavailable, using local OCR:', error.message);
+            }
+            if (cloudMatches) {
+                status.textContent = `Cloud OCR · ${cloudMatches.length} names found`;
+                this.state.teamBuilder.importMatches = cloudMatches.sort((a, b) => b.score - a.score).slice(0, 15);
+                this.state.teamBuilder.importView = 'pitch';
+                this.paintTeamScreenshotMatches();
+                return;
+            }
+
+            if (!window.createFplOcrWorker) throw new Error('The OCR engine is not ready. Reload the page and try again.');
             const worker = await window.createFplOcrWorker('eng', 1, {
                 logger: event => {
                     if (event.status === 'recognizing text') status.textContent = `Reading screenshot · ${Math.round((event.progress || 0) * 100)}%`;
@@ -1260,9 +1503,18 @@ const FPL = {
         const groups = { GKP: byPosition('GKP'), DEF: byPosition('DEF'), MID: byPosition('MID'), FWD: byPosition('FWD') };
         if (groups.GKP.length < 1 || groups.DEF.length < 3 || groups.MID.length < 2 || groups.FWD.length < 1 || squad.length < 11) return [];
         const formations = [[3, 4, 3], [3, 5, 2], [4, 3, 3], [4, 4, 2], [4, 5, 1], [5, 3, 2], [5, 4, 1]];
-        return formations.map(([def, mid, fwd]) => [groups.GKP[0], ...groups.DEF.slice(0, def), ...groups.MID.slice(0, mid), ...groups.FWD.slice(0, fwd)])
-            .filter(lineup => lineup.length === 11)
-            .sort((a, b) => b.reduce((sum, player) => sum + score(player), 0) - a.reduce((sum, player) => sum + score(player), 0))[0] || [];
+        // Prefer the formation the user auto-filled (or explicitly asked for) when the
+        // current squad can still field it; otherwise fall back to the best legal shape.
+        const preferred = this.state.teamBuilder.autoFillFormation;
+        const preferredShape = preferred ? formations.find(shape => shape.join('-') === preferred) : null;
+        const ordered = preferredShape ? [preferredShape, ...formations.filter(shape => shape.join('-') !== preferred)] : formations;
+        const candidates = ordered.map(([def, mid, fwd]) => [groups.GKP[0], ...groups.DEF.slice(0, def), ...groups.MID.slice(0, mid), ...groups.FWD.slice(0, fwd)])
+            .filter(lineup => lineup.length === 11);
+        const best = candidates.reduce((bestLineup, lineup) => {
+            const total = lineup.reduce((sum, player) => sum + score(player), 0);
+            return total > bestLineup.total ? { lineup, total } : bestLineup;
+        }, { lineup: [], total: -Infinity });
+        return best.lineup;
     },
 
     paintTeamBuilder() {
@@ -1337,11 +1589,37 @@ const FPL = {
         const squadPitch = document.getElementById('tb-squad-pitch');
         if (!squadPitch) return;
 
-        const gkps = squad.filter(p => p.position === 'GKP').sort((a, b) => this.teamBuilderXPts(b) - this.teamBuilderXPts(a));
-        const defs = squad.filter(p => p.position === 'DEF').sort((a, b) => this.teamBuilderXPts(b) - this.teamBuilderXPts(a));
-        const mids = squad.filter(p => p.position === 'MID').sort((a, b) => this.teamBuilderXPts(b) - this.teamBuilderXPts(a));
-        const fwds = squad.filter(p => p.position === 'FWD').sort((a, b) => this.teamBuilderXPts(b) - this.teamBuilderXPts(a));
-        const empty = { GKP: 2 - gkps.length, DEF: 5 - defs.length, MID: 5 - mids.length, FWD: 3 - fwds.length };
+        // Preferred starting XI comes from the auto-fill formation when the squad can field
+        // it; otherwise the best legal formation wins (never benching a higher-xPts player
+        // within a position).
+        const starterIds = new Set(builder.autoFillStarters || []);
+        const formations = [[3, 4, 3], [3, 5, 2], [4, 3, 3], [4, 4, 2], [4, 5, 1], [5, 3, 2], [5, 4, 1]];
+        let formationLabel = null;
+        if (builder.autoFillFormation && starterIds.size === 11) {
+            const matches = formations.some(shape => shape.join('-') === builder.autoFillFormation && squad.filter(p => starterIds.has(p.id)).length === 11);
+            if (matches) formationLabel = builder.autoFillFormation;
+        }
+        let xi = [];
+        if (formationLabel) {
+            const byPosition = position => squad.filter(p => p.position === position).sort((a, b) => this.teamBuilderXPts(b) - this.teamBuilderXPts(a));
+            const counts = formationLabel.split('-').map(Number);
+            const starterByPos = id => starterIds.has(id) ? squad.find(p => p.id === id) : null;
+            const usable = squad.filter(p => starterIds.has(p.id));
+            xi = [byPosition('GKP')[0], ...byPosition('DEF').filter(p => usable.includes(p)).slice(0, counts[0]), ...byPosition('MID').filter(p => usable.includes(p)).slice(0, counts[1]), ...byPosition('FWD').filter(p => usable.includes(p)).slice(0, counts[2])].filter(Boolean);
+            if (xi.length !== 11) formationLabel = null;
+        }
+        if (!formationLabel) {
+            formationLabel = builder.autoFillFormation || '4-3-3';
+            xi = this.optimalTeamBuilderLineup(squad, builder.selectedGWs[0] || null);
+            if (!xi.length) xi = squad;
+        }
+        const xiSet = new Set(xi.map(p => p.id));
+        const bench = squad.filter(p => !xiSet.has(p.id)).sort((a, b) => this.teamBuilderXPts(b) - this.teamBuilderXPts(a));
+
+        const gkps = xi.filter(p => p.position === 'GKP');
+        const defs = xi.filter(p => p.position === 'DEF');
+        const mids = xi.filter(p => p.position === 'MID');
+        const fwds = xi.filter(p => p.position === 'FWD');
 
         const self = this;
         const isCaptain = p => builder.captainId === p.id;
@@ -1366,12 +1644,16 @@ const FPL = {
         }
 
         const rows = [];
-        rows.push(`<div class="tactics-pitch-row" style="--players:${fwds.length + empty.FWD};">${fwds.map(playerCard).join('')}${emptySlots(empty.FWD, 'FWD')}</div>`);
-        rows.push(`<div class="tactics-pitch-row" style="--players:${mids.length + empty.MID};">${mids.map(playerCard).join('')}${emptySlots(empty.MID, 'MID')}</div>`);
-        rows.push(`<div class="tactics-pitch-row" style="--players:${defs.length + empty.DEF};">${defs.map(playerCard).join('')}${emptySlots(empty.DEF, 'DEF')}</div>`);
-        rows.push(`<div class="tactics-pitch-row" style="--players:${gkps.length + empty.GKP};">${gkps.map(playerCard).join('')}${emptySlots(empty.GKP, 'GKP')}</div>`);
+        rows.push(`<div class="tactics-pitch-row" style="--players:${Math.max(fwds.length, 1)};">${fwds.map(playerCard).join('')}</div>`);
+        rows.push(`<div class="tactics-pitch-row" style="--players:${Math.max(mids.length, 2)};">${mids.map(playerCard).join('')}</div>`);
+        rows.push(`<div class="tactics-pitch-row" style="--players:${Math.max(defs.length, 4)};">${defs.map(playerCard).join('')}</div>`);
+        rows.push(`<div class="tactics-pitch-row" style="--players:1;">${gkps.map(playerCard).join('')}</div>`);
 
-        let html = `<div class="tactics-pitch" style="min-height:420px;">${rows.join('')}</div>`;
+        let html = `<div class="tb-pitch-header"><span class="tb-formation-badge">${formationLabel}</span><span class="tb-pitch-sub">${xi.length ? `${xi.length} starting · ${bench.length} bench` : 'Add players to build a pitch'}</span></div>`;
+        html += `<div class="tactics-pitch" style="min-height:420px;">${rows.join('')}</div>`;
+        if (bench.length) {
+            html += `<div class="tb-bench-strip"><span class="tb-pitch-sub">Bench</span><div class="tb-bench-cards">${bench.map(playerCard).join('')}</div></div>`;
+        }
         html += `<div class="tb-import-legend"><span><i style="background:#FFD700;"></i>Captain</span><span>Click captain star in list view</span></div>`;
 
         squadPitch.innerHTML = html;
