@@ -824,6 +824,8 @@ const FPL = {
         builder.selectedIds = result.ids;
         builder.autoFillStarters = result.starters || [];
         builder.autoFillFormation = result.formation;
+        builder.preferences.benchIds = result.benchIds || builder.preferences.benchIds || [];
+        builder.preferences.starterIds = result.starterIds || builder.preferences.starterIds || [];
         builder.captainId = constraints.captainId && result.ids.includes(constraints.captainId)
             ? constraints.captainId
             : this.pickAutoFillCaptain(result.ids);
@@ -873,6 +875,10 @@ const FPL = {
         builder.selectedIds = result.ids;
         builder.autoFillStarters = result.starters || [];
         builder.autoFillFormation = result.formation;
+        if (builder.preferences) {
+            builder.preferences.benchIds = result.benchIds || builder.preferences.benchIds || [];
+            builder.preferences.starterIds = result.starterIds || builder.preferences.starterIds || [];
+        }
         builder.captainId = builder.preferences?.captainId && builder.selectedIds.includes(builder.preferences.captainId)
             ? builder.preferences.captainId
             : this.pickAutoFillCaptain(result.ids);
@@ -893,6 +899,10 @@ const FPL = {
         builder.selectedIds = result.ids;
         builder.autoFillStarters = result.starters || [];
         builder.autoFillFormation = result.formation;
+        if (builder.preferences) {
+            builder.preferences.benchIds = result.benchIds || builder.preferences.benchIds || [];
+            builder.preferences.starterIds = result.starterIds || builder.preferences.starterIds || [];
+        }
         builder.captainId = builder.preferences?.captainId && builder.selectedIds.includes(builder.preferences.captainId)
             ? builder.preferences.captainId
             : this.pickAutoFillCaptain(result.ids);
@@ -931,7 +941,7 @@ const FPL = {
 
     buildAutoFillSquad(seed = 0, constraints = null) {
         const builder = this.state.teamBuilder;
-        constraints = constraints || this.state.teamBuilder.preferences || {};
+        constraints = { ...(constraints || this.state.teamBuilder.preferences || {}) };
         const formations = [[3, 4, 3], [3, 5, 2], [4, 3, 3], [4, 4, 2], [4, 5, 1], [5, 3, 2], [5, 4, 1]];
         // Cycle formations on re-roll; seed 0 evaluates every shape and keeps the best.
         const candidateShapes = constraints.formation ? [constraints.formation]
@@ -939,7 +949,37 @@ const FPL = {
             : formations;
 
         const pool = builder.players.filter(player => (player.nextFixtures || []).some(fixture => builder.selectedGWs.includes(fixture.gw)) && this.preferenceAllowsPlayer(player, constraints));
-        const mustInclude = (constraints.mustInclude || []).filter(id => pool.some(player => player.id === id));
+        const requirementIds = [];
+        const requirementBenchIds = [];
+        const requirementStarterIds = [];
+        for (const requirement of constraints.playerRequirements || []) {
+            const candidates = pool.filter(player => {
+                if (requirementIds.includes(player.id)) return false;
+                if (requirement.positions?.length && !requirement.positions.includes(player.position)) return false;
+                if (requirement.teams?.length && !requirement.teams.includes(player.team)) return false;
+                if (requirement.priceMin != null && player.costValue < requirement.priceMin - 0.001) return false;
+                if (requirement.priceMax != null && player.costValue > requirement.priceMax + 0.001) return false;
+                return (requirement.metricRules || []).every(rule => {
+                    const value = this.teamBuilderMetric(player, rule.metric);
+                    return (rule.min == null || value >= rule.min) && (rule.max == null || value <= rule.max);
+                });
+            }).sort((a, b) => {
+                const metric = requirement.sortBy || 'xPts';
+                const value = player => metric === 'value'
+                    ? this.teamBuilderXPts(player) / Math.max(player.costValue, 0.1)
+                    : this.teamBuilderMetric(player, metric);
+                return value(b) - value(a) || this.teamBuilderXPts(b) - this.teamBuilderXPts(a);
+            }).slice(0, requirement.count || 1);
+            if (candidates.length < (requirement.count || 1)) return { ids: [], starters: [], formation: null };
+            candidates.forEach(player => {
+                requirementIds.push(player.id);
+                if (requirement.role === 'BENCH') requirementBenchIds.push(player.id);
+                if (requirement.role === 'STARTER') requirementStarterIds.push(player.id);
+            });
+        }
+        constraints.benchIds = [...new Set([...(constraints.benchIds || []), ...requirementBenchIds])].slice(0, 4);
+        constraints.starterIds = [...new Set([...(constraints.starterIds || []), ...requirementStarterIds])].filter(id => !constraints.benchIds.includes(id)).slice(0, 11);
+        const mustInclude = [...new Set([...(constraints.mustInclude || []), ...requirementIds])].filter(id => pool.some(player => player.id === id));
         const mustExclude = new Set(constraints.mustExclude || []);
         const rand = this._mulberry32(seed * 7919 + 13);
         const jitter = seed === 0 ? 1 : 0.9 + rand() * 0.2;
@@ -950,10 +990,12 @@ const FPL = {
             const value = player.costValue > 0 ? xpts / player.costValue : 0;
             const starter = typeof player.starterScore === 'number' ? player.starterScore : 50;
             const teamBoost = (constraints.teamIncludeMin || {})[player.team] ? 1.12 : 1;
-            return (xpts * (1 + value * 0.02 + (starter - 50) * 0.0004) * teamBoost * jitter);
+            const metric = constraints.optimizationMetric || 'xPts';
+            const primary = metric === 'value' ? value : this.teamBuilderMetric(player, metric);
+            return ((primary * 100 + xpts + value * 0.02 + (starter - 50) * 0.0004) * teamBoost * jitter);
         };
 
-        const bestResult = { score: -Infinity, ids: [], starters: [], formation: null };
+        const bestResult = { score: -Infinity, ids: [], starters: [], formation: null, benchIds: constraints.benchIds || [], starterIds: constraints.starterIds || [] };
         for (const formation of candidateShapes) {
             const attempt = this.buildSquadForFormation(pool, formation, mustInclude, mustExclude, constraints, score);
             if (!attempt) continue;
@@ -964,7 +1006,7 @@ const FPL = {
                 bestResult.formation = attempt.formation;
             }
         }
-        if (!bestResult.ids.length) return { ids: [], starters: [], formation: null };
+        if (!bestResult.ids.length) return { ids: [], starters: [], formation: null, benchIds: [], starterIds: [] };
         return bestResult;
     },
 
@@ -1071,6 +1113,7 @@ const FPL = {
             cost = nextCost;
         }
         if (selected.length !== 15) return null;
+        if (mustInclude.some(id => !selected.includes(id))) return null;
 
         // Starting XI: for the chosen formation the top-projected players per position start
         // (never a lower-xPts player ahead of a higher one within a position).

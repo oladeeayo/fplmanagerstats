@@ -153,6 +153,8 @@
             formation: null,      // [3,4,3]
             horizon: null,
             metricRules: [],
+            playerRequirements: [],
+            optimizationMetric: 'xPts',
             budget: null,         // 100
             captainId: null,
             avoidInjured: false,
@@ -215,6 +217,8 @@
                 }
                 const neg = isNegativeContext(cursor.toLowerCase(), idx);
                 const isCaptain = /captain/i.test(cursor.slice(Math.max(0, idx - 30), idx + matcher.key.length + 30));
+                const isBench = /(?:bench|substitute|sub)\s*$/i.test(cursor.slice(Math.max(0, idx - 24), idx));
+                const isStarter = /(?:start|starter|starting)\s*$/i.test(cursor.slice(Math.max(0, idx - 24), idx));
                 if (neg) {
                     if (!constraints.mustExclude.includes(matcher.player.id)) constraints.mustExclude.push(matcher.player.id);
                     markUnderstood(`Exclude ${matcher.player.name}`);
@@ -226,6 +230,8 @@
                     constraints.captainId = matcher.player.id;
                     markUnderstood(`Captain ${matcher.player.name}`);
                 }
+                if (!neg && isBench && !constraints.benchIds.includes(matcher.player.id)) constraints.benchIds.push(matcher.player.id);
+                if (!neg && isStarter && !constraints.starterIds.includes(matcher.player.id)) constraints.starterIds.push(matcher.player.id);
                 seen.add(matcher.player.id);
                 cursor = cursor.replace(new RegExp(escapeRegExp(matcher.key), 'gi'), ' ');
                 // Player-scoped price right after the name ("Salah under 12.0")
@@ -243,6 +249,41 @@
                 }
             }
             cursor = cursor.replace(/\s+/g, ' ').trim();
+
+            // Counted player profiles are requirements, not global filters.
+            const profileMatch = cursor.match(/(?:(\d+|one|two|three|four|a|an)\s+)?(?:(bench|starting|starter|squad)\s+)?(goalkeepers?|keepers?|gkps?|gks?|defenders?|defs?|midfielders?|mids?|forwards?|strikers?|fwds?)\s+(?:at|for|costing|priced at|under|below|max(?:imum)?|up to)?\s*(?:£|\$)?\s*(\d+(?:\.\d+)?)\s*m?\b/i)
+                || cursor.match(/(?:(\d+|one|two|three|four|a|an)\s+)?(?:£|\$)?\s*(\d+(?:\.\d+)?)\s*m?\s+(?:(bench|starting|starter|squad)\s+)?(goalkeepers?|keepers?|gkps?|gks?|defenders?|defs?|midfielders?|mids?|forwards?|strikers?|fwds?)\b/i);
+            if (profileMatch) {
+                const count = COUNT_WORDS[normalize(profileMatch[1])] || Number(profileMatch[1]) || 1;
+                const priceFirst = /^\s*(?:(?:\d+|one|two|three|four|a|an)\s+)?(?:£|\$)?\s*\d/i.test(profileMatch[0]);
+                const positionText = priceFirst ? profileMatch[4] : profileMatch[3];
+                const roleText = priceFirst ? profileMatch[3] : profileMatch[2];
+                const price = Number(priceFirst ? profileMatch[2] : profileMatch[4]);
+                const position = POSITION_ALIASES.find(([alias]) => normalize(positionText).includes(alias))?.[1];
+                const role = /bench/i.test(roleText || '') ? 'BENCH' : /start/i.test(roleText || '') ? 'STARTER' : 'SQUAD';
+                const explicitCountOrRole = Boolean(profileMatch[1] || roleText);
+                const pluralPosition = /s\b/i.test(positionText || '');
+                if (position && price >= 3 && price <= 20 && (explicitCountOrRole || priceFirst || !pluralPosition)) {
+                    const isMax = /\b(under|below|max(?:imum)?|up to)\b/i.test(profileMatch[0]);
+                    const isMin = /\b(over|above|min(?:imum)?|at least)\b/i.test(profileMatch[0]);
+                    constraints.playerRequirements.push({ count, role, positions: [position], priceMin: isMax ? null : price, priceMax: isMin ? null : price, metricRules: [] });
+                    markUnderstood(`${count} ${role.toLowerCase()} ${position} ${isMax ? 'under' : isMin ? 'over' : 'at'} £${price}m`);
+                    cursor = cursor.replace(profileMatch[0], ' ');
+                }
+            }
+
+            const projectionMatch = cursor.match(/(?:(\d+|one|two|three|a|an)\s+)?players?\s+(?:with|on|projected|scoring|to score)?\s*(?:at least|over|above|more than)?\s*(\d+(?:\.\d+)?)\s*xpts?\s+(?:in|over|across|for)\s+(?:the\s+)?(?:next\s+)?(\d+)\s*(?:gws?|gameweeks?)/i);
+            if (projectionMatch) {
+                const count = COUNT_WORDS[normalize(projectionMatch[1])] || Number(projectionMatch[1]) || 1;
+                const xPts = Number(projectionMatch[2]);
+                const horizon = Number(projectionMatch[3]);
+                if (horizon >= 1 && horizon <= 8) {
+                    constraints.horizon = horizon;
+                    constraints.playerRequirements.push({ count, role: 'SQUAD', positions: [], priceMin: null, priceMax: null, metricRules: [{ metric: 'xPts', min: xPts, max: null }] });
+                    markUnderstood(`${count} player${count === 1 ? '' : 's'} with at least ${xPts} xPts over ${horizon} GWs`);
+                    cursor = cursor.replace(projectionMatch[0], ' ');
+                }
+            }
 
             // 3) Team mentions
             for (const [alias, code] of TEAM_ALIASES) {

@@ -80,6 +80,41 @@ assert.equal(VALID_FORMATIONS.length, 7);
     assert.deepEqual(added.constraints.mustInclude.sort(), [1, 2]);
 }
 
+// Names do not need commas between them
+{
+    const parsed = parseTeamPreferences('add Haaland Salah Saka', { players });
+    assert.deepEqual(parsed.constraints.mustInclude.sort(), [1, 2, 5]);
+}
+
+// Named bench and starter requests preserve lineup intent
+{
+    const parsed = parseTeamPreferences('bench Dibling start Saka', { players });
+    assert.deepEqual(parsed.constraints.benchIds, [14]);
+    assert.deepEqual(parsed.constraints.starterIds, [5]);
+}
+
+// A priced bench profile selects one slot instead of capping every midfielder
+{
+    const parsed = parseTeamPreferences('add a 4.5m bench midfielder', { players });
+    assert.deepEqual(parsed.constraints.playerRequirements, [{ count: 1, role: 'BENCH', positions: ['MID'], priceMin: 4.5, priceMax: 4.5, metricRules: [] }]);
+}
+
+// A projected-points profile carries its requested horizon
+{
+    const parsed = parseTeamPreferences('a player with 45 xpts in 3 gws', { players });
+    assert.equal(parsed.constraints.horizon, 3);
+    assert.equal(parsed.constraints.playerRequirements[0].count, 1);
+    assert.deepEqual(parsed.constraints.playerRequirements[0].metricRules, [{ metric: 'xPts', min: 45, max: null }]);
+}
+
+// Counted price caps are not mistaken for exact prices
+{
+    const parsed = parseTeamPreferences('two defenders under 5m', { players });
+    assert.equal(parsed.constraints.playerRequirements[0].count, 2);
+    assert.equal(parsed.constraints.playerRequirements[0].priceMin, null);
+    assert.equal(parsed.constraints.playerRequirements[0].priceMax, 5);
+}
+
 // Shared display names require the user to identify the actual player
 {
     const ambiguous = parseTeamPreferences('Remove Martinez', { players });

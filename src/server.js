@@ -611,7 +611,22 @@ Resolve players only against the supplied catalog. Never guess an ID. A named ca
 If a name can refer to multiple catalog players and the user did not disambiguate with a full name, club, or position, put every candidate in ambiguities and do not include or exclude any of them.
 Team values are the catalog's three-letter team codes. Positions are only GKP, DEF, MID, FWD. Prices and budget are in millions. Valid formations are 3-4-3, 3-5-2, 4-3-3, 4-4-2, 4-5-1, 5-3-2, 5-4-1.
 Set horizon to an explicitly requested count of upcoming gameweeks from 1 to 8, otherwise null.
-Convert numeric pool requirements into metricRules. Metrics are xPts, xG, xA, xGI, xMins, ownership, form, price. xPts/xG/xA/xGI/xMins are totals across the horizon. positions is empty for all positions. Set min/max only when stated. For "nailed" or minutes-security language, infer a sensible xMins threshold from the catalog and horizon.
+Metrics are xPts, xG, xA, xGI, xMins, ownership, form, and price. xPts/xG/xA/xGI/xMins are totals across the horizon. Use global metricRules only when every eligible player in the stated positions must satisfy the rule. Use playerRequirements when the user asks for a number/type of players, one bench profile, a differential, enabler, premium, fodder pick, or "a player with" a metric. A playerRequirement has a count, role, positions, teams, price bounds, metric rules, and sortBy.
+Price wording matters: "a 4.5 midfielder" or "at 4.5" means priceMin=4.5 and priceMax=4.5; "under 4.5" means only priceMax=4.5. Bench/fodder requirements have role BENCH. "Start" has role STARTER. Other requirements use SQUAD. For "nailed" or minutes-security language, infer a sensible xMins threshold from the catalog and horizon.
+Understand these patterns and analogous wording in any language:
+- "add Tzolis Bruno Rice" => resolve three adjacent catalog names and put all three IDs in mustInclude. Commas and "and" are never required.
+- "Haaland Salah Palmer locked, sell Watkins" => include the first three and exclude Watkins.
+- "bench Dibling, start Saka, captain Salah" => include all three, set benchIds, starterIds and captainId.
+- "a 4.5m bench midfielder" => one BENCH playerRequirement for MID at exactly 4.5, sorted by xPts.
+- "two defenders 5m or less" => one SQUAD requirement, count 2, DEF, priceMax 5.
+- "one differential forward below 8m" => count 1, FWD, priceMax 8, ownership max 10, sortBy xPts.
+- "a nailed cheap keeper" => count 1, GKP, sensible low priceMax and xMins minimum, sortBy xPts.
+- "a player with at least 45 xPts over the next 3 GWs" => horizon 3 and one requirement with xPts min 45. Do not require all 15 players to reach 45.
+- "all mids need 200 xMins in 3 GWs" => horizon 3 and a global MID xMins minimum rule.
+- "maximize xG over 5 weeks" => horizon 5, optimizationMetric xG. "best xPts" uses xPts; "most assists" uses xA; "best value" uses value.
+- "three Arsenal, no Spurs, max one Liverpool" => team minimum, exclusion, and maximum.
+- "safe template team" => sensible ownership and xMins requirements; "low owned differential team" => ownership caps; "aggressive punts" => favor xG/xGI with a lower ownership cap.
+- "penalty takers" or "set-piece takers" can only be honored when catalog evidence supports it; otherwise put that part in unclear rather than guessing.
 Put unsupported or genuinely unclear requests in unclear. Keep understood labels short and in the user's language. Do not invent constraints from general praise.
 
 USER PREFERENCE:
@@ -633,7 +648,7 @@ ${JSON.stringify(players)}`;
             properties: {
               constraints: {
                 type: 'OBJECT',
-                required: ['mustInclude', 'mustExclude', 'benchIds', 'starterIds', 'teamIncludeMin', 'teamIncludeMax', 'teamExclude', 'priceMax', 'priceMin', 'playerPriceMax', 'playerPriceMin', 'metricRules', 'formation', 'horizon', 'budget', 'captainId', 'avoidInjured'],
+                required: ['mustInclude', 'mustExclude', 'benchIds', 'starterIds', 'teamIncludeMin', 'teamIncludeMax', 'teamExclude', 'priceMax', 'priceMin', 'playerPriceMax', 'playerPriceMin', 'metricRules', 'playerRequirements', 'optimizationMetric', 'formation', 'horizon', 'budget', 'captainId', 'avoidInjured'],
                 properties: {
                   mustInclude: { type: 'ARRAY', items: { type: 'INTEGER' } },
                   mustExclude: { type: 'ARRAY', items: { type: 'INTEGER' } },
@@ -651,6 +666,18 @@ ${JSON.stringify(players)}`;
                     positions: { type: 'ARRAY', items: { type: 'STRING', enum: ['GKP', 'DEF', 'MID', 'FWD'] } },
                     min: { type: 'NUMBER', nullable: true }, max: { type: 'NUMBER', nullable: true },
                   } } },
+                  playerRequirements: { type: 'ARRAY', items: { type: 'OBJECT', required: ['count', 'role', 'positions', 'teams', 'priceMin', 'priceMax', 'metricRules', 'sortBy'], properties: {
+                    count: { type: 'INTEGER' }, role: { type: 'STRING', enum: ['SQUAD', 'STARTER', 'BENCH'] },
+                    positions: { type: 'ARRAY', items: { type: 'STRING', enum: ['GKP', 'DEF', 'MID', 'FWD'] } },
+                    teams: { type: 'ARRAY', items: { type: 'STRING' } },
+                    priceMin: { type: 'NUMBER', nullable: true }, priceMax: { type: 'NUMBER', nullable: true },
+                    metricRules: { type: 'ARRAY', items: { type: 'OBJECT', required: ['metric', 'min', 'max'], properties: {
+                      metric: { type: 'STRING', enum: ['xPts', 'xG', 'xA', 'xGI', 'xMins', 'ownership', 'form', 'price'] },
+                      min: { type: 'NUMBER', nullable: true }, max: { type: 'NUMBER', nullable: true },
+                    } } },
+                    sortBy: { type: 'STRING', enum: ['xPts', 'xG', 'xA', 'xGI', 'xMins', 'ownership', 'form', 'price', 'value'] },
+                  } } },
+                  optimizationMetric: { type: 'STRING', enum: ['xPts', 'xG', 'xA', 'xGI', 'xMins', 'form', 'value'] },
                   formation: { type: 'ARRAY', nullable: true, items: { type: 'INTEGER' } },
                   horizon: { type: 'INTEGER', nullable: true },
                   budget: { type: 'NUMBER', nullable: true },
@@ -699,6 +726,20 @@ ${JSON.stringify(players)}`;
       min: rule?.min == null || !Number.isFinite(Number(rule.min)) ? null : Number(rule.min),
       max: rule?.max == null || !Number.isFinite(Number(rule.max)) ? null : Number(rule.max),
     })).filter(rule => metricNames.has(rule.metric) && (rule.min != null || rule.max != null));
+    const playerRequirements = (Array.isArray(source.playerRequirements) ? source.playerRequirements : []).map(requirement => ({
+      count: Math.max(1, Math.min(15, Number.parseInt(requirement?.count, 10) || 1)),
+      role: ['SQUAD', 'STARTER', 'BENCH'].includes(requirement?.role) ? requirement.role : 'SQUAD',
+      positions: [...new Set((Array.isArray(requirement?.positions) ? requirement.positions : []).map(String).map(position => position.toUpperCase()).filter(position => validPositions.has(position)))],
+      teams: [...new Set((Array.isArray(requirement?.teams) ? requirement.teams : []).map(String).map(team => team.toUpperCase()).filter(team => validTeams.has(team)))],
+      priceMin: requirement?.priceMin == null || !Number.isFinite(Number(requirement.priceMin)) ? null : Math.max(3, Math.min(20, Number(requirement.priceMin))),
+      priceMax: requirement?.priceMax == null || !Number.isFinite(Number(requirement.priceMax)) ? null : Math.max(3, Math.min(20, Number(requirement.priceMax))),
+      metricRules: (Array.isArray(requirement?.metricRules) ? requirement.metricRules : []).map(rule => ({
+        metric: String(rule?.metric || ''),
+        min: rule?.min == null || !Number.isFinite(Number(rule.min)) ? null : Number(rule.min),
+        max: rule?.max == null || !Number.isFinite(Number(rule.max)) ? null : Number(rule.max),
+      })).filter(rule => metricNames.has(rule.metric) && (rule.min != null || rule.max != null)),
+      sortBy: ['xPts', 'xG', 'xA', 'xGI', 'xMins', 'ownership', 'form', 'price', 'value'].includes(requirement?.sortBy) ? requirement.sortBy : 'xPts',
+    })).slice(0, 15);
     const ambiguities = (Array.isArray(parsed.ambiguities) ? parsed.ambiguities : []).map(item => ({
       name: String(item?.name || '').slice(0, 100),
       players: validIds(item?.playerIds).map(id => ({ id, name: players.find(player => player.id === id).fullName || players.find(player => player.id === id).name, team: players.find(player => player.id === id).team, position: players.find(player => player.id === id).position })),
@@ -719,6 +760,8 @@ ${JSON.stringify(players)}`;
         playerPriceMax: cleanMap(source.playerPriceMax, new Set(players.map(player => String(player.id))), 3, 20),
         playerPriceMin: cleanMap(source.playerPriceMin, new Set(players.map(player => String(player.id))), 3, 20),
         metricRules,
+        playerRequirements,
+        optimizationMetric: ['xPts', 'xG', 'xA', 'xGI', 'xMins', 'form', 'value'].includes(source.optimizationMetric) ? source.optimizationMetric : 'xPts',
         formation,
         horizon: Number.isInteger(Number(source.horizon)) && Number(source.horizon) >= 1 && Number(source.horizon) <= 8 ? Number(source.horizon) : null,
         budget: Number.isFinite(Number(source.budget)) && Number(source.budget) >= 50 && Number(source.budget) <= 100 ? Number(source.budget) : null,
