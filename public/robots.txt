@@ -4,10 +4,30 @@
 User-agent: *
 Allow: /
 
-# API endpoints - no need to crawl
-Disallow: /api/
+# Allow AI Search Chatbot Crawlers (ChatGPT, Perplexity, Claude, Gemini, Bing)
+User-agent: GPTBot
+Allow: /
 
-# Static assets - not needed for indexing
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+# API endpoints & internal scripts - no direct crawling needed
+Disallow: /api/
 Disallow: /sw.js
 
 Sitemap: https://fplmanagerstats.vercel.app/sitemap.xml

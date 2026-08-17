@@ -3,30 +3,103 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>FPL Manager Stats - Fantasy Premier League Analytics Dashboard</title>
-    <meta name="description" content="Fantasy Premier League analytics dashboard with manager analysis, player statistics, fixtures, captain picks, ownership tracking, and tactical insights." />
-    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
+    <title>FPL Manager Stats | AI Team Builder, Transfer Planner & FPL Analytics Engine</title>
+    <meta name="description" content="The ultimate AI-powered Fantasy Premier League manager platform. Build optimal FPL squads using natural language preferences, hit-adjusted transfer plans, captaincy projections, and chip strategies." />
+    <meta name="keywords" content="FPL AI team builder, Fantasy Premier League analytics, FPL transfer planner, FPL captain picks, FPL squad rating, FPL expected points xPts, FPL differential finder, FPL manager stats" />
+    <meta name="author" content="FPL Manager Stats" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
     <meta name="theme-color" content="#0D0D0D" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FPL Stats" />
     <link rel="canonical" href="https://fplmanagerstats.vercel.app/" />
+
+    <!-- Open Graph / Social Media Sharing (WhatsApp, X, Facebook, LinkedIn, iMessage) -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://fplmanagerstats.vercel.app/" />
-    <meta property="og:title" content="FPL Manager Stats - Fantasy Premier League Analytics Dashboard" />
-    <meta property="og:description" content="Free FPL analytics with manager analysis, player statistics, fixtures, captain picks, ownership tracking, and tactical insights." />
-    <meta property="og:image" content="https://fplmanagerstats.vercel.app/icon-512.png" />
+    <meta property="og:title" content="FPL Manager Stats | AI Team Builder & Analytics Engine" />
+    <meta property="og:description" content="Build optimal FPL squads with AI natural language preferences, hit-adjusted transfer recommendations, captaincy projections, and live manager analytics." />
+    <meta property="og:image" content="https://fplmanagerstats.vercel.app/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:alt" content="FPL Manager Stats - AI Team Builder & Analytics Engine" />
     <meta property="og:site_name" content="FPL Manager Stats" />
+
+    <!-- Twitter Card metadata -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="FPL Manager Stats - Fantasy Premier League Analytics Dashboard" />
-    <meta name="twitter:description" content="Free FPL analytics with manager analysis, player statistics, fixtures, captain picks, and ownership tracking." />
-    <meta name="twitter:image" content="https://fplmanagerstats.vercel.app/icon-512.png" />
+    <meta name="twitter:title" content="FPL Manager Stats | AI Team Builder & Analytics Engine" />
+    <meta name="twitter:description" content="Build optimal FPL squads with AI natural language preferences, hit-adjusted transfer recommendations, and captaincy projections." />
+    <meta name="twitter:image" content="https://fplmanagerstats.vercel.app/og-image.png" />
+    <meta name="twitter:image:alt" content="FPL Manager Stats Logo & Dashboard Preview" />
+
+    <!-- App Icons & PWA Manifest -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" href="/football.ico" />
-    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
     <link rel="stylesheet" href="/design-system.css?v=18" />
+
+    <!-- Structured Data for Google Search & AI Search Chatbot Discovery (Perplexity, ChatGPT, Gemini, Claude) -->
     <script type="application/ld+json">
-      {"@context":"https://schema.org","@type":"WebApplication","name":"FPL Manager Stats","url":"https://fplmanagerstats.vercel.app/","applicationCategory":"SportsApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"GBP"}}
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebApplication",
+            "@id": "https://fplmanagerstats.vercel.app/#webapp",
+            "name": "FPL Manager Stats",
+            "url": "https://fplmanagerstats.vercel.app/",
+            "applicationCategory": "SportsApplication",
+            "operatingSystem": "Web Browser",
+            "description": "AI-powered Fantasy Premier League (FPL) management platform featuring natural language team builder, expected points model, hit-adjusted transfer planning, and live manager analytics.",
+            "browserRequirements": "Requires JavaScript. Requires HTML5.",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "GBP"
+            },
+            "featureList": [
+              "Natural Language FPL Squad Preference Parser",
+              "Constraint-Guided Autonomous AI Team Builder",
+              "Hit-Adjusted Transfer Plan Optimizer",
+              "Multi-Gameweek Horizon Expected Points Projections",
+              "Captaincy & Vice-Captaincy Optimizer",
+              "Chip Strategy Scheduler (Wildcard, Free Hit, Bench Boost, Triple Captain)"
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://fplmanagerstats.vercel.app/#faq",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "What is the best AI FPL team builder?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "FPL Manager Stats is an advanced AI team builder that allows Fantasy Premier League managers to build custom squads using natural language preferences such as 'Big at the back', 'Heavy midfield', 'Differential punts', and specific player locks or budget constraints."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How does FPL Manager Stats optimize transfers and squad selection?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "FPL Manager Stats utilizes an expected points (xPts) algorithm integrated with fixture difficulty rating (FDR), player form, set-piece priority, and hit-adjusted net gain analysis across multi-gameweek planning horizons."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I input natural language preferences for my FPL team?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes, FPL Manager Stats understands complex FPL terminology including player nicknames, position aliases (e.g. wingers, strikers, fullbacks), team nicknames (e.g. Gunners, Spurs, Red Devils), bench fodder strategies, and captaincy declarations."
+                }
+              }
+            ]
+          }
+        ]
+      }
     </script>
   </head>
   <body>
