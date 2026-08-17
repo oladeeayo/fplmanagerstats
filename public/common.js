@@ -34,6 +34,7 @@ const FPL = {
             captainId: null,
             query: '',
             position: 'all',
+            club: 'all',
             sort: 'xpts',
             importMatches: [],
             importView: 'pitch',
@@ -642,6 +643,7 @@ const FPL = {
         const builder = this.state.teamBuilder;
         builder.query = document.getElementById('tb-player-search')?.value.trim().toLowerCase() || '';
         builder.position = document.getElementById('tb-position-filter')?.value || 'all';
+        builder.club = document.getElementById('tb-club-filter')?.value || 'all';
         builder.sort = document.getElementById('tb-sort')?.value || 'xpts';
         this.paintTeamBuilderMarket();
     },
@@ -1376,7 +1378,13 @@ const FPL = {
         const builder = this.state.teamBuilder;
         const selected = new Set(builder.selectedIds);
         const query = builder.query;
-        let players = builder.players.filter(player => (builder.position === 'all' || player.position === builder.position) && (!query || player.name.toLowerCase().includes(query) || player.team.toLowerCase().includes(query)));
+        const clubSelect = document.getElementById('tb-club-filter');
+        if (clubSelect) {
+            const clubs = [...new Set(builder.players.map(player => player.team).filter(Boolean))].sort();
+            clubSelect.innerHTML = '<option value="all">All clubs</option>' + clubs.map(club => `<option value="${this.escapeHTML(club)}">${this.escapeHTML(club)}</option>`).join('');
+            clubSelect.value = clubs.includes(builder.club) ? builder.club : 'all';
+        }
+        let players = builder.players.filter(player => (builder.position === 'all' || player.position === builder.position) && (builder.club === 'all' || player.team === builder.club) && (!query || player.name.toLowerCase().includes(query) || player.team.toLowerCase().includes(query)));
         const sorters = {
             xpts: (a, b) => this.teamBuilderXPts(b) - this.teamBuilderXPts(a),
             value: (a, b) => this.teamBuilderXPts(b) / b.costValue - this.teamBuilderXPts(a) / a.costValue,
