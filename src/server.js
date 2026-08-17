@@ -681,6 +681,7 @@ Understand these patterns and analogous wording in any language:
 - "three Arsenal, no Spurs, max one Liverpool" => team minimum, exclusion, and maximum.
 - "safe template team" => sensible ownership and xMins requirements; "low owned differential team" => ownership caps; "aggressive punts" => favor xG/xGI with a lower ownership cap.
 - "penalty takers" or "set-piece takers" can only be honored when catalog evidence supports it; otherwise put that part in unclear rather than guessing.
+- Set prioritizeSetPieces=true when the user asks to prioritize penalty or set-piece takers. Set starterMinScore=55 for likely/nailed starters and 75 only when the user explicitly requires nailed certainty.
 Put unsupported or genuinely unclear requests in unclear. Keep understood labels short and in the user's language. Do not invent constraints from general praise.
 
 USER PREFERENCE:
@@ -702,7 +703,7 @@ ${JSON.stringify(players)}`;
             properties: {
               constraints: {
                 type: 'OBJECT',
-                required: ['mustInclude', 'mustExclude', 'benchIds', 'starterIds', 'teamIncludeMin', 'teamIncludeMax', 'teamExclude', 'priceMax', 'priceMin', 'playerPriceMax', 'playerPriceMin', 'metricRules', 'playerRequirements', 'optimizationMetric', 'formation', 'horizon', 'budget', 'captainId', 'avoidInjured'],
+                required: ['mustInclude', 'mustExclude', 'benchIds', 'starterIds', 'teamIncludeMin', 'teamIncludeMax', 'teamExclude', 'priceMax', 'priceMin', 'playerPriceMax', 'playerPriceMin', 'metricRules', 'playerRequirements', 'optimizationMetric', 'prioritizeSetPieces', 'starterMinScore', 'formation', 'horizon', 'budget', 'captainId', 'avoidInjured'],
                 properties: {
                   mustInclude: { type: 'ARRAY', items: { type: 'INTEGER' } },
                   mustExclude: { type: 'ARRAY', items: { type: 'INTEGER' } },
@@ -732,6 +733,8 @@ ${JSON.stringify(players)}`;
                     sortBy: { type: 'STRING', enum: ['xPts', 'xG', 'xA', 'xGI', 'xMins', 'ownership', 'form', 'price', 'value'] },
                   } } },
                   optimizationMetric: { type: 'STRING', enum: ['xPts', 'xG', 'xA', 'xGI', 'xMins', 'form', 'value'] },
+                  prioritizeSetPieces: { type: 'BOOLEAN' },
+                  starterMinScore: { type: 'INTEGER', nullable: true },
                   formation: { type: 'ARRAY', nullable: true, items: { type: 'INTEGER' } },
                   horizon: { type: 'INTEGER', nullable: true },
                   budget: { type: 'NUMBER', nullable: true },
@@ -816,6 +819,8 @@ ${JSON.stringify(players)}`;
         metricRules,
         playerRequirements,
         optimizationMetric: ['xPts', 'xG', 'xA', 'xGI', 'xMins', 'form', 'value'].includes(source.optimizationMetric) ? source.optimizationMetric : 'xPts',
+        prioritizeSetPieces: source.prioritizeSetPieces === true,
+        starterMinScore: [55, 75].includes(Number(source.starterMinScore)) ? Number(source.starterMinScore) : null,
         formation,
         horizon: Number.isInteger(Number(source.horizon)) && Number(source.horizon) >= 1 && Number(source.horizon) <= 8 ? Number(source.horizon) : null,
         budget: Number.isFinite(Number(source.budget)) && Number(source.budget) >= 50 && Number(source.budget) <= 100 ? Number(source.budget) : null,
@@ -3527,6 +3532,9 @@ app.get('/api/xpts-projections', async (req, res) => {
     const teams = bs.teams;
     const currentGW = bs.events.find(e => e.is_next)?.id || bs.events.find(e => e.is_current)?.id || 1;
     const getTeam = id => teams.find(t => t.id === id);
+    const teamStrengthRanks = new Map([...teams]
+      .sort((a, b) => (Number(b.strength_overall_home || 0) + Number(b.strength_overall_away || 0)) - (Number(a.strength_overall_home || 0) + Number(a.strength_overall_away || 0)))
+      .map((team, index) => [team.id, index + 1]));
 
     // Route through the shared captaincy projection engine so the team builder uses
     // the same starter-aware xPts model as the decision centre and AI team.
@@ -3568,6 +3576,8 @@ app.get('/api/xpts-projections', async (req, res) => {
         starterScore: p.starterScore,
         starterTier: p.starterTier,
         isStarter: p.isStarter,
+        roles: p.roles || [],
+        teamStrengthRank: teamStrengthRanks.get(p.teamId) || 20,
       };
     }).sort((a, b) => b.totalXpts - a.totalXpts);
 

@@ -160,6 +160,26 @@ assert.equal(VALID_FORMATIONS.length, 7);
     assert.equal(parsed.constraints.avoidInjured, true);
 }
 
+// Optimization and evidence-led set-piece language is understood locally
+{
+    const parsed = parseTeamPreferences('Maximize xG over 5 GWs. Prioritize penalty and set-piece takers where the data supports it.', { players });
+    assert.equal(parsed.constraints.optimizationMetric, 'xG');
+    assert.equal(parsed.constraints.horizon, 5);
+    assert.equal(parsed.constraints.prioritizeSetPieces, true);
+    assert.deepEqual(parsed.unclear, []);
+}
+
+// Differential and starter-security language produces enforceable constraints
+{
+    const parsed = parseTeamPreferences('Build a low-owned differential team with one forward under 8m, nailed starters, and no injured players.', { players });
+    assert.equal(parsed.constraints.playerRequirements[0].positions[0], 'FWD');
+    assert.equal(parsed.constraints.playerRequirements[0].priceMax, 8);
+    assert.deepEqual(parsed.constraints.metricRules.find(rule => rule.metric === 'ownership'), { metric: 'ownership', positions: [], min: null, max: 15 });
+    assert.equal(parsed.constraints.starterMinScore, 55);
+    assert.equal(parsed.constraints.avoidInjured, true);
+    assert.deepEqual(parsed.unclear, []);
+}
+
 // Captain-only clause ("make Palmer captain")
 {
     const parsed = parseTeamPreferences('Make Palmer captain', { players });

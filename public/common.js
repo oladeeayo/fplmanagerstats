@@ -949,6 +949,8 @@ const FPL = {
             : formations;
 
         const pool = builder.players.filter(player => (player.nextFixtures || []).some(fixture => builder.selectedGWs.includes(fixture.gw)) && this.preferenceAllowsPlayer(player, constraints));
+        const reliableTopTenKeepers = pool.filter(player => player.position === 'GKP' && player.teamStrengthRank <= 10 && Number(player.starterScore || 0) >= 55);
+        if (!reliableTopTenKeepers.length) return { ids: [], starters: [], formation: null };
         const requirementIds = [];
         const requirementBenchIds = [];
         const requirementStarterIds = [];
@@ -992,8 +994,14 @@ const FPL = {
             const teamBoost = (constraints.teamIncludeMin || {})[player.team] ? 1.12 : 1;
             const metric = constraints.optimizationMetric || 'xPts';
             const primary = metric === 'value' ? value : this.teamBuilderMetric(player, metric);
-            return ((primary * 100 + xpts + value * 0.02 + (starter - 50) * 0.0004) * teamBoost * jitter);
+            const setPieceBoost = constraints.prioritizeSetPieces && (player.roles || []).some(role => /penalt|free.?kick|corner|set.?piece/i.test(role)) ? 12 : 0;
+            const startingKeeperBoost = player.position === 'GKP' && player.teamStrengthRank <= 10 && starter >= 55 ? 10000 : 0;
+            return ((primary * 100 + startingKeeperBoost + xpts + setPieceBoost + value * 0.02 + (starter - 50) * 0.0004) * teamBoost * jitter);
         };
+        if (!mustInclude.some(id => reliableTopTenKeepers.some(player => player.id === id))) {
+            const bestStartingKeeper = [...reliableTopTenKeepers].sort((a, b) => score(b) - score(a))[0];
+            mustInclude.push(bestStartingKeeper.id);
+        }
 
         const bestResult = { score: -Infinity, ids: [], starters: [], formation: null, benchIds: constraints.benchIds || [], starterIds: constraints.starterIds || [] };
         for (const formation of candidateShapes) {
@@ -1026,6 +1034,7 @@ const FPL = {
             if (rule.max != null && value > rule.max) return false;
         }
         if (constraints.avoidInjured && player.status && player.status !== 'a') return false;
+        if (constraints.starterMinScore != null && player.position !== 'GKP' && Number(player.starterScore || 0) < constraints.starterMinScore) return false;
         return true;
     },
 
@@ -1124,8 +1133,10 @@ const FPL = {
             .map(id => pool.find(player => player.id === id))
             .filter(player => player.position === pos)
             .sort((a, b) => priority(b) - priority(a) || this.teamBuilderXPts(b) - this.teamBuilderXPts(a));
+        const goalkeepers = byPosition('GKP');
+        const preferredGoalkeeper = goalkeepers.find(player => player.teamStrengthRank <= 10 && Number(player.starterScore || 0) >= 55) || goalkeepers[0];
         const starters = [
-            byPosition('GKP')[0],
+            preferredGoalkeeper,
             ...byPosition('DEF').slice(0, starterCounts.DEF),
             ...byPosition('MID').slice(0, starterCounts.MID),
             ...byPosition('FWD').slice(0, starterCounts.FWD),
@@ -1658,7 +1669,10 @@ const FPL = {
         const starterIds = new Set(preferences.starterIds || []);
         const priority = player => starterIds.has(player.id) ? 2 : benchIds.has(player.id) ? 0 : 1;
         const byPosition = position => squad.filter(player => player.position === position).sort((a, b) => priority(b) - priority(a) || score(b) - score(a));
-        const groups = { GKP: byPosition('GKP'), DEF: byPosition('DEF'), MID: byPosition('MID'), FWD: byPosition('FWD') };
+        const keepers = byPosition('GKP');
+        const preferredKeeper = keepers.find(player => player.teamStrengthRank <= 10 && Number(player.starterScore || 0) >= 55);
+        if (preferredKeeper) keepers.sort((a, b) => (b.id === preferredKeeper.id) - (a.id === preferredKeeper.id));
+        const groups = { GKP: keepers, DEF: byPosition('DEF'), MID: byPosition('MID'), FWD: byPosition('FWD') };
         if (groups.GKP.length < 1 || groups.DEF.length < 3 || groups.MID.length < 2 || groups.FWD.length < 1 || squad.length < 11) return [];
         const formations = [[3, 4, 3], [3, 5, 2], [4, 3, 3], [4, 4, 2], [4, 5, 1], [5, 3, 2], [5, 4, 1]];
         // Prefer the formation the user auto-filled (or explicitly asked for) when the

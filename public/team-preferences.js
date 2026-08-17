@@ -155,6 +155,8 @@
             metricRules: [],
             playerRequirements: [],
             optimizationMetric: 'xPts',
+            prioritizeSetPieces: false,
+            starterMinScore: null,
             budget: null,         // 100
             captainId: null,
             avoidInjured: false,
@@ -285,6 +287,39 @@
                 }
             }
 
+            const optimizationMatch = cursor.match(/(?:maximi[sz]e|optimi[sz]e|prioriti[sz]e|focus on|best|most)\s+(xg|expected goals|xa|expected assists|xgi|expected goal involvements|xpts|expected points|value)(?:\s+(?:in|over|across|for)\s+(?:the\s+)?(?:next\s+)?(\d+)\s*(?:gws?|gameweeks?|weeks?))?/i);
+            if (optimizationMatch) {
+                const metric = normalize(optimizationMatch[1]);
+                constraints.optimizationMetric = metric === 'xg' || metric === 'expected goals' ? 'xG'
+                    : metric === 'xa' || metric === 'expected assists' ? 'xA'
+                    : metric === 'xgi' || metric === 'expected goal involvements' ? 'xGI'
+                    : metric === 'value' ? 'value' : 'xPts';
+                if (optimizationMatch[2]) constraints.horizon = Math.max(1, Math.min(8, Number(optimizationMatch[2])));
+                markUnderstood(`Maximize ${constraints.optimizationMetric}${constraints.horizon ? ` over ${constraints.horizon} GWs` : ''}`);
+                cursor = cursor.replace(optimizationMatch[0], ' ');
+            }
+
+            const setPieceMatch = cursor.match(/(?:prioriti[sz]e|prefer|favor|favour)?\s*(?:penalty(?:\s+takers?)?(?:\s+and|\s*\/|,)?\s*)?(?:set[ -]?piece(?:\s+takers?)?|dead[ -]?ball(?:\s+takers?)?)(?:\s+where\s+(?:the\s+)?data\s+supports\s+it)?/i);
+            if (setPieceMatch) {
+                constraints.prioritizeSetPieces = true;
+                markUnderstood('Prioritize penalty and set-piece takers');
+                cursor = cursor.replace(setPieceMatch[0], ' ');
+            }
+
+            const differentialMatch = cursor.match(/(?:low[ -]?owned\s+)?differential(?:s|\s+team)?|low[ -]?ownership\s+(?:team|squad|players?)/i);
+            if (differentialMatch) {
+                if (!constraints.metricRules.some(rule => rule.metric === 'ownership')) constraints.metricRules.push({ metric: 'ownership', positions: [], min: null, max: 15 });
+                markUnderstood('Low-owned differential squad (max 15% ownership)');
+                cursor = cursor.replace(differentialMatch[0], ' ');
+            }
+
+            const nailedMatch = cursor.match(/(?:nailed|secure|guaranteed|regular)\s+(?:starters?|starting players?|starting xi|first[ -]?choice players?)/i);
+            if (nailedMatch) {
+                constraints.starterMinScore = 55;
+                markUnderstood('Likely or nailed starters');
+                cursor = cursor.replace(nailedMatch[0], ' ');
+            }
+
             // 3) Team mentions
             for (const [alias, code] of TEAM_ALIASES) {
                 const idx = cursor.toLowerCase().indexOf(alias);
@@ -407,7 +442,7 @@
             cursor = cursor.replace(/\s+/g, ' ').trim();
 
             // 9) Whatever meaningful text remains is unclear
-            const leftovers = cursor.replace(/\b(and|also|please|team|squad|players?|want|need|must|build|make|let's|lets|i|i'd|id like|would|like|to|for|with|of|my|the|a|an)\b/g, ' ').replace(/\s+/g, ' ').trim();
+            const leftovers = cursor.replace(/\b(and|also|please|team|squad|players?|want|need|must|build|make|give|let's|lets|i|i'd|id like|would|like|to|for|with|of|my|the|a|an|where|data|supports|it)\b/gi, ' ').replace(/[,/&]+/g, ' ').replace(/\s+/g, ' ').trim();
             if (leftovers && !/^[£$&,.\- ]*$/.test(leftovers)) {
                 unclear.push(leftovers.length > 120 ? leftovers.slice(0, 120) + '…' : leftovers);
             }
