@@ -57,7 +57,7 @@
         ['wolverhampton', 'WOL'], ['wolves', 'WOL'], ['wanderers', 'WOL'],
     ].sort((a, b) => b[0].length - a[0].length);
 
-    const NEGATIVES = ['no', 'not', 'avoid', 'avoids', 'avoided', 'avoiding', 'without', 'don\'t', 'dont', 'do not', 'exclude', 'excludes', 'excluded', 'excluding', 'remove', 'removes', 'removed', 'removing', 'minus', 'drop', 'drops', 'dropped', 'dropping', 'never', 'keep out', 'kept out', 'stay away', 'steer clear'];
+    const NEGATIVES = ['no', 'not', 'avoid', 'avoids', 'avoided', 'avoiding', 'without', 'don\'t', 'dont', 'do not', 'exclude', 'excludes', 'excluded', 'excluding', 'remove', 'removes', 'removed', 'removing', 'minus', 'drop', 'drops', 'dropped', 'dropping', 'forfeit', 'forgo', 'sacrifice', 'sell', 'release', 'replace', 'never', 'keep out', 'kept out', 'stay away', 'steer clear'];
     const POSITIVES = ['want', 'wants', 'wanted', 'wanting', 'must', 'need', 'needs', 'needed', 'include', 'includes', 'included', 'including', 'have', 'has', 'add', 'adds', 'added', 'adding', 'start', 'starts', 'started', 'starting', 'pick', 'picks', 'picked', 'picking', 'keep', 'keeps', 'kept', 'definitely', 'please', 'get', 'gets', 'got', 'with', 'and', 'plus', 'prefer', 'prefers', 'preferred', 'preferring', 'like', 'likes', 'liked'];
 
     const COUNT_WORDS = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, 'a couple of': 2, 'a few': 2, both: 2 };
@@ -70,15 +70,10 @@
     ];
 
     function parseFormation(text) {
-        const dash = String(text).replace(/[^0-9-]/g, '').match(/^(\d)-(\d)-(\d)$/);
-        if (dash) {
-            const f = [Number(dash[1]), Number(dash[2]), Number(dash[3])];
-            return VALID_FORMATIONS.some(s => s[0] === f[0] && s[1] === f[1] && s[2] === f[2]) ? f : null;
-        }
-        const compact = String(text).replace(/[^0-9]/g, '').match(/^(\d)(\d)(\d)$/);
-        if (compact) {
-            const f = [Number(compact[1]), Number(compact[2]), Number(compact[3])];
-            return VALID_FORMATIONS.some(s => s[0] === f[0] && s[1] === f[1] && s[2] === f[2]) ? f : null;
+        const candidates = [...String(text).matchAll(/\b(\d)\s*-\s*(\d)\s*-\s*(\d)\b|\b(\d)(\d)(\d)\b/g)];
+        for (const match of candidates) {
+            const f = match[1] ? [Number(match[1]), Number(match[2]), Number(match[3])] : [Number(match[4]), Number(match[5]), Number(match[6])];
+            if (VALID_FORMATIONS.some(s => s[0] === f[0] && s[1] === f[1] && s[2] === f[2])) return f;
         }
         return null;
     }
@@ -157,6 +152,8 @@
             optimizationMetric: 'xPts',
             prioritizeSetPieces: false,
             starterMinScore: null,
+            preferGoodFixtures: false,
+            balancedSquad: false,
             budget: null,         // 100
             captainId: null,
             avoidInjured: false,
@@ -185,7 +182,7 @@
             if (formation) {
                 constraints.formation = formation;
                 markUnderstood(`Formation ${formation.join('-')}`);
-                cursor = cursor.replace(/[0-9-]{3,7}/g, ' ').replace(/\s+/g, ' ').trim();
+                cursor = cursor.replace(/(?:i\s+want\s+|use\s+|play\s+|with\s+|starting\s+)?(?:a\s+)?(?:starting\s+)?formation\s*[0-9-]{3,7}|(?:play|use|start(?:ing)?(?:\s+formation)?|line up(?: in)?)\s*[0-9-]{3,7}|[0-9-]{3,7}/gi, ' ').replace(/\s+/g, ' ').trim();
             } else if (/(five|5) at the back/i.test(clause) || /(five|5)-at-the-back/i.test(clause)) {
                 constraints.formation = [5, 4, 1];
                 markUnderstood('Five at the back (5-4-1)');
@@ -320,6 +317,21 @@
                 cursor = cursor.replace(nailedMatch[0], ' ');
             }
 
+            const fixtureMatch = cursor.match(/(?:good|easy|strong|favourable|favorable|best)\s+(?:fixtures?|fdr)|(?:players?\s+)?with\s+(?:good|easy|favourable|favorable|low)\s+fdr|good\s+players?\s+with\s+good\s+fdr/i);
+            if (fixtureMatch) {
+                constraints.preferGoodFixtures = true;
+                markUnderstood('Prioritize players with good FDR');
+                cursor = cursor.replace(fixtureMatch[0], ' ');
+                cursor = cursor.replace(/\bgood\s+players?\b/gi, ' ');
+            }
+
+            const balanceMatch = cursor.match(/(?:a\s+)?(?:well[ -]?)?balanc(?:e|ed)\s+(?:team|squad)|spread\s+(?:the\s+)?budget|better\s+balance/i);
+            if (balanceMatch) {
+                constraints.balancedSquad = true;
+                markUnderstood('Build a balanced squad');
+                cursor = cursor.replace(balanceMatch[0], ' ');
+            }
+
             // 3) Team mentions
             for (const [alias, code] of TEAM_ALIASES) {
                 const idx = cursor.toLowerCase().indexOf(alias);
@@ -360,7 +372,7 @@
                     cursor = cursor.replace(budgetMatch[0], ' ');
                 }
             }
-            const bankMatch = cursor.match(/keep\s+(?:£|\$)?\s*(\d{1,2}(?:\.\d)?)\s*(?:m|million)?\s*in\s*(?:the\s*)?bank/i);
+            const bankMatch = cursor.match(/(?:keep|leave|with|save|reserve)?\s*(?:£|\$)?\s*(\d{1,2}(?:\.\d)?)\s*(?:m|million)?\s+(?:left\s+)?in\s*(?:the\s*)?bank/i);
             if (bankMatch) {
                 constraints.budget = Math.round((100 - Number(bankMatch[1])) * 10) / 10;
                 markUnderstood(`Keep £${bankMatch[1]}m in the bank (budget £${constraints.budget}m)`);
@@ -442,7 +454,7 @@
             cursor = cursor.replace(/\s+/g, ' ').trim();
 
             // 9) Whatever meaningful text remains is unclear
-            const leftovers = cursor.replace(/\b(and|also|please|team|squad|players?|want|need|must|build|make|give|let's|lets|i|i'd|id like|would|like|to|for|with|of|my|the|a|an|where|data|supports|it)\b/gi, ' ').replace(/[,/&]+/g, ' ').replace(/\s+/g, ' ').trim();
+            const leftovers = cursor.replace(/\b(and|also|please|team|squad|players?|want|need|must|build|make|give|have|forfeit|forgo|sacrifice|sell|release|replace|remove|exclude|drop|let's|lets|i|i'd|id like|would|like|to|for|with|of|my|the|a|an|where|data|supports|it)\b/gi, ' ').replace(/[,/&]+/g, ' ').replace(/\s+/g, ' ').trim();
             if (leftovers && !/^[£$&,.\- ]*$/.test(leftovers)) {
                 unclear.push(leftovers.length > 120 ? leftovers.slice(0, 120) + '…' : leftovers);
             }
@@ -468,6 +480,58 @@
         };
     }
 
+    function mergePreferenceParses(local, remote) {
+        if (!remote?.constraints) return local;
+        const localConstraints = local.constraints || {};
+        const remoteConstraints = remote.constraints || {};
+        const mergeMap = key => ({ ...(remoteConstraints[key] || {}), ...(localConstraints[key] || {}) });
+        const mergeArray = key => [...new Set([...(remoteConstraints[key] || []), ...(localConstraints[key] || [])])];
+        const localMetricRules = localConstraints.metricRules || [];
+        const remoteMetricRules = remoteConstraints.metricRules || [];
+        const metricRules = [...remoteMetricRules];
+        localMetricRules.forEach(rule => {
+            const index = metricRules.findIndex(item => item.metric === rule.metric && JSON.stringify(item.positions || []) === JSON.stringify(rule.positions || []));
+            if (index >= 0) metricRules[index] = rule;
+            else metricRules.push(rule);
+        });
+        const mustExclude = mergeArray('mustExclude');
+        const constraints = {
+            ...remoteConstraints,
+            ...localConstraints,
+            mustInclude: mergeArray('mustInclude').filter(id => !mustExclude.includes(id)),
+            mustExclude,
+            benchIds: mergeArray('benchIds').filter(id => !mustExclude.includes(id)),
+            starterIds: mergeArray('starterIds').filter(id => !mustExclude.includes(id)),
+            teamIncludeMin: mergeMap('teamIncludeMin'),
+            teamIncludeMax: mergeMap('teamIncludeMax'),
+            teamExclude: mergeArray('teamExclude'),
+            priceMax: mergeMap('priceMax'),
+            priceMin: mergeMap('priceMin'),
+            playerPriceMax: mergeMap('playerPriceMax'),
+            playerPriceMin: mergeMap('playerPriceMin'),
+            metricRules,
+            playerRequirements: [...(remoteConstraints.playerRequirements || []), ...(localConstraints.playerRequirements || [])],
+            formation: localConstraints.formation || remoteConstraints.formation || null,
+            horizon: localConstraints.horizon || remoteConstraints.horizon || null,
+            budget: localConstraints.budget ?? remoteConstraints.budget ?? null,
+            captainId: localConstraints.captainId || remoteConstraints.captainId || null,
+            optimizationMetric: localConstraints.optimizationMetric !== 'xPts' ? localConstraints.optimizationMetric : (remoteConstraints.optimizationMetric || 'xPts'),
+            prioritizeSetPieces: Boolean(localConstraints.prioritizeSetPieces || remoteConstraints.prioritizeSetPieces),
+            starterMinScore: localConstraints.starterMinScore ?? remoteConstraints.starterMinScore ?? null,
+            preferGoodFixtures: Boolean(localConstraints.preferGoodFixtures || remoteConstraints.preferGoodFixtures),
+            balancedSquad: Boolean(localConstraints.balancedSquad || remoteConstraints.balancedSquad),
+            avoidInjured: Boolean(localConstraints.avoidInjured || remoteConstraints.avoidInjured),
+        };
+        const understood = [...new Set([...(local.understood || []), ...(remote.understood || [])])];
+        return {
+            constraints,
+            understood,
+            unclear: local.unclear?.length === 0 ? [] : [...new Set(remote.unclear || local.unclear || [])],
+            ambiguities: [...(remote.ambiguities || []), ...(local.ambiguities || [])],
+            playerById: local.playerById,
+        };
+    }
+
     function escapeRegExp(value) {
         return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
@@ -476,6 +540,7 @@
         normalize,
         splitClauses,
         parseTeamPreferences,
+        mergePreferenceParses,
         parseFormation,
         teamCodeFromName,
         VALID_FORMATIONS,

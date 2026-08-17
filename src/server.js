@@ -660,7 +660,7 @@ app.post('/api/team-builder/preferences', heavyEndpointLimiter, async (req, res)
 
   const prompt = `Interpret a user's Fantasy Premier League team-building request into strict constraints. The request may be in any language. Understand idioms, slang, abbreviations, spelling mistakes, negation, and verb inflections.
 You are an FPL expert. Understand nailed players, minutes security, rotation, punts, differentials, premiums, enablers, fodder, bench, starting XI, captaincy, ownership, form, xPts, xG, xA, xGI, expected minutes/xMins, price, budget, money in the bank, clubs, positions, formations, and optimization over upcoming gameweeks.
-Add/include/want/keep/lock means include. Remove/exclude/avoid/drop/sell means exclude. "Bench X" means include X and put the ID in benchIds. "Start X" means include X and put the ID in starterIds.
+Add/include/want/keep/lock means include. Remove/exclude/avoid/drop/sell/forfeit/forgo/sacrifice means exclude. "Bench X" means include X and put the ID in benchIds. "Start X" means include X and put the ID in starterIds.
 Resolve players only against the supplied catalog. Never guess an ID. A named captain must also be in mustInclude.
 If a name can refer to multiple catalog players and the user did not disambiguate with a full name, club, or position, put every candidate in ambiguities and do not include or exclude any of them.
 Team values are the catalog's three-letter team codes. Positions are only GKP, DEF, MID, FWD. Prices and budget are in millions. Valid formations are 3-4-3, 3-5-2, 4-3-3, 4-4-2, 4-5-1, 5-3-2, 5-4-1.
@@ -682,6 +682,7 @@ Understand these patterns and analogous wording in any language:
 - "safe template team" => sensible ownership and xMins requirements; "low owned differential team" => ownership caps; "aggressive punts" => favor xG/xGI with a lower ownership cap.
 - "penalty takers" or "set-piece takers" can only be honored when catalog evidence supports it; otherwise put that part in unclear rather than guessing.
 - Set prioritizeSetPieces=true when the user asks to prioritize penalty or set-piece takers. Set starterMinScore=55 for likely/nailed starters and 75 only when the user explicitly requires nailed certainty.
+- Set preferGoodFixtures=true for good/easy/favourable fixtures or FDR. Set balancedSquad=true when the user asks to spread funds or build a balanced team.
 Put unsupported or genuinely unclear requests in unclear. Keep understood labels short and in the user's language. Do not invent constraints from general praise.
 
 USER PREFERENCE:
@@ -703,7 +704,7 @@ ${JSON.stringify(players)}`;
             properties: {
               constraints: {
                 type: 'OBJECT',
-                required: ['mustInclude', 'mustExclude', 'benchIds', 'starterIds', 'teamIncludeMin', 'teamIncludeMax', 'teamExclude', 'priceMax', 'priceMin', 'playerPriceMax', 'playerPriceMin', 'metricRules', 'playerRequirements', 'optimizationMetric', 'prioritizeSetPieces', 'starterMinScore', 'formation', 'horizon', 'budget', 'captainId', 'avoidInjured'],
+                required: ['mustInclude', 'mustExclude', 'benchIds', 'starterIds', 'teamIncludeMin', 'teamIncludeMax', 'teamExclude', 'priceMax', 'priceMin', 'playerPriceMax', 'playerPriceMin', 'metricRules', 'playerRequirements', 'optimizationMetric', 'prioritizeSetPieces', 'starterMinScore', 'preferGoodFixtures', 'balancedSquad', 'formation', 'horizon', 'budget', 'captainId', 'avoidInjured'],
                 properties: {
                   mustInclude: { type: 'ARRAY', items: { type: 'INTEGER' } },
                   mustExclude: { type: 'ARRAY', items: { type: 'INTEGER' } },
@@ -735,6 +736,8 @@ ${JSON.stringify(players)}`;
                   optimizationMetric: { type: 'STRING', enum: ['xPts', 'xG', 'xA', 'xGI', 'xMins', 'form', 'value'] },
                   prioritizeSetPieces: { type: 'BOOLEAN' },
                   starterMinScore: { type: 'INTEGER', nullable: true },
+                  preferGoodFixtures: { type: 'BOOLEAN' },
+                  balancedSquad: { type: 'BOOLEAN' },
                   formation: { type: 'ARRAY', nullable: true, items: { type: 'INTEGER' } },
                   horizon: { type: 'INTEGER', nullable: true },
                   budget: { type: 'NUMBER', nullable: true },
@@ -821,6 +824,8 @@ ${JSON.stringify(players)}`;
         optimizationMetric: ['xPts', 'xG', 'xA', 'xGI', 'xMins', 'form', 'value'].includes(source.optimizationMetric) ? source.optimizationMetric : 'xPts',
         prioritizeSetPieces: source.prioritizeSetPieces === true,
         starterMinScore: [55, 75].includes(Number(source.starterMinScore)) ? Number(source.starterMinScore) : null,
+        preferGoodFixtures: source.preferGoodFixtures === true,
+        balancedSquad: source.balancedSquad === true,
         formation,
         horizon: Number.isInteger(Number(source.horizon)) && Number(source.horizon) >= 1 && Number(source.horizon) <= 8 ? Number(source.horizon) : null,
         budget: Number.isFinite(Number(source.budget)) && Number(source.budget) >= 50 && Number(source.budget) <= 100 ? Number(source.budget) : null,

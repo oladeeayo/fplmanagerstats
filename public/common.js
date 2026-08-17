@@ -760,7 +760,8 @@ const FPL = {
                     ownership: Number(player.ownership || 0), form: Number(player.form || 0),
                 };
             });
-            parsed = await this.apiPost(this.API.teamBuilderPreferences, { text, players: playerCatalog });
+            const geminiParsed = await this.apiPost(this.API.teamBuilderPreferences, { text, players: playerCatalog });
+            parsed = window.FPLTeamPreferences.mergePreferenceParses(localParsed, geminiParsed);
         } catch (error) {
             console.warn('Gemini preference parsing unavailable; using local parser:', error.message);
         } finally {
@@ -995,8 +996,12 @@ const FPL = {
             const metric = constraints.optimizationMetric || 'xPts';
             const primary = metric === 'value' ? value : this.teamBuilderMetric(player, metric);
             const setPieceBoost = constraints.prioritizeSetPieces && (player.roles || []).some(role => /penalt|free.?kick|corner|set.?piece/i.test(role)) ? 12 : 0;
+            const fixtureBoost = constraints.preferGoodFixtures
+                ? (player.nextFixtures || []).filter(fixture => builder.selectedGWs.includes(fixture.gw)).reduce((sum, fixture) => sum + Math.max(0, 4 - Number(fixture.fdr || 3)), 0) * 18
+                : 0;
+            const balanceBoost = constraints.balancedSquad ? Math.max(0, 10 - player.costValue) * 2 : 0;
             const startingKeeperBoost = player.position === 'GKP' && player.teamStrengthRank <= 10 && starter >= 55 ? 10000 : 0;
-            return ((primary * 100 + startingKeeperBoost + xpts + setPieceBoost + value * 0.02 + (starter - 50) * 0.0004) * teamBoost * jitter);
+            return ((primary * 100 + startingKeeperBoost + fixtureBoost + setPieceBoost + balanceBoost + xpts + value * 0.02 + (starter - 50) * 0.0004) * teamBoost * jitter);
         };
         if (!mustInclude.some(id => reliableTopTenKeepers.some(player => player.id === id))) {
             const bestStartingKeeper = [...reliableTopTenKeepers].sort((a, b) => score(b) - score(a))[0];

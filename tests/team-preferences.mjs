@@ -6,6 +6,7 @@ const {
     normalize,
     splitClauses,
     parseTeamPreferences,
+    mergePreferenceParses,
     parseFormation,
     teamCodeFromName,
     VALID_FORMATIONS,
@@ -60,6 +61,47 @@ assert.equal(VALID_FORMATIONS.length, 7);
     assert.equal(parsed.constraints.captainId, 1);
     assert.deepEqual(parsed.constraints.formation, [3, 4, 3]);
     assert.ok(parsed.understood.some(u => u.includes('Include Haaland')));
+}
+
+// Natural exclusion language wins over the default positive name match
+{
+    const parsed = parseTeamPreferences('Forfeit Haaland to have a balanced squad', { players });
+    assert.deepEqual(parsed.constraints.mustInclude, []);
+    assert.deepEqual(parsed.constraints.mustExclude, [1]);
+    assert.equal(parsed.constraints.balancedSquad, true);
+    assert.deepEqual(parsed.unclear, []);
+}
+
+// Fixture-quality requests become a ranking preference
+{
+    const parsed = parseTeamPreferences('good players with good fdr', { players });
+    assert.equal(parsed.constraints.preferGoodFixtures, true);
+    assert.deepEqual(parsed.unclear, []);
+}
+
+// Formation wording and shorthand bank requests are consumed completely
+{
+    const formation = parseTeamPreferences('i want starting formation 4-3-3', { players });
+    assert.deepEqual(formation.constraints.formation, [4, 3, 3]);
+    assert.deepEqual(formation.unclear, []);
+    const bank = parseTeamPreferences('5-4-1 with 1m in bank', { players });
+    assert.deepEqual(bank.constraints.formation, [5, 4, 1]);
+    assert.equal(bank.constraints.budget, 99);
+    assert.deepEqual(bank.unclear, []);
+}
+
+// Gemini enriches local intent but cannot reverse explicit deterministic constraints
+{
+    const local = parseTeamPreferences('Forfeit Haaland to have a balanced squad', { players });
+    const remote = {
+        constraints: { ...local.constraints, mustInclude: [1], mustExclude: [], balancedSquad: false },
+        understood: ['Include Haaland'], unclear: ['Forfeit have balance'], ambiguities: [],
+    };
+    const merged = mergePreferenceParses(local, remote);
+    assert.deepEqual(merged.constraints.mustInclude, []);
+    assert.deepEqual(merged.constraints.mustExclude, [1]);
+    assert.equal(merged.constraints.balancedSquad, true);
+    assert.deepEqual(merged.unclear, []);
 }
 
 // Exclude a player, a team, and set a position price cap
