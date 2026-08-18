@@ -760,10 +760,16 @@
                                 Goals & Clean Sheet Odds
                             </button>
                         </div>
-                        <div id="fixture-odds-gw-selector" style="display:none;align-items:center;gap:6px;">
-                            <span style="font-family:var(--font-mono);font-size:11px;color:#b9cbb9;font-weight:700;">PROJECTION GW:</span>
-                            <select id="fixture-odds-gw-select" onchange="FPL.setFixtureOddsGW(this.value)" style="background-color:#202722;border:1px solid #34453b;border-radius:6px;padding:6px 12px;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#ffffff;cursor:pointer;outline:none;">
-                            </select>
+                        <div id="fixture-odds-gw-selector" style="display:none;align-items:center;gap:8px;background:#121824;padding:6px 14px;border-radius:10px;border:1px solid #1e2738;">
+                            <span style="font-family:var(--font-sans);font-size:12px;font-weight:700;color:#94a3b8;display:flex;align-items:center;gap:6px;">
+                                <span class="material-symbols-outlined" style="font-size:16px;color:#00FF85;">event</span>
+                                Gameweek:
+                            </span>
+                            <div style="position:relative;display:inline-flex;align-items:center;">
+                                <select id="fixture-odds-gw-select" onchange="FPL.setFixtureOddsGW(this.value)" style="background-color:#1a2233;border:1px solid #2e3c54;border-radius:8px;padding:6px 28px 6px 12px;font-family:var(--font-mono);font-size:13px;font-weight:800;color:#ffffff;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;min-width:90px;">
+                                </select>
+                                <span class="material-symbols-outlined" style="position:absolute;right:6px;pointer-events:none;font-size:18px;color:#00FF85;">unfold_more</span>
+                            </div>
                         </div>
                     </div>
 
@@ -1316,6 +1322,25 @@
             </div>
             <div class="dialog-body" id="player-detail-body" style="padding:0;"></div>
             <div class="dialog-footer"><button class="btn btn-outline" onclick="FPL.hideDialog('player-detail-dialog')">Close</button></div>
+        </div>
+    </div>
+
+    <!-- Fixture Projection Reasoning Dialog -->
+    <div id="projection-reasoning-dialog" class="dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="projection-reasoning-dialog-title" aria-hidden="true">
+        <div class="dialog dialog-wide" style="max-width:680px;">
+            <div class="dialog-header">
+                <h3 id="projection-reasoning-dialog-title" style="font-family:var(--font-display);font-weight:700;display:flex;align-items:center;gap:8px;">
+                    <span class="material-symbols-outlined" style="color:#00FF85;">analytics</span>
+                    Model Calculation & Reasoning
+                </h3>
+                <button class="btn btn-ghost btn-icon" type="button" aria-label="Close dialog" onclick="FPL.hideDialog('projection-reasoning-dialog')">
+                    <span class="material-symbols-outlined" aria-hidden="true">close</span>
+                </button>
+            </div>
+            <div class="dialog-body" id="projection-reasoning-body" style="padding:16px;"></div>
+            <div class="dialog-footer">
+                <button class="btn btn-outline" onclick="FPL.hideDialog('projection-reasoning-dialog')">Close</button>
+            </div>
         </div>
     </div>
 

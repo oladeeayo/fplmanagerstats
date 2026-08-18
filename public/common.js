@@ -3557,8 +3557,13 @@ const FPL = {
             return;
         }
 
+        this.state.lastFixtureProjectionsData = data;
+
         const goalsLeaderboard = data.teamsToTarget?.projectedGoals || [];
         const csLeaderboard = data.teamsToTarget?.cleanSheets || [];
+
+        const top3Goals = goalsLeaderboard.slice(0, 3);
+        const top3CS = csLeaderboard.slice(0, 3);
 
         let html = `
         <div class="solio-container">
@@ -3570,6 +3575,51 @@ const FPL = {
                         <span class="solio-gw-badge">GW${selectedGW}</span>
                     </h2>
                     <p class="solio-subtitle">Calculated for Gameweek ${selectedGW} · Updated ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}</p>
+                </div>
+            </div>
+
+            <!-- Top Rated Highlights Summary Banner -->
+            <div class="top-rated-highlights-container" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;margin-bottom:24px;">
+                <!-- Top Goals Teams -->
+                <div class="top-rated-card" style="background:#121824;border:1px solid #1e2738;border-radius:12px;padding:16px;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                        <span class="material-symbols-outlined" style="color:#1d72f3;font-size:20px;">sports_soccer</span>
+                        <span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:0.5px;">TOP PROJECTED GOAL SCORERS (GW${selectedGW})</span>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:8px;">
+                        ${top3Goals.map((t, idx) => `
+                            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#172030;border-radius:8px;border:1px solid #233047;">
+                                <div style="display:flex;align-items:center;gap:10px;">
+                                    <span style="font-family:var(--font-mono);font-weight:900;font-size:13px;color:${idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : '#CD7F32'};">#${idx+1}</span>
+                                    ${this.teamBadge(t.team, 20)}
+                                    <span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:#fff;">${this.escapeHTML(t.team)}</span>
+                                    <span style="font-family:var(--font-mono);font-size:11px;color:#64748b;">vs ${this.escapeHTML(t.opponent)}</span>
+                                </div>
+                                <span style="font-family:var(--font-mono);font-weight:900;font-size:14px;color:#90caf9;background:#113463;padding:4px 10px;border-radius:6px;">${(typeof t.goals === 'number' ? t.goals : parseFloat(t.goals) || 0).toFixed(2)} gls</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <!-- Top Clean Sheet Teams -->
+                <div class="top-rated-card" style="background:#121824;border:1px solid #1e2738;border-radius:12px;padding:16px;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                        <span class="material-symbols-outlined" style="color:#e65100;font-size:20px;">shield</span>
+                        <span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:0.5px;">HIGHEST CLEAN SHEET CHANCES (GW${selectedGW})</span>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:8px;">
+                        ${top3CS.map((t, idx) => `
+                            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#172030;border-radius:8px;border:1px solid #233047;">
+                                <div style="display:flex;align-items:center;gap:10px;">
+                                    <span style="font-family:var(--font-mono);font-weight:900;font-size:13px;color:${idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : '#CD7F32'};">#${idx+1}</span>
+                                    ${this.teamBadge(t.team, 20)}
+                                    <span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:#fff;">${this.escapeHTML(t.team)}</span>
+                                    <span style="font-family:var(--font-mono);font-size:11px;color:#64748b;">vs ${this.escapeHTML(t.opponent)}</span>
+                                </div>
+                                <span style="font-family:var(--font-mono);font-weight:900;font-size:14px;color:#ffcc80;background:#542205;padding:4px 10px;border-radius:6px;">${t.csPct}% CS</span>
+                            </div>
+                        `).join('')}
+                    </div>
                 </div>
             </div>
 
@@ -3604,8 +3654,13 @@ const FPL = {
                             const timeStr = this.formatSolioKickoff(m.kickoff);
 
                             return `
-                            <div class="solio-match-card">
-                                <div class="solio-match-time">${this.escapeHTML(timeStr)}</div>
+                            <div class="solio-match-card" onclick="FPL.showFixtureProjectionReasoning('${m.id}')" style="cursor:pointer;" title="Click for projection model calculation reasoning">
+                                <div class="solio-match-time" style="display:flex;align-items:center;justify-content:space-between;">
+                                    <span>${this.escapeHTML(timeStr)}</span>
+                                    <span style="font-size:10px;color:#00FF85;display:flex;align-items:center;gap:2px;">
+                                        <span class="material-symbols-outlined" style="font-size:12px;">info</span> Reason
+                                    </span>
+                                </div>
                                 <div class="solio-team-row">
                                     <div class="solio-team-info">
                                         ${this.teamBadge(m.homeTeam.shortName, 22)}
@@ -3766,6 +3821,115 @@ const FPL = {
         csList.forEach((item, index) => { item.rank = index + 1; });
 
         return { gw: selectedGW, matchProjections, teamsToTarget: { projectedGoals: goalsList, cleanSheets: csList } };
+    },
+
+    showFixtureProjectionReasoning(fixtureId) {
+        if (!this.state.lastFixtureProjectionsData) return;
+        const match = this.state.lastFixtureProjectionsData.matchProjections?.find(m => 
+            String(m.id) === String(fixtureId) ||
+            `${m.homeTeam?.shortName}_${m.awayTeam?.shortName}` === String(fixtureId) ||
+            `${m.homeTeam?.id}_${m.awayTeam?.id}` === String(fixtureId)
+        ) || this.state.lastFixtureProjectionsData.matchProjections?.[0];
+        if (!match) return;
+
+        const body = document.getElementById('projection-reasoning-body');
+        if (!body) return;
+
+        const h = match.homeTeam;
+        const a = match.awayTeam;
+
+        const hGoals = (typeof h.projectedGoals === 'number' ? h.projectedGoals : parseFloat(h.projectedGoals) || 0).toFixed(2);
+        const aGoals = (typeof a.projectedGoals === 'number' ? a.projectedGoals : parseFloat(a.projectedGoals) || 0).toFixed(2);
+
+        body.innerHTML = `
+            <div style="display:flex;flex-direction:column;gap:16px;color:#e2e8f0;font-family:var(--font-sans);">
+                <!-- Match Banner Header -->
+                <div style="background:#121824;border:1px solid #1e2738;border-radius:12px;padding:16px;display:flex;align-items:center;justify-content:space-around;text-align:center;">
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+                        ${this.teamBadge(h.shortName, 32)}
+                        <span style="font-family:var(--font-mono);font-weight:900;font-size:18px;color:#ffffff;">${this.escapeHTML(h.name)}</span>
+                        <span style="font-family:var(--font-mono);font-size:12px;color:#94a3b8;">Home</span>
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+                        <span style="font-family:var(--font-mono);font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;">VS</span>
+                        <span style="font-family:var(--font-mono);font-size:11px;color:#00FF85;background:rgba(0,255,133,0.1);padding:2px 8px;border-radius:4px;">GW ${match.gw || this.state.fixtureOddsGW}</span>
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+                        ${this.teamBadge(a.shortName, 32)}
+                        <span style="font-family:var(--font-mono);font-weight:900;font-size:18px;color:#ffffff;">${this.escapeHTML(a.name)}</span>
+                        <span style="font-family:var(--font-mono);font-size:12px;color:#94a3b8;">Away</span>
+                    </div>
+                </div>
+
+                <!-- Key Derived Metrics Cards -->
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:12px;">
+                    <!-- Home Team Metrics -->
+                    <div style="background:#172030;border:1px solid #233047;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #233047;padding-bottom:8px;">
+                            <span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:#00FF85;">${this.escapeHTML(h.shortName)}</span>
+                            <span style="font-family:var(--font-mono);font-size:11px;color:#94a3b8;">Home Projection</span>
+                        </div>
+                        <div style="display:flex;align-items:center;justify-content:space-between;">
+                            <span style="font-size:13px;color:#94a3b8;">Expected Goals (xG):</span>
+                            <span style="font-family:var(--font-mono);font-weight:900;font-size:15px;color:#1d72f3;">${hGoals} goals</span>
+                        </div>
+                        <div style="display:flex;align-items:center;justify-content:space-between;">
+                            <span style="font-size:13px;color:#94a3b8;">Clean Sheet Odds:</span>
+                            <span style="font-family:var(--font-mono);font-weight:900;font-size:15px;color:#e65100;">${h.cleanSheetPct}% CS</span>
+                        </div>
+                    </div>
+
+                    <!-- Away Team Metrics -->
+                    <div style="background:#172030;border:1px solid #233047;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #233047;padding-bottom:8px;">
+                            <span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:#00FF85;">${this.escapeHTML(a.shortName)}</span>
+                            <span style="font-family:var(--font-mono);font-size:11px;color:#94a3b8;">Away Projection</span>
+                        </div>
+                        <div style="display:flex;align-items:center;justify-content:space-between;">
+                            <span style="font-size:13px;color:#94a3b8;">Expected Goals (xG):</span>
+                            <span style="font-family:var(--font-mono);font-weight:900;font-size:15px;color:#1d72f3;">${aGoals} goals</span>
+                        </div>
+                        <div style="display:flex;align-items:center;justify-content:space-between;">
+                            <span style="font-size:13px;color:#94a3b8;">Clean Sheet Odds:</span>
+                            <span style="font-family:var(--font-mono);font-weight:900;font-size:15px;color:#e65100;">${a.cleanSheetPct}% CS</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Calculation Rationale & Step-by-Step Reasonings -->
+                <div style="background:#121824;border:1px solid #1e2738;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;">
+                    <h4 style="margin:0;font-family:var(--font-mono);font-size:13px;font-weight:800;color:#00FF85;letter-spacing:0.5px;">HOW THESE PROJECTIONS ARE ARRIVED AT:</h4>
+                    
+                    <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5;color:#cbd5e1;">
+                        <div style="display:flex;gap:10px;align-items:flex-start;">
+                            <span class="material-symbols-outlined" style="color:#1d72f3;font-size:18px;margin-top:2px;">show_chart</span>
+                            <div>
+                                <strong style="color:#ffffff;">1. Attack Rating vs Opponent Defensive Rating:</strong>
+                                <p style="margin:2px 0 0 0;color:#94a3b8;font-size:12px;">${this.escapeHTML(h.shortName)}'s goal projection (${hGoals}) is calculated by blending their attacking xG output per 90 against ${this.escapeHTML(a.shortName)}'s expected goals conceded (xGA per 90).</p>
+                            </div>
+                        </div>
+
+                        <div style="display:flex;gap:10px;align-items:flex-start;">
+                            <span class="material-symbols-outlined" style="color:#e65100;font-size:18px;margin-top:2px;">home</span>
+                            <div>
+                                <strong style="color:#ffffff;">2. Home Advantage & Fixture Difficulty (FDR):</strong>
+                                <p style="margin:2px 0 0 0;color:#94a3b8;font-size:12px;">Home advantage applies a +12% multiplier to ${this.escapeHTML(h.shortName)}'s expected goals and a -12% dampener to ${this.escapeHTML(a.shortName)}'s away performance. FDR fixture difficulty modifies the expectations according to defensive ratings.</p>
+                            </div>
+                        </div>
+
+                        <div style="display:flex;gap:10px;align-items:flex-start;">
+                            <span class="material-symbols-outlined" style="color:#00FF85;font-size:18px;margin-top:2px;">functions</span>
+                            <div>
+                                <strong style="color:#ffffff;">3. Dixon-Coles Poisson Clean Sheet Probability:</strong>
+                                <p style="margin:2px 0 0 0;color:#94a3b8;font-size:12px;">Clean sheet odds rely on Dixon-Coles Poisson probability P(0 goals conceded) = e^(&minus;&lambda;) adjusted for low-scoring draw frequencies. Because ${this.escapeHTML(a.shortName)} is projected to score ${aGoals} goals, ${this.escapeHTML(h.shortName)} holds a <strong>${h.cleanSheetPct}% Clean Sheet Chance</strong>.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        this.showDialog('projection-reasoning-dialog');
     },
 
     renderFixtureDifficulty(gwFixtures) {
