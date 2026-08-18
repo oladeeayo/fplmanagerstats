@@ -3744,7 +3744,7 @@ select option {
 /* Main Split Grid */
 .solio-grid-layout {
     display: grid;
-    grid-template-columns: 1.15fr 0.85fr;
+    grid-template-columns: 1fr 1fr;
     gap: 24px;
 }
 
@@ -3764,7 +3764,7 @@ select option {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 14px;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
     padding: 0 4px;
 }
 
@@ -3773,14 +3773,14 @@ select option {
     justify-content: flex-end;
     gap: 12px;
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 800;
-    color: #64748b;
+    color: #94a3b8;
     letter-spacing: 0.5px;
 }
 
 .solio-matches-header-col span {
-    width: 48px;
+    width: 52px;
     text-align: center;
 }
 
@@ -3802,11 +3802,11 @@ select option {
 .solio-match-card {
     background: #121824;
     border: 1px solid #1e2738;
-    border-radius: 8px;
-    padding: 10px 12px;
+    border-radius: 10px;
+    padding: 12px 14px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
     transition: border-color 0.2s, transform 0.2s;
 }
 
@@ -3817,20 +3817,21 @@ select option {
 
 .solio-match-time {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     color: #64748b;
     letter-spacing: 0.5px;
     border-bottom: 1px solid #1a2233;
     padding-bottom: 6px;
     margin-bottom: 2px;
+    text-align: center;
 }
 
 .solio-team-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: 10px;
 }
 
 .solio-team-info {
@@ -3852,14 +3853,14 @@ select option {
 .solio-metrics-wrap {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
 }
 
 .solio-badge {
-    min-width: 48px;
+    min-width: 52px;
     text-align: center;
-    padding: 4px 6px;
-    border-radius: 4px;
+    padding: 5px 8px;
+    border-radius: 6px;
     font-family: var(--font-mono);
     font-weight: 800;
     font-size: 13px;
@@ -3896,7 +3897,7 @@ select option {
 .solio-leaderboard-col {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
 }
 
 .solio-leaderboard-title {
@@ -3908,18 +3909,20 @@ select option {
     margin-bottom: 8px;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 4px;
+    text-align: center;
 }
 
 .solio-rank-row {
     background: #121824;
     border: 1px solid #1a2233;
-    border-radius: 4px;
-    padding: 4px 8px;
+    border-radius: 6px;
+    padding: 6px 10px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 6px;
+    gap: 10px;
     font-family: var(--font-mono);
 }
 
@@ -3927,35 +3930,35 @@ select option {
     display: flex;
     align-items: center;
     gap: 6px;
-    flex: 1;
-    min-width: 0;
+    width: 100px;
+    flex-shrink: 0;
 }
 
 .solio-rank-code {
     font-weight: 800;
-    font-size: 12px;
+    font-size: 13px;
     color: #ffffff;
 }
 
 .solio-rank-opp {
-    font-size: 10px;
+    font-size: 11px;
     color: #64748b;
     white-space: nowrap;
 }
 
-/* Progress Fill Bar */
+/* Dynamic Flexible Progress Fill Bar */
 .solio-bar-wrap {
     position: relative;
-    width: 64px;
-    height: 22px;
+    flex: 1;
+    min-width: 80px;
+    height: 24px;
     background: #151d2a;
-    border-radius: 3px;
+    border-radius: 4px;
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    padding-right: 6px;
-    flex-shrink: 0;
+    padding-right: 8px;
 }
 
 .solio-bar-fill-goals {
@@ -3964,7 +3967,7 @@ select option {
     top: 0;
     bottom: 0;
     background: linear-gradient(90deg, #1565c0, #1e88e5);
-    border-radius: 3px;
+    border-radius: 4px;
 }
 
 .solio-bar-fill-cs {
@@ -3973,7 +3976,7 @@ select option {
     top: 0;
     bottom: 0;
     background: linear-gradient(90deg, #d84315, #f57c00);
-    border-radius: 3px;
+    border-radius: 4px;
 }
 
 .solio-bar-text {
@@ -3982,6 +3985,7 @@ select option {
     font-weight: 800;
     font-size: 11px;
     color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
 }
 
 /* Footer */
@@ -3997,7 +4001,7 @@ select option {
 
 @media (max-width: 640px) {
     .solio-container {
-        padding: 12px;
+        padding: 14px;
         border-radius: 12px;
     }
     .solio-title {
@@ -4012,11 +4016,10 @@ select option {
         font-size: 11px;
     }
     .solio-rank-row {
-        padding: 4px 6px;
+        padding: 5px 8px;
     }
     .solio-bar-wrap {
-        width: 54px;
-        height: 20px;
+        height: 22px;
     }
     .solio-bar-text {
         font-size: 10px;

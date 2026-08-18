@@ -1097,23 +1097,28 @@ router.get('/team-projections', async (req, res) => {
       const homeMatches = Math.max(1, Math.max(...homePlayers.map(p => (p.minutes || 0) / 90), 1));
       const awayMatches = Math.max(1, Math.max(...awayPlayers.map(p => (p.minutes || 0) / 90), 1));
 
-      const homeAtk = homeXgSum > 0 ? (homeXgSum / homeMatches) : ((homeTeam.strength_attack_home || 1100) / 1000 * 1.35);
-      const awayAtk = awayXgSum > 0 ? (awayXgSum / awayMatches) : ((awayTeam.strength_attack_away || 1050) / 1000 * 1.20);
+      const homeAtk = homeXgSum > 0 ? (homeXgSum / homeMatches) : ((homeTeam.strength_attack_home || 1100) / 1000 * 1.30);
+      const awayAtk = awayXgSum > 0 ? (awayXgSum / awayMatches) : ((awayTeam.strength_attack_away || 1050) / 1000 * 1.18);
 
-      const homeDef = ((2000 - (homeTeam.strength_defence_home || 1100)) / 1000) * 1.30;
-      const awayDef = ((2000 - (awayTeam.strength_defence_away || 1050)) / 1000) * 1.35;
+      const homeDef = ((2000 - (homeTeam.strength_defence_home || 1100)) / 1000) * 1.25;
+      const awayDef = ((2000 - (awayTeam.strength_defence_away || 1050)) / 1000) * 1.30;
 
-      const homeFdrMod = 1 + (3 - fdrHome) * 0.12;
-      const awayFdrMod = 1 + (3 - fdrAway) * 0.12;
+      const homeFdrMod = 1 + (3 - fdrHome) * 0.10;
+      const awayFdrMod = 1 + (3 - fdrAway) * 0.10;
 
-      let homeGoals = Math.max(0.40, Math.min(3.20, (homeAtk * 0.55 + awayDef * 0.45) * 1.08 * homeFdrMod));
-      let awayGoals = Math.max(0.30, Math.min(2.80, (awayAtk * 0.55 + homeDef * 0.45) * 0.92 * awayFdrMod));
+      // Dixon-Coles Poisson expected goals calculation (Home advantage = 1.12 multiplier)
+      let homeGoals = Math.max(0.35, Math.min(3.40, (homeAtk * 0.50 + awayDef * 0.50) * 1.12 * homeFdrMod));
+      let awayGoals = Math.max(0.25, Math.min(3.00, (awayAtk * 0.50 + homeDef * 0.50) * 0.88 * awayFdrMod));
 
       homeGoals = Math.round(homeGoals * 100) / 100;
       awayGoals = Math.round(awayGoals * 100) / 100;
 
-      const homeCS = Math.min(85, Math.max(5, Math.round(Math.exp(-awayGoals) * 100)));
-      const awayCS = Math.min(85, Math.max(5, Math.round(Math.exp(-homeGoals) * 100)));
+      // Dixon-Coles low-score draw correction for clean sheet probability: P(CS) = e^-lambda * (1 + rho correction)
+      const rawHomeCS = Math.exp(-awayGoals) * (1 + 0.04 * Math.exp(-homeGoals));
+      const rawAwayCS = Math.exp(-homeGoals) * (1 + 0.04 * Math.exp(-awayGoals));
+
+      const homeCS = Math.min(88, Math.max(6, Math.round(rawHomeCS * 100)));
+      const awayCS = Math.min(88, Math.max(6, Math.round(rawAwayCS * 100)));
 
       return {
         id: f.id,

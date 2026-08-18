@@ -3724,23 +3724,26 @@ const FPL = {
             const homeMatches = Math.max(1, Math.max(...homePlayers.map(p => (p.minutes || 0) / 90), 1));
             const awayMatches = Math.max(1, Math.max(...awayPlayers.map(p => (p.minutes || 0) / 90), 1));
 
-            const homeAtk = homeXgSum > 0 ? (homeXgSum / homeMatches) : ((homeTeam.strength_attack_home || 1100) / 1000 * 1.35);
-            const awayAtk = awayXgSum > 0 ? (awayXgSum / awayMatches) : ((awayTeam.strength_attack_away || 1050) / 1000 * 1.20);
+            const homeAtk = homeXgSum > 0 ? (homeXgSum / homeMatches) : ((homeTeam.strength_attack_home || 1100) / 1000 * 1.30);
+            const awayAtk = awayXgSum > 0 ? (awayXgSum / awayMatches) : ((awayTeam.strength_attack_away || 1050) / 1000 * 1.18);
 
-            const homeDef = ((2000 - (homeTeam.strength_defence_home || 1100)) / 1000) * 1.30;
-            const awayDef = ((2000 - (awayTeam.strength_defence_away || 1050)) / 1000) * 1.35;
+            const homeDef = ((2000 - (homeTeam.strength_defence_home || 1100)) / 1000) * 1.25;
+            const awayDef = ((2000 - (awayTeam.strength_defence_away || 1050)) / 1000) * 1.30;
 
-            const homeFdrMod = 1 + (3 - fdrHome) * 0.12;
-            const awayFdrMod = 1 + (3 - fdrAway) * 0.12;
+            const homeFdrMod = 1 + (3 - fdrHome) * 0.10;
+            const awayFdrMod = 1 + (3 - fdrAway) * 0.10;
 
-            let homeGoals = Math.max(0.40, Math.min(3.20, (homeAtk * 0.55 + awayDef * 0.45) * 1.08 * homeFdrMod));
-            let awayGoals = Math.max(0.30, Math.min(2.80, (awayAtk * 0.55 + homeDef * 0.45) * 0.92 * awayFdrMod));
+            let homeGoals = Math.max(0.35, Math.min(3.40, (homeAtk * 0.50 + awayDef * 0.50) * 1.12 * homeFdrMod));
+            let awayGoals = Math.max(0.25, Math.min(3.00, (awayAtk * 0.50 + homeDef * 0.50) * 0.88 * awayFdrMod));
 
             homeGoals = Math.round(homeGoals * 100) / 100;
             awayGoals = Math.round(awayGoals * 100) / 100;
 
-            const homeCS = Math.min(85, Math.max(5, Math.round(Math.exp(-awayGoals) * 100)));
-            const awayCS = Math.min(85, Math.max(5, Math.round(Math.exp(-homeGoals) * 100)));
+            const rawHomeCS = Math.exp(-awayGoals) * (1 + 0.04 * Math.exp(-homeGoals));
+            const rawAwayCS = Math.exp(-homeGoals) * (1 + 0.04 * Math.exp(-awayGoals));
+
+            const homeCS = Math.min(88, Math.max(6, Math.round(rawHomeCS * 100)));
+            const awayCS = Math.min(88, Math.max(6, Math.round(rawAwayCS * 100)));
 
             return {
                 id: f.id, gw: selectedGW, dayStr: formatDay(f.kickoff_time),
@@ -5507,44 +5510,9 @@ const FPL = {
         }
     },
 
-    // ==================== BOTTOM NAV OVERFLOW ====================
     initBottomNavOverflow() {
-        if (document.querySelector('.bottom-nav-overflow')) return;
-        const nav = document.querySelector('.bottom-nav');
-        if (!nav) return;
-        nav.dataset.overflowBound = 'true';
-        const overflowTabs = [
-            { id: 'decision', icon: 'model_training', label: 'Decision' },
-            { id: 'league', icon: 'leaderboard', label: 'League' },
-            { id: 'zones', icon: 'sports', label: 'Tactics' },
-            { id: 'ownership', icon: 'pie_chart', label: 'Ownership' },
-            { id: 'setpieces', icon: 'sports_motorsports', label: 'Set Pieces' },
-            { id: 'aiteam', icon: 'smart_toy', label: 'AI Team' }
-        ];
-        const overflowContainer = document.createElement('div');
-        overflowContainer.className = 'bottom-nav-overflow';
-        overflowContainer.innerHTML = `
-            <div class="bottom-nav-overflow-menu" id="bottom-nav-overflow-menu">
-                ${overflowTabs.map(t => `<button class="bottom-nav-overflow-item" data-tab="${t.id}" onclick="FPL.navigateTo('${t.id}');FPL.closeOverflowMenu()"><span class="material-symbols-outlined">${t.icon}</span>${t.label}</button>`).join('')}
-            </div>
-            <button class="bottom-nav-overflow-btn" id="bottom-nav-overflow-btn" aria-label="More tabs" aria-expanded="false">
-                <span class="material-symbols-outlined">more_horiz</span>
-            </button>
-        `;
-        document.body.appendChild(overflowContainer);
-        const trigger = document.getElementById('bottom-nav-overflow-btn');
-        const menu = document.getElementById('bottom-nav-overflow-menu');
-        if (trigger && menu) {
-            trigger.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const open = menu.classList.toggle('open');
-                trigger.setAttribute('aria-expanded', String(open));
-            });
-            document.addEventListener('click', () => this.closeOverflowMenu());
-            document.addEventListener('keydown', (event) => {
-                if (event.key === 'Escape') this.closeOverflowMenu();
-            });
-        }
+        const existing = document.querySelector('.bottom-nav-overflow');
+        if (existing) existing.remove();
     },
 
     closeOverflowMenu() {
