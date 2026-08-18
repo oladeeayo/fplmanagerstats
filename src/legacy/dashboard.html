@@ -125,7 +125,7 @@
                     <span class="material-symbols-outlined filled" style="font-size:32px;">sports_soccer</span>
                     <div class="sidebar-label"><div style="font-size:1.125rem;font-weight:700;">FPL Manager Stats</div><div style="font-size:0.625rem;color:var(--md-sys-color-on-surface-variant);font-weight:400;">Manager Dashboard</div></div>
                 </div>
-                <button type="button" id="sidebar-collapse-btn" class="btn btn-ghost btn-icon" style="width:32px;height:32px;flex-shrink:0;" aria-label="Toggle sidebar" title="Collapse sidebar">
+                <button type="button" id="sidebar-collapse-btn" onclick="FPL.toggleSidebarCollapse()" class="btn btn-ghost btn-icon" style="width:32px;height:32px;flex-shrink:0;" aria-label="Toggle sidebar" title="Collapse sidebar">
                     <span class="material-symbols-outlined" style="font-size:20px;">chevron_left</span>
                 </button>
                 <button type="button" id="sidebar-mobile-close-btn" class="btn btn-ghost btn-icon" aria-label="Close navigation menu" title="Close navigation menu">
@@ -758,7 +758,6 @@
                             <button id="fixture-view-btn-odds" onclick="FPL.switchFixtureSubView('odds')" class="fixture-view-btn" style="padding:8px 16px;border-radius:8px;border:1px solid #34453b;background:transparent;color:#b9cbb9;font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all 0.2s;">
                                 <span class="material-symbols-outlined" style="font-size:16px;color:#64B5F6;">analytics</span>
                                 Goals & Clean Sheet Odds
-                                <span style="background:linear-gradient(135deg, #1976D2, #D84315);color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:4px;font-weight:800;">SOLIO MODEL</span>
                             </button>
                         </div>
                         <div id="fixture-odds-gw-selector" style="display:none;align-items:center;gap:6px;">

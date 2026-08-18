@@ -3566,12 +3566,11 @@ const FPL = {
             <div class="solio-header">
                 <div class="solio-title-wrap">
                     <h2 class="solio-title">
-                        Projected goals & CS odds
+                        Projected Goals & Clean Sheet Odds
                         <span class="solio-gw-badge">GW${selectedGW}</span>
                     </h2>
-                    <p class="solio-subtitle">@robtfpl | Last updated: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}</p>
+                    <p class="solio-subtitle">Calculated for Gameweek ${selectedGW} · Updated ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}</p>
                 </div>
-                <div class="solio-brand-mark">solio</div>
             </div>
 
             <!-- Main Workspace: Split Grid -->
@@ -3686,7 +3685,7 @@ const FPL = {
 
             <!-- Footer -->
             <div class="solio-footer">
-                Calculated from sharp betting markets · For latest market data and FPL projections, visit fpl.solioanalytics.com
+                Calculated using team attack/defence ratings, xG/xGA metrics, and Poisson distribution models.
             </div>
         </div>`;
 
@@ -5463,37 +5462,56 @@ const FPL = {
         this.initSidebarCollapse();
     },
 
+    toggleSidebarCollapse() {
+        const sidebar = document.getElementById('sidebar');
+        const btn = document.getElementById('sidebar-collapse-btn');
+        if (!sidebar || !btn) return;
+        if (window.innerWidth <= 1024) return;
+        const collapsed = !sidebar.classList.contains('collapsed');
+        sidebar.classList.toggle('collapsed', collapsed);
+        btn.setAttribute('aria-expanded', String(!collapsed));
+        btn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+        btn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+        const icon = btn.querySelector('.material-symbols-outlined');
+        if (icon) icon.textContent = collapsed ? 'chevron_right' : 'chevron_left';
+        localStorage.setItem('fplSidebarCollapsed', String(collapsed));
+    },
+
     initSidebarCollapse() {
         const sidebar = document.getElementById('sidebar');
         const btn = document.getElementById('sidebar-collapse-btn');
-        if (!sidebar || !btn || btn.dataset.bound === 'true') return;
-        btn.dataset.bound = 'true';
+        if (!sidebar || !btn) return;
         const saved = localStorage.getItem('fplSidebarCollapsed');
         const icon = btn.querySelector('.material-symbols-outlined');
-        const updateState = (collapsed) => {
-            sidebar.classList.toggle('collapsed', collapsed);
-            btn.setAttribute('aria-expanded', String(!collapsed));
-            btn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
-            btn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
-            if (icon) icon.textContent = collapsed ? 'chevron_right' : 'chevron_left';
-        };
-        updateState(saved === 'true');
-        btn.addEventListener('click', () => {
-            if (window.innerWidth <= 1024) return;
-            const collapsed = !sidebar.classList.contains('collapsed');
-            updateState(collapsed);
-            localStorage.setItem('fplSidebarCollapsed', String(collapsed));
-        });
-        window.addEventListener('resize', () => {
-            if (window.innerWidth <= 1024) updateState(false);
-            else updateState(localStorage.getItem('fplSidebarCollapsed') === 'true');
-        });
+        const isCollapsed = saved === 'true' && window.innerWidth > 1024;
+        sidebar.classList.toggle('collapsed', isCollapsed);
+        btn.setAttribute('aria-expanded', String(!isCollapsed));
+        btn.setAttribute('aria-label', isCollapsed ? 'Expand sidebar' : 'Collapse sidebar');
+        btn.title = isCollapsed ? 'Expand sidebar' : 'Collapse sidebar';
+        if (icon) icon.textContent = isCollapsed ? 'chevron_right' : 'chevron_left';
+
+        if (btn.dataset.bound !== 'true') {
+            btn.dataset.bound = 'true';
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.toggleSidebarCollapse();
+            });
+            window.addEventListener('resize', () => {
+                if (window.innerWidth <= 1024) {
+                    sidebar.classList.remove('collapsed');
+                } else {
+                    const collapsed = localStorage.getItem('fplSidebarCollapsed') === 'true';
+                    sidebar.classList.toggle('collapsed', collapsed);
+                }
+            });
+        }
     },
 
     // ==================== BOTTOM NAV OVERFLOW ====================
     initBottomNavOverflow() {
+        if (document.querySelector('.bottom-nav-overflow')) return;
         const nav = document.querySelector('.bottom-nav');
-        if (!nav || nav.dataset.overflowBound === 'true') return;
+        if (!nav) return;
         nav.dataset.overflowBound = 'true';
         const overflowTabs = [
             { id: 'decision', icon: 'model_training', label: 'Decision' },

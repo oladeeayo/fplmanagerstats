@@ -3995,4 +3995,32 @@ select option {
     color: #64748b;
 }
 
+@media (max-width: 640px) {
+    .solio-container {
+        padding: 12px;
+        border-radius: 12px;
+    }
+    .solio-title {
+        font-size: 18px;
+        flex-wrap: wrap;
+    }
+    .solio-gw-badge {
+        font-size: 16px;
+        padding: 1px 8px;
+    }
+    .solio-subtitle {
+        font-size: 11px;
+    }
+    .solio-rank-row {
+        padding: 4px 6px;
+    }
+    .solio-bar-wrap {
+        width: 54px;
+        height: 20px;
+    }
+    .solio-bar-text {
+        font-size: 10px;
+    }
+}
+
 
