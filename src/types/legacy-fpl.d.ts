@@ -16,8 +16,24 @@ declare global {
         price?: number;
         alternatives: Array<{ id: number; name: string; team: string; position: string; score: number }>;
       }>;
-      matchPlayersFPL(text: string, players: unknown[], limit?: number): ReturnType<typeof matchPlayers>;
-      matchPlayersGeneric(text: string, players: unknown[], limit?: number): ReturnType<typeof matchPlayers>;
+      matchPlayersFPL(text: string, players: unknown[], limit?: number): Array<{
+        line: string;
+        playerId: number;
+        confidence: 'high' | 'medium' | 'low' | 'confirmed';
+        score: number;
+        position?: string;
+        price?: number;
+        alternatives: Array<{ id: number; name: string; team: string; position: string; score: number }>;
+      }>;
+      matchPlayersGeneric(text: string, players: unknown[], limit?: number): Array<{
+        line: string;
+        playerId: number;
+        confidence: 'high' | 'medium' | 'low' | 'confirmed';
+        score: number;
+        position?: string;
+        price?: number;
+        alternatives: Array<{ id: number; name: string; team: string; position: string; score: number }>;
+      }>;
       isFPLScreenshot(text: string): boolean;
       extractPrice(text: string): number | null;
       extractPosition(text: string): string | null;
@@ -32,7 +48,15 @@ declare global {
       }>;
     };
     FPL: {
-      state: { activeTab: string; managerId: string | null };
+      state: {
+        activeTab: string;
+        managerId: string | null;
+        bootstrap?: any;
+        currentGameweek?: number;
+        fixtures?: any[];
+        teamMap?: Record<number, any>;
+        [key: string]: any;
+      };
       init(): Promise<void>;
       initSidebar(): void;
       initDialogs(): void;

@@ -1,15 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { FPLProvider } from '../context/FPLContext';
 import { InstallPrompt } from '../components/InstallPrompt';
 import { LegacyDashboard } from '../components/LegacyDashboard';
+import { TabSkeleton } from '../components/TabSkeleton';
 import { appRoutes, isAppTab, tabFromPath, type AppTab } from './routes';
 
-export function App() {
+function AppInner() {
   const location = useLocation();
   const navigate = useNavigate();
   const navigateRef = useRef(navigate);
   const initPromise = useRef<Promise<void> | null>(null);
   const [ready, setReady] = useState(false);
+  const [tabLoading, setTabLoading] = useState(false);
+  const prevTabRef = useRef<string | null>(null);
   const pathTab = tabFromPath(location.pathname);
   const legacyTab = new URLSearchParams(location.search).get('tab');
   const activeTab = pathTab ?? (location.pathname === '/' && isAppTab(legacyTab) ? legacyTab : 'general');
@@ -60,8 +64,15 @@ export function App() {
 
   useEffect(() => {
     if (!ready || !window.FPL) return;
+
+    const prevTab = prevTabRef.current;
+    if (prevTab !== null && prevTab !== activeTab) {
+      setTabLoading(true);
+    }
+    prevTabRef.current = activeTab;
+
     window.FPL.state.activeTab = activeTab;
-    void window.FPL.loadTabData(activeTab);
+    const loadPromise = window.FPL.loadTabData(activeTab);
     window.FPL.initSidebar();
 
     document.querySelectorAll<HTMLElement>('.sidebar-nav-item').forEach(el => {
@@ -70,12 +81,28 @@ export function App() {
     document.querySelectorAll<HTMLElement>('.bottom-nav-item').forEach(el => {
       el.classList.toggle('active', el.dataset.tab === activeTab);
     });
+
+    if (loadPromise && typeof loadPromise.then === 'function') {
+      const minDelay = new Promise(resolve => setTimeout(resolve, 200));
+      Promise.all([loadPromise, minDelay]).then(() => setTabLoading(false)).catch(() => setTabLoading(false));
+    } else {
+      setTimeout(() => setTabLoading(false), 300);
+    }
   }, [activeTab, ready]);
 
   return (
     <>
+      {tabLoading && <TabSkeleton />}
       <LegacyDashboard activeTab={activeTab} />
       <InstallPrompt />
     </>
+  );
+}
+
+export function App() {
+  return (
+    <FPLProvider>
+      <AppInner />
+    </FPLProvider>
   );
 }

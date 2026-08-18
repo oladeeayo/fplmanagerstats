@@ -163,6 +163,3 @@ th[cursor\\:pointer] { user-select: none; }
 
 /* Ownership table */
 .ownership-row-highlight { background: #f5f3ff; }
-@media (max-width: 640px) {
-  .hide-mobile-table { display: none; }
-}

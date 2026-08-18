@@ -7,6 +7,14 @@ const FORM_MODIFIER = { 1: 1.12, 2: 1.06, 3: 1, 4: 0.94, 5: 0.88 };
 const CLEAN_SHEET_PROBABILITY = { 1: 0.46, 2: 0.37, 3: 0.28, 4: 0.19, 5: 0.12 };
 const PRESEASON_POSITION_PRIOR = { GKP: 3.4, DEF: 3.25, MID: 3.45, FWD: 3.35 };
 
+// Enhanced models (imported lazily to avoid circular deps)
+let opponentModel = null;
+let bookingRiskModel = null;
+let priceModel = null;
+function getOpponentModel() { return opponentModel || (opponentModel = require('./server/opponentModel')); }
+function getBookingRiskModel() { return bookingRiskModel || (bookingRiskModel = require('./server/bookingRiskModel')); }
+function getPriceModel() { return priceModel || (priceModel = require('./server/priceModel')); }
+
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -240,13 +248,25 @@ function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form
   const minuteShare = fixtureXmins / 90;
   const appearanceProbability = clamp(fixtureXmins / 30, 0, 1);
   const sixtyMinuteProbability = clamp((fixtureXmins - 30) / 30, 0, 1);
-  const attackModifier = ATTACK_MODIFIER[difficulty] * (isHome ? 1.03 : 0.97);
-  const formModifier = FORM_MODIFIER[difficulty] * (isHome ? 1.02 : 0.98);
+
+  // Enhanced: use opponent model for dynamic modifiers when available
+  let attackModifier, formModifier, csProb;
+  try {
+    const opp = getOpponentModel();
+    const oppName = teamsById.get(opponentId)?.name || '';
+    attackModifier = opp.adjustedAttackModifier(oppName, isHome);
+    csProb = opp.adjustedCleanSheetProbability(oppName, isHome);
+    formModifier = FORM_MODIFIER[difficulty] * (isHome ? 1.02 : 0.98);
+  } catch {
+    attackModifier = ATTACK_MODIFIER[difficulty] * (isHome ? 1.03 : 0.97);
+    csProb = CLEAN_SHEET_PROBABILITY[difficulty];
+    formModifier = FORM_MODIFIER[difficulty] * (isHome ? 1.02 : 0.98);
+  }
 
   const appearancePoints = appearanceProbability + sixtyMinuteProbability;
   const goalPoints = xG90 * minuteShare * attackModifier * GOAL_POINTS[position];
   const assistPoints = xA90 * minuteShare * attackModifier * 3;
-  const cleanSheetPoints = CLEAN_SHEET_POINTS[position] * CLEAN_SHEET_PROBABILITY[difficulty] * sixtyMinuteProbability;
+  const cleanSheetPoints = CLEAN_SHEET_POINTS[position] * csProb * sixtyMinuteProbability;
   const bonusPer90 = number(player.bonus) * 90 / Math.max(number(player.minutes), 900);
   const bonusPoints = clamp(bonusPer90, 0, 1.25) * minuteShare * (0.9 + (attackModifier * 0.1));
   const setPiecePoints = (
@@ -262,10 +282,20 @@ function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form
   const contributionPoints = position === 'GKP'
     ? 0
     : 2 * clamp((contributionRate * minuteShare) / contributionThreshold, 0, 1) * sixtyMinuteProbability;
-  const cardPoints = -(
-    (number(player.yellow_cards) + (number(player.red_cards) * 3)) * 90 /
-    Math.max(number(player.minutes), 1800)
-  ) * minuteShare;
+
+  // Enhanced: use booking risk model for card prediction
+  let cardPoints;
+  try {
+    const brm = getBookingRiskModel();
+    const risk = brm.calculateBookingRisk({ ...player, position, xMins: fixtureXmins });
+    cardPoints = risk.expectedCardPoints;
+  } catch {
+    cardPoints = -(
+      (number(player.yellow_cards) + (number(player.red_cards) * 3)) * 90 /
+      Math.max(number(player.minutes), 1800)
+    ) * minuteShare;
+  }
+
   const eventProjection = appearancePoints + goalPoints + assistPoints + cleanSheetPoints + bonusPoints + setPiecePoints + savePoints + contributionPoints + cardPoints;
 
   const historicAverageMinutes = clamp(number(player.minutes) / Math.max(number(player.total_points) / Math.max(ppg, 0.1), 1), 45, 90);
@@ -273,6 +303,15 @@ function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form
   const formProjection = form * roleMinutesRatio * formModifier;
   const ppgProjection = ppg * roleMinutesRatio * formModifier;
   let projectedPoints = (eventProjection * 0.68) + (formProjection * 0.2) + (ppgProjection * 0.12);
+
+  // Enhanced: add price change bonus for next GW fixtures
+  if (fixtureIndex === 0) {
+    try {
+      const pm = getPriceModel();
+      const priceInfo = pm.predictPriceChange(player);
+      projectedPoints += priceInfo.expectedChange * 1.5;
+    } catch { /* ignore */ }
+  }
 
   if (officialProjection > 0 && fixtureIndex === 0) {
     const preseason = number(player.minutes) === 0 && number(player.total_points) === 0;

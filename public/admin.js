@@ -1,8 +1,8 @@
 const Admin = (() => {
-  let adminKey = '';
   let currentPeriod = 7;
   let visitorsPage = 1;
   let charts = {};
+  let authenticated = false;
 
   const COUNTRY_FLAGS = {
     GB: '\u{1F1EC}\u{1F1E7}', US: '\u{1F1FA}\u{1F1F8}', IN: '\u{1F1EE}\u{1F1F3}', DE: '\u{1F1E9}\u{1F1EA}',
@@ -37,9 +37,15 @@ const Admin = (() => {
 
   const COLORS = ['#00ff85', '#37db59', '#ffa600', '#ff4d4d', '#6496ff', '#c084fc', '#f472b6', '#34d399', '#fbbf24', '#60a5fa'];
 
+  // Session-based API calls (cookie sent automatically)
   async function api(path) {
-    const res = await fetch(path, { headers: adminKey ? { 'x-admin-key': adminKey } : {} });
+    const res = await fetch(path);
     if (!res.ok) {
+      if (res.status === 401) {
+        authenticated = false;
+        showLogin();
+        throw new Error('Session expired. Please log in again.');
+      }
       let message = `API error: ${res.status}`;
       try { const body = await res.json(); if (body.error) message = body.error; } catch (_) {}
       throw new Error(message);
@@ -71,7 +77,6 @@ const Admin = (() => {
     document.getElementById('pv-all').textContent = formatNum(d.pageViews.allTime) + ' page views';
     document.getElementById('avg-response').textContent = d.avgResponseTimeMs ? d.avgResponseTimeMs + 'ms' : '--';
 
-    // Recent visitors with referrer
     const tbody = document.getElementById('visitors-body');
     if (d.recentVisitors.length === 0) {
       tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#8ba396;padding:20px;">No visitors yet</td></tr>';
@@ -107,16 +112,12 @@ const Admin = (() => {
 
   async function loadDevices() {
     const d = await api(`/api/admin/devices?days=${currentPeriod}`);
-
-    // Device type chart
     const devLabels = d.devices.map(x => x.device_type);
     const devValues = d.devices.map(x => parseInt(x.count));
     renderChart('chart-devices', 'doughnut', {
       labels: devLabels,
       datasets: [{ data: devValues, backgroundColor: ['#00ff85', '#ffa600', '#6496ff'], borderWidth: 0 }]
     });
-
-    // Device details lists
     renderList('device-type-list', d.devices.map(x => ({ label: x.device_type, count: x.count })));
     renderList('browser-list', d.browsers.slice(0, 6).map(x => ({ label: x.browser, count: x.count })));
     renderList('os-list', d.osList.slice(0, 6).map(x => ({ label: x.os, count: x.count })));
@@ -124,8 +125,6 @@ const Admin = (() => {
 
   async function loadDaily() {
     const d = await api(`/api/admin/hourly?days=${currentPeriod}`);
-
-    // Daily line chart
     const dayLabels = d.daily.map(x => new Date(x.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }));
     const dayViews = d.daily.map(x => parseInt(x.views));
     const dayUV = d.daily.map(x => parseInt(x.unique_visitors));
@@ -222,27 +221,51 @@ const Admin = (() => {
   }
 
   function showDashboard() {
+    authenticated = true;
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
     loadAll();
+  }
+
+  function showLogin() {
+    authenticated = false;
+    document.getElementById('dashboard').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+    Object.values(charts).forEach(c => c.destroy());
+    charts = {};
   }
 
   async function login() {
     const input = document.getElementById('admin-key-input');
     const key = input.value.trim();
     if (!key) return;
-    adminKey = key;
-    document.getElementById('login-error').style.display = 'none';
-    showDashboard();
+
+    const errorEl = document.getElementById('login-error');
+    errorEl.style.display = 'none';
+
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        errorEl.textContent = data.error || 'Login failed';
+        errorEl.style.display = 'block';
+        return;
+      }
+      input.value = '';
+      showDashboard();
+    } catch (e) {
+      errorEl.textContent = 'Connection error. Please try again.';
+      errorEl.style.display = 'block';
+    }
   }
 
-  function logout() {
-    adminKey = '';
-    document.getElementById('dashboard').style.display = 'none';
-    document.getElementById('login-screen').style.display = 'flex';
-    document.getElementById('admin-key-input').value = '';
-    Object.values(charts).forEach(c => c.destroy());
-    charts = {};
+  async function logout() {
+    try { await fetch('/api/admin/logout', { method: 'POST' }); } catch (_) {}
+    showLogin();
   }
 
   function setPeriod(days) {
@@ -253,12 +276,17 @@ const Admin = (() => {
 
   function goPage(p) { visitorsPage = p; loadVisitors(); }
 
-  // Key is held in memory only (never persisted to localStorage) to reduce
-  // exfiltration risk from XSS; the admin must re-enter it per browser session.
+  // Check if already authenticated on load
+  (async function checkSession() {
+    try {
+      const res = await fetch('/api/admin/session');
+      const data = await res.json();
+      if (data.authenticated) showDashboard();
+    } catch (_) {}
+  })();
 
-  // Enter key login
   document.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') login();
+    if (e.key === 'Enter') login();
   });
 
   return { login, logout, setPeriod, goPage };

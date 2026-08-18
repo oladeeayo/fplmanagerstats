@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fpl-stats-react-v17';
+const CACHE_NAME = 'fpl-stats-react-v22';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -33,13 +33,13 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
-    // Don't cache API calls - always fetch fresh
+    // Don't cache API calls — always fetch fresh
     if (url.pathname.startsWith('/api/')) {
         event.respondWith(fetch(event.request));
         return;
     }
 
-    // HTML: network first (always get latest)
+    // HTML: network-first with cache-busting revalidation
     if (event.request.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname === '/') {
         event.respondWith(
             fetch(event.request).then((response) => {
@@ -48,12 +48,12 @@ self.addEventListener('fetch', (event) => {
                     caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
                 }
                 return response;
-            }).catch(() => caches.match(event.request).then((cached) => cached || caches.match('/index.html')))
+            }).catch(() => caches.match(event.request).then((cached) => cached || caches.match('/offline.html')))
         );
         return;
     }
 
-    // Only hashed Vite assets and local fonts are immutable. Versioned legacy files stay network-first.
+    // Hashed Vite assets and local fonts are immutable — cache-first
     if (event.request.method === 'GET' && (url.pathname.startsWith('/assets/') || /\.(?:ico|png|svg|woff2?)$/i.test(url.pathname))) {
         event.respondWith(
             caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
@@ -67,7 +67,7 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Other requests use network first so deployments never run stale dynamic content.
+    // Everything else: network-first so deployments never serve stale content
     event.respondWith(
         fetch(event.request).then((response) => {
             if (response && response.status === 200) {

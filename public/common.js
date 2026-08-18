@@ -1952,6 +1952,7 @@ const FPL = {
             if (!data) throw new Error('The AI returned an incomplete squad. Rebuild again after the latest FPL data loads.');
 
             this.state.aiTeamData = data;
+            if (!this.state.aiTeamGWView) this.state.aiTeamGWView = 1;
             this.paintAITeam(data);
             results?.classList.remove('hidden');
         } catch (error) {
@@ -1982,29 +1983,116 @@ const FPL = {
 
     setAITeamGWView(gws) {
         this.state.aiTeamGWView = gws;
-        document.querySelectorAll('.aiteam-gw-toggle-btn').forEach(btn => {
-            btn.classList.toggle('active', parseInt(btn.dataset.gw) === gws);
+        document.querySelectorAll('.aiteam-gw-pill').forEach(btn => {
+            const val = parseInt(btn.dataset.gw);
+            btn.classList.toggle('active', val === gws || (gws > 1 && val === gws));
         });
         const data = this.state.aiTeamData;
         if (data) this.paintAITeam(data);
     },
 
+    setAITeamView(view) {
+        document.querySelectorAll('.aiteam-tab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
+        document.querySelectorAll('.aiteam-view').forEach(v => v.classList.toggle('active', v.dataset.view === view));
+    },
+
+    async suggestAITeamTransfer(playerId) {
+        const data = this.state.aiTeamData;
+        const bootstrap = this.state.bootstrapData;
+        if (!data || !bootstrap) return;
+        const player = [...data.lineup.starters, ...data.lineup.bench].find(p => p.id === playerId);
+        if (!player) return;
+        const gwView = this.state.aiTeamGWView || 1;
+        const allPlayers = bootstrap.elements || [];
+        const teams = bootstrap.teams || [];
+        const posMap = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+        const posId = Object.entries(posMap).find(([, v]) => v === player.position)?.[0];
+        const squadIds = new Set(data.squad.map(p => p.id));
+        const budget = 100 - data.teamCost + player.cost;
+        const candidates = allPlayers
+            .filter(p => p.id !== playerId && !squadIds.has(p.id) && String(p.element_type) === String(posId) && (p.now_cost / 10) <= budget)
+            .map(p => {
+                const team = teams.find(t => t.id === p.team);
+                const fixtures = (data.transfers?.plan || []).length > 0 ? [] : [];
+                const totalXpts = parseFloat(p.total_points || 0) * 0.5 + parseFloat(p.form || 0) * 3;
+                return { id: p.id, name: p.web_name, team: team?.short_name || '?', cost: p.now_cost / 10, xPts: totalXpts, form: parseFloat(p.form || 0) };
+            })
+            .sort((a, b) => b.xPts - a.xPts)
+            .slice(0, 5);
+        const body = document.getElementById('player-detail-body');
+        if (!body) return;
+        const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
+        body.innerHTML = `
+            <div style="padding:16px 20px;background:var(--md-sys-color-surface-container-high);border-bottom:1px solid var(--md-sys-color-outline-variant);">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                    <span class="material-symbols-outlined" style="color:#ff4d4d;">swap_horiz</span>
+                    <span style="font-weight:700;color:#fff;font-size:15px;">Replace ${player.name}</span>
+                </div>
+                <div style="font-size:12px;color:#8ba396;">${player.position} · ${player.teamFull || player.team} · £${player.cost?.toFixed(1)}m · ${(player.totalXpts || 0).toFixed(1)} horizon xPts</div>
+            </div>
+            <div style="padding:12px 20px;">
+                <div style="font-size:11px;font-weight:700;color:#8ba396;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;font-family:var(--font-mono);">Suggested Replacements (${player.position})</div>
+                ${candidates.length ? candidates.map(c => {
+                    const gain = c.xPts - (player.totalXpts || 0);
+                    const gainClass = gain >= 0 ? 'positive' : 'negative';
+                    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+                        <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+                            <span style="padding:2px 6px;border-radius:3px;font-size:9px;font-weight:700;background:${posColors[player.position]}20;color:${posColors[player.position]};">${player.position}</span>
+                            <div style="min-width:0;"><div style="font-weight:600;font-size:13px;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.name}</div><div style="font-size:10px;color:#8ba396;">${c.team} · £${c.cost.toFixed(1)}m · Form ${c.form.toFixed(1)}</div></div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <span class="aiteam-transfer-gain ${gainClass}">${gain >= 0 ? '+' : ''}${gain.toFixed(1)}</span>
+                            <button class="aiteam-transfer-apply" onclick="FPL.applyAITeamSwap(${playerId},${c.id})">Apply</button>
+                        </div>
+                    </div>`;
+                }).join('') : '<div class="aiteam-empty-state"><span class="material-symbols-outlined">search_off</span><p>No suitable replacements found within budget.</p></div>'}
+            </div>`;
+        this.showDialog('player-detail-dialog');
+    },
+
+    async applyAITeamSwap(outId, inId) {
+        const data = this.state.aiTeamData;
+        const bootstrap = this.state.bootstrapData;
+        if (!data || !bootstrap) return;
+        const inPlayer = bootstrap.elements.find(p => p.id === inId);
+        if (!inPlayer) return;
+        const team = bootstrap.teams.find(t => t.id === inPlayer.team);
+        const posMap = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+        const outIdx = data.squad.findIndex(p => p.id === outId);
+        if (outIdx < 0) return;
+        const oldPlayer = data.squad[outIdx];
+        const newPlayer = {
+            id: inPlayer.id, name: inPlayer.web_name, team: inPlayer.team, teamFull: team?.name || team?.short_name || '?',
+            position: posMap[inPlayer.element_type] || 'MID', cost: inPlayer.now_cost / 10,
+            form: parseFloat(inPlayer.form || 0), totalXpts: parseFloat(inPlayer.total_points || 0) * 0.5 + parseFloat(inPlayer.form || 0) * 3,
+            weekly: oldPlayer.weekly || [], upcomingFixtures: oldPlayer.upcomingFixtures || [], status: inPlayer.status || 'a', news: inPlayer.news || ''
+        };
+        data.squad[outIdx] = newPlayer;
+        const lineStarters = data.lineup.starters.findIndex(p => p.id === outId);
+        const lineBench = data.lineup.bench.findIndex(p => p.id === outId);
+        if (lineStarters >= 0) data.lineup.starters[lineStarters] = newPlayer;
+        else if (lineBench >= 0) data.lineup.bench[lineBench] = newPlayer;
+        data.teamCost = data.teamCost - oldPlayer.cost + newPlayer.cost;
+        this.hideDialog('player-detail-dialog');
+        this.paintAITeam(data);
+    },
+
     paintAITeam(data) {
         const { squad, lineup, meta, chips, transfers, teamCost, teamXpts, formation, isLocked } = data;
         const gwView = this.state.aiTeamGWView || 1;
+        const totalGWs = lineup.starters[0]?.weekly?.length || 5;
 
         function sumPlayerXPts(player, count) {
             if (!player?.weekly) return 0;
             return player.weekly.slice(0, count).reduce((s, w) => s + (w.xPts || 0), 0);
         }
-
         function fdrColor(fdr) {
             if (fdr <= 2) return '#00FF85';
             if (fdr <= 3) return '#FFA726';
             return '#ff4d4d';
         }
 
-        // --- Summary Cards ---
+        // --- Summary Bar ---
         const summaryEl = document.getElementById('aiteam-summary');
         if (summaryEl) {
             const startersXPts = lineup.starters.reduce((s, p) => s + sumPlayerXPts(p, gwView), 0);
@@ -2013,22 +2101,10 @@ const FPL = {
             const remaining = Math.round((100 - teamCost) * 10) / 10;
             const autoLocked = Boolean(isLocked ?? meta?.isAutoLocked);
             summaryEl.innerHTML = `
-                <div class="aiteam-card">
-                    <div class="aiteam-card-icon" style="background:rgba(0,255,133,0.12);color:#00FF85;"><span class="material-symbols-outlined">payments</span></div>
-                    <div class="aiteam-card-data"><span class="aiteam-card-value">\u00A3${teamCost.toFixed(1)}m</span><span class="aiteam-card-label">Squad Cost (\u00A3${remaining.toFixed(1)}m left)</span></div>
-                </div>
-                <div class="aiteam-card">
-                    <div class="aiteam-card-icon" style="background:rgba(79,195,247,0.12);color:#4FC3F7;"><span class="material-symbols-outlined">trending_up</span></div>
-                    <div class="aiteam-card-data"><span class="aiteam-card-value">${predictedPts.toFixed(1)}</span><span class="aiteam-card-label">${gwView === 1 ? 'Next GW' : 'Next ' + gwView + ' GWs'} xPts</span></div>
-                </div>
-                <div class="aiteam-card">
-                    <div class="aiteam-card-icon" style="background:rgba(192,132,252,0.12);color:#c084fc;"><span class="material-symbols-outlined">emoji_events</span></div>
-                    <div class="aiteam-card-data"><span class="aiteam-card-value">${teamXpts.toFixed(1)}</span><span class="aiteam-card-label">Horizon xPts</span></div>
-                </div>
-                <button type="button" class="aiteam-card aiteam-status-card" onclick="FPL.resetAITeam()" title="Reset squad and rebuild from current FPL data">
-                    <div class="aiteam-card-icon" style="background:rgba(255,167,38,0.12);color:#FFA726;"><span class="material-symbols-outlined">${autoLocked ? 'lock' : 'refresh'}</span></div>
-                    <div class="aiteam-card-data"><span class="aiteam-card-value" style="font-size:13px;">${autoLocked ? 'AUTO-LOCKED' : 'AI MANAGED'}</span><span class="aiteam-card-label">${autoLocked ? 'Click to reset (WC)' : 'AI handles all decisions'}</span></div>
-                </button>`;
+                <div class="aiteam-card"><div class="aiteam-card-icon" style="background:rgba(0,255,133,0.12);color:#00FF85;"><span class="material-symbols-outlined">payments</span></div><div class="aiteam-card-data"><span class="aiteam-card-value">\u00A3${teamCost.toFixed(1)}m</span><span class="aiteam-card-label">\u00A3${remaining.toFixed(1)}m left</span></div></div>
+                <div class="aiteam-card"><div class="aiteam-card-icon" style="background:rgba(79,195,247,0.12);color:#4FC3F7;"><span class="material-symbols-outlined">trending_up</span></div><div class="aiteam-card-data"><span class="aiteam-card-value">${predictedPts.toFixed(1)}</span><span class="aiteam-card-label">${gwView === 1 ? 'Next GW' : gwView + ' GWs'} xPts</span></div></div>
+                <div class="aiteam-card"><div class="aiteam-card-icon" style="background:rgba(192,132,252,0.12);color:#c084fc;"><span class="material-symbols-outlined">emoji_events</span></div><div class="aiteam-card-data"><span class="aiteam-card-value">${teamXpts.toFixed(1)}</span><span class="aiteam-card-label">Horizon xPts</span></div></div>
+                <button type="button" class="aiteam-card aiteam-status-card" onclick="FPL.resetAITeam()" title="Reset squad"><div class="aiteam-card-icon" style="background:rgba(255,167,38,0.12);color:#FFA726;"><span class="material-symbols-outlined">${autoLocked ? 'lock' : 'refresh'}</span></div><div class="aiteam-card-data"><span class="aiteam-card-value" style="font-size:12px;">${autoLocked ? 'LOCKED' : 'AI BUILT'}</span><span class="aiteam-card-label">${autoLocked ? 'Click to reset' : 'Rebuild to update'}</span></div></button>`;
         }
 
         // --- Formation Label ---
@@ -2039,207 +2115,221 @@ const FPL = {
         const captainDisp = document.getElementById('aiteam-captain-display');
         if (captainDisp && lineup.captain) {
             const cap = lineup.captain;
-            captainDisp.innerHTML = `
-                <div class="aiteam-captain-badge">
-                    <span class="material-symbols-outlined">star</span>
-                    <span>CAPTAIN</span>
-                </div>
-                <div style="font-weight:700;color:#fff;font-size:14px;">${cap.name} <span style="color:#FFD700;">(C)</span></div>
-                <div style="font-size:12px;color:#8ba396;">${cap.teamFull || cap.team} \u00B7 ${cap.position} \u00B7 \u00A3${cap.cost?.toFixed(1)}m</div>
-                <div style="font-size:13px;color:#00FF85;font-weight:600;margin-top:4px;">${sumPlayerXPts(cap, gwView).toFixed(1)} xPts (${gwView === 1 ? 'GW' : gwView + ' GWs'}) \u00B7 ${cap.totalXpts?.toFixed(1)} xPts (Horizon)</div>`;
+            captainDisp.innerHTML = `<span class="material-symbols-outlined">star</span> <strong>${cap.name}</strong> \u00B7 ${sumPlayerXPts(cap, gwView).toFixed(1)} xPts`;
         }
 
-        // --- Pitch (original style with per-GW fixture detail) ---
+        // --- GW Selector ---
+        const gwToggle = document.getElementById('aiteam-gw-toggle');
+        if (gwToggle) {
+            const pills = [];
+            pills.push(`<button class="aiteam-gw-pill${gwView === 1 ? ' active' : ''}" data-gw="1" onclick="FPL.setAITeamGWView(1)">1 GW</button>`);
+            if (totalGWs >= 3) pills.push(`<button class="aiteam-gw-pill${gwView === 3 ? ' active' : ''}" data-gw="3" onclick="FPL.setAITeamGWView(3)">3 GWs</button>`);
+            if (totalGWs >= 5) pills.push(`<button class="aiteam-gw-pill${gwView === 5 ? ' active' : ''}" data-gw="5" onclick="FPL.setAITeamGWView(5)">5 GWs</button>`);
+            if (totalGWs >= 8) pills.push(`<button class="aiteam-gw-pill${gwView === 8 ? ' active' : ''}" data-gw="8" onclick="FPL.setAITeamGWView(8)">8 GWs</button>`);
+            gwToggle.innerHTML = pills.join('');
+        }
+
+        // --- Pitch ---
         const pitchEl = document.getElementById('aiteam-pitch');
         if (pitchEl) {
             const gkps = lineup.starters.filter(p => p.position === 'GKP');
             const defs = lineup.starters.filter(p => p.position === 'DEF');
             const mids = lineup.starters.filter(p => p.position === 'MID');
             const fwds = lineup.starters.filter(p => p.position === 'FWD');
-
             const isCaptain = (p) => lineup.captain && p.id === lineup.captain.id;
             const isVice = (p) => lineup.viceCaptain && p.id === lineup.viceCaptain.id;
 
-            function shirtUrl(player) {
-                return FPL.playerTeamShirtUrl(player);
-            }
-
             function playerCard(player) {
-                const shirt = shirtUrl(player);
                 const cap = isCaptain(player);
                 const vice = isVice(player);
                 const badge = cap ? ' (C)' : vice ? ' (V)' : '';
                 const borderStyle = cap ? 'border:2px solid #FFD700;box-shadow:0 0 12px rgba(255,215,0,0.4);' : vice ? 'border:2px solid rgba(255,255,255,0.5);' : 'border:1px solid rgba(255,255,255,0.28);';
-
                 const xPts = sumPlayerXPts(player, gwView).toFixed(1);
-
-                // Build per-GW fixture detail
+                const shirt = FPL.playerTeamShirtUrl(player);
+                const shirtImg = shirt ? `<img src="${shirt}" alt="" loading="lazy" decoding="async" onerror="this.closest('.tactics-player-shirt').classList.add('is-missing');this.remove();" style="width:100%;height:100%;object-fit:contain;">` : '';
                 const weekly = player.weekly || [];
                 const fixtures = player.upcomingFixtures || [];
-                const gwDetail = [];
+                const fixtureRows = [];
                 for (let i = 0; i < Math.min(gwView, weekly.length); i++) {
                     const w = weekly[i];
-                    const fx = fixtures.find(f => f.gw === w.gameweek) || fixtures[i] || null;
-                    gwDetail.push({ gw: w.gameweek, xPts: w.xPts || 0, fixture: fx });
-                }
-
-                const runLen = player.consecutiveGoodFixtures || 0;
-                const runBadge = runLen >= 4 ? `<span style="font-size:8px;padding:1px 4px;border-radius:3px;background:rgba(0,255,133,0.15);color:#00FF85;font-weight:700;position:absolute;top:2px;right:2px;" title="${runLen} consecutive easy fixtures">${runLen} RUN</span>` : '';
-
-                const shirtImg = shirt ? `<img src="${shirt}" alt="" loading="lazy" decoding="async" onerror="this.closest('.tactics-player-shirt').classList.add('is-missing');this.remove();" style="width:100%;height:100%;object-fit:contain;">` : '';
-
-                // Fixture detail rows - opponent with FDR color + individual xPts
-                const fixtureRows = gwDetail.map(g => {
-                    const fx = g.fixture;
-                    if (!fx) return '';
+                    const fx = fixtures.find(f => f.gw === w.gameweek) || fixtures[i];
+                    if (!fx) continue;
                     const col = fdrColor(fx.fdr);
                     const oppLabel = fx.home ? `${fx.opponent}(H)` : `${fx.opponent}(A)`;
-                    return `<div class="aiteam-fixture-row"><span class="aiteam-fixture-opp" style="color:${col};">${oppLabel}</span><span class="aiteam-fixture-xpts">${g.xPts.toFixed(1)}</span></div>`;
-                }).join('');
-
-                return `<div class="tactics-player-card home aiteam-pitch-card" style="${borderStyle}position:relative;" title="${player.name}${badge} - \u00A3${(player.cost || 0).toFixed(1)}m - ${xPts} xPts">
+                    fixtureRows.push(`<div class="aiteam-fixture-row"><span class="aiteam-fixture-opp" style="color:${col};">${oppLabel}</span><span class="aiteam-fixture-xpts">${w.xPts.toFixed(1)}</span></div>`);
+                }
+                const runLen = player.consecutiveGoodFixtures || 0;
+                const runBadge = runLen >= 4 ? `<span style="font-size:8px;padding:1px 4px;border-radius:3px;background:rgba(0,255,133,0.15);color:#00FF85;font-weight:700;position:absolute;top:2px;right:2px;">${runLen} RUN</span>` : '';
+                return `<div class="tactics-player-card home aiteam-pitch-card" style="${borderStyle}position:relative;cursor:pointer;" onclick="FPL.showPlayerDetail(${player.id})" title="${player.name}${badge} \u00B7 \u00A3${(player.cost || 0).toFixed(1)}m \u00B7 ${xPts} xPts">
                     <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;">${shirtImg}<span class="aiteam-shirt-fallback" aria-hidden="true">${FPL.playerTeamShort(player)}</span></div>
                     <div class="tactics-player-copy"><b class="aiteam-pitch-name${cap ? ' is-captain' : ''}">${player.name}${badge}</b></div>
                     <div class="aiteam-pitch-cost">\u00A3${(player.cost || 0).toFixed(1)}m</div>
                     <div class="aiteam-pitch-xpts">${xPts} xPts</div>
-                    <div class="aiteam-fixture-block">${fixtureRows}</div>
+                    <div class="aiteam-fixture-block">${fixtureRows.join('')}</div>
                     ${runBadge}
                 </div>`;
             }
-
             const rows = [];
             rows.push(`<div class="tactics-pitch-row" style="--players:${gkps.length};">${gkps.map(p => playerCard(p)).join('')}</div>`);
             rows.push(`<div class="tactics-pitch-row" style="--players:${defs.length};">${defs.map(p => playerCard(p)).join('')}</div>`);
             rows.push(`<div class="tactics-pitch-row" style="--players:${mids.length};">${mids.map(p => playerCard(p)).join('')}</div>`);
             rows.push(`<div class="tactics-pitch-row" style="--players:${fwds.length};">${fwds.map(p => playerCard(p)).join('')}</div>`);
+            pitchEl.innerHTML = `<div class="tactics-pitch" style="min-height:420px;">${rows.join('')}</div>`;
+        }
 
-            let html = `<div class="tactics-pitch" style="min-height:420px;">${rows.join('')}</div>`;
-
-            // Bench
-            html += '<div class="aiteam-bench"><div class="aiteam-bench-label"><span class="material-symbols-outlined">event_seat</span> BENCH</div><div class="aiteam-bench-players">';
-            lineup.bench.slice(0, 4).forEach((p, benchIndex) => {
-                const shirt = shirtUrl(p);
+        // --- Bench ---
+        const benchEl = document.getElementById('aiteam-bench-section');
+        if (benchEl) {
+            let html = '<div class="aiteam-bench-label"><span class="material-symbols-outlined">event_seat</span> BENCH</div><div class="aiteam-bench-players">';
+            lineup.bench.slice(0, 4).forEach((p, i) => {
                 const xPts = sumPlayerXPts(p, gwView).toFixed(1);
+                const shirt = FPL.playerTeamShirtUrl(p);
                 const shirtImg = shirt ? `<img src="${shirt}" alt="" loading="lazy" decoding="async" onerror="this.closest('.aiteam-bench-shirt-img').classList.add('is-missing');this.remove();" style="width:100%;height:100%;object-fit:contain;">` : '';
-
                 const weekly = p.weekly || [];
                 const fixtures = p.upcomingFixtures || [];
-                const gwDetail = [];
-                for (let i = 0; i < Math.min(gwView, weekly.length); i++) {
-                    const w = weekly[i];
-                    const fx = fixtures.find(f => f.gw === w.gameweek) || fixtures[i] || null;
-                    gwDetail.push({ gw: w.gameweek, xPts: w.xPts || 0, fixture: fx });
-                }
-                const fixtureRows = gwDetail.map(g => {
-                    const fx = g.fixture;
-                    if (!fx) return '';
+                const fixtureRows = [];
+                for (let j = 0; j < Math.min(gwView, weekly.length); j++) {
+                    const w = weekly[j];
+                    const fx = fixtures.find(f => f.gw === w.gameweek) || fixtures[j];
+                    if (!fx) continue;
                     const col = fdrColor(fx.fdr);
-                    const oppLabel = fx.home ? `${fx.opponent}(H)` : `${fx.opponent}(A)`;
-                    return `<div class="aiteam-fixture-row"><span class="aiteam-fixture-opp" style="color:${col};">${oppLabel}</span><span class="aiteam-fixture-xpts">${g.xPts.toFixed(1)}</span></div>`;
-                }).join('');
-
+                    fixtureRows.push(`<div class="aiteam-fixture-row"><span class="aiteam-fixture-opp" style="color:${col};">${fx.home ? fx.opponent + '(H)' : fx.opponent + '(A)'}</span><span class="aiteam-fixture-xpts">${w.xPts.toFixed(1)}</span></div>`);
+                }
                 html += `<div class="aiteam-bench-slot${p.position === 'GKP' ? ' is-goalkeeper' : ''}">
-                    <div class="aiteam-bench-order">${benchIndex + 1}</div>
+                    <div class="aiteam-bench-order">${i + 1}</div>
                     <div class="aiteam-bench-shirt-img">${shirtImg}<span class="aiteam-shirt-fallback" aria-hidden="true">${FPL.playerTeamShort(p)}</span></div>
                     <div class="aiteam-bench-info">
                         <div class="aiteam-bench-heading"><div class="aiteam-bench-name">${p.name}</div><span class="aiteam-bench-position">${p.position}</span></div>
                         <div class="aiteam-bench-club">${p.teamFull || p.team}</div>
                         <div class="aiteam-bench-metrics"><span>\u00A3${p.cost?.toFixed(1)}m</span><strong>${xPts} xPts</strong></div>
-                        <div class="aiteam-fixture-block">${fixtureRows}</div>
+                        <div class="aiteam-fixture-block">${fixtureRows.join('')}</div>
                     </div>
                 </div>`;
             });
-            html += '</div></div>';
-
-            pitchEl.innerHTML = html;
+            html += '</div>';
+            benchEl.innerHTML = html;
         }
 
         // --- Squad Table ---
-        const tbody = document.getElementById('aiteam-squad-tbody');
-        if (tbody) {
+        const squadWrap = document.getElementById('aiteam-squad-table-wrap');
+        if (squadWrap) {
             const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
-            const statusIcons = { a: { icon: 'check_circle', color: '#00FF87', label: 'Available' }, d: { icon: 'help', color: '#FFA726', label: 'Doubtful' }, i: { icon: 'hospital', color: '#ff4d4d', label: 'Injured' }, s: { icon: 'gavel', color: '#ff4d4d', label: 'Suspended' }, u: { icon: 'block', color: '#888', label: 'Unavailable' }, n: { icon: 'cancel', color: '#888', label: 'Not in squad' } };
+            const statusIcons = { a: { icon: 'check_circle', color: '#00FF87', label: 'Available' }, d: { icon: 'help', color: '#FFA726', label: 'Doubtful' }, i: { icon: 'hospital', color: '#ff4d4d', label: 'Injured' }, s: { icon: 'gavel', color: '#ff4d4d', label: 'Suspended' } };
             const isCap = (p) => lineup.captain && p.id === lineup.captain.id;
             const isVice = (p) => lineup.viceCaptain && p.id === lineup.viceCaptain.id;
-             const starterIds = new Set(lineup.starters.map(player => player.id));
-             const benchIds = new Set(lineup.bench.map(player => player.id));
-             const orderedSquad = [...lineup.starters, ...lineup.bench].filter((player, index, list) => player && list.findIndex(item => item.id === player.id) === index);
-             tbody.innerHTML = orderedSquad.map((p, i) => {
-                const s = statusIcons[p.status] || statusIcons.a;
-                const gwXPts = sumPlayerXPts(p, gwView).toFixed(1);
-                 const role = isCap(p) ? '<span style="color:#FFD700;font-weight:700;">Captain</span>' : isVice(p) ? '<span style="color:#C0C0C0;font-weight:600;">Vice-Captain</span>' : benchIds.has(p.id) ? '<span style="color:#8ba396;">Bench</span>' : starterIds.has(p.id) ? '<span style="color:#00FF85;">Starter</span>' : '<span style="color:#ff4d4d;">Invalid</span>';
-                const clubName = p.teamFull || p.team;
-                const news = p.news ? `<span style="color:#FFA726;font-size:10px;margin-left:4px;" title="${this.escapeHTML(p.news)}">\u26A0</span>` : '';
-                // Upcoming fixtures preview (next 4 GWs)
-                const fixtures = (p.upcomingFixtures || []).slice(0, 4);
-                const fixtureDots = fixtures.map(f => {
-                    const color = f.fdr <= 2 ? '#00FF85' : f.fdr <= 3 ? '#FFA726' : '#ff4d4d';
-                    return `<span style="display:inline-block;width:22px;height:18px;line-height:18px;text-align:center;font-size:8px;font-weight:700;border-radius:3px;background:${color}22;color:${color};" title="GW${f.gw}: ${f.home ? '' : '@'}${f.opponent} (FDR ${f.fdr})">${f.opponent}</span>`;
-                }).join('');
-                const runLen = p.consecutiveGoodFixtures || 0;
-                const runBadge = runLen >= 4 ? `<span style="color:#00FF85;font-size:9px;font-weight:700;margin-left:4px;" title="${runLen} consecutive easy fixtures">\u25B2${runLen}</span>` : '';
-                return `<tr>
-                    <td class="aiteam-rank-cell">${i + 1}</td>
-                    <td class="aiteam-player-cell"><div class="aiteam-table-player">${this.teamBadge(p.team, 24)}<div><span class="aiteam-table-player-name">${p.name}</span>${news}<div class="aiteam-table-player-club">${clubName}</div></div></div></td>
-                    <td style="text-align:center;"><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:${posColors[p.position]}22;color:${posColors[p.position]};">${p.position}</span></td>
-                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;color:#fff;">\u00A3${p.cost?.toFixed(1)}m</td>
-                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;color:#B0B0B0;">${p.form?.toFixed(1) || '-'}</td>
-                    <td style="text-align:center;font-family:var(--font-mono);font-size:13px;font-weight:700;color:#00FF85;">${gwXPts}</td>
-                    <td style="text-align:center;font-family:var(--font-mono);font-size:13px;font-weight:700;color:#4FC3F7;">${p.totalXpts?.toFixed(1) || '-'}</td>
-                    <td style="text-align:center;font-size:11px;padding:4px 2px;"><div style="display:flex;gap:2px;justify-content:center;">${fixtureDots}</div>${runBadge}</td>
-                    <td style="text-align:center;font-size:12px;">${role}</td>
-                    <td style="text-align:center;"><span class="material-symbols-outlined" style="font-size:16px;color:${s.color};" title="${s.label}">${s.icon}</span></td>
-                </tr>`;
-            }).join('');
-        }
-
-        // --- Update table header to reflect GW view ---
-        const squadHeaderTh = document.querySelector('#aiteam-squad-tbody')?.closest('table')?.querySelector('th:nth-child(6)');
-        if (squadHeaderTh) squadHeaderTh.textContent = gwView === 1 ? 'xPts (Next GW)' : `xPts (${gwView} GWs)`;
-
-        // --- Position Legend ---
-        const legend = document.getElementById('aiteam-position-legend');
-        if (legend) {
+            const starterIds = new Set(lineup.starters.map(p => p.id));
+            const benchIds = new Set(lineup.bench.map(p => p.id));
+            const all = [...lineup.starters, ...lineup.bench].filter((p, i, l) => p && l.findIndex(x => x.id === p.id) === i);
+            const legendColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
             const counts = { GKP: 0, DEF: 0, MID: 0, FWD: 0 };
-            squad.forEach(p => counts[p.position]++);
-            legend.innerHTML = Object.entries(counts).map(([pos, count]) => {
-                const colors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
-                return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;"><span style="width:8px;height:8px;border-radius:2px;background:${colors[pos]};"></span>${pos} ${count}</span>`;
-            }).join('');
+            all.forEach(p => counts[p.position]++);
+            const legend = Object.entries(counts).map(([pos, c]) => `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;"><span style="width:7px;height:7px;border-radius:2px;background:${legendColors[pos]};"></span>${pos} ${c}</span>`).join('');
+
+            squadWrap.innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                    <span style="font-size:13px;font-weight:600;color:#fff;">15-Player Roster</span>
+                    <span style="display:flex;gap:8px;">${legend}</span>
+                </div>
+                <div class="table-scroll-mobile" tabindex="0" aria-label="AI Team squad table">
+                    <table class="aiteam-table" style="min-width:700px;">
+                        <thead><tr><th style="width:36px;">#</th><th class="aiteam-player-cell">Player</th><th>Pos</th><th>\u00A3</th><th>xPts</th><th>Fixtures</th><th>Role</th><th style="width:70px;">Action</th></tr></thead>
+                        <tbody>${all.map((p, i) => {
+                            const s = statusIcons[p.status] || statusIcons.a;
+                            const xp = sumPlayerXPts(p, gwView).toFixed(1);
+                            const role = isCap(p) ? '<span style="color:#FFD700;font-weight:700;">C</span>' : isVice(p) ? '<span style="color:#C0C0C0;">V</span>' : benchIds.has(p.id) ? '<span style="color:#8ba396;">B</span>' : '<span style="color:#00FF85;">S</span>';
+                            const fx = (p.upcomingFixtures || []).slice(0, 4).map(f => {
+                                const c = f.fdr <= 2 ? '#00FF85' : f.fdr <= 3 ? '#FFA726' : '#ff4d4d';
+                                return `<span style="display:inline-block;width:20px;height:16px;line-height:16px;text-align:center;font-size:7px;font-weight:700;border-radius:2px;background:${c}22;color:${c};" title="GW${f.gw}: ${f.home?'':'@'}${f.opponent}">${f.opponent}</span>`;
+                            }).join('');
+                            return `<tr>
+                                <td class="aiteam-rank-cell">${i + 1}</td>
+                                <td class="aiteam-player-cell"><div class="aiteam-table-player">${this.teamBadge(p.team, 20)}<div><span class="aiteam-table-player-name" style="font-size:12px;">${p.name}</span><div class="aiteam-table-player-club">${p.teamFull || p.team}</div></div></div></td>
+                                <td style="text-align:center;"><span style="padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;background:${posColors[p.position]}22;color:${posColors[p.position]};">${p.position}</span></td>
+                                <td style="text-align:center;font-family:var(--font-mono);font-size:11px;color:#B0B0B0;">\u00A3${p.cost?.toFixed(1)}m</td>
+                                <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#00FF85;">${xp}</td>
+                                <td style="text-align:center;font-size:10px;padding:4px 2px;"><div style="display:flex;gap:1px;justify-content:center;">${fx}</div></td>
+                                <td style="text-align:center;font-size:11px;font-weight:600;">${role}</td>
+                                <td style="text-align:center;"><button onclick="FPL.suggestAITeamTransfer(${p.id})" title="Find replacement" style="padding:4px 8px;border:1px solid #294138;border-radius:4px;background:transparent;color:#8ba396;font-size:10px;cursor:pointer;transition:all 0.15s;"><span class="material-symbols-outlined" style="font-size:14px;">swap_horiz</span></button></td>
+                            </tr>`;
+                        }).join('')}</tbody>
+                    </table>
+                </div>`;
         }
 
-        // --- GW Breakdown (with opponent fixtures per GW) ---
-        const gwHeader = document.getElementById('aiteam-gw-header');
-        const gwBody = document.getElementById('aiteam-gw-tbody');
-        if (gwHeader && gwBody && lineup.starters[0]?.weekly) {
-            const gws = (meta?.gameweeks || lineup.starters[0].weekly.map(week => week.gameweek)).slice(0, gwView);
-            gwHeader.innerHTML = '<th class="aiteam-player-cell">Player</th>' + gws.map(gameweek => `<th>GW${gameweek}</th>`).join('') + '<th class="aiteam-total-cell">Total</th>';
+        // --- Transfer Suggestions ---
+        const transferEl = document.getElementById('aiteam-transfer-suggestions');
+        if (transferEl) {
+            const suggestions = [];
+            const allSquad = [...lineup.starters, ...lineup.bench];
+            allSquad.forEach(p => {
+                if (!p.weekly || p.weekly.length < 2) return;
+                const next1 = p.weekly[0]?.xPts || 0;
+                const avg = p.weekly.slice(0, Math.min(3, p.weekly.length)).reduce((s, w) => s + (w.xPts || 0), 0) / Math.min(3, p.weekly.length);
+                const fix = p.upcomingFixtures?.[0];
+                if (fix && fix.fdr >= 4 && next1 < avg * 0.6) {
+                    suggestions.push({ player: p, reason: `Hard fixture (FDR ${fix.fdr}) — ${fix.home ? 'vs' : '@'} ${fix.opponent}`, xPtsDrop: avg - next1 });
+                }
+            });
+            suggestions.sort((a, b) => b.xPtsDrop - a.xPtsDrop);
+            if (suggestions.length) {
+                transferEl.innerHTML = `
+                    <div style="margin-bottom:16px;">
+                        <div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:4px;">Transfer Suggestions</div>
+                        <div style="font-size:11px;color:#8ba396;">Players with tough upcoming fixtures — consider swapping for better value.</div>
+                    </div>
+                    ${suggestions.slice(0, 5).map(s => {
+                        const fix = s.player.upcomingFixtures?.[0];
+                        const col = fix ? (fix.fdr <= 2 ? '#00FF85' : fix.fdr <= 3 ? '#FFA726' : '#ff4d4d') : '#8ba396';
+                        return `<div class="aiteam-transfer-suggest">
+                            <div class="aiteam-transfer-suggest-header">
+                                <h3>${s.player.name} <span class="reason">${s.player.position} \u00B7 ${s.player.teamFull || s.player.team}</span></h3>
+                                <span style="font:600 11px var(--font-mono);color:${col};">${fix ? (fix.home ? 'vs' : '@') + ' ' + fix.opponent : 'BLANK'} (FDR ${fix?.fdr || '?'})</span>
+                            </div>
+                            <div class="aiteam-transfer-option">
+                                <div class="aiteam-transfer-player out">
+                                    <div><div class="aiteam-transfer-player-name">${s.player.name}</div><div class="aiteam-transfer-player-meta">\u00A3${s.player.cost?.toFixed(1)}m \u00B7 ${sumPlayerXPts(s.player, 1).toFixed(1)} xPts (next GW)</div></div>
+                                </div>
+                                <span class="material-symbols-outlined" style="color:#8ba396;font-size:18px;">arrow_forward</span>
+                                <div style="font-size:11px;color:#8ba396;">${s.reason}</div>
+                                <button class="aiteam-transfer-apply" onclick="FPL.suggestAITeamTransfer(${s.player.id})">Find replacement</button>
+                            </div>
+                        </div>`;
+                    }).join('')}`;
+            } else {
+                transferEl.innerHTML = `<div class="aiteam-empty-state"><span class="material-symbols-outlined">thumb_up</span><p>No urgent transfer suggestions. Your squad looks solid for the upcoming fixtures.</p></div>`;
+            }
+        }
+
+        // --- GW Breakdown ---
+        const gwBreakdown = document.getElementById('aiteam-gw-breakdown');
+        if (gwBreakdown && lineup.starters[0]?.weekly) {
+            const gws = (meta?.gameweeks || lineup.starters[0].weekly.map(w => w.gameweek)).slice(0, gwView);
             const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
-            const allPlayers = [...lineup.starters, ...lineup.bench];
-            gwBody.innerHTML = allPlayers.map((p, i) => {
-                const isB = i >= lineup.starters.length;
-                const rowStyle = isB ? 'background:rgba(255,255,255,0.02);' : '';
-                const clubName = p.teamFull || p.team;
-                const runLen = p.consecutiveGoodFixtures || 0;
-                const runIcon = runLen >= 4 ? `<span style="color:#00FF85;font-size:9px;font-weight:700;margin-left:4px;" title="${runLen} consecutive easy fixtures">\u25B2${runLen}</span>` : '';
-                return `<tr class="${isB ? 'is-bench' : ''}" style="${rowStyle}">
-                    <td class="aiteam-player-cell"><div class="aiteam-gw-player"><span class="aiteam-gw-position" style="color:${posColors[p.position]};">${p.position}</span><span class="aiteam-gw-player-copy"><strong>${p.name}</strong><small>${clubName}${isB ? ' · Bench' : ''}</small></span>${runIcon}</div></td>
-                    ${gws.map(gameweek => {
-                        const w = p.weekly.find(week => week.gameweek === gameweek) || { gameweek, xPts: 0, xMins: 0 };
-                        // Show opponent fixture + xPts for each GW
-                        const fx = p.upcomingFixtures?.find(f => f.gw === gameweek);
-                        const fxStr = fx ? `${fx.opponent}(${fx.home ? 'H' : 'A'})` : 'BLANK';
-                        const fdr = fx?.fdr || 3;
-                        const fdrBg = fdr <= 2 ? 'rgba(0,255,133,0.08)' : fdr <= 3 ? 'rgba(255,167,38,0.08)' : 'rgba(255,77,77,0.08)';
-                        const fxColor = fdr <= 2 ? '#00FF85' : fdr <= 3 ? '#FFA726' : '#ff4d4d';
-                        return `<td class="aiteam-gw-cell" style="color:${w.xPts >= 5 ? '#00FF85' : w.xPts >= 3 ? '#fff' : '#8ba396'};background:${fdrBg};">
-                            <span class="aiteam-gw-fixture" style="color:${fx ? fxColor : '#718279'};">${fxStr}</span>
-                            <strong>${w.xPts.toFixed(1)}</strong>
-                        </td>`;
-                    }).join('')}
-                    <td class="aiteam-total-cell">${gws.reduce((sum, gameweek) => sum + (p.weekly.find(week => week.gameweek === gameweek)?.xPts || 0), 0).toFixed(1)}</td>
-                </tr>`;
-            }).join('');
+            const allP = [...lineup.starters, ...lineup.bench];
+            gwBreakdown.innerHTML = `
+                <div class="table-scroll-mobile" tabindex="0" aria-label="GW breakdown table">
+                    <table class="aiteam-table" style="min-width:max-content;">
+                        <thead><tr><th class="aiteam-player-cell">Player</th>${gws.map(g => `<th>GW${g}</th>`).join('')}<th style="min-width:60px;">Total</th></tr></thead>
+                        <tbody>${allP.map((p, i) => {
+                            const isB = i >= lineup.starters.length;
+                            return `<tr class="${isB ? 'is-bench' : ''}" style="${isB ? 'background:rgba(255,255,255,0.02);' : ''}">
+                                <td class="aiteam-player-cell"><div class="aiteam-gw-player"><span class="aiteam-gw-position" style="color:${posColors[p.position]};">${p.position}</span><span class="aiteam-gw-player-copy"><strong>${p.name}</strong><small>${p.teamFull || p.team}${isB ? ' \u00B7 Bench' : ''}</small></span></div></td>
+                                ${gws.map(g => {
+                                    const w = p.weekly.find(week => week.gameweek === g) || { xPts: 0 };
+                                    const fx = p.upcomingFixtures?.find(f => f.gw === g);
+                                    const fdr = fx?.fdr || 3;
+                                    const fdrBg = fdr <= 2 ? 'rgba(0,255,133,0.08)' : fdr <= 3 ? 'rgba(255,167,38,0.08)' : 'rgba(255,77,77,0.08)';
+                                    const fxColor = fdr <= 2 ? '#00FF85' : fdr <= 3 ? '#FFA726' : '#ff4d4d';
+                                    return `<td class="aiteam-gw-cell" style="color:${w.xPts >= 5 ? '#00FF85' : w.xPts >= 3 ? '#fff' : '#8ba396'};background:${fdrBg};">
+                                        <span class="aiteam-gw-fixture" style="color:${fx ? fxColor : '#718279'};">${fx ? fx.opponent + (fx.home ? '(H)' : '(A)') : 'BLANK'}</span>
+                                        <strong>${w.xPts.toFixed(1)}</strong>
+                                    </td>`;
+                                }).join('')}
+                                <td class="aiteam-total-cell">${gws.reduce((s, g) => s + (p.weekly.find(w => w.gameweek === g)?.xPts || 0), 0).toFixed(1)}</td>
+                            </tr>`;
+                        }).join('')}</tbody>
+                    </table>
+                </div>`;
         }
 
         // --- Chip Strategy ---
@@ -2247,67 +2337,24 @@ const FPL = {
         if (chipsEl) {
             const chipList = chips?.schedule || chips?.recommendations || [];
             if (chipList.length) {
+                const chipNames = { BB: 'Bench Boost', TC: 'Triple Captain', FH: 'Free Hit', WC: 'Wildcard' };
+                const chipColors = { BB: '#4FC3F7', TC: '#FFD700', FH: '#c084fc', WC: '#FFA726' };
+                const chipIcons = { BB: 'event_seat', TC: 'star', FH: 'flash_on', WC: 'auto_fix_high' };
                 chipsEl.innerHTML = `
-                    <div class="aiteam-section-header">
-                        <div>
-                            <span class="aiteam-kicker">CHIP STRATEGY</span>
-                            <h2>Optimal Chip Timing</h2>
-                        </div>
-                    </div>
-                    <div class="aiteam-chips-grid">${chipList.map(c => {
-                        const chipIcons = { BB: 'event_seat', TC: 'star', FH: 'flash_on', WC: 'auto_fix_high', 'Bench Boost': 'event_seat', 'Triple Captain': 'star', 'Free Hit': 'flash_on', 'Wildcard': 'auto_fix_high' };
-                        const chipNames = { BB: 'Bench Boost', TC: 'Triple Captain', FH: 'Free Hit', WC: 'Wild Card' };
-                        const chipColors = { BB: '#4FC3F7', TC: '#FFD700', FH: '#c084fc', WC: '#FFA726' };
-                        const chipName = chipNames[c.chip] || c.chip;
-                        const chipColor = chipColors[c.chip] || '#00FF85';
-                        const gain = c.expectedGain || 0;
-                        return `
-                        <div class="aiteam-chip-card" style="border-color:${chipColor}55;">
-                            <div class="aiteam-chip-icon" style="color:${chipColor};"><span class="material-symbols-outlined">${chipIcons[c.chip] || 'auto_awesome'}</span></div>
-                            <div style="font-weight:700;color:#fff;font-size:14px;">${chipName}</div>
-                            <div style="color:${chipColor};font-weight:700;font-size:15px;">Gameweek ${c.gameweek}</div>
-                            <div style="color:#8ba396;font-size:11px;margin-top:4px;line-height:1.4;">${c.reason || ''}</div>
-                            <div style="margin-top:6px;display:flex;gap:8px;align-items:center;">
-                                <span style="color:#00FF85;font-size:11px;font-weight:600;">+${gain.toFixed(1)} xPts</span>
-                                <span style="color:${c.confidence === 'High' ? '#00FF85' : c.confidence === 'Medium' ? '#FFA726' : '#8ba396'};font-size:10px;font-weight:600;">${c.confidence || 'Scheduled'}</span>
-                            </div>
+                    <div style="margin-top:16px;"><div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:4px;">Chip Strategy</div>
+                    <div class="aiteam-chips-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:8px;">
+                    ${chipList.map(c => {
+                        const name = chipNames[c.chip] || c.chip;
+                        const color = chipColors[c.chip] || '#00FF85';
+                        return `<div class="aiteam-chip-card" style="border-color:${color}55;padding:12px;border:1px solid ${color}33;border-radius:6px;background:#141916;">
+                            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><span class="material-symbols-outlined" style="color:${color};font-size:18px;">${chipIcons[c.chip] || 'auto_awesome'}</span><span style="font-weight:700;color:#fff;font-size:13px;">${name}</span></div>
+                            <div style="color:${color};font-weight:700;font-size:14px;">GW ${c.gameweek}</div>
+                            <div style="color:#8ba396;font-size:10px;margin-top:4px;">${c.reason || ''}</div>
+                            <div style="margin-top:4px;color:#00FF85;font-size:10px;font-weight:600;">+${(c.expectedGain || 0).toFixed(1)} xPts</div>
                         </div>`;
-                    }).join('')}</div>`;
+                    }).join('')}</div></div>`;
             } else {
                 chipsEl.innerHTML = '';
-            }
-        }
-
-        // --- Transfer Plan ---
-        const transfersEl = document.getElementById('aiteam-transfers-section');
-        if (transfersEl) {
-            const plan = transfers?.plan || [];
-            const activeTransfers = plan.filter(t => (t.transfers?.length || t.transfer) && !t.rolled);
-            if (activeTransfers.length) {
-                transfersEl.innerHTML = `
-                    <div class="aiteam-section-header">
-                        <div>
-                            <span class="aiteam-kicker">TRANSFER PLAN</span>
-                            <h2>Autonomous Decisions</h2>
-                        </div>
-                    </div>
-                    <div class="aiteam-chips-grid">${activeTransfers.map(t => {
-                        const moves = t.transfers?.length ? t.transfers : [t.transfer];
-                        const hitText = t.hit > 0 ? `<span style="color:#ff4d4d;font-weight:700;">-${t.hit} hit</span>` : '<span style="color:#00FF85;">Free</span>';
-                        const gain = moves.reduce((sum, move) => sum + Number(move.gain || 0), 0) - Number(t.hit || 0);
-                        return `
-                        <div class="aiteam-chip-card">
-                            <div class="aiteam-chip-icon"><span class="material-symbols-outlined">swap_horiz</span></div>
-                            <div style="font-weight:700;color:#fff;font-size:13px;">GW${t.gw}</div>
-                            ${moves.map(move => `<div class="aiteam-transfer-move"><span>${this.escapeHTML(move.out.name)} <small>${this.escapeHTML(move.out.teamFull || move.out.team)}</small></span><span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span><strong>${this.escapeHTML(move.in.name)} <small>${this.escapeHTML(move.in.teamFull || move.in.team)}</small></strong></div>`).join('')}
-                            <div style="display:flex;gap:8px;align-items:center;">
-                                ${hitText}
-                                <span style="color:#4FC3F7;font-size:11px;">${gain >= 0 ? '+' : ''}${gain.toFixed(1)} net xPts</span>
-                            </div>
-                        </div>`;
-                    }).join('')}</div>`;
-            } else {
-                transfersEl.innerHTML = '';
             }
         }
     },
@@ -2343,7 +2390,8 @@ const FPL = {
             if (mostSelectedTbody && data.mostSelected) {
                 mostSelectedTbody.innerHTML = data.mostSelected.map((p, idx) => {
                     const barColor = idx === 0 ? '#00FF85' : idx === 1 ? '#00FF85' : idx === 2 ? '#E1E1E1' : idx === 3 ? '#FFA600' : '#FF005A';
-                    return `<tr style="border-bottom:1px solid #1A2E28;transition:background 0.2s;cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'" onclick="FPL.openPlayersByPosition('${p.pos}')">
+                    const clickAction = p.id ? `FPL.showPlayerDetail(${p.id})` : `FPL.openPlayersByPosition('${p.pos}')`;
+                    return `<tr style="border-bottom:1px solid #1A2E28;transition:background 0.2s;cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'" onclick="${clickAction}">
                         <td style="padding:8px 10px;display:flex;align-items:center;gap:8px;background:#141916;position:relative;">
                             <div style="width:3px;height:24px;border-radius:999px;background:${barColor};flex-shrink:0;"></div>
                             <div class="player-photo-shell" style="width:32px;height:32px;border-radius:50%;border:1px solid #1A2E28;">
@@ -3070,7 +3118,7 @@ const FPL = {
             const decimals = per90 ? 2 : 1;
 
             return `
-                <tr style="border-bottom:1px solid #1A2E28;transition:background 0.2s;${isEven ? 'background:rgba(49,54,51,0.15);' : ''}" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='${isEven ? 'rgba(49,54,51,0.15)' : 'transparent'}'">
+                <tr style="border-bottom:1px solid #1A2E28;transition:background 0.2s;${isEven ? 'background:rgba(49,54,51,0.15);' : ''}cursor:pointer;" onclick="FPL.showPlayerDetail(${p.id})" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='${isEven ? 'rgba(49,54,51,0.15)' : 'transparent'}'">
                     <td style="padding:4px 6px;background:${isEven ? '#1E1E1E' : '#1A1A1A'};max-width:110px;overflow:hidden;">
                         <div style="display:flex;align-items:center;gap:6px;">
                             <div class="player-photo-shell" style="width:28px;height:28px;border-radius:50%;border:1px solid #333;">
@@ -3402,7 +3450,7 @@ const FPL = {
                 const posNames = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
                 const posStr = posNames[p.element_type] || 'MID';
 
-                return `<div class="flex items-center gap-3 p-3 rounded-lg bg-surface border border-pitch-line hover:border-fdr-1 transition-colors cursor-pointer group" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;background:var(--md-sys-color-surface);border:1px solid var(--pitch-line);" onclick="FPL.navigateTo('players')">
+                return `<div class="flex items-center gap-3 p-3 rounded-lg bg-surface border border-pitch-line hover:border-fdr-1 transition-colors cursor-pointer group" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;background:var(--md-sys-color-surface);border:1px solid var(--pitch-line);cursor:pointer;" onclick="FPL.showPlayerDetail(${p.id})">
                     <div class="player-photo-shell" style="width:40px;height:40px;border-radius:50%;border:1px solid var(--pitch-line);">
                         ${this.playerPhotoMarkup(p, `${p.name || p.web_name || 'FPL Player'} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}
                         <div style="position:absolute;bottom:0;right:0;width:10px;height:10px;background:var(--fdr-1);border-radius:50%;border:1px solid var(--md-sys-color-surface);"></div>
@@ -3563,7 +3611,7 @@ const FPL = {
                     player.rank === 1 ? '<span class="captaincy-row-label captaincy-row-label-best">BEST</span>' : '',
                     isDifferential ? '<span class="captaincy-row-label captaincy-row-label-diff">DIFF</span>' : ''
                 ].join('');
-                return `<tr class="${player.rank === 1 ? 'captaincy-row-best' : ''}">
+                return `<tr class="${player.rank === 1 ? 'captaincy-row-best' : ''}" style="cursor:pointer;" onclick="FPL.showPlayerDetail(${player.id})">
                     <td><span class="captaincy-rank">${player.rank}</span></td>
                     <td>
                         <div class="captaincy-table-player">
@@ -3725,7 +3773,7 @@ const FPL = {
             const sparklineSVG = this.generateSparklineSVG(p.sparkline, p.delta24h >= 0, 100, 32);
 
             inContainer.innerHTML = `
-                <div style="display:flex;align-items:center;gap:var(--space-md);">
+                <div style="display:flex;align-items:center;gap:var(--space-md);cursor:pointer;" onclick="FPL.showPlayerDetail(${p.id || 0})">
                     <span class="player-photo-shell" style="width:44px;height:44px;border-radius:50%;border:2px solid var(--fdr-1);">${this.playerPhotoMarkup(p, `${p.name || 'FPL Player'} - top transferred in`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}</span>
                     <div>
                         <div style="font-weight:700;font-size:0.9375rem;display:flex;align-items:center;gap:6px;">
@@ -3751,7 +3799,7 @@ const FPL = {
             const sparklineSVG = this.generateSparklineSVG(p.sparkline, p.delta24h >= 0, 100, 32);
 
             outContainer.innerHTML = `
-                <div style="display:flex;align-items:center;gap:var(--space-md);">
+                <div style="display:flex;align-items:center;gap:var(--space-md);cursor:pointer;" onclick="FPL.showPlayerDetail(${p.id || 0})">
                     <span class="player-photo-shell" style="width:44px;height:44px;border-radius:50%;border:2px solid var(--fdr-5);">${this.playerPhotoMarkup(p, `${p.name || 'FPL Player'} - top transferred out`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}</span>
                     <div>
                         <div style="font-weight:700;font-size:0.9375rem;display:flex;align-items:center;gap:6px;">
@@ -3776,7 +3824,7 @@ const FPL = {
             const sparklineSVG = this.generateSparklineSVG(p.sparkline, p.velocityShift >= 0, 100, 32);
 
             velContainer.innerHTML = `
-                <div style="display:flex;align-items:center;gap:var(--space-md);">
+                <div style="display:flex;align-items:center;gap:var(--space-md);cursor:pointer;" onclick="FPL.showPlayerDetail(${p.id || 0})">
                     <span class="player-photo-shell" style="width:44px;height:44px;border-radius:50%;border:2px solid var(--fdr-4);">${this.playerPhotoMarkup(p, `${p.name || 'FPL Player'} - price change`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}</span>
                     <div>
                         <div style="font-weight:700;font-size:0.9375rem;display:flex;align-items:center;gap:6px;">
@@ -3877,7 +3925,7 @@ const FPL = {
             const sparklineSVG = this.generateSparklineSVG(p.sparkline, p.delta24h >= 0, 110, 24);
 
             return `
-            <tr style="border-bottom:1px solid #333333;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
+            <tr style="border-bottom:1px solid #333333;transition:background 0.15s;cursor:pointer;" onclick="FPL.showPlayerDetail(${p.id || 0})" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
                 <td style="padding:4px 6px;text-align:center;color:#B0B0B0;font-family:var(--font-mono);font-size:10px;background:#1E1E1E;">${i + 1}</td>
                 <td style="padding:4px 6px;text-align:left;">
                     <div style="display:flex;align-items:center;gap:6px;">
@@ -4965,6 +5013,209 @@ const FPL = {
             console.error('Set pieces render error:', e);
             tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;color:#ff4d4d;">Failed to load set piece data</td></tr>';
         }
+    },
+
+    // ==================== PLAYER DETAIL OVERLAY ====================
+    showPlayerDetail(playerId) {
+        const bootstrap = this.state.bootstrapData;
+        if (!bootstrap || !playerId) return;
+        const player = bootstrap.elements.find(e => e.id === playerId);
+        if (!player) return;
+        const team = bootstrap.teams.find(t => t.id === player.team);
+        const posNames = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+        const posColors = { 1: '#FFD700', 2: '#4FC3F7', 3: '#81C784', 4: '#E57373' };
+        const posStr = posNames[player.element_type] || 'MID';
+        const posColor = posColors[player.element_type] || '#4FC3F7';
+        const price = (player.now_cost / 10).toFixed(1);
+        const form = parseFloat(player.form || 0);
+        const mins = player.minutes || 0;
+        const nineties = mins > 0 ? mins / 90 : 0;
+        const xG = parseFloat(player.expected_goals || 0);
+        const xA = parseFloat(player.expected_assists || 0);
+        const xGI = parseFloat(player.expected_goal_involvements || 0);
+        const xGI90 = parseFloat(player.expected_goal_involvements_per_90 || 0);
+        const defcon = parseFloat(player.defensive_contribution || 0);
+        const ict = parseFloat(player.ict_index || 0);
+        const own = parseFloat(player.selected_by_percent || 0);
+
+        // Next 5 fixtures
+        const fixtures = this.state.fixtures || [];
+        const nextFixtures = [];
+        const currentGW = this.state.currentGW || 1;
+        for (let gw = currentGW; gw <= Math.min(38, currentGW + 4); gw++) {
+            const fx = fixtures.find(f => f.event === gw && (f.team_h === player.team || f.team_a === player.team));
+            if (fx) {
+                const isHome = fx.team_h === player.team;
+                const oppId = isHome ? fx.team_a : fx.team_h;
+                const opp = bootstrap.teams.find(t => t.id === oppId);
+                const diff = isHome ? (fx.team_h_difficulty || 3) : (fx.team_a_difficulty || 3);
+                nextFixtures.push({ gw, opp: opp?.short_name || '?', isHome, diff });
+            } else {
+                nextFixtures.push({ gw, opp: 'BLANK', isHome: null, diff: 3 });
+            }
+        }
+
+        const fdrColors = { 1: '#1A9F39', 2: '#42B659', 3: '#F9D243', 4: '#F0613D', 5: '#E21C3D' };
+        const photoUrl = `https://resources.premierleague.com/premierleague25/photos/players/110x140/${player.code}.png`;
+        const formBars = [form >= 5 ? 1 : 2, form >= 4 ? 2 : 3, form >= 3 ? 1 : 2, form >= 2 ? 3 : 4, form >= 1 ? 1 : 5];
+
+        const html = `
+            <div class="player-detail-header">
+                <div class="player-detail-photo">
+                    <img src="${photoUrl}" alt="${player.web_name} photo" onerror="this.style.display='none'" loading="lazy">
+                </div>
+                <div class="player-detail-info">
+                    <h3 class="player-detail-name">${this.escapeHTML(player.web_name)}</h3>
+                    <div class="player-detail-meta">
+                        <span class="player-detail-pos" style="background:${posColor}20;color:${posColor};">${posStr}</span>
+                        <span>${this.teamBadge(team?.short_name, 14)} ${team?.short_name || 'FPL'}</span>
+                        <span style="font-family:var(--font-mono);color:var(--md-sys-color-primary);">£${price}m</span>
+                        <span style="font-family:var(--font-mono);">${own.toFixed(1)}% owned</span>
+                    </div>
+                </div>
+            </div>
+            <div class="player-detail-stats">
+                <div class="player-detail-stat"><div class="player-detail-stat-label">Points</div><div class="player-detail-stat-value">${player.total_points}</div></div>
+                <div class="player-detail-stat"><div class="player-detail-stat-label">Form</div><div class="player-detail-stat-value" style="display:flex;align-items:center;justify-content:center;gap:4px;">${form.toFixed(1)}<span style="display:flex;gap:1px;align-items:flex-end;">${formBars.map(h => `<span style="width:3px;height:${h * 3}px;border-radius:1px;background:var(--fdr-${h});"></span>`).join('')}</span></div></div>
+                <div class="player-detail-stat"><div class="player-detail-stat-label">Minutes</div><div class="player-detail-stat-value">${mins.toLocaleString()}</div></div>
+                <div class="player-detail-stat"><div class="player-detail-stat-label">ICT Index</div><div class="player-detail-stat-value">${ict.toFixed(1)}</div></div>
+            </div>
+            <div class="player-detail-section">
+                <div class="player-detail-section-title">Expected Stats</div>
+                <div class="player-detail-xg-breakdown">
+                    <div class="player-detail-xg-item"><div class="val" style="color:${xG >= 5 ? '#00FF85' : '#E0E0E0'}">${xG.toFixed(1)}</div><div class="lbl">xG</div></div>
+                    <div class="player-detail-xg-item"><div class="val" style="color:${xA >= 3 ? '#00FF85' : '#E0E0E0'}">${xA.toFixed(1)}</div><div class="lbl">xA</div></div>
+                    <div class="player-detail-xg-item"><div class="val" style="color:${xGI >= 5 ? '#00FF85' : '#E0E0E0'}">${xGI.toFixed(1)}</div><div class="lbl">xGI</div></div>
+                </div>
+                <div style="display:flex;justify-content:center;gap:24px;margin-top:12px;font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);">
+                    <span>xGI/90: <b style="color:#E0E0E0;">${xGI90.toFixed(2)}</b></span>
+                    <span>DefCon: <b style="color:#E0E0E0;">${defcon.toFixed(1)}</b></span>
+                    <span>Goals: <b style="color:#E0E0E0;">${player.goals_scored || 0}</b></span>
+                    <span>Assists: <b style="color:#E0E0E0;">${player.assists || 0}</b></span>
+                </div>
+            </div>
+            <div class="player-detail-section">
+                <div class="player-detail-section-title">Next 5 Fixtures</div>
+                <div class="player-detail-fixtures">
+                    ${nextFixtures.map(f => `<div class="player-detail-fixture" style="background:${fdrColors[f.diff]}20;color:${fdrColors[f.diff]};border:1px solid ${fdrColors[f.diff]}40;"><div style="font-size:9px;opacity:0.7;">GW${f.gw}</div><div style="font-weight:700;font-size:13px;">${f.opp}</div><div style="font-size:9px;">${f.isHome === null ? '' : f.isHome ? 'H' : 'A'}</div></div>`).join('')}
+                </div>
+            </div>
+            <div class="player-detail-section" style="border-top:1px solid var(--md-sys-color-outline-variant);">
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <a href="https://fantasy.premierleague.com/entry/${this.state.managerId || ''}/event/${this.state.currentGW || 1}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius-pill);background:var(--md-sys-color-surface-container-high);border:1px solid var(--md-sys-color-outline-variant);color:var(--md-sys-color-on-surface);text-decoration:none;font-size:0.8125rem;font-weight:600;cursor:pointer;transition:all var(--transition-fast);"><span class="material-symbols-outlined" style="font-size:16px;">open_in_new</span> View on FPL</a>
+                </div>
+            </div>
+        `;
+
+        const body = document.getElementById('player-detail-body');
+        if (body) body.innerHTML = html;
+        this.showDialog('player-detail-dialog');
+    },
+
+    // ==================== SIDEBAR COLLAPSE ====================
+    initSidebarCollapse() {
+        const sidebar = document.getElementById('sidebar');
+        const btn = document.getElementById('sidebar-collapse-btn');
+        if (!sidebar || !btn) return;
+        const saved = localStorage.getItem('fplSidebarCollapsed');
+        if (saved === 'true') sidebar.classList.add('collapsed');
+        btn.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            localStorage.setItem('fplSidebarCollapsed', sidebar.classList.contains('collapsed'));
+        });
+    },
+
+    // ==================== BOTTOM NAV OVERFLOW ====================
+    initBottomNavOverflow() {
+        const nav = document.querySelector('.bottom-nav');
+        if (!nav) return;
+        const overflowTabs = [
+            { id: 'decision', icon: 'model_training', label: 'Decision' },
+            { id: 'league', icon: 'leaderboard', label: 'League' },
+            { id: 'zones', icon: 'sports', label: 'Tactics' },
+            { id: 'ownership', icon: 'pie_chart', label: 'Ownership' },
+            { id: 'setpieces', icon: 'sports_motorsports', label: 'Set Pieces' },
+            { id: 'aiteam', icon: 'smart_toy', label: 'AI Team' }
+        ];
+        const overflowContainer = document.createElement('div');
+        overflowContainer.className = 'bottom-nav-overflow';
+        overflowContainer.innerHTML = `
+            <div class="bottom-nav-overflow-menu" id="bottom-nav-overflow-menu">
+                ${overflowTabs.map(t => `<button class="bottom-nav-overflow-item" data-tab="${t.id}" onclick="FPL.navigateTo('${t.id}');FPL.closeOverflowMenu()"><span class="material-symbols-outlined">${t.icon}</span>${t.label}</button>`).join('')}
+            </div>
+            <button class="bottom-nav-overflow-btn" id="bottom-nav-overflow-btn" aria-label="More tabs" aria-expanded="false">
+                <span class="material-symbols-outlined">more_horiz</span>
+            </button>
+        `;
+        document.body.appendChild(overflowContainer);
+        const trigger = document.getElementById('bottom-nav-overflow-btn');
+        const menu = document.getElementById('bottom-nav-overflow-menu');
+        if (trigger && menu) {
+            trigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const open = menu.classList.toggle('open');
+                trigger.setAttribute('aria-expanded', String(open));
+            });
+            document.addEventListener('click', () => this.closeOverflowMenu());
+        }
+    },
+
+    closeOverflowMenu() {
+        const menu = document.getElementById('bottom-nav-overflow-menu');
+        const trigger = document.getElementById('bottom-nav-overflow-btn');
+        if (menu) menu.classList.remove('open');
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+    },
+
+    // ==================== AI TEAM REBUILD CONFIRMATION ====================
+    async confirmAITeamRebuild() {
+        const result = await this.confirmDialog({
+            title: 'Rebuild AI Squad?',
+            message: 'This will discard the current AI squad and generate a new one from scratch. This may take a few seconds.',
+            confirmLabel: 'Rebuild',
+            cancelLabel: 'Cancel'
+        });
+        if (result) this.loadAITeam(true);
+    },
+
+    // ==================== RESIZABLE PANELS ====================
+    initResizablePanels() {
+        document.querySelectorAll('.resizer-col').forEach(resizer => {
+            const container = resizer.parentElement;
+            if (!container) return;
+            const prev = resizer.previousElementSibling;
+            const next = resizer.nextElementSibling;
+            if (!prev || !next) return;
+            let startX, startPrevWidth, startNextWidth;
+            const onMouseMove = (e) => {
+                const dx = e.clientX - startX;
+                const containerWidth = container.offsetWidth;
+                const newPrevWidth = Math.max(200, Math.min(containerWidth - 200, startPrevWidth + dx));
+                const newNextWidth = Math.max(200, startNextWidth - dx);
+                prev.style.flex = 'none';
+                prev.style.width = newPrevWidth + 'px';
+                next.style.flex = '1';
+                next.style.width = '';
+                resizer.classList.add('dragging');
+            };
+            const onMouseUp = () => {
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+                resizer.classList.remove('dragging');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            };
+            resizer.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                startX = e.clientX;
+                startPrevWidth = prev.offsetWidth;
+                startNextWidth = next.offsetWidth;
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        });
     }
 };
 

@@ -120,11 +120,14 @@
     <div class="layout">
         <!-- Sidebar -->
         <aside id="sidebar" class="layout-sidebar">
-            <div style="padding:var(--space-lg);border-bottom:1px solid var(--md-sys-color-outline-variant);">
-                <div class="topbar-title">
+            <div style="padding:var(--space-lg);border-bottom:1px solid var(--md-sys-color-outline-variant);display:flex;align-items:center;justify-content:space-between;">
+                <div class="topbar-title" style="min-width:0;">
                     <span class="material-symbols-outlined filled" style="font-size:32px;">sports_soccer</span>
-                    <div><div style="font-size:1.125rem;font-weight:700;">FPL Manager Stats</div><div style="font-size:0.625rem;color:var(--md-sys-color-on-surface-variant);font-weight:400;">Manager Dashboard</div></div>
+                    <div class="sidebar-label"><div style="font-size:1.125rem;font-weight:700;">FPL Manager Stats</div><div style="font-size:0.625rem;color:var(--md-sys-color-on-surface-variant);font-weight:400;">Manager Dashboard</div></div>
                 </div>
+                <button type="button" id="sidebar-collapse-btn" class="btn btn-ghost btn-icon" style="width:32px;height:32px;flex-shrink:0;" aria-label="Toggle sidebar" title="Collapse sidebar">
+                    <span class="material-symbols-outlined" style="font-size:20px;">chevron_left</span>
+                </button>
             </div>
             <nav style="padding:var(--space-md);flex:1;">
                 <div style="margin-bottom:var(--space-md);">
@@ -626,6 +629,10 @@
                     <div class="player-filter-bar" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;margin-bottom:24px;">
                         <h1 style="font-size:32px;font-weight:700;margin:0;">Global Player Stats</h1>
                         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                            <div style="display:flex;align-items:center;gap:8px;background:#1E1E1E;border:1px solid #1A2E28;border-radius:8px;padding:6px 12px;">
+                                <span class="material-symbols-outlined" style="font-size:18px;color:#B0B0B0;">search</span>
+                                <input type="text" id="player-search" placeholder="Search players..." oninput="FPL.renderPlayers()" style="background:transparent;border:none;outline:none;color:#E0E0E0;font-family:var(--font-mono);font-size:12px;width:140px;" aria-label="Search players by name">
+                            </div>
                             <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#8ba396;cursor:pointer;font-family:var(--font-mono);background:#1E1E1E;border:1px solid #1A2E28;border-radius:8px;padding:6px 12px;user-select:none;">
                                 <input type="checkbox" id="per90-toggle" onchange="FPL.renderPlayers()" style="accent-color:#00FF85;width:14px;height:14px;">
                                 <span style="color:#B0B0B0;">Per 90</span>
@@ -739,9 +746,9 @@
                 <!-- FIXTURES -->
                 <div id="content-fixtures" class="tab-content">
                     <!-- Canvas -->
-                    <div class="fixtures-flex-layout" style="display:flex;flex-direction:row;gap:24px;width:100%;align-items:flex-start;">
+                    <div class="fixtures-flex-layout" style="display:flex;flex-direction:row;gap:0;width:100%;align-items:flex-start;">
                         <!-- Center Data Grid (Fixtures) -->
-                        <div style="flex:1;display:flex;flex-direction:column;gap:24px;">
+                        <div style="flex:1;display:flex;flex-direction:column;gap:24px;min-width:0;">
                             <!-- Filters & Controls Bar -->
                             <div class="fixtures-controls" style="background:#202722;border:1px solid #34453b;border-radius:8px;padding:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;color:#dfe4e0;">
                                 <div class="fixtures-control-groups" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;min-width:0;">
@@ -786,6 +793,9 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Resizer -->
+                        <div class="resizer resizer-col" role="separator" aria-orientation="vertical" aria-label="Drag to resize fixtures and sidebar panels"></div>
 
                         <!-- Right Sidebar: Form Leaders (Upcoming) -->
                         <aside style="width:320px;flex-shrink:0;display:flex;flex-direction:column;gap:24px;">
@@ -1003,39 +1013,27 @@
                 <!-- AI TEAM -->
                 <div id="content-aiteam" class="tab-content">
                     <div class="aiteam-page">
-                        <div class="aiteam-hero">
+                        <!-- Compact Header -->
+                        <div class="aiteam-hero" style="padding:16px 0 12px;">
                             <div>
-                                <h1 class="aiteam-hero-title">AI Team</h1>
-                                <p class="aiteam-hero-sub">Autonomous squad selection, weekly transfers and projected chip timing, optimized within the official £100m budget.</p>
+                                <h1 class="aiteam-hero-title" style="font-size:24px;">AI Team</h1>
+                                <p class="aiteam-hero-sub" style="margin:4px 0 0;font-size:12px;">Auto-built squad with fixture-based transfer suggestions.</p>
                             </div>
-                            <span class="aiteam-engine-state"><span class="material-symbols-outlined" aria-hidden="true">smart_toy</span> Autonomous</span>
-                        </div>
-
-                        <!-- Controls -->
-                        <div class="aiteam-controls">
-                            <button class="aiteam-refresh-btn" type="button" onclick="FPL.loadAITeam(true)">
-                                <span class="material-symbols-outlined">refresh</span> Rebuild Squad
-                            </button>
-                            <details class="aiteam-advanced-toggle">
-                                <summary>Projection settings</summary>
-                                <div class="aiteam-advanced-options">
-                                    <div class="aiteam-control-group">
-                                        <label for="aiteam-horizon">Horizon</label>
-                                        <select id="aiteam-horizon">
-                                            <option value="5" selected>5 GWs</option>
-                                            <option value="8">8 GWs</option>
-                                        </select>
-                                    </div>
-                                    <div class="aiteam-control-group">
-                                        <label for="aiteam-strategy">Strategy</label>
-                                        <select id="aiteam-strategy">
-                                            <option value="balanced" selected>Balanced</option>
-                                            <option value="protect">Protect Rank</option>
-                                            <option value="chase">Chase Glory</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </details>
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <select id="aiteam-horizon" style="background:#141916;border:1px solid #1A2E28;border-radius:6px;padding:6px 10px;color:#fff;font:600 11px var(--font-mono);min-height:34px;" aria-label="Projection horizon">
+                                    <option value="5" selected>5 GWs</option>
+                                    <option value="8">8 GWs</option>
+                                    <option value="3">3 GWs</option>
+                                </select>
+                                <select id="aiteam-strategy" style="background:#141916;border:1px solid #1A2E28;border-radius:6px;padding:6px 10px;color:#fff;font:600 11px var(--font-mono);min-height:34px;" aria-label="Strategy">
+                                    <option value="balanced" selected>Balanced</option>
+                                    <option value="protect">Protect</option>
+                                    <option value="chase">Chase</option>
+                                </select>
+                                <button class="aiteam-refresh-btn" type="button" onclick="FPL.confirmAITeamRebuild()" style="min-height:34px;padding:0 12px;font-size:11px;">
+                                    <span class="material-symbols-outlined" style="font-size:16px;">refresh</span> Rebuild
+                                </button>
+                            </div>
                         </div>
 
                         <!-- Loading -->
@@ -1053,81 +1051,47 @@
 
                         <!-- Results -->
                         <div id="aiteam-results" class="aiteam-results hidden">
-                            <!-- Summary Cards -->
+                            <!-- Summary Bar -->
                             <div class="aiteam-summary" id="aiteam-summary"></div>
 
-                            <!-- Pitch Formation -->
-                            <div class="aiteam-pitch-section">
-                                <div class="aiteam-section-header">
-                                    <div>
-                                        <h2>Starting XI <span id="aiteam-formation-label">Formation</span></h2>
+                            <!-- Tab Bar -->
+                            <div class="aiteam-tab-bar" id="aiteam-tab-bar">
+                                <button class="aiteam-tab active" data-view="pitch" onclick="FPL.setAITeamView('pitch')"><span class="material-symbols-outlined">sports</span> Pitch</button>
+                                <button class="aiteam-tab" data-view="squad" onclick="FPL.setAITeamView('squad')"><span class="material-symbols-outlined">groups</span> Squad</button>
+                                <button class="aiteam-tab" data-view="transfers" onclick="FPL.setAITeamView('transfers')"><span class="material-symbols-outlined">swap_horiz</span> Transfers</button>
+                                <button class="aiteam-tab" data-view="breakdown" onclick="FPL.setAITeamView('breakdown')"><span class="material-symbols-outlined">table_chart</span> Breakdown</button>
+                            </div>
+
+                            <!-- Pitch View -->
+                            <div class="aiteam-view active" data-view="pitch">
+                                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <span id="aiteam-formation-label" class="aiteam-formation-badge"></span>
+                                        <div id="aiteam-captain-display" class="aiteam-captain-inline"></div>
                                     </div>
-                                    <div class="aiteam-pitch-tools">
-                                        <div class="aiteam-gw-toggle" id="aiteam-gw-toggle">
-                                            <button type="button" class="aiteam-gw-toggle-btn active" data-gw="1" onclick="FPL.setAITeamGWView(1)">Next GW</button>
-                                            <button type="button" class="aiteam-gw-toggle-btn" data-gw="3" onclick="FPL.setAITeamGWView(3)">Next 3 GWs</button>
-                                        </div>
-                                        <div class="aiteam-captain-pick" id="aiteam-captain-display"></div>
-                                    </div>
+                                    <div class="aiteam-gw-selector" id="aiteam-gw-toggle"></div>
                                 </div>
                                 <div class="aiteam-pitch-wrapper">
                                     <div class="aiteam-pitch" id="aiteam-pitch"></div>
                                 </div>
+                                <div class="aiteam-bench" id="aiteam-bench-section"></div>
                             </div>
 
-                            <!-- Full Squad Table -->
-                            <div class="aiteam-squad-section">
-                                <div class="aiteam-section-header">
-                                    <div>
-                                        <h2>15-Player Roster</h2>
-                                    </div>
-                                    <div class="aiteam-position-legend" id="aiteam-position-legend"></div>
-                                </div>
-                                <div class="table-scroll-mobile aiteam-roster-scroll" tabindex="0" aria-label="AI Team full squad table">
-                                    <table class="aiteam-table aiteam-roster-table">
-                                        <caption class="sr-only">AI Team 15-player squad</caption>
-                                        <thead>
-                                            <tr>
-                                                <th style="width:40px;">#</th>
-                                                <th class="aiteam-player-cell">Player</th>
-                                                <th>Pos</th>
-                                                <th>Price</th>
-                                                <th>Form</th>
-                                                <th>xPts (Next GW)</th>
-                                                <th>xPts (Horizon)</th>
-                                                <th>Fixtures</th>
-                                                <th>Role</th>
-                                                <th>Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="aiteam-squad-tbody">
-                                            <tr><td colspan="10" style="text-align:center;padding:40px;color:#8ba396;">Loading...</td></tr>
-                                        </tbody>
-                                    </table>
-                                </div>
+                            <!-- Squad View -->
+                            <div class="aiteam-view" data-view="squad">
+                                <div id="aiteam-squad-table-wrap"></div>
                             </div>
 
-                            <!-- GW Breakdown -->
-                            <div class="aiteam-gw-section">
-                                <div class="aiteam-section-header">
-                                    <div>
-                                        <h2>Per-GW xPts Breakdown</h2>
-                                    </div>
-                                </div>
-                                <div class="table-scroll-mobile aiteam-gw-scroll" tabindex="0" aria-label="AI Team gameweek projections table">
-                                    <table class="aiteam-table aiteam-gw-table">
-                                        <caption class="sr-only">Projected points and opponents by gameweek</caption>
-                                        <thead>
-                                            <tr id="aiteam-gw-header"></tr>
-                                        </thead>
-                                        <tbody id="aiteam-gw-tbody"></tbody>
-                                    </table>
-                                </div>
+                            <!-- Transfers View -->
+                            <div class="aiteam-view" data-view="transfers">
+                                <div id="aiteam-transfer-suggestions"></div>
+                                <div id="aiteam-chips-section"></div>
                             </div>
 
-                            <!-- Chip Strategy -->
-                            <div class="aiteam-transfers-section" id="aiteam-transfers-section"></div>
-                            <div class="aiteam-chips-section" id="aiteam-chips-section"></div>
+                            <!-- Breakdown View -->
+                            <div class="aiteam-view" data-view="breakdown">
+                                <div id="aiteam-gw-breakdown"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1287,8 +1251,20 @@
         </div>
     </div>
 
+    <!-- Player Detail Dialog -->
+    <div id="player-detail-dialog" class="dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="player-detail-dialog-title" aria-hidden="true">
+        <div class="dialog dialog-wide" style="max-width:640px;">
+            <div class="dialog-header">
+                <h3 id="player-detail-dialog-title" style="font-family:var(--font-display);font-weight:700;">Player Details</h3>
+                <button class="btn btn-ghost btn-icon" type="button" aria-label="Close dialog" onclick="FPL.hideDialog('player-detail-dialog')"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+            </div>
+            <div class="dialog-body" id="player-detail-body" style="padding:0;"></div>
+            <div class="dialog-footer"><button class="btn btn-outline" onclick="FPL.hideDialog('player-detail-dialog')">Close</button></div>
+        </div>
+    </div>
+
     <script src="team-preferences.js?v=2"></script>
-    <script src="common.js?v=19"></script>
+    <script src="common.js?v=20"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams(window.location.search);
@@ -1301,6 +1277,9 @@
             FPL.init().then(() => {
                 FPL.initSidebar();
                 FPL.initDialogs();
+                FPL.initSidebarCollapse();
+                FPL.initBottomNavOverflow();
+                FPL.initResizablePanels();
                 if (routeTab) FPL.loadTabData(routeTab);
                 if (FPL.state.managerId) {
                     const display = document.getElementById('manager-id-display');
