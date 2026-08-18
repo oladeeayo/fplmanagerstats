@@ -45,6 +45,8 @@ function AppInner() {
       if (!initPromise.current) {
         fpl.state.activeTab = activeTab;
         fpl.initSidebar();
+        fpl.initSidebarCollapse();
+        fpl.initBottomNavOverflow();
         fpl.initDialogs();
         initPromise.current = fpl.init();
       }
@@ -74,6 +76,8 @@ function AppInner() {
     window.FPL.state.activeTab = activeTab;
     const loadPromise = window.FPL.loadTabData(activeTab);
     window.FPL.initSidebar();
+    window.FPL.initSidebarCollapse();
+    window.FPL.initBottomNavOverflow();
 
     document.querySelectorAll<HTMLElement>('.sidebar-nav-item').forEach(el => {
       el.classList.toggle('active', el.dataset.tab === activeTab);

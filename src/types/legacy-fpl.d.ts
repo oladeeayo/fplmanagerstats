@@ -59,6 +59,8 @@ declare global {
       };
       init(): Promise<void>;
       initSidebar(): void;
+      initSidebarCollapse(): void;
+      initBottomNavOverflow(): void;
       initDialogs(): void;
       loadTabData(tab: string): Promise<void>;
       navigateTo(tab: string): void;

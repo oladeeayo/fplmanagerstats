@@ -44,7 +44,8 @@ const FPL = {
             autoFillSeed: 0,
             autoFillFormation: null,
             autoFillStarters: [],
-            preferences: null
+            preferences: null,
+            view: 'squad'
         }
     },
 
@@ -558,6 +559,7 @@ const FPL = {
             builder.autoFillFormation = saved?.autoFillFormation || null;
             builder.autoFillStarters = (saved?.autoFillStarters || []).filter(id => playerIds.has(id));
             builder.preferences = saved?.preferences || null;
+            builder.view = builder.view || 'squad';
             this.paintTeamBuilder();
             workspace?.classList.remove('hidden');
             breakdown?.classList.remove('hidden');
@@ -577,6 +579,20 @@ const FPL = {
         } finally {
             loading?.classList.add('hidden');
         }
+    },
+
+    setTBView(view) {
+        const allowed = new Set(['squad', 'market', 'coach', 'import']);
+        if (!allowed.has(view)) return;
+        this.state.teamBuilder.view = view;
+        document.querySelectorAll('.tb-tab').forEach(tab => {
+            const active = tab.dataset.view === view;
+            tab.classList.toggle('active', active);
+            tab.setAttribute('aria-selected', String(active));
+        });
+        document.querySelectorAll('.tb-view').forEach(panel => {
+            panel.classList.toggle('active', panel.dataset.view === view);
+        });
     },
 
     readTeamBuilderDraft() {
@@ -1302,8 +1318,9 @@ const FPL = {
             status.textContent = 'Screenshot could not be read';
             preview.innerHTML = `<div class="tb-import-working is-error"><span class="material-symbols-outlined">error</span><b>OCR unavailable</b><small>${this.escapeHTML(error.message || 'Try a clear, uncropped FPL squad screenshot.')}</small></div>`;
         } finally {
-            const input = document.getElementById('tb-screenshot-input');
-            if (input) input.value = '';
+            document.querySelectorAll('#tb-screenshot-input-2').forEach(input => {
+                input.value = '';
+            });
         }
     },
 
@@ -1431,7 +1448,7 @@ const FPL = {
         preview.style.display = isPitch ? 'none' : '';
 
         // Update view toggle buttons
-        document.querySelectorAll('.tb-import-view-btn').forEach(btn => {
+        document.querySelectorAll('#tb-import-panel .tb-import-view-btn').forEach(btn => {
             const isActive = btn.dataset.view === view;
             btn.classList.toggle('active', isActive);
             btn.setAttribute('aria-pressed', String(isActive));
@@ -1576,9 +1593,10 @@ const FPL = {
         void originalIds;
         this.saveTeamBuilderDraft();
         this.closeTeamScreenshotImport();
+        this.setTBView('squad');
         this.paintTeamBuilder();
-        const message = document.getElementById('tb-market-message');
-        if (message) message.textContent = `Imported ${validIds.length} legal player matches. Review the squad and add any missing players.`;
+        const status = document.getElementById('tb-save-status');
+        if (status) status.textContent = `Imported ${validIds.length} players. Review the squad and add any missing picks.`;
     },
 
     closeTeamScreenshotImport() {
@@ -1714,6 +1732,7 @@ const FPL = {
         const builder = this.state.teamBuilder;
         const squad = this.teamBuilderSquad();
         const validation = this.teamBuilderValidation(squad);
+        this.setTBView(builder.view || 'squad');
         const allGWs = [...new Set(builder.players.flatMap(player => player.nextFixtures.map(fixture => fixture.gw)))].sort((a, b) => a - b).slice(0, 8);
         const selector = document.getElementById('tb-gw-selector');
         if (selector) selector.innerHTML = allGWs.map(gw => `<button type="button" class="tb-gw-btn${builder.selectedGWs.includes(gw) ? ' active' : ''}" onclick="FPL.toggleTeamBuilderGW(${gw})" aria-pressed="${builder.selectedGWs.includes(gw)}"><span>GW</span>${gw}</button>`).join('');
@@ -1732,6 +1751,17 @@ const FPL = {
         }, 0);
         const total = document.getElementById('tb-horizon-total');
         if (total) total.textContent = `${horizonTotal.toFixed(1)} xPts`;
+
+        const summary = document.getElementById('tb-tab-summary');
+        if (summary) {
+            const remaining = Math.max(0, 100 - validation.cost);
+            const selectedHorizon = builder.selectedGWs.length || 0;
+            summary.innerHTML = `
+                <div class="tb-summary-card"><div class="tb-summary-icon" style="background:rgba(0,255,133,.12);color:#00FF85;"><span class="material-symbols-outlined">groups</span></div><div class="tb-summary-data"><div class="tb-summary-value">${squad.length}/15</div><div class="tb-summary-label">${validation.legal ? 'Legal squad' : 'Players selected'}</div></div></div>
+                <div class="tb-summary-card"><div class="tb-summary-icon" style="background:rgba(79,195,247,.12);color:#4FC3F7;"><span class="material-symbols-outlined">payments</span></div><div class="tb-summary-data"><div class="tb-summary-value">£${validation.cost.toFixed(1)}m</div><div class="tb-summary-label">£${remaining.toFixed(1)}m remaining</div></div></div>
+                <div class="tb-summary-card"><div class="tb-summary-icon" style="background:rgba(192,132,252,.12);color:#c084fc;"><span class="material-symbols-outlined">trending_up</span></div><div class="tb-summary-data"><div class="tb-summary-value">${horizonTotal.toFixed(1)}</div><div class="tb-summary-label">xPts across ${selectedHorizon} GWs</div></div></div>
+                <div class="tb-summary-card"><div class="tb-summary-icon" style="background:rgba(255,167,38,.12);color:#FFA726;"><span class="material-symbols-outlined">flag</span></div><div class="tb-summary-data"><div class="tb-summary-value">${builder.squadView === 'pitch' ? 'PITCH' : 'LIST'}</div><div class="tb-summary-label">Squad view</div></div></div>`;
+        }
 
         // Update view toggle buttons
         const squadView = builder.squadView || 'list';
@@ -2511,6 +2541,7 @@ const FPL = {
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('sidebar-overlay');
         const menuBtn = document.getElementById('mobile-menu-btn');
+        const closeBtn = document.getElementById('sidebar-mobile-close-btn');
 
         if (!sidebar || !overlay || !menuBtn || menuBtn.dataset.sidebarBound === 'true') return;
         menuBtn.dataset.sidebarBound = 'true';
@@ -2528,6 +2559,11 @@ const FPL = {
         };
 
         overlay.addEventListener('click', closeSidebar);
+        closeBtn?.addEventListener('click', closeSidebar);
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && sidebar.classList.contains('mobile-open')) closeSidebar();
+        });
 
         document.querySelectorAll('.sidebar-nav-item').forEach(item => {
             item.addEventListener('click', () => {
@@ -5116,19 +5152,33 @@ const FPL = {
     initSidebarCollapse() {
         const sidebar = document.getElementById('sidebar');
         const btn = document.getElementById('sidebar-collapse-btn');
-        if (!sidebar || !btn) return;
+        if (!sidebar || !btn || btn.dataset.bound === 'true') return;
+        btn.dataset.bound = 'true';
         const saved = localStorage.getItem('fplSidebarCollapsed');
-        if (saved === 'true') sidebar.classList.add('collapsed');
+        const updateState = (collapsed) => {
+            sidebar.classList.toggle('collapsed', collapsed);
+            btn.setAttribute('aria-expanded', String(!collapsed));
+            btn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+            btn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+        };
+        updateState(saved === 'true');
         btn.addEventListener('click', () => {
-            sidebar.classList.toggle('collapsed');
-            localStorage.setItem('fplSidebarCollapsed', sidebar.classList.contains('collapsed'));
+            if (window.innerWidth <= 1024) return;
+            const collapsed = !sidebar.classList.contains('collapsed');
+            updateState(collapsed);
+            localStorage.setItem('fplSidebarCollapsed', String(collapsed));
+        });
+        window.addEventListener('resize', () => {
+            if (window.innerWidth <= 1024) updateState(false);
+            else updateState(localStorage.getItem('fplSidebarCollapsed') === 'true');
         });
     },
 
     // ==================== BOTTOM NAV OVERFLOW ====================
     initBottomNavOverflow() {
         const nav = document.querySelector('.bottom-nav');
-        if (!nav) return;
+        if (!nav || nav.dataset.overflowBound === 'true') return;
+        nav.dataset.overflowBound = 'true';
         const overflowTabs = [
             { id: 'decision', icon: 'model_training', label: 'Decision' },
             { id: 'league', icon: 'leaderboard', label: 'League' },
@@ -5157,6 +5207,9 @@ const FPL = {
                 trigger.setAttribute('aria-expanded', String(open));
             });
             document.addEventListener('click', () => this.closeOverflowMenu());
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') this.closeOverflowMenu();
+            });
         }
     },
 

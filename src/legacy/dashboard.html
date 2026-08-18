@@ -128,6 +128,9 @@
                 <button type="button" id="sidebar-collapse-btn" class="btn btn-ghost btn-icon" style="width:32px;height:32px;flex-shrink:0;" aria-label="Toggle sidebar" title="Collapse sidebar">
                     <span class="material-symbols-outlined" style="font-size:20px;">chevron_left</span>
                 </button>
+                <button type="button" id="sidebar-mobile-close-btn" class="btn btn-ghost btn-icon" aria-label="Close navigation menu" title="Close navigation menu">
+                    <span class="material-symbols-outlined" style="font-size:20px;">close</span>
+                </button>
             </div>
             <nav style="padding:var(--space-md);flex:1;">
                 <div style="margin-bottom:var(--space-md);">
@@ -1106,75 +1109,48 @@
                                 <p>Build a legal 15-player squad and compare projected returns across up to eight gameweeks.</p>
                             </div>
                             <div class="tb-heading-actions">
-                                <div class="tb-upload-zone" id="tb-upload-zone" role="button" tabindex="0" onclick="document.getElementById('tb-screenshot-input').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="event.preventDefault();this.classList.remove('drag-over');FPL.importTeamScreenshot(event.dataTransfer.files?.[0])">
-                                    <input id="tb-screenshot-input" class="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onchange="FPL.importTeamScreenshot(this.files?.[0])">
-                                    <span class="material-symbols-outlined">upload</span>
-                                    <span class="tb-upload-label">Import screenshot</span>
-                                    <span class="tb-upload-hint">Drop image or click</span>
-                                </div>
+                                <button type="button" class="tb-btn tb-btn-secondary" onclick="FPL.setTBView('import');document.getElementById('tb-screenshot-input-2').click()"><span class="material-symbols-outlined">upload</span> Import screenshot</button>
                                 <button type="button" class="tb-btn tb-btn-secondary" onclick="FPL.loadBuilderCurrentSquad()"><span class="material-symbols-outlined">download</span> Current squad</button>
                                 <button type="button" class="tb-icon-btn" onclick="FPL.clearTeamBuilder()" title="Clear squad" aria-label="Clear squad"><span class="material-symbols-outlined">delete_sweep</span></button>
                             </div>
                         </header>
 
-                        <section id="tb-import-panel" class="tb-import-panel hidden" aria-labelledby="tb-import-title">
-                            <div class="tb-panel-heading"><div><h2 id="tb-import-title">Confirm screenshot players</h2><span id="tb-import-status">Reading screenshot locally...</span></div><div class="tb-import-tools"><div class="tb-import-view-toggle" role="radiogroup" aria-label="View mode"><button type="button" class="tb-import-view-btn active" data-view="pitch" onclick="FPL.setImportView('pitch')" aria-pressed="true"><span class="material-symbols-outlined">sports_soccer</span> Pitch</button><button type="button" class="tb-import-view-btn" data-view="list" onclick="FPL.setImportView('list')" aria-pressed="false"><span class="material-symbols-outlined">list</span> List</button></div><div id="tb-import-gw-toggle" class="tb-import-gw-toggle"></div><button type="button" class="tb-icon-btn" onclick="FPL.closeTeamScreenshotImport()" aria-label="Close screenshot import"><span class="material-symbols-outlined">close</span></button></div></div>
-                            <div id="tb-import-preview" class="tb-import-preview"></div>
-                            <div id="tb-import-pitch" class="tb-import-pitch"></div>
-                            <div class="tb-import-actions"><span id="tb-import-summary"></span><button id="tb-import-confirm" type="button" class="tb-btn tb-btn-primary" onclick="FPL.confirmTeamScreenshotImport()" disabled><span class="material-symbols-outlined">check</span> Fill squad</button></div>
-                        </section>
+                        <div class="tb-tab-bar" id="tb-tab-bar" role="tablist" aria-label="Team Builder views">
+                            <button role="tab" aria-selected="true" class="tb-tab active" data-view="squad" onclick="FPL.setTBView('squad')"><span class="material-symbols-outlined">sports</span> Squad</button>
+                            <button role="tab" aria-selected="false" class="tb-tab" data-view="market" onclick="FPL.setTBView('market')"><span class="material-symbols-outlined">storefront</span> Market</button>
+                            <button role="tab" aria-selected="false" class="tb-tab" data-view="coach" onclick="FPL.setTBView('coach')"><span class="material-symbols-outlined">psychology</span> Coach</button>
+                            <button role="tab" aria-selected="false" class="tb-tab" data-view="import" onclick="FPL.setTBView('import')"><span class="material-symbols-outlined">upload</span> Import</button>
+                        </div>
 
-                        <section class="tb-horizon" aria-labelledby="tb-horizon-title">
-                            <div><h2 id="tb-horizon-title">Projection horizon</h2><p>Select the gameweeks this draft should optimize for.</p></div>
-                            <div id="tb-gw-selector" class="tb-gw-selector" aria-label="Gameweek selection"></div>
-                        </section>
+                        <div class="tb-tab-summary" id="tb-tab-summary"></div>
 
-                        <section id="tb-advisor" class="tb-advisor hidden" aria-labelledby="tb-advisor-title">
-                            <div class="tb-advisor-heading"><div><h2 id="tb-advisor-title">Squad Advisor</h2><p>Evidence-led critique across players, transfers, lineup, captaincy and chips.</p></div><button type="button" class="tb-btn tb-btn-primary" onclick="FPL.reviewTeamBuilderSquad()"><span class="material-symbols-outlined">psychology</span> Review my squad</button></div>
-                            <div class="tb-advisor-settings">
-                                <label>Approach<select id="tb-advisor-strategy"><option value="balanced">Balanced</option><option value="protect">Protect rank</option><option value="chase">Chase rank</option></select></label>
-                                <label>Free transfers<input id="tb-advisor-transfers" type="number" min="1" max="5" value="1"></label>
-                                <label>Money in bank<input id="tb-advisor-bank" type="number" min="0" max="20" step="0.1" placeholder="Auto"></label>
-                                <fieldset><legend>Used chips</legend><label><input type="checkbox" value="wildcard"><span>Wildcard</span></label><label><input type="checkbox" value="freehit"><span>Free Hit</span></label><label><input type="checkbox" value="bboost"><span>Bench Boost</span></label><label><input type="checkbox" value="3xc"><span>Triple Captain</span></label></fieldset>
-                            </div>
-                            <div id="tb-advisor-loading" class="tb-loading hidden" role="status">Reviewing squad evidence...</div>
-                            <div id="tb-advisor-error" class="tb-message tb-message-error hidden" role="alert"></div>
-                            <div id="tb-advisor-results" class="tb-advisor-results hidden"></div>
-                        </section>
-
-                        <section class="tb-preferences" aria-labelledby="tb-preferences-title">
-                            <div class="tb-preferences-head">
-                                <div><h2 id="tb-preferences-title">Build around my preferences</h2><p>Tell the AI who you want, who to avoid, price limits, teams, or a formation. It will build the strongest squad that honours every request.</p></div>
-                                <div class="tb-preferences-samples">
-                                    <span>Try:</span>
-                                    <button type="button" class="tb-pref-sample" data-pref="Add Tzolis Bruno Rice. No Chelsea players. Play 4-4-2.">Names + formation</button>
-                                    <button type="button" class="tb-pref-sample" data-pref="Add a 4.5m bench midfielder and two defenders under 5.0m. Keep 1.0m in the bank.">Bench + enablers</button>
-                                    <button type="button" class="tb-pref-sample" data-pref="Give me a player with at least 45 xPts over the next 3 GWs, plus all midfielders with at least 200 xMins.">Projection target</button>
-                                    <button type="button" class="tb-pref-sample" data-pref="Build a low-owned differential team with one forward under 8.0m, nailed starters, and no injured players.">Differentials + minutes</button>
-                                    <button type="button" class="tb-pref-sample" data-pref="Start Salah and Saka. Bench Dibling. Captain Haaland. Max 3 Arsenal and 1 Liverpool.">XI + captaincy</button>
-                                    <button type="button" class="tb-pref-sample" data-pref="Maximize xG over 5 GWs. Prioritize penalty and set-piece takers where the data supports it.">Metric strategy</button>
-                                </div>
-                            </div>
-                            <div class="tb-preferences-row">
-                                <textarea id="tb-preferences-input" class="tb-preferences-input" rows="2" placeholder="e.g. I want Haaland and Salah. No Chelsea players. Midfielders under 8.0. 2 from Arsenal. Play 4-4-2. Keep 1.0 in the bank." aria-label="Team building preferences"></textarea>
-                                <button type="button" id="tb-preferences-build" class="tb-btn tb-btn-primary" onclick="FPL.buildTeamBuilderFromPreferences()"><span class="material-symbols-outlined">psychology_alt</span> Build with preferences</button>
-                            </div>
-                            <div id="tb-preferences-feedback" class="tb-preferences-feedback" aria-live="polite"></div>
-                        </section>
-
-                        <div id="tb-loading" class="tb-loading" role="status">Loading player projections...</div>
-                        <div id="tb-error" class="tb-message tb-message-error hidden" role="alert"></div>
-                        <div id="tb-workspace" class="tb-workspace hidden">
-                            <section class="tb-squad-panel" aria-labelledby="tb-squad-title">
-                                <div class="tb-panel-heading"><div><h2 id="tb-squad-title">Your squad</h2><span id="tb-squad-count">0 / 15 selected</span></div><div class="tb-squad-tools"><div class="tb-import-view-toggle" role="radiogroup" aria-label="Squad view"><button type="button" class="tb-import-view-btn" data-view="list" onclick="FPL.setSquadView('list')" aria-pressed="false"><span class="material-symbols-outlined">list</span> List</button><button type="button" class="tb-import-view-btn" data-view="pitch" onclick="FPL.setSquadView('pitch')" aria-pressed="true"><span class="material-symbols-outlined">sports_soccer</span> Pitch</button></div><strong id="tb-horizon-total">0.0 xPts</strong></div></div>
-                                <div class="tb-squad-actions"><button type="button" class="tb-btn tb-btn-autofill" onclick="FPL.autoFillTeamBuilder()" title="Auto-fill a legal 15-player squad with the highest projected points"><span class="material-symbols-outlined">auto_awesome</span> AI Auto-fill</button><button type="button" id="tb-autofill-reroll" class="tb-btn tb-btn-secondary hidden" onclick="FPL.reRollTeamBuilderAutoFill()" title="Generate an alternative auto-filled draft"><span class="material-symbols-outlined">refresh</span> Re-roll</button><button type="button" class="tb-btn tb-btn-secondary" onclick="FPL.clearTeamBuilder()" title="Remove all players and preferences"><span class="material-symbols-outlined">delete_sweep</span> Empty team</button></div>
-                                <div id="tb-budget-meter" class="tb-budget-meter"></div>
-                                <div id="tb-rule-strip" class="tb-rule-strip"></div>
-                                <div id="tb-squad-list" class="tb-squad-list"></div>
-                                <div id="tb-squad-pitch" class="tb-squad-pitch"></div>
-                                <div id="tb-save-status" class="tb-save-status" aria-live="polite"></div>
+                        <!-- SQUAD TAB -->
+                        <div class="tb-view active" data-view="squad" role="tabpanel" aria-label="Squad view">
+                            <section class="tb-horizon" aria-labelledby="tb-horizon-title">
+                                <div><h2 id="tb-horizon-title">Projection horizon</h2></div>
+                                <div id="tb-gw-selector" class="tb-gw-selector" aria-label="Gameweek selection"></div>
                             </section>
+                            <div id="tb-loading" class="tb-loading" role="status">Loading player projections...</div>
+                            <div id="tb-error" class="tb-message tb-message-error hidden" role="alert"></div>
+                            <div id="tb-workspace" class="tb-workspace-squad">
+                                <section class="tb-squad-panel" aria-labelledby="tb-squad-title">
+                                    <div class="tb-panel-heading"><div><h2 id="tb-squad-title">Your squad</h2><span id="tb-squad-count">0 / 15 selected</span></div><div class="tb-squad-tools"><div class="tb-import-view-toggle" role="radiogroup" aria-label="Squad view"><button type="button" class="tb-import-view-btn" data-view="list" onclick="FPL.setSquadView('list')" aria-pressed="false"><span class="material-symbols-outlined">list</span> List</button><button type="button" class="tb-import-view-btn" data-view="pitch" onclick="FPL.setSquadView('pitch')" aria-pressed="true"><span class="material-symbols-outlined">sports_soccer</span> Pitch</button></div><strong id="tb-horizon-total">0.0 xPts</strong></div></div>
+                                    <div class="tb-squad-actions"><button type="button" class="tb-btn tb-btn-autofill" onclick="FPL.autoFillTeamBuilder()" title="Auto-fill a legal 15-player squad"><span class="material-symbols-outlined">auto_awesome</span> AI Auto-fill</button><button type="button" id="tb-autofill-reroll" class="tb-btn tb-btn-secondary hidden" onclick="FPL.reRollTeamBuilderAutoFill()" title="Alternative auto-fill"><span class="material-symbols-outlined">refresh</span> Re-roll</button><button type="button" class="tb-btn tb-btn-secondary" onclick="FPL.clearTeamBuilder()" title="Remove all players"><span class="material-symbols-outlined">delete_sweep</span> Empty team</button></div>
+                                    <div id="tb-budget-meter" class="tb-budget-meter"></div>
+                                    <div id="tb-rule-strip" class="tb-rule-strip"></div>
+                                    <div id="tb-squad-list" class="tb-squad-list"></div>
+                                    <div id="tb-squad-pitch" class="tb-squad-pitch"></div>
+                                    <div id="tb-save-status" class="tb-save-status" aria-live="polite"></div>
+                                </section>
+                            </div>
+                            <section id="tb-breakdown" class="tb-breakdown" aria-labelledby="tb-breakdown-title">
+                                <div class="tb-panel-heading"><div><h2 id="tb-breakdown-title">Gameweek outlook</h2><span>Best legal XI per gameweek, plus captain bonus</span></div></div>
+                                <div class="tb-breakdown-scroll" tabindex="0" aria-label="Team projected points by gameweek"><table><caption class="sr-only">Team projected points by selected gameweek</caption><thead id="tb-breakdown-head"></thead><tbody id="tb-breakdown-body"></tbody></table></div>
+                            </section>
+                        </div>
 
+                        <!-- MARKET TAB -->
+                        <div class="tb-view" data-view="market" role="tabpanel" aria-label="Player market">
                             <section class="tb-market-panel" aria-labelledby="tb-market-title">
                                 <div class="tb-panel-heading"><div><h2 id="tb-market-title">Player market</h2><span id="tb-market-count">All players</span></div></div>
                                 <div class="tb-market-controls">
@@ -1188,10 +1164,62 @@
                             </section>
                         </div>
 
-                        <section id="tb-breakdown" class="tb-breakdown hidden" aria-labelledby="tb-breakdown-title">
-                            <div class="tb-panel-heading"><div><h2 id="tb-breakdown-title">Gameweek outlook</h2><span>Best legal XI per gameweek, plus captain bonus</span></div></div>
-                            <div class="tb-breakdown-scroll" tabindex="0" aria-label="Team projected points by gameweek"><table><caption class="sr-only">Team projected points by selected gameweek</caption><thead id="tb-breakdown-head"></thead><tbody id="tb-breakdown-body"></tbody></table></div>
-                        </section>
+                        <!-- COACH TAB -->
+                        <div class="tb-view" data-view="coach" role="tabpanel" aria-label="Squad coach">
+                            <section id="tb-advisor" class="tb-advisor visible" aria-labelledby="tb-advisor-title">
+                                <div class="tb-advisor-heading"><div><h2 id="tb-advisor-title">Squad Advisor</h2><p>Evidence-led critique across players, transfers, lineup, captaincy and chips.</p></div><button type="button" class="tb-btn tb-btn-primary" onclick="FPL.reviewTeamBuilderSquad()"><span class="material-symbols-outlined">psychology</span> Review my squad</button></div>
+                                <div class="tb-advisor-settings">
+                                    <label>Approach<select id="tb-advisor-strategy"><option value="balanced">Balanced</option><option value="protect">Protect rank</option><option value="chase">Chase rank</option></select></label>
+                                    <label>Free transfers<input id="tb-advisor-transfers" type="number" min="1" max="5" value="1"></label>
+                                    <label>Money in bank<input id="tb-advisor-bank" type="number" min="0" max="20" step="0.1" placeholder="Auto"></label>
+                                    <fieldset><legend>Used chips</legend><label><input type="checkbox" value="wildcard"><span>Wildcard</span></label><label><input type="checkbox" value="freehit"><span>Free Hit</span></label><label><input type="checkbox" value="bboost"><span>Bench Boost</span></label><label><input type="checkbox" value="3xc"><span>Triple Captain</span></label></fieldset>
+                                </div>
+                                <div id="tb-advisor-loading" class="tb-loading hidden" role="status">Reviewing squad evidence...</div>
+                                <div id="tb-advisor-error" class="tb-message tb-message-error hidden" role="alert"></div>
+                                <div id="tb-advisor-results" class="tb-advisor-results hidden"></div>
+                            </section>
+                            <section class="tb-preferences" aria-labelledby="tb-preferences-title">
+                                <div class="tb-preferences-head">
+                                    <div><h2 id="tb-preferences-title">Build around my preferences</h2><p>Tell the AI who you want, who to avoid, price limits, teams, or a formation.</p></div>
+                                    <div class="tb-preferences-samples">
+                                        <span>Try:</span>
+                                        <button type="button" class="tb-pref-sample" data-pref="Add Tzolis Bruno Rice. No Chelsea players. Play 4-4-2.">Names + formation</button>
+                                        <button type="button" class="tb-pref-sample" data-pref="Add a 4.5m bench midfielder and two defenders under 5.0m. Keep 1.0m in the bank.">Bench + enablers</button>
+                                        <button type="button" class="tb-pref-sample" data-pref="Give me a player with at least 45 xPts over the next 3 GWs, plus all midfielders with at least 200 xMins.">Projection target</button>
+                                        <button type="button" class="tb-pref-sample" data-pref="Build a low-owned differential team with one forward under 8.0m, nailed starters, and no injured players.">Differentials + minutes</button>
+                                        <button type="button" class="tb-pref-sample" data-pref="Start Salah and Saka. Bench Dibling. Captain Haaland. Max 3 Arsenal and 1 Liverpool.">XI + captaincy</button>
+                                        <button type="button" class="tb-pref-sample" data-pref="Maximize xG over 5 GWs. Prioritize penalty and set-piece takers where the data supports it.">Metric strategy</button>
+                                    </div>
+                                </div>
+                                <div class="tb-preferences-row">
+                                    <textarea id="tb-preferences-input" class="tb-preferences-input" rows="2" placeholder="e.g. I want Haaland and Salah. No Chelsea players. Midfielders under 8.0. 2 from Arsenal. Play 4-4-2. Keep 1.0 in the bank." aria-label="Team building preferences"></textarea>
+                                    <button type="button" id="tb-preferences-build" class="tb-btn tb-btn-primary" onclick="FPL.buildTeamBuilderFromPreferences()"><span class="material-symbols-outlined">psychology_alt</span> Build with preferences</button>
+                                </div>
+                                <div id="tb-preferences-feedback" class="tb-preferences-feedback" aria-live="polite"></div>
+                            </section>
+                        </div>
+
+                        <!-- IMPORT TAB -->
+                        <div class="tb-view" data-view="import" role="tabpanel" aria-label="Screenshot import">
+                            <div class="tb-import-zone">
+                                <div class="tb-upload-zone-lg" role="button" tabindex="0" onclick="document.getElementById('tb-screenshot-input-2').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="event.preventDefault();this.classList.remove('drag-over');FPL.importTeamScreenshot(event.dataTransfer.files?.[0])">
+                                    <input id="tb-screenshot-input-2" class="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onchange="FPL.importTeamScreenshot(this.files?.[0])">
+                                    <span class="material-symbols-outlined" style="font-size:48px;opacity:0.3;">upload</span>
+                                    <div><strong>Import FPL squad screenshot</strong></div>
+                                    <div style="font-size:12px;color:#8ba396;">Drop an image or click to upload. The AI will detect your players.</div>
+                                </div>
+                            </div>
+                            <section id="tb-import-panel" class="tb-import-panel hidden" aria-labelledby="tb-import-title">
+                                <div class="tb-panel-heading"><div><h2 id="tb-import-title">Confirm screenshot players</h2><span id="tb-import-status">Reading screenshot locally...</span></div><div class="tb-import-tools"><div class="tb-import-view-toggle" role="radiogroup" aria-label="View mode"><button type="button" class="tb-import-view-btn active" data-view="pitch" onclick="FPL.setImportView('pitch')" aria-pressed="true"><span class="material-symbols-outlined">sports_soccer</span> Pitch</button><button type="button" class="tb-import-view-btn" data-view="list" onclick="FPL.setImportView('list')" aria-pressed="false"><span class="material-symbols-outlined">list</span> List</button></div><div id="tb-import-gw-toggle" class="tb-import-gw-toggle"></div><button type="button" class="tb-icon-btn" onclick="FPL.closeTeamScreenshotImport()" aria-label="Close screenshot import"><span class="material-symbols-outlined">close</span></button></div></div>
+                                <div id="tb-import-preview" class="tb-import-preview"></div>
+                                <div id="tb-import-pitch" class="tb-import-pitch"></div>
+                                <div class="tb-import-actions"><span id="tb-import-summary"></span><button id="tb-import-confirm" type="button" class="tb-btn tb-btn-primary" onclick="FPL.confirmTeamScreenshotImport()" disabled><span class="material-symbols-outlined">check</span> Fill squad</button></div>
+                            </section>
+                            <div class="tb-import-note">
+                                <span class="material-symbols-outlined">info</span>
+                                <div><strong>How it works</strong><p>Upload a screenshot of your FPL squad page. The AI detects your players, shows them for confirmation, then fills your builder.</p></div>
+                            </div>
+                        </div>
 
                     </div>
                 </div>
