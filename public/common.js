@@ -550,12 +550,16 @@ const FPL = {
                 costValue: Number(player.cost || 0) / 10,
                 nextFixtures: player.nextFixtures || []
             }));
-            const availableGWs = [...new Set(builder.players.flatMap(player => player.nextFixtures.map(fixture => fixture.gw)))].sort((a, b) => a - b).slice(0, 8);
-            const saved = this.readTeamBuilderDraft();
-            builder.selectedGWs = (saved?.selectedGWs || builder.selectedGWs).filter(gw => availableGWs.includes(gw));
+            const availableGWs = [...new Set(builder.players.flatMap(player => (player.nextFixtures || []).map(fixture => fixture.gw)))].filter(Boolean).sort((a, b) => a - b).slice(0, 8);
+            const saved = this.readTeamBuilderDraft ? this.readTeamBuilderDraft() : null;
+            const savedGWs = Array.isArray(saved?.selectedGWs) ? saved.selectedGWs : null;
+            const builderGWs = Array.isArray(builder.selectedGWs) ? builder.selectedGWs : [];
+            builder.selectedGWs = (savedGWs || builderGWs).filter(gw => availableGWs.includes(gw));
             if (!builder.selectedGWs.length) builder.selectedGWs = availableGWs.slice(0, Math.min(5, availableGWs.length));
             const playerIds = new Set(builder.players.map(player => player.id));
-            builder.selectedIds = (saved?.selectedIds || builder.selectedIds).filter(id => playerIds.has(id)).slice(0, 15);
+            const savedIds = Array.isArray(saved?.selectedIds) ? saved.selectedIds : null;
+            const builderIds = Array.isArray(builder.selectedIds) ? builder.selectedIds : [];
+            builder.selectedIds = (savedIds || builderIds).filter(id => playerIds.has(id)).slice(0, 15);
             builder.captainId = builder.selectedIds.includes(saved?.captainId) ? saved.captainId : (builder.selectedIds.includes(builder.captainId) ? builder.captainId : null);
             builder.autoFillFormation = saved?.autoFillFormation || null;
             builder.autoFillStarters = (saved?.autoFillStarters || []).filter(id => playerIds.has(id));
@@ -1789,6 +1793,88 @@ const FPL = {
 
         this.paintTeamBuilderMarket();
         this.paintTeamBuilderBreakdown();
+    },
+
+    paintSquadList(squad, validation) {
+        const container = document.getElementById('tb-squad-list');
+        if (!container) return;
+        if (!squad.length) {
+            container.innerHTML = '<div class="tb-empty-state" style="padding:24px;text-align:center;color:#64748b;"><span class="material-symbols-outlined" style="font-size:36px;">group_add</span><p>No players added to squad yet. Select players from the market below.</p></div>';
+            return;
+        }
+        const builder = this.state.teamBuilder;
+        container.innerHTML = `<div class="tb-squad-list-grid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:8px;padding:8px 0;">` + squad.map(player => {
+            const isCaptain = builder.captainId === player.id;
+            const xpts = this.teamBuilderXPts ? this.teamBuilderXPts(player) : 0;
+            return `
+                <div class="tb-squad-item" data-id="${player.id}" style="display:flex;align-items:center;justify-content:space-between;background:#121824;border:1px solid #1a2233;border-radius:6px;padding:8px 12px;">
+                    <div class="tb-squad-item-info" style="display:flex;align-items:center;gap:8px;">
+                        ${this.teamBadge(player.club || player.team, 20)}
+                        <span class="tb-squad-item-name" style="font-weight:700;color:#fff;">${this.escapeHTML(player.name || player.web_name || '')}</span>
+                        <span class="tb-pos-badge pos-${(player.position || '').toLowerCase()}">${this.escapeHTML(player.position || '')}</span>
+                    </div>
+                    <div class="tb-squad-item-meta" style="display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:12px;">
+                        <span style="color:#94a3b8;">£${(player.costValue || (player.cost / 10) || 0).toFixed(1)}m</span>
+                        <span style="color:#00FF85;font-weight:700;">${xpts.toFixed(1)} xP</span>
+                        <button type="button" class="tb-btn-icon${isCaptain ? ' active' : ''}" style="background:none;border:none;color:${isCaptain ? '#00FF85' : '#64748b'};cursor:pointer;" title="Make Captain" onclick="FPL.setTeamBuilderCaptain(${player.id})"><span class="material-symbols-outlined" style="font-size:18px;">copyright</span></button>
+                        <button type="button" class="tb-btn-icon danger" style="background:none;border:none;color:#ff5252;cursor:pointer;" title="Remove Player" onclick="FPL.removeTeamBuilderPlayer(${player.id})"><span class="material-symbols-outlined" style="font-size:18px;">close</span></button>
+                    </div>
+                </div>
+            `;
+        }).join('') + `</div>`;
+    },
+
+    paintSquadPitch(squad, validation) {
+        const container = document.getElementById('tb-squad-pitch');
+        if (!container) return;
+        this.paintSquadList(squad, validation);
+    },
+
+    paintTeamBuilderMarket() {
+        const list = document.getElementById('tb-player-list');
+        if (!list) return;
+        const builder = this.state.teamBuilder;
+        let players = builder.players || [];
+        if (builder.query) {
+            players = players.filter(p => (p.name || p.web_name || '').toLowerCase().includes(builder.query) || (p.club || p.team || '').toLowerCase().includes(builder.query));
+        }
+        if (builder.position && builder.position !== 'all') {
+            players = players.filter(p => (p.position || '').toUpperCase() === builder.position.toUpperCase());
+        }
+        if (builder.club && builder.club !== 'all') {
+            players = players.filter(p => (p.club || p.team || '').toLowerCase() === builder.club.toLowerCase());
+        }
+        const selectedSet = new Set(builder.selectedIds || []);
+        list.innerHTML = `<div class="tb-market-grid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));gap:8px;padding:8px 0;">` + players.slice(0, 40).map(player => {
+            const isSelected = selectedSet.has(player.id);
+            const xpts = this.teamBuilderXPts ? this.teamBuilderXPts(player) : 0;
+            return `
+                <div class="tb-market-card${isSelected ? ' selected' : ''}" style="display:flex;align-items:center;justify-content:space-between;background:#121824;border:1px solid ${isSelected ? '#00FF85' : '#1a2233'};border-radius:6px;padding:8px 12px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        ${this.teamBadge(player.club || player.team, 20)}
+                        <div>
+                            <div style="font-weight:700;color:#fff;font-size:13px;">${this.escapeHTML(player.name || player.web_name || '')}</div>
+                            <div style="font-size:11px;color:#64748b;">${this.escapeHTML(player.position || '')} · £${(player.costValue || (player.cost / 10) || 0).toFixed(1)}m</div>
+                        </div>
+                    </div>
+                    <button type="button" class="tb-btn-sm" style="background:${isSelected ? '#ff5252' : '#00FF85'};color:#000;border:none;padding:4px 8px;border-radius:4px;font-weight:700;cursor:pointer;" onclick="FPL.${isSelected ? 'removeTeamBuilderPlayer' : 'addTeamBuilderPlayer'}(${player.id})">${isSelected ? 'Remove' : 'Add'}</button>
+                </div>
+            `;
+        }).join('') + `</div>`;
+    },
+
+    paintTeamBuilderBreakdown() {
+        const head = document.getElementById('tb-breakdown-head');
+        const body = document.getElementById('tb-breakdown-body');
+        if (!head || !body) return;
+        const builder = this.state.teamBuilder;
+        const gws = builder.selectedGWs || [];
+        head.innerHTML = `<tr><th>Gameweek</th>${gws.map(gw => `<th>GW${gw}</th>`).join('')}<th>Total</th></tr>`;
+        const squad = this.teamBuilderSquad();
+        body.innerHTML = squad.map(player => {
+            const total = gws.reduce((sum, gw) => sum + (this.teamBuilderXPts ? this.teamBuilderXPts(player, [gw]) : 0), 0);
+            return `<tr><td>${this.escapeHTML(player.name || player.web_name || '')}</td>${gws.map(gw => `<td>${(this.teamBuilderXPts ? this.teamBuilderXPts(player, [gw]) : 0).toFixed(1)}</td>`).join('')}<td><strong>${total.toFixed(1)}</strong></td></tr>`;
+        }).join('');
     },
 
     async setSquadView(view) {
@@ -3418,6 +3504,20 @@ const FPL = {
         this.renderFixtureOdds();
     },
 
+    formatSolioKickoff(kickoffTime) {
+        if (!kickoffTime) return 'SAT 15:00 KO';
+        const d = new Date(kickoffTime);
+        if (isNaN(d.getTime())) return 'SAT 15:00 KO';
+        const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+        const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+        const day = days[d.getUTCDay()];
+        const dd = d.getUTCDate();
+        const month = months[d.getUTCMonth()];
+        const hh = String(d.getUTCHours()).padStart(2, '0');
+        const mm = String(d.getUTCMinutes()).padStart(2, '0');
+        return `${day} ${dd} ${month} · ${hh}:${mm} KO`;
+    },
+
     async renderFixtureOdds() {
         const container = document.getElementById('fixture-odds-container');
         if (!container) return;
@@ -3457,135 +3557,136 @@ const FPL = {
             return;
         }
 
-        const topGoalTeam = data.teamsToTarget?.projectedGoals?.[0];
-        const topCSTeam = data.teamsToTarget?.cleanSheets?.[0];
+        const goalsLeaderboard = data.teamsToTarget?.projectedGoals || [];
+        const csLeaderboard = data.teamsToTarget?.cleanSheets || [];
 
         let html = `
-        <div style="margin-bottom:24px;background:linear-gradient(135deg, #1c231f 0%, #151a17 100%);border:1px solid #2d3b32;border-radius:14px;padding:20px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
-            <div>
-                <div style="font-family:var(--font-mono);font-size:11px;color:#00FF85;font-weight:800;letter-spacing:1px;margin-bottom:4px;">GAMEWEEK ${selectedGW} MODEL PROJECTIONS</div>
-                <h2 style="margin:0;font-family:var(--font-mono);font-size:22px;color:#ffffff;font-weight:800;">PL GW${selectedGW}: Projected Goals & Clean Sheet Odds</h2>
-                <p style="margin:6px 0 0 0;font-family:var(--font-mono);font-size:12px;color:#a3b5a7;">Calculated using underlying attack/defence Poisson probabilities & cleaned market totals.</p>
-            </div>
-            <div style="display:flex;gap:16px;flex-wrap:wrap;">
-                ${topGoalTeam ? `
-                <div style="background:#161a18;border:1px solid rgba(25, 118, 210, 0.4);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px;">
-                    ${this.teamBadge(topGoalTeam.team, 28)}
-                    <div>
-                        <div style="font-family:var(--font-mono);font-size:10px;color:#64B5F6;font-weight:700;">TOP GOAL THREAT</div>
-                        <div style="font-family:var(--font-mono);font-size:14px;font-weight:800;color:#fff;">${topGoalTeam.team} <span style="color:#64B5F6;">${topGoalTeam.goals.toFixed(2)}</span></div>
-                    </div>
-                </div>` : ''}
-                ${topCSTeam ? `
-                <div style="background:#161a18;border:1px solid rgba(230, 81, 0, 0.4);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px;">
-                    ${this.teamBadge(topCSTeam.team, 28)}
-                    <div>
-                        <div style="font-family:var(--font-mono);font-size:10px;color:#FFB74D;font-weight:700;">BEST CLEAN SHEET %</div>
-                        <div style="font-family:var(--font-mono);font-size:14px;font-weight:800;color:#fff;">${topCSTeam.team} <span style="color:#FFB74D;">${topCSTeam.csPct}%</span></div>
-                    </div>
-                </div>` : ''}
-            </div>
-        </div>`;
-
-        html += `<div class="odds-cards-grid">`;
-        data.matchProjections.forEach(m => {
-            const hGoals = m.homeTeam.projectedGoals.toFixed(2);
-            const aGoals = m.awayTeam.projectedGoals.toFixed(2);
-            const hCS = m.homeTeam.cleanSheetPct;
-            const aCS = m.awayTeam.cleanSheetPct;
-
-            const hGoalsClass = m.homeTeam.projectedGoals >= 1.8 ? 'goals-heat-high' : m.homeTeam.projectedGoals >= 1.3 ? 'goals-heat-mid' : 'goals-heat-low';
-            const aGoalsClass = m.awayTeam.projectedGoals >= 1.8 ? 'goals-heat-high' : m.awayTeam.projectedGoals >= 1.3 ? 'goals-heat-mid' : 'goals-heat-low';
-
-            const hCSClass = hCS >= 35 ? 'cs-heat-high' : hCS >= 25 ? 'cs-heat-mid' : 'cs-heat-low';
-            const aCSClass = aCS >= 35 ? 'cs-heat-high' : aCS >= 25 ? 'cs-heat-mid' : 'cs-heat-low';
-
-            html += `
-            <div class="odds-match-card">
-                <div class="odds-card-header">
-                    <span>${m.dayStr || 'Fixture'}</span>
-                    <div style="display:flex;gap:12px;">
-                        <span style="min-width:52px;text-align:center;">GOALS</span>
-                        <span style="min-width:52px;text-align:center;">CS%</span>
-                    </div>
+        <div class="solio-container">
+            <!-- Header -->
+            <div class="solio-header">
+                <div class="solio-title-wrap">
+                    <h2 class="solio-title">
+                        Projected goals & CS odds
+                        <span class="solio-gw-badge">GW${selectedGW}</span>
+                    </h2>
+                    <p class="solio-subtitle">@robtfpl | Last updated: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}</p>
                 </div>
-
-                <div class="odds-team-row">
-                    <div class="odds-team-info">
-                        ${this.teamBadge(m.homeTeam.shortName, 22)}
-                        <span class="odds-team-code">${m.homeTeam.shortName}</span>
-                    </div>
-                    <div class="odds-metrics">
-                        <span class="odds-val-badge ${hGoalsClass}">${hGoals}</span>
-                        <span class="odds-val-badge ${hCSClass}">${hCS}%</span>
-                    </div>
-                </div>
-
-                <div class="odds-team-row">
-                    <div class="odds-team-info">
-                        ${this.teamBadge(m.awayTeam.shortName, 22)}
-                        <span class="odds-team-code">${m.awayTeam.shortName}</span>
-                    </div>
-                    <div class="odds-metrics">
-                        <span class="odds-val-badge ${aGoalsClass}">${aGoals}</span>
-                        <span class="odds-val-badge ${aCSClass}">${aCS}%</span>
-                    </div>
-                </div>
-            </div>`;
-        });
-        html += `</div>`;
-
-        html += `
-        <div style="margin-top:32px;">
-            <div style="font-family:var(--font-mono);font-size:18px;font-weight:800;color:#ffffff;margin-bottom:16px;display:flex;align-items:center;gap:8px;">
-                <span class="material-symbols-outlined" style="color:#00FF85;">target</span>
-                GW${selectedGW}: Teams to Target
+                <div class="solio-brand-mark">solio</div>
             </div>
-            
-            <div class="odds-targets-grid">
-                <div class="odds-target-card">
-                    <div class="odds-target-title" style="color:#64B5F6;">
-                        <span class="material-symbols-outlined">sports_soccer</span>
-                        Projected Goals Leaderboard
+
+            <!-- Main Workspace: Split Grid -->
+            <div class="solio-grid-layout">
+                <!-- Left: Match-by-Match Grid -->
+                <div class="solio-matches-section">
+                    <div class="solio-matches-header">
+                        <div class="solio-matches-header-col">
+                            <span>PROJ GLS</span>
+                            <span>CS %</span>
+                        </div>
+                        <div class="solio-matches-header-col">
+                            <span>PROJ GLS</span>
+                            <span>CS %</span>
+                        </div>
                     </div>
-                    <div style="display:flex;flex-direction:column;gap:6px;">
-                        ${(data.teamsToTarget?.projectedGoals || []).map((t, idx) => {
-                            const goalsClass = t.goals >= 1.8 ? 'goals-heat-high' : t.goals >= 1.3 ? 'goals-heat-mid' : 'goals-heat-low';
+
+                    <div class="solio-matches-grid">
+                        ${data.matchProjections.map(m => {
+                            const hGoals = m.homeTeam.projectedGoals.toFixed(2);
+                            const aGoals = m.awayTeam.projectedGoals.toFixed(2);
+                            const hCS = m.homeTeam.cleanSheetPct;
+                            const aCS = m.awayTeam.cleanSheetPct;
+
+                            const hGoalsClass = m.homeTeam.projectedGoals >= 2.0 ? 'solio-goals-high' : m.homeTeam.projectedGoals >= 1.4 ? 'solio-goals-mid' : 'solio-goals-low';
+                            const aGoalsClass = m.awayTeam.projectedGoals >= 2.0 ? 'solio-goals-high' : m.awayTeam.projectedGoals >= 1.4 ? 'solio-goals-mid' : 'solio-goals-low';
+
+                            const hCSClass = hCS >= 35 ? 'solio-cs-high' : hCS >= 20 ? 'solio-cs-mid' : 'solio-cs-low';
+                            const aCSClass = aCS >= 35 ? 'solio-cs-high' : aCS >= 20 ? 'solio-cs-mid' : 'solio-cs-low';
+
+                            const timeStr = this.formatSolioKickoff(m.kickoff);
+
                             return `
-                            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#161a18;border-radius:8px;border-bottom:1px solid #232d26;">
-                                <div style="display:flex;align-items:center;gap:10px;">
-                                    <span style="font-family:var(--font-mono);font-size:11px;color:#a3b5a7;width:20px;font-weight:700;">#${t.rank || (idx + 1)}</span>
-                                    ${this.teamBadge(t.team, 20)}
-                                    <span style="font-family:var(--font-mono);font-weight:800;font-size:13px;color:#ffffff;min-width:40px;">${t.team}</span>
-                                    <span style="font-family:var(--font-mono);font-size:11px;color:#a3b5a7;">${t.opponent}</span>
+                            <div class="solio-match-card">
+                                <div class="solio-match-time">${this.escapeHTML(timeStr)}</div>
+                                <div class="solio-team-row">
+                                    <div class="solio-team-info">
+                                        ${this.teamBadge(m.homeTeam.shortName, 22)}
+                                        <span class="solio-team-code">${this.escapeHTML(m.homeTeam.shortName)}</span>
+                                    </div>
+                                    <div class="solio-metrics-wrap">
+                                        <span class="solio-badge ${hGoalsClass}">${hGoals}</span>
+                                        <span class="solio-badge ${hCSClass}">${hCS}%</span>
+                                    </div>
                                 </div>
-                                <span class="odds-val-badge ${goalsClass}">${t.goals.toFixed(2)}</span>
+                                <div class="solio-team-row">
+                                    <div class="solio-team-info">
+                                        ${this.teamBadge(m.awayTeam.shortName, 22)}
+                                        <span class="solio-team-code">${this.escapeHTML(m.awayTeam.shortName)}</span>
+                                    </div>
+                                    <div class="solio-metrics-wrap">
+                                        <span class="solio-badge ${aGoalsClass}">${aGoals}</span>
+                                        <span class="solio-badge ${aCSClass}">${aCS}%</span>
+                                    </div>
+                                </div>
                             </div>`;
                         }).join('')}
                     </div>
                 </div>
 
-                <div class="odds-target-card">
-                    <div class="odds-target-title" style="color:#FFB74D;">
-                        <span class="material-symbols-outlined">shield</span>
-                        Clean Sheet % Leaderboard
-                    </div>
-                    <div style="display:flex;flex-direction:column;gap:6px;">
-                        ${(data.teamsToTarget?.cleanSheets || []).map((t, idx) => {
-                            const csClass = t.csPct >= 35 ? 'cs-heat-high' : t.csPct >= 25 ? 'cs-heat-mid' : 'cs-heat-low';
-                            return `
-                            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#161a18;border-radius:8px;border-bottom:1px solid #232d26;">
-                                <div style="display:flex;align-items:center;gap:10px;">
-                                    <span style="font-family:var(--font-mono);font-size:11px;color:#a3b5a7;width:20px;font-weight:700;">#${t.rank || (idx + 1)}</span>
-                                    ${this.teamBadge(t.team, 20)}
-                                    <span style="font-family:var(--font-mono);font-weight:800;font-size:13px;color:#ffffff;min-width:40px;">${t.team}</span>
-                                    <span style="font-family:var(--font-mono);font-size:11px;color:#a3b5a7;">${t.opponent}</span>
-                                </div>
-                                <span class="odds-val-badge ${csClass}">${t.csPct}%</span>
-                            </div>`;
-                        }).join('')}
+                <!-- Right: Ranked Leaderboards -->
+                <div class="solio-leaderboards-section">
+                    <div class="solio-leaderboards-grid">
+                        <!-- Projected Goals Column -->
+                        <div class="solio-leaderboard-col">
+                            <div class="solio-leaderboard-title">
+                                PROJECTED GOALS ↓
+                            </div>
+                            ${goalsLeaderboard.map(t => {
+                                const goalsVal = typeof t.goals === 'number' ? t.goals : parseFloat(t.goals) || 0;
+                                const barWidthPct = Math.min(100, Math.max(12, Math.round((goalsVal / 3.0) * 100)));
+                                return `
+                                <div class="solio-rank-row">
+                                    <div class="solio-rank-team-info">
+                                        ${this.teamBadge(t.team, 18)}
+                                        <span class="solio-rank-code">${this.escapeHTML(t.team)}</span>
+                                        <span class="solio-rank-opp">${this.escapeHTML(t.opponent)}</span>
+                                    </div>
+                                    <div class="solio-bar-wrap">
+                                        <div class="solio-bar-fill-goals" style="width:${barWidthPct}%;"></div>
+                                        <span class="solio-bar-text">${goalsVal.toFixed(2)}</span>
+                                    </div>
+                                </div>`;
+                            }).join('')}
+                        </div>
+
+                        <!-- Clean Sheet % Column -->
+                        <div class="solio-leaderboard-col">
+                            <div class="solio-leaderboard-title">
+                                CLEAN SHEET % ↓
+                            </div>
+                            ${csLeaderboard.map(t => {
+                                const csVal = typeof t.csPct === 'number' ? t.csPct : parseInt(t.csPct, 10) || 0;
+                                const barWidthPct = Math.min(100, Math.max(12, Math.round((csVal / 70) * 100)));
+                                return `
+                                <div class="solio-rank-row">
+                                    <div class="solio-rank-team-info">
+                                        ${this.teamBadge(t.team, 18)}
+                                        <span class="solio-rank-code">${this.escapeHTML(t.team)}</span>
+                                        <span class="solio-rank-opp">${this.escapeHTML(t.opponent)}</span>
+                                    </div>
+                                    <div class="solio-bar-wrap">
+                                        <div class="solio-bar-fill-cs" style="width:${barWidthPct}%;"></div>
+                                        <span class="solio-bar-text">${csVal}%</span>
+                                    </div>
+                                </div>`;
+                            }).join('')}
+                        </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="solio-footer">
+                Calculated from sharp betting markets · For latest market data and FPL projections, visit fpl.solioanalytics.com
             </div>
         </div>`;
 

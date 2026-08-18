@@ -3561,7 +3561,6 @@ select option {
 }
 
 @media (max-width: 360px) {
-@media (max-width: 360px) {
     .tb-gw-selector { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .tb-preferences-samples, .tb-market-controls, .tb-advisor-settings { grid-template-columns: 1fr; }
     .tb-advisor-settings fieldset, .tb-market-controls .tb-search, .tb-preferences-samples > span { grid-column: 1; }
@@ -3671,142 +3670,329 @@ select option {
 .fixture-view-btn { transition: all 0.2s ease-in-out; }
 .fixture-view-btn:hover { filter: brightness(1.1); }
 
-.odds-cards-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
-    gap: 16px;
-    margin-bottom: 24px;
+.solio-container {
+    background: #0b0f19;
+    border: 1px solid #1c2333;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+    color: #e2e8f0;
+    font-family: var(--font-sans);
 }
 
-.odds-match-card {
-    background: #1c211e;
-    border: 1px solid #29382f;
-    border-radius: 12px;
-    padding: 14px;
+.solio-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid #1a2233;
+    padding-bottom: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.solio-title-wrap {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-    transition: transform 0.2s, border-color 0.2s;
+    gap: 4px;
 }
 
-.odds-match-card:hover {
-    border-color: #384f41;
-    transform: translateY(-2px);
-}
-
-.odds-card-header {
+.solio-title {
+    font-family: var(--font-display), sans-serif;
+    font-size: 26px;
+    font-weight: 800;
+    color: #ffffff;
+    margin: 0;
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    border-bottom: 1px dashed #2d3b32;
-    padding-bottom: 8px;
+    gap: 10px;
+    letter-spacing: -0.5px;
+}
+
+.solio-gw-badge {
+    background: #e65100;
+    color: #ffffff;
     font-family: var(--font-mono);
-    font-size: 11px;
-    color: #a3b5a7;
-    font-weight: 700;
+    font-size: 22px;
+    font-weight: 900;
+    padding: 2px 10px;
+    border-radius: 6px;
+    display: inline-block;
+    box-shadow: 0 2px 8px rgba(230, 81, 0, 0.4);
 }
 
-.odds-team-row {
+.solio-subtitle {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: #64748b;
+    margin: 0;
+}
+
+.solio-brand-mark {
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 4px;
+    padding: 4px 12px;
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 4px;
+    color: #ffffff;
+    text-transform: uppercase;
+    user-select: none;
+}
+
+/* Main Split Grid */
+.solio-grid-layout {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 24px;
+}
+
+@media (max-width: 1024px) {
+    .solio-grid-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Match Grid Section */
+.solio-matches-section {
+    display: flex;
+    flex-direction: column;
+}
+
+.solio-matches-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 8px;
+    padding: 0 4px;
+}
+
+.solio-matches-header-col {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 800;
+    color: #64748b;
+    letter-spacing: 0.5px;
+}
+
+.solio-matches-header-col span {
+    width: 48px;
+    text-align: center;
+}
+
+.solio-matches-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+}
+
+@media (max-width: 580px) {
+    .solio-matches-header {
+        display: none;
+    }
+    .solio-matches-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.solio-match-card {
+    background: #121824;
+    border: 1px solid #1e2738;
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: border-color 0.2s, transform 0.2s;
+}
+
+.solio-match-card:hover {
+    border-color: #2e3c54;
+    transform: translateY(-1px);
+}
+
+.solio-match-time {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    color: #64748b;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #1a2233;
+    padding-bottom: 6px;
+    margin-bottom: 2px;
+}
+
+.solio-team-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    background: #161a18;
-    border-radius: 8px;
-    padding: 8px 12px;
+    gap: 8px;
 }
 
-.odds-team-info {
+.solio-team-info {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     flex: 1;
     min-width: 0;
 }
 
-.odds-team-code {
+.solio-team-code {
     font-family: var(--font-mono);
     font-weight: 800;
-    font-size: 14px;
+    font-size: 15px;
     color: #ffffff;
     letter-spacing: 0.5px;
 }
 
-.odds-metrics {
+.solio-metrics-wrap {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
 }
 
-.odds-val-badge {
-    min-width: 52px;
+.solio-badge {
+    min-width: 48px;
     text-align: center;
-    padding: 5px 10px;
-    border-radius: 6px;
+    padding: 4px 6px;
+    border-radius: 4px;
     font-family: var(--font-mono);
     font-weight: 800;
     font-size: 13px;
 }
 
-/* Goals Heat Map colors (Vibrant Blues) */
-.goals-heat-high {
-    background: linear-gradient(135deg, #1976D2, #1565C0);
-    color: #ffffff;
-    box-shadow: 0 0 8px rgba(25, 118, 210, 0.4);
-}
-.goals-heat-mid {
-    background: rgba(33, 150, 243, 0.35);
-    color: #e3f2fd;
-    border: 1px solid rgba(33, 150, 243, 0.5);
-}
-.goals-heat-low {
-    background: rgba(255, 255, 255, 0.05);
-    color: #b0bec5;
+/* Goals Badges (Vibrant Electric Blues) */
+.solio-goals-high { background: #1d72f3; color: #ffffff; box-shadow: 0 0 8px rgba(29, 114, 243, 0.4); }
+.solio-goals-mid { background: #113463; color: #90caf9; }
+.solio-goals-low { background: #151d2a; color: #64748b; }
+
+/* CS Badges (Vibrant Fire Oranges) */
+.solio-cs-high { background: #e65100; color: #ffffff; box-shadow: 0 0 8px rgba(230, 81, 0, 0.4); }
+.solio-cs-mid { background: #542205; color: #ffcc80; }
+.solio-cs-low { background: #1c1514; color: #64748b; }
+
+/* Leaderboards Section */
+.solio-leaderboards-section {
+    display: flex;
+    flex-direction: column;
 }
 
-/* CS Heat Map colors (Vibrant Amber/Orange) */
-.cs-heat-high {
-    background: linear-gradient(135deg, #E65100, #EF6C00);
-    color: #ffffff;
-    box-shadow: 0 0 8px rgba(230, 81, 0, 0.4);
-}
-.cs-heat-mid {
-    background: rgba(245, 124, 0, 0.35);
-    color: #ffe0b2;
-    border: 1px solid rgba(245, 124, 0, 0.5);
-}
-.cs-heat-low {
-    background: rgba(255, 255, 255, 0.05);
-    color: #b0bec5;
-}
-
-/* Targets Leaderboards Layout */
-.odds-targets-grid {
+.solio-leaderboards-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 20px;
+    gap: 16px;
 }
-@media (max-width: 768px) {
-    .odds-targets-grid {
+
+@media (max-width: 580px) {
+    .solio-leaderboards-grid {
         grid-template-columns: 1fr;
     }
 }
 
-.odds-target-card {
-    background: #1c211e;
-    border: 1px solid #29382f;
-    border-radius: 12px;
-    padding: 16px;
+.solio-leaderboard-col {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
-.odds-target-title {
+.solio-leaderboard-title {
     font-family: var(--font-mono);
-    font-size: 15px;
+    font-size: 11px;
     font-weight: 800;
-    margin: 0 0 16px 0;
+    color: #94a3b8;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
 }
+
+.solio-rank-row {
+    background: #121824;
+    border: 1px solid #1a2233;
+    border-radius: 4px;
+    padding: 4px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    font-family: var(--font-mono);
+}
+
+.solio-rank-team-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+}
+
+.solio-rank-code {
+    font-weight: 800;
+    font-size: 12px;
+    color: #ffffff;
+}
+
+.solio-rank-opp {
+    font-size: 10px;
+    color: #64748b;
+    white-space: nowrap;
+}
+
+/* Progress Fill Bar */
+.solio-bar-wrap {
+    position: relative;
+    width: 64px;
+    height: 22px;
+    background: #151d2a;
+    border-radius: 3px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 6px;
+    flex-shrink: 0;
+}
+
+.solio-bar-fill-goals {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, #1565c0, #1e88e5);
+    border-radius: 3px;
+}
+
+.solio-bar-fill-cs {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, #d84315, #f57c00);
+    border-radius: 3px;
+}
+
+.solio-bar-text {
+    position: relative;
+    z-index: 1;
+    font-weight: 800;
+    font-size: 11px;
+    color: #ffffff;
+}
+
+/* Footer */
+.solio-footer {
+    border-top: 1px solid #1a2233;
+    margin-top: 24px;
+    padding-top: 16px;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: #64748b;
+}
+
 
