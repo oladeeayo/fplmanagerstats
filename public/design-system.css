@@ -3628,8 +3628,8 @@ select option {
 .bottom-nav-overflow-item .material-symbols-outlined { font-size: 20px; }
 @media (max-width: 1024px) {
     .layout-content { padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)) !important; }
-    .bottom-nav-overflow { display: block; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); right: 8px; z-index: 101; }
-    .bottom-nav { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; padding-right: 56px !important; }
+    .bottom-nav-overflow { display: none !important; }
+    .bottom-nav { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; padding-right: 0 !important; }
 }
 
 /* ==================== TEAM BUILDER INTERACTIVITY & CARDS ==================== */
