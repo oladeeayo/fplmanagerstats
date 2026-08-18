@@ -76,6 +76,7 @@ const FPL = {
         leagueStandings: (id) => `/api/league-standings/${id}`,
         zoneAnalysis: (gw) => `/api/zone-analysis?gw=${gw || ''}`,
         fixturesDetail: (gw) => `/api/fixtures-detail?gw=${gw || ''}`,
+        teamProjections: (gw) => `/api/team-projections?gw=${gw || ''}`,
         captainPicks: (gw) => `/api/captain-picks?gw=${gw || ''}`,
         ownershipHistory: '/api/ownership/history',
         ownershipSnapshot: '/api/ownership/snapshot',
@@ -512,18 +513,18 @@ const FPL = {
 
     async loadTabData(tab) {
         switch (tab) {
-            case 'general': this.renderGeneral(); break;
-            case 'players': this.renderPlayers(); break;
-            case 'league': this.renderLeague(); break;
-            case 'fixtures': this.renderFixtures(); break;
-            case 'captain': this.renderCaptaincy(); break;
-            case 'ownership': this.renderOwnership(); break;
-            case 'zones': this.renderZones(); break;
-            case 'manager': this.renderTeamAnalysis(); break;
-            case 'decision': this.renderDecisionCentre(); break;
-            case 'setpieces': this.renderSetPieces(); break;
-            case 'aiteam': this.renderAITeam(); break;
-            case 'teambuilder': this.renderTeamBuilder(); break;
+            case 'general': return this.renderGeneral();
+            case 'players': return this.renderPlayers();
+            case 'league': return this.renderLeague();
+            case 'fixtures': return this.renderFixtures();
+            case 'captain': return this.renderCaptaincy();
+            case 'ownership': return this.renderOwnership();
+            case 'zones': return this.renderZones();
+            case 'manager': return this.renderTeamAnalysis();
+            case 'decision': return this.renderDecisionCentre();
+            case 'setpieces': return this.renderSetPieces();
+            case 'aiteam': return this.renderAITeam();
+            case 'teambuilder': return this.renderTeamBuilder();
         }
     },
 
@@ -1790,7 +1791,7 @@ const FPL = {
         this.paintTeamBuilderBreakdown();
     },
 
-    setSquadView(view) {
+    async setSquadView(view) {
         const loading = document.getElementById('aiteam-loading');
         const results = document.getElementById('aiteam-results');
         const errorEl = document.getElementById('aiteam-error');
@@ -1813,6 +1814,10 @@ const FPL = {
             transfers: data.transfers?.plan ? data.transfers : { plan: [] },
             chips: data.chips?.schedule ? data.chips : { schedule: [] },
         };
+    },
+
+    renderAITeam() {
+        return this.loadAITeam();
     },
 
     async loadAITeam(force = false) {
@@ -3361,6 +3366,303 @@ const FPL = {
                 </div>`;
             }).join('');
         }
+    },
+
+    switchFixtureSubView(subview) {
+        const matrixView = document.getElementById('fixture-subview-matrix');
+        const oddsView = document.getElementById('fixture-subview-odds');
+        const matrixBtn = document.getElementById('fixture-view-btn-matrix');
+        const oddsBtn = document.getElementById('fixture-view-btn-odds');
+        const selector = document.getElementById('fixture-odds-gw-selector');
+
+        if (subview === 'odds') {
+            if (matrixView) matrixView.style.display = 'none';
+            if (oddsView) oddsView.style.display = 'block';
+            if (selector) selector.style.display = 'flex';
+
+            if (matrixBtn) {
+                matrixBtn.style.background = 'transparent';
+                matrixBtn.style.color = '#b9cbb9';
+                matrixBtn.style.border = '1px solid #34453b';
+                matrixBtn.classList.remove('active');
+            }
+            if (oddsBtn) {
+                oddsBtn.style.background = '#00FF85';
+                oddsBtn.style.color = '#0a0f0d';
+                oddsBtn.style.border = 'none';
+                oddsBtn.classList.add('active');
+            }
+            this.renderFixtureOdds();
+        } else {
+            if (matrixView) matrixView.style.display = 'block';
+            if (oddsView) oddsView.style.display = 'none';
+            if (selector) selector.style.display = 'none';
+
+            if (matrixBtn) {
+                matrixBtn.style.background = '#00FF85';
+                matrixBtn.style.color = '#0a0f0d';
+                matrixBtn.style.border = 'none';
+                matrixBtn.classList.add('active');
+            }
+            if (oddsBtn) {
+                oddsBtn.style.background = 'transparent';
+                oddsBtn.style.color = '#b9cbb9';
+                oddsBtn.style.border = '1px solid #34453b';
+                oddsBtn.classList.remove('active');
+            }
+        }
+    },
+
+    setFixtureOddsGW(gw) {
+        this.state.fixtureOddsGW = parseInt(gw, 10);
+        this.renderFixtureOdds();
+    },
+
+    async renderFixtureOdds() {
+        const container = document.getElementById('fixture-odds-container');
+        if (!container) return;
+
+        const currentGW = this.state.bootstrapData?.events?.find(e => e.is_current)?.id || 
+                          this.state.bootstrapData?.events?.find(e => e.is_next)?.id || 1;
+        const selectedGW = this.state.fixtureOddsGW || currentGW;
+
+        const select = document.getElementById('fixture-odds-gw-select');
+        if (select) {
+            if (select.options.length === 0) {
+                for (let i = 1; i <= 38; i++) {
+                    const opt = document.createElement('option');
+                    opt.value = i;
+                    opt.textContent = `GW ${i}`;
+                    select.appendChild(opt);
+                }
+            }
+            select.value = selectedGW;
+        }
+
+        container.innerHTML = `<div style="padding:32px 16px;text-align:center;color:#b9cbb9;font-family:var(--font-mono);"><span class="material-symbols-outlined" style="font-size:36px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Calculating Goals & Clean Sheet Projections...</p></div>`;
+
+        let data = null;
+        try {
+            data = await this.apiFetch(this.API.teamProjections(selectedGW));
+        } catch (e) {
+            console.error('API team projections error, fallback to local compute:', e);
+        }
+
+        if (!data || !data.matchProjections) {
+            data = this.computeLocalTeamProjections(selectedGW);
+        }
+
+        if (!data || !data.matchProjections || data.matchProjections.length === 0) {
+            container.innerHTML = `<div class="empty-state"><span class="material-symbols-outlined">event_busy</span><p>No fixture odds available for Gameweek ${selectedGW}.</p></div>`;
+            return;
+        }
+
+        const topGoalTeam = data.teamsToTarget?.projectedGoals?.[0];
+        const topCSTeam = data.teamsToTarget?.cleanSheets?.[0];
+
+        let html = `
+        <div style="margin-bottom:24px;background:linear-gradient(135deg, #1c231f 0%, #151a17 100%);border:1px solid #2d3b32;border-radius:14px;padding:20px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
+            <div>
+                <div style="font-family:var(--font-mono);font-size:11px;color:#00FF85;font-weight:800;letter-spacing:1px;margin-bottom:4px;">GAMEWEEK ${selectedGW} MODEL PROJECTIONS</div>
+                <h2 style="margin:0;font-family:var(--font-mono);font-size:22px;color:#ffffff;font-weight:800;">PL GW${selectedGW}: Projected Goals & Clean Sheet Odds</h2>
+                <p style="margin:6px 0 0 0;font-family:var(--font-mono);font-size:12px;color:#a3b5a7;">Calculated using underlying attack/defence Poisson probabilities & cleaned market totals.</p>
+            </div>
+            <div style="display:flex;gap:16px;flex-wrap:wrap;">
+                ${topGoalTeam ? `
+                <div style="background:#161a18;border:1px solid rgba(25, 118, 210, 0.4);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px;">
+                    ${this.teamBadge(topGoalTeam.team, 28)}
+                    <div>
+                        <div style="font-family:var(--font-mono);font-size:10px;color:#64B5F6;font-weight:700;">TOP GOAL THREAT</div>
+                        <div style="font-family:var(--font-mono);font-size:14px;font-weight:800;color:#fff;">${topGoalTeam.team} <span style="color:#64B5F6;">${topGoalTeam.goals.toFixed(2)}</span></div>
+                    </div>
+                </div>` : ''}
+                ${topCSTeam ? `
+                <div style="background:#161a18;border:1px solid rgba(230, 81, 0, 0.4);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px;">
+                    ${this.teamBadge(topCSTeam.team, 28)}
+                    <div>
+                        <div style="font-family:var(--font-mono);font-size:10px;color:#FFB74D;font-weight:700;">BEST CLEAN SHEET %</div>
+                        <div style="font-family:var(--font-mono);font-size:14px;font-weight:800;color:#fff;">${topCSTeam.team} <span style="color:#FFB74D;">${topCSTeam.csPct}%</span></div>
+                    </div>
+                </div>` : ''}
+            </div>
+        </div>`;
+
+        html += `<div class="odds-cards-grid">`;
+        data.matchProjections.forEach(m => {
+            const hGoals = m.homeTeam.projectedGoals.toFixed(2);
+            const aGoals = m.awayTeam.projectedGoals.toFixed(2);
+            const hCS = m.homeTeam.cleanSheetPct;
+            const aCS = m.awayTeam.cleanSheetPct;
+
+            const hGoalsClass = m.homeTeam.projectedGoals >= 1.8 ? 'goals-heat-high' : m.homeTeam.projectedGoals >= 1.3 ? 'goals-heat-mid' : 'goals-heat-low';
+            const aGoalsClass = m.awayTeam.projectedGoals >= 1.8 ? 'goals-heat-high' : m.awayTeam.projectedGoals >= 1.3 ? 'goals-heat-mid' : 'goals-heat-low';
+
+            const hCSClass = hCS >= 35 ? 'cs-heat-high' : hCS >= 25 ? 'cs-heat-mid' : 'cs-heat-low';
+            const aCSClass = aCS >= 35 ? 'cs-heat-high' : aCS >= 25 ? 'cs-heat-mid' : 'cs-heat-low';
+
+            html += `
+            <div class="odds-match-card">
+                <div class="odds-card-header">
+                    <span>${m.dayStr || 'Fixture'}</span>
+                    <div style="display:flex;gap:12px;">
+                        <span style="min-width:52px;text-align:center;">GOALS</span>
+                        <span style="min-width:52px;text-align:center;">CS%</span>
+                    </div>
+                </div>
+
+                <div class="odds-team-row">
+                    <div class="odds-team-info">
+                        ${this.teamBadge(m.homeTeam.shortName, 22)}
+                        <span class="odds-team-code">${m.homeTeam.shortName}</span>
+                    </div>
+                    <div class="odds-metrics">
+                        <span class="odds-val-badge ${hGoalsClass}">${hGoals}</span>
+                        <span class="odds-val-badge ${hCSClass}">${hCS}%</span>
+                    </div>
+                </div>
+
+                <div class="odds-team-row">
+                    <div class="odds-team-info">
+                        ${this.teamBadge(m.awayTeam.shortName, 22)}
+                        <span class="odds-team-code">${m.awayTeam.shortName}</span>
+                    </div>
+                    <div class="odds-metrics">
+                        <span class="odds-val-badge ${aGoalsClass}">${aGoals}</span>
+                        <span class="odds-val-badge ${aCSClass}">${aCS}%</span>
+                    </div>
+                </div>
+            </div>`;
+        });
+        html += `</div>`;
+
+        html += `
+        <div style="margin-top:32px;">
+            <div style="font-family:var(--font-mono);font-size:18px;font-weight:800;color:#ffffff;margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+                <span class="material-symbols-outlined" style="color:#00FF85;">target</span>
+                GW${selectedGW}: Teams to Target
+            </div>
+            
+            <div class="odds-targets-grid">
+                <div class="odds-target-card">
+                    <div class="odds-target-title" style="color:#64B5F6;">
+                        <span class="material-symbols-outlined">sports_soccer</span>
+                        Projected Goals Leaderboard
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:6px;">
+                        ${(data.teamsToTarget?.projectedGoals || []).map((t, idx) => {
+                            const goalsClass = t.goals >= 1.8 ? 'goals-heat-high' : t.goals >= 1.3 ? 'goals-heat-mid' : 'goals-heat-low';
+                            return `
+                            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#161a18;border-radius:8px;border-bottom:1px solid #232d26;">
+                                <div style="display:flex;align-items:center;gap:10px;">
+                                    <span style="font-family:var(--font-mono);font-size:11px;color:#a3b5a7;width:20px;font-weight:700;">#${t.rank || (idx + 1)}</span>
+                                    ${this.teamBadge(t.team, 20)}
+                                    <span style="font-family:var(--font-mono);font-weight:800;font-size:13px;color:#ffffff;min-width:40px;">${t.team}</span>
+                                    <span style="font-family:var(--font-mono);font-size:11px;color:#a3b5a7;">${t.opponent}</span>
+                                </div>
+                                <span class="odds-val-badge ${goalsClass}">${t.goals.toFixed(2)}</span>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>
+
+                <div class="odds-target-card">
+                    <div class="odds-target-title" style="color:#FFB74D;">
+                        <span class="material-symbols-outlined">shield</span>
+                        Clean Sheet % Leaderboard
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:6px;">
+                        ${(data.teamsToTarget?.cleanSheets || []).map((t, idx) => {
+                            const csClass = t.csPct >= 35 ? 'cs-heat-high' : t.csPct >= 25 ? 'cs-heat-mid' : 'cs-heat-low';
+                            return `
+                            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#161a18;border-radius:8px;border-bottom:1px solid #232d26;">
+                                <div style="display:flex;align-items:center;gap:10px;">
+                                    <span style="font-family:var(--font-mono);font-size:11px;color:#a3b5a7;width:20px;font-weight:700;">#${t.rank || (idx + 1)}</span>
+                                    ${this.teamBadge(t.team, 20)}
+                                    <span style="font-family:var(--font-mono);font-weight:800;font-size:13px;color:#ffffff;min-width:40px;">${t.team}</span>
+                                    <span style="font-family:var(--font-mono);font-size:11px;color:#a3b5a7;">${t.opponent}</span>
+                                </div>
+                                <span class="odds-val-badge ${csClass}">${t.csPct}%</span>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>
+            </div>
+        </div>`;
+
+        container.innerHTML = html;
+    },
+
+    computeLocalTeamProjections(selectedGW) {
+        const fixtures = this.state.fixtures || [];
+        const bootstrap = this.state.bootstrapData || {};
+        const teams = bootstrap.teams || [];
+        const elements = bootstrap.elements || [];
+        const getTeam = id => teams.find(t => t.id === id) || { id, short_name: '???', name: 'Unknown' };
+
+        const gwFixtures = fixtures.filter(f => f.event === selectedGW);
+        const formatDay = (kickoffTime) => {
+            if (!kickoffTime) return 'TBD';
+            const d = new Date(kickoffTime);
+            if (isNaN(d.getTime())) return 'TBD';
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            return `${days[d.getUTCDay()]} ${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+        };
+
+        const matchProjections = gwFixtures.map(f => {
+            const homeTeam = getTeam(f.team_h);
+            const awayTeam = getTeam(f.team_a);
+
+            const fdrHome = f.team_h_difficulty || 3;
+            const fdrAway = f.team_a_difficulty || 3;
+
+            const homePlayers = elements.filter(e => e.team === f.team_h && e.minutes > 180);
+            const awayPlayers = elements.filter(e => e.team === f.team_a && e.minutes > 180);
+
+            const homeXgSum = homePlayers.reduce((sum, p) => sum + (parseFloat(p.expected_goals) || 0), 0);
+            const awayXgSum = awayPlayers.reduce((sum, p) => sum + (parseFloat(p.expected_goals) || 0), 0);
+
+            const homeMatches = Math.max(1, Math.max(...homePlayers.map(p => (p.minutes || 0) / 90), 1));
+            const awayMatches = Math.max(1, Math.max(...awayPlayers.map(p => (p.minutes || 0) / 90), 1));
+
+            const homeAtk = homeXgSum > 0 ? (homeXgSum / homeMatches) : ((homeTeam.strength_attack_home || 1100) / 1000 * 1.35);
+            const awayAtk = awayXgSum > 0 ? (awayXgSum / awayMatches) : ((awayTeam.strength_attack_away || 1050) / 1000 * 1.20);
+
+            const homeDef = ((2000 - (homeTeam.strength_defence_home || 1100)) / 1000) * 1.30;
+            const awayDef = ((2000 - (awayTeam.strength_defence_away || 1050)) / 1000) * 1.35;
+
+            const homeFdrMod = 1 + (3 - fdrHome) * 0.12;
+            const awayFdrMod = 1 + (3 - fdrAway) * 0.12;
+
+            let homeGoals = Math.max(0.40, Math.min(3.20, (homeAtk * 0.55 + awayDef * 0.45) * 1.08 * homeFdrMod));
+            let awayGoals = Math.max(0.30, Math.min(2.80, (awayAtk * 0.55 + homeDef * 0.45) * 0.92 * awayFdrMod));
+
+            homeGoals = Math.round(homeGoals * 100) / 100;
+            awayGoals = Math.round(awayGoals * 100) / 100;
+
+            const homeCS = Math.min(85, Math.max(5, Math.round(Math.exp(-awayGoals) * 100)));
+            const awayCS = Math.min(85, Math.max(5, Math.round(Math.exp(-homeGoals) * 100)));
+
+            return {
+                id: f.id, gw: selectedGW, dayStr: formatDay(f.kickoff_time),
+                homeTeam: { id: homeTeam.id, name: homeTeam.name, shortName: homeTeam.short_name, projectedGoals: homeGoals, cleanSheetPct: homeCS },
+                awayTeam: { id: awayTeam.id, name: awayTeam.name, shortName: awayTeam.short_name, projectedGoals: awayGoals, cleanSheetPct: awayCS }
+            };
+        });
+
+        const goalsList = [];
+        const csList = [];
+        matchProjections.forEach(m => {
+            goalsList.push({ team: m.homeTeam.shortName, opponent: `${m.awayTeam.shortName}(H)`, goals: m.homeTeam.projectedGoals });
+            goalsList.push({ team: m.awayTeam.shortName, opponent: `${m.homeTeam.shortName}(A)`, goals: m.awayTeam.projectedGoals });
+            csList.push({ team: m.homeTeam.shortName, opponent: `${m.awayTeam.shortName}(H)`, csPct: m.homeTeam.cleanSheetPct });
+            csList.push({ team: m.awayTeam.shortName, opponent: `${m.homeTeam.shortName}(A)`, csPct: m.awayTeam.cleanSheetPct });
+        });
+        goalsList.sort((a, b) => b.goals - a.goals);
+        csList.sort((a, b) => b.csPct - a.csPct);
+        goalsList.forEach((item, index) => { item.rank = index + 1; });
+        csList.forEach((item, index) => { item.rank = index + 1; });
+
+        return { gw: selectedGW, matchProjections, teamsToTarget: { projectedGoals: goalsList, cleanSheets: csList } };
     },
 
     renderFixtureDifficulty(gwFixtures) {
@@ -5007,18 +5309,72 @@ const FPL = {
         this.showDialog('player-detail-dialog');
     },
 
-    // ==================== SIDEBAR COLLAPSE ====================
+    // ==================== SIDEBAR & COLLAPSE ====================
+    initSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        const mobileBtn = document.getElementById('mobile-menu-btn');
+        const closeBtn = document.getElementById('sidebar-mobile-close-btn');
+
+        const closeMobile = () => {
+            sidebar?.classList.remove('mobile-open');
+            overlay?.classList.remove('active');
+            if (mobileBtn) mobileBtn.setAttribute('aria-expanded', 'false');
+        };
+
+        const openMobile = () => {
+            sidebar?.classList.add('mobile-open');
+            overlay?.classList.add('active');
+            if (mobileBtn) mobileBtn.setAttribute('aria-expanded', 'true');
+        };
+
+        if (mobileBtn && mobileBtn.dataset.bound !== 'true') {
+            mobileBtn.dataset.bound = 'true';
+            mobileBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (sidebar?.classList.contains('mobile-open')) closeMobile();
+                else openMobile();
+            });
+        }
+
+        if (closeBtn && closeBtn.dataset.bound !== 'true') {
+            closeBtn.dataset.bound = 'true';
+            closeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                closeMobile();
+            });
+        }
+
+        if (overlay && overlay.dataset.bound !== 'true') {
+            overlay.dataset.bound = 'true';
+            overlay.addEventListener('click', closeMobile);
+        }
+
+        document.querySelectorAll('.sidebar-nav-item').forEach(item => {
+            if (item.dataset.mobileCloseBound !== 'true') {
+                item.dataset.mobileCloseBound = 'true';
+                item.addEventListener('click', () => {
+                    if (window.innerWidth <= 1024) closeMobile();
+                });
+            }
+        });
+
+        this.initSidebarCollapse();
+    },
+
     initSidebarCollapse() {
         const sidebar = document.getElementById('sidebar');
         const btn = document.getElementById('sidebar-collapse-btn');
         if (!sidebar || !btn || btn.dataset.bound === 'true') return;
         btn.dataset.bound = 'true';
         const saved = localStorage.getItem('fplSidebarCollapsed');
+        const icon = btn.querySelector('.material-symbols-outlined');
         const updateState = (collapsed) => {
             sidebar.classList.toggle('collapsed', collapsed);
             btn.setAttribute('aria-expanded', String(!collapsed));
             btn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
             btn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+            if (icon) icon.textContent = collapsed ? 'chevron_right' : 'chevron_left';
         };
         updateState(saved === 'true');
         btn.addEventListener('click', () => {

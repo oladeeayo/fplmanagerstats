@@ -748,75 +748,104 @@
 
                 <!-- FIXTURES -->
                 <div id="content-fixtures" class="tab-content">
-                    <!-- Canvas -->
-                    <div class="fixtures-flex-layout" style="display:flex;flex-direction:row;gap:0;width:100%;align-items:flex-start;">
-                        <!-- Center Data Grid (Fixtures) -->
-                        <div style="flex:1;display:flex;flex-direction:column;gap:24px;min-width:0;">
-                            <!-- Filters & Controls Bar -->
-                            <div class="fixtures-controls" style="background:#202722;border:1px solid #34453b;border-radius:8px;padding:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;color:#dfe4e0;">
-                                <div class="fixtures-control-groups" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;min-width:0;">
-                                    <div class="fixtures-start-control" style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
-                                        <span style="font-family:var(--font-mono);font-size:11px;color:#b9cbb9;font-weight:700;white-space:nowrap;">START GW:</span>
-                                        <select id="fixture-gw-select" onchange="FPL.setFixtureStartGW(this.value)" style="background-color:#1c211e;border:1px solid #1A2E28;border-radius:6px;padding:6px 10px;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#ffffff;cursor:pointer;outline:none;">
-                                        </select>
-                                    </div>
-                                    <div class="fixtures-lookahead-control" style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
-                                        <span style="font-family:var(--font-mono);font-size:11px;color:#b9cbb9;font-weight:700;white-space:nowrap;">LOOKAHEAD:</span>
-                                        <div class="fixtures-lookahead-buttons" style="display:flex;background:#1c211e;border:1px solid #1A2E28;border-radius:6px;overflow:hidden;flex:1;min-width:0;">
-                                            <button id="lookahead-3" onclick="FPL.setFixtureLookahead(3)" style="padding:6px 8px;font-family:var(--font-mono);font-size:12px;border:none;background:transparent;color:#b9cbb9;cursor:pointer;flex:1;transition:all 0.2s;">3 GW</button>
-                                            <button id="lookahead-5" onclick="FPL.setFixtureLookahead(5)" style="padding:6px 8px;font-family:var(--font-mono);font-size:12px;border:none;background:#00FF85;color:#0a0f0d;cursor:pointer;border-left:1px solid #1A2E28;border-right:1px solid #1A2E28;font-weight:700;flex:1;transition:all 0.2s;">5 GW</button>
-                                            <button id="lookahead-10" onclick="FPL.setFixtureLookahead(10)" style="padding:6px 8px;font-family:var(--font-mono);font-size:12px;border:none;background:transparent;color:#b9cbb9;cursor:pointer;flex:1;transition:all 0.2s;">10 GW</button>
+                    <!-- Top Fixture Subview Navigation -->
+                    <div class="fixtures-nav-bar" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;padding:8px 12px;background:#181d1a;border:1px solid #28362d;border-radius:10px;flex-wrap:wrap;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <button id="fixture-view-btn-matrix" onclick="FPL.switchFixtureSubView('matrix')" class="fixture-view-btn active" style="padding:8px 16px;border-radius:8px;border:none;background:#00FF85;color:#0a0f0d;font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                                <span class="material-symbols-outlined" style="font-size:16px;">grid_on</span>
+                                FDR Matrix Grid
+                            </button>
+                            <button id="fixture-view-btn-odds" onclick="FPL.switchFixtureSubView('odds')" class="fixture-view-btn" style="padding:8px 16px;border-radius:8px;border:1px solid #34453b;background:transparent;color:#b9cbb9;font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all 0.2s;">
+                                <span class="material-symbols-outlined" style="font-size:16px;color:#64B5F6;">analytics</span>
+                                Goals & Clean Sheet Odds
+                                <span style="background:linear-gradient(135deg, #1976D2, #D84315);color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:4px;font-weight:800;">SOLIO MODEL</span>
+                            </button>
+                        </div>
+                        <div id="fixture-odds-gw-selector" style="display:none;align-items:center;gap:6px;">
+                            <span style="font-family:var(--font-mono);font-size:11px;color:#b9cbb9;font-weight:700;">PROJECTION GW:</span>
+                            <select id="fixture-odds-gw-select" onchange="FPL.setFixtureOddsGW(this.value)" style="background-color:#202722;border:1px solid #34453b;border-radius:6px;padding:6px 12px;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#ffffff;cursor:pointer;outline:none;">
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- SUBVIEW 1: Matrix -->
+                    <div id="fixture-subview-matrix" class="fixture-subview-content">
+                        <div class="fixtures-flex-layout" style="display:flex;flex-direction:row;gap:0;width:100%;align-items:flex-start;">
+                            <!-- Center Data Grid (Fixtures) -->
+                            <div style="flex:1;display:flex;flex-direction:column;gap:24px;min-width:0;">
+                                <!-- Filters & Controls Bar -->
+                                <div class="fixtures-controls" style="background:#202722;border:1px solid #34453b;border-radius:8px;padding:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;color:#dfe4e0;">
+                                    <div class="fixtures-control-groups" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;min-width:0;">
+                                        <div class="fixtures-start-control" style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
+                                            <span style="font-family:var(--font-mono);font-size:11px;color:#b9cbb9;font-weight:700;white-space:nowrap;">START GW:</span>
+                                            <select id="fixture-gw-select" onchange="FPL.setFixtureStartGW(this.value)" style="background-color:#1c211e;border:1px solid #1A2E28;border-radius:6px;padding:6px 10px;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#ffffff;cursor:pointer;outline:none;">
+                                            </select>
+                                        </div>
+                                        <div class="fixtures-lookahead-control" style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
+                                            <span style="font-family:var(--font-mono);font-size:11px;color:#b9cbb9;font-weight:700;white-space:nowrap;">LOOKAHEAD:</span>
+                                            <div class="fixtures-lookahead-buttons" style="display:flex;background:#1c211e;border:1px solid #1A2E28;border-radius:6px;overflow:hidden;flex:1;min-width:0;">
+                                                <button id="lookahead-3" onclick="FPL.setFixtureLookahead(3)" style="padding:6px 8px;font-family:var(--font-mono);font-size:12px;border:none;background:transparent;color:#b9cbb9;cursor:pointer;flex:1;transition:all 0.2s;">3 GW</button>
+                                                <button id="lookahead-5" onclick="FPL.setFixtureLookahead(5)" style="padding:6px 8px;font-family:var(--font-mono);font-size:12px;border:none;background:#00FF85;color:#0a0f0d;cursor:pointer;border-left:1px solid #1A2E28;border-right:1px solid #1A2E28;font-weight:700;flex:1;transition:all 0.2s;">5 GW</button>
+                                                <button id="lookahead-10" onclick="FPL.setFixtureLookahead(10)" style="padding:6px 8px;font-family:var(--font-mono);font-size:12px;border:none;background:transparent;color:#b9cbb9;cursor:pointer;flex:1;transition:all 0.2s;">10 GW</button>
+                                            </div>
                                         </div>
                                     </div>
+                                    <!-- FDR Scale Color Blocks -->
+                                    <div class="fixtures-fdr-legend" style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                                        <div style="display:flex;align-items:center;gap:3px;"><div style="width:12px;height:12px;border-radius:2px;background:#00FF85;"></div><span style="font-size:9px;color:#b9cbb9;font-family:var(--font-mono);">1</span></div>
+                                        <div style="display:flex;align-items:center;gap:3px;"><div style="width:12px;height:12px;border-radius:2px;background:#37DB59;"></div><span style="font-size:9px;color:#b9cbb9;font-family:var(--font-mono);">2</span></div>
+                                        <div style="display:flex;align-items:center;gap:3px;"><div style="width:12px;height:12px;border-radius:2px;background:#E1E1E1;"></div><span style="font-size:9px;color:#b9cbb9;font-family:var(--font-mono);">3</span></div>
+                                        <div style="display:flex;align-items:center;gap:3px;"><div style="width:12px;height:12px;border-radius:2px;background:#FFA600;"></div><span style="font-size:9px;color:#b9cbb9;font-family:var(--font-mono);">4</span></div>
+                                        <div style="display:flex;align-items:center;gap:3px;"><div style="width:12px;height:12px;border-radius:2px;background:#FF005A;"></div><span style="font-size:9px;color:#b9cbb9;font-family:var(--font-mono);">5</span></div>
+                                    </div>
                                 </div>
-                                <!-- FDR Scale Color Blocks -->
-                                <div class="fixtures-fdr-legend" style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-                                    <div style="display:flex;align-items:center;gap:3px;"><div style="width:12px;height:12px;border-radius:2px;background:#00FF85;"></div><span style="font-size:9px;color:#b9cbb9;font-family:var(--font-mono);">1</span></div>
-                                    <div style="display:flex;align-items:center;gap:3px;"><div style="width:12px;height:12px;border-radius:2px;background:#37DB59;"></div><span style="font-size:9px;color:#b9cbb9;font-family:var(--font-mono);">2</span></div>
-                                    <div style="display:flex;align-items:center;gap:3px;"><div style="width:12px;height:12px;border-radius:2px;background:#E1E1E1;"></div><span style="font-size:9px;color:#b9cbb9;font-family:var(--font-mono);">3</span></div>
-                                    <div style="display:flex;align-items:center;gap:3px;"><div style="width:12px;height:12px;border-radius:2px;background:#FFA600;"></div><span style="font-size:9px;color:#b9cbb9;font-family:var(--font-mono);">4</span></div>
-                                    <div style="display:flex;align-items:center;gap:3px;"><div style="width:12px;height:12px;border-radius:2px;background:#FF005A;"></div><span style="font-size:9px;color:#b9cbb9;font-family:var(--font-mono);">5</span></div>
+
+                                <!-- Fixture Grid Container -->
+                                <div style="background:#1c211e;border:1px solid #1A2E28;border-radius:12px;overflow:clip;">
+                                    <div class="table-scroll-mobile sticky-first-column fixture-table-wrap" tabindex="0" aria-label="Fixture data table">
+                                        <table class="fixture-grid-table" style="width:100%;border-collapse:separate;border-spacing:0;white-space:nowrap;">
+                                            <thead>
+                                                <tr id="fixture-grid-header-row" style="background:#202722;border-bottom:1px solid #34453b;">
+                                                    <th style="background:#202722;width:60px;max-width:60px;font-family:var(--font-mono);font-size:11px;color:#dfe4e0;font-weight:700;position:sticky;left:0;z-index:2;border-right:1px solid #34453b;">TEAM</th>
+                                                    <!-- Dynamic GW Header Columns -->
+                                                </tr>
+                                            </thead>
+                                            <tbody id="fixture-grid-table-body">
+                                                <!-- Dynamic Fixture Grid Rows -->
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
 
-                            <!-- Fixture Grid Container -->
-                            <div style="background:#1c211e;border:1px solid #1A2E28;border-radius:12px;overflow:clip;">
-                        <div class="table-scroll-mobile sticky-first-column fixture-table-wrap" tabindex="0" aria-label="Fixture data table">
-                            <table class="fixture-grid-table" style="width:100%;border-collapse:separate;border-spacing:0;white-space:nowrap;">
-                                        <thead>
-                                            <tr id="fixture-grid-header-row" style="background:#202722;border-bottom:1px solid #34453b;">
-                                                <th style="background:#202722;width:60px;max-width:60px;font-family:var(--font-mono);font-size:11px;color:#dfe4e0;font-weight:700;position:sticky;left:0;z-index:2;border-right:1px solid #34453b;">TEAM</th>
-                                                <!-- Dynamic GW Header Columns -->
-                                            </tr>
-                                        </thead>
-                                        <tbody id="fixture-grid-table-body">
-                                            <!-- Dynamic Fixture Grid Rows -->
-                                        </tbody>
-                                    </table>
+                            <!-- Resizer -->
+                            <div class="resizer resizer-col" role="separator" aria-orientation="vertical" aria-label="Drag to resize fixtures and sidebar panels"></div>
+
+                            <!-- Right Sidebar: Form Leaders (Upcoming) -->
+                            <aside style="width:320px;flex-shrink:0;display:flex;flex-direction:column;gap:24px;">
+                                <div style="background:#1c211e;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;">
+                                    <div style="background:#a7cfbc;padding:14px 16px;border-bottom:1px solid #1A2E28;display:flex;align-items:center;gap:8px;">
+                                        <span class="material-symbols-outlined" style="font-size:18px;color:#0a0f0d;">trending_up</span>
+                                        <h3 style="font-family:var(--font-mono);font-size:13px;margin:0;color:#0a0f0d;">FORM LEADERS (UPCOMING)</h3>
+                                    </div>
+                                    <div id="form-leaders-list" style="padding:16px;display:flex;flex-direction:column;gap:12px;max-height:400px;overflow-y:auto;">
+                                        <!-- Dynamic Player Form Leader Cards -->
+                                    </div>
+                                    <div style="padding:16px;border-top:1px solid #1A2E28;background:rgba(15,20,18,0.5);">
+                                        <button style="width:100%;padding:10px;border-radius:6px;border:1px solid #1A2E28;background:transparent;color:#b9cbb9;font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer;" onclick="FPL.navigateTo('players')">
+                                            View Full Transfer Market
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
+                            </aside>
                         </div>
+                    </div>
 
-                        <!-- Resizer -->
-                        <div class="resizer resizer-col" role="separator" aria-orientation="vertical" aria-label="Drag to resize fixtures and sidebar panels"></div>
-
-                        <!-- Right Sidebar: Form Leaders (Upcoming) -->
-                        <aside style="width:320px;flex-shrink:0;display:flex;flex-direction:column;gap:24px;">
-                            <div style="background:#1c211e;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;">
-                                <div style="background:#a7cfbc;padding:14px 16px;border-bottom:1px solid #1A2E28;display:flex;align-items:center;gap:8px;">
-                                    <span class="material-symbols-outlined" style="font-size:18px;color:#0a0f0d;">trending_up</span>
-                                    <h3 style="font-family:var(--font-mono);font-size:13px;margin:0;color:#0a0f0d;">FORM LEADERS (UPCOMING)</h3>
-                                </div>
-                                <div id="form-leaders-list" style="padding:16px;display:flex;flex-direction:column;gap:12px;max-height:400px;overflow-y:auto;">
-                                    <!-- Dynamic Player Form Leader Cards -->
-                                </div>
-                                <div style="padding:16px;border-top:1px solid #1A2E28;background:rgba(15,20,18,0.5);">
-                                    <button style="width:100%;padding:10px;border-radius:6px;border:1px solid #1A2E28;background:transparent;color:#b9cbb9;font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer;" onclick="FPL.navigateTo('players')">
-                                        View Full Transfer Market
-                                    </button>
-                                </div>
-                            </div>
-                        </aside>
+                    <!-- SUBVIEW 2: Odds & Targets -->
+                    <div id="fixture-subview-odds" class="fixture-subview-content" style="display:none;">
+                        <div id="fixture-odds-container">
+                            <div style="padding:24px;text-align:center;color:#b9cbb9;">Loading projected goals & clean sheet odds...</div>
+                        </div>
                     </div>
                 </div>
 
@@ -1303,12 +1332,12 @@
                 FPL.state.activeTab = routeTab;
             }
             FPL.init().then(() => {
-                FPL.initSidebar();
-                FPL.initDialogs();
-                FPL.initSidebarCollapse();
-                FPL.initBottomNavOverflow();
-                FPL.initResizablePanels();
-                if (routeTab) FPL.loadTabData(routeTab);
+                if (typeof FPL.initSidebar === 'function') FPL.initSidebar();
+                if (typeof FPL.initDialogs === 'function') FPL.initDialogs();
+                if (typeof FPL.initSidebarCollapse === 'function') FPL.initSidebarCollapse();
+                if (typeof FPL.initBottomNavOverflow === 'function') FPL.initBottomNavOverflow();
+                if (typeof FPL.initResizablePanels === 'function') FPL.initResizablePanels();
+                FPL.loadTabData(FPL.state.activeTab || routeTab || 'general');
                 if (FPL.state.managerId) {
                     const display = document.getElementById('manager-id-display');
                     if (display) {
@@ -1322,6 +1351,9 @@
                         topbarBtn.style.color = '#00FF85';
                     }
                 }
+            }).catch(err => {
+                console.error('FPL Initialization error:', err);
+                FPL.render();
             });
         });
     </script>
