@@ -79,12 +79,20 @@ function AppInner() {
     window.FPL.initSidebarCollapse();
     window.FPL.initBottomNavOverflow();
 
+    const overflowTabs = ['decision', 'league', 'zones', 'ownership', 'setpieces', 'aiteam'];
     document.querySelectorAll<HTMLElement>('.sidebar-nav-item').forEach(el => {
       el.classList.toggle('active', el.dataset.tab === activeTab);
     });
     document.querySelectorAll<HTMLElement>('.bottom-nav-item').forEach(el => {
       el.classList.toggle('active', el.dataset.tab === activeTab);
     });
+    document.querySelectorAll<HTMLElement>('.bottom-nav-overflow-item').forEach(el => {
+      el.classList.toggle('active', el.dataset.tab === activeTab);
+    });
+    const overflowBtn = document.getElementById('bottom-nav-overflow-btn');
+    if (overflowBtn) {
+      overflowBtn.classList.toggle('active', overflowTabs.includes(activeTab));
+    }
 
     if (loadPromise && typeof loadPromise.then === 'function') {
       const minDelay = new Promise(resolve => setTimeout(resolve, 200));
