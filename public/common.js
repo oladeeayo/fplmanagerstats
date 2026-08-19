@@ -1877,47 +1877,144 @@ const FPL = {
         const container = document.getElementById('tb-squad-list');
         if (!container) return;
         if (!squad.length) {
-            container.innerHTML = '<div class="tb-empty-state" style="padding:24px;text-align:center;color:#64748b;"><span class="material-symbols-outlined" style="font-size:36px;">group_add</span><p>No players added to squad yet. Select players from the market below.</p></div>';
+            container.innerHTML = '<div class="tb-empty-state" style="padding:40px 20px;text-align:center;color:#64748b;"><span class="material-symbols-outlined" style="font-size:40px;">group_add</span><p style="margin-top:12px;">No players added to squad yet.<br>Select players from the market below.</p></div>';
             return;
         }
         const builder = this.state.teamBuilder;
         const pinnedIds = new Set(builder.pinnedIds || []);
         const starterIds = new Set(builder.autoFillStarters || []);
-        container.innerHTML = `<div class="tb-squad-list-grid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:8px;padding:8px 0;">` + squad.map(player => {
-            const isCaptain = builder.captainId === player.id;
-            const isPinned = pinnedIds.has(player.id);
-            const isStarter = starterIds.has(player.id);
-            const xpts = this.teamBuilderXPts ? this.teamBuilderXPts(player) : 0;
-            return `
-                <div class="tb-squad-item${isPinned ? ' pinned' : ''}" data-id="${player.id}" style="display:flex;align-items:center;justify-content:space-between;background:#121824;border:1px solid ${isPinned ? 'rgba(0,255,133,0.4)' : '#1a2233'};border-radius:6px;padding:8px 12px;${isPinned ? 'box-shadow:0 0 8px rgba(0,255,133,0.1);' : ''}">
-                    <div class="tb-squad-item-info" style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;">
-                        ${this.teamBadge(player.club || player.team, 20)}
-                        <div style="min-width:0;">
-                            <div style="display:flex;align-items:center;gap:4px;">
-                                <span class="tb-squad-item-name" style="font-weight:700;color:#fff;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${this.escapeHTML(player.name || player.web_name || '')}</span>
-                                ${isPinned ? '<span class="material-symbols-outlined" style="font-size:14px;color:#00FF85;">lock</span>' : ''}
-                            </div>
-                            <div style="display:flex;align-items:center;gap:4px;">
-                                <span class="tb-pos-badge pos-${(player.position || '').toLowerCase()}" style="font-size:10px;">${this.escapeHTML(player.position || '')}</span>
-                                <span style="font-size:11px;color:#64748b;">£${(player.costValue || (player.cost / 10) || 0).toFixed(1)}m</span>
-                            </div>
+        const lineup = this.optimalTeamBuilderLineup(squad) || [];
+        const lineupIds = new Set(lineup.map(p => p.id));
+
+        const starters = squad.filter(p => lineupIds.has(p.id));
+        const bench = squad.filter(p => !lineupIds.has(p.id));
+        const benchIds = new Set(bench.map(p => p.id));
+
+        const positionOrder = ['GKP', 'DEF', 'MID', 'FWD'];
+        const groupedStarters = {};
+        positionOrder.forEach(pos => groupedStarters[pos] = []);
+        starters.forEach(p => {
+            const pos = (p.position || '').toUpperCase();
+            if (groupedStarters[pos]) groupedStarters[pos].push(p);
+        });
+
+        let html = '<div class="tb-squad-list-grouped">';
+
+        positionOrder.forEach(pos => {
+            const players = groupedStarters[pos];
+            if (!players.length) return;
+            html += `<div class="tb-squad-position-group"><div class="tb-squad-position-label">${pos}</div><div class="tb-squad-position-items">`;
+            players.forEach(player => {
+                html += this._squadItemHTML(player, builder, pinnedIds, starterIds, false);
+            });
+            html += '</div></div>';
+        });
+
+        if (bench.length) {
+            html += '<div class="tb-squad-position-group tb-squad-bench-group"><div class="tb-squad-position-label tb-squad-bench-label"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:-2px;">event_seat</span> BENCH</div><div class="tb-squad-position-items">';
+            bench.forEach(player => {
+                html += this._squadItemHTML(player, builder, pinnedIds, starterIds, true);
+            });
+            html += '</div></div>';
+        }
+
+        html += '</div>';
+        container.innerHTML = html;
+    },
+
+    _squadItemHTML(player, builder, pinnedIds, starterIds, isBench) {
+        const isCaptain = builder.captainId === player.id;
+        const isPinned = pinnedIds.has(player.id);
+        const xpts = this.teamBuilderXPts ? this.teamBuilderXPts(player) : 0;
+        return `
+            <div class="tb-squad-item${isPinned ? ' pinned' : ''}${isBench ? ' is-bench' : ''}" data-id="${player.id}">
+                <div class="tb-squad-item-info">
+                    ${this.teamBadge(player.club || player.team, 22)}
+                    <div class="tb-squad-item-text">
+                        <div class="tb-squad-item-name-row">
+                            <span class="tb-squad-item-name">${this.escapeHTML(player.name || player.web_name || '')}</span>
+                            ${isPinned ? '<span class="material-symbols-outlined tb-squad-pin-icon">lock</span>' : ''}
+                        </div>
+                        <div class="tb-squad-item-meta-row">
+                            <span class="tb-pos-badge pos-${(player.position || '').toLowerCase()}">${this.escapeHTML(player.position || '')}</span>
+                            <span class="tb-squad-item-cost">\u00A3${(player.costValue || (player.cost / 10) || 0).toFixed(1)}m</span>
                         </div>
                     </div>
-                    <div class="tb-squad-item-meta" style="display:flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:12px;flex-shrink:0;">
-                        <span style="color:#00FF85;font-weight:700;font-size:11px;">${xpts.toFixed(1)} xP</span>
-                        <button type="button" class="tb-btn-icon${isPinned ? ' active' : ''}" style="background:none;border:none;color:${isPinned ? '#00FF85' : '#64748b'};cursor:pointer;padding:2px;" title="${isPinned ? 'Unpin player' : 'Pin player (auto-fill will keep)'}" onclick="FPL.pinTeamBuilderPlayer(${player.id})"><span class="material-symbols-outlined" style="font-size:16px;">${isPinned ? 'lock' : 'lock_open'}</span></button>
-                        <button type="button" class="tb-btn-icon${isCaptain ? ' active' : ''}" style="background:none;border:none;color:${isCaptain ? '#00FF85' : '#64748b'};cursor:pointer;padding:2px;" title="Make Captain" onclick="FPL.setTeamBuilderCaptain(${player.id})"><span class="material-symbols-outlined" style="font-size:16px;">copyright</span></button>
-                        <button type="button" class="tb-btn-icon danger" style="background:none;border:none;color:#ff5252;cursor:pointer;padding:2px;" title="Remove Player" onclick="FPL.removeTeamBuilderPlayer(${player.id})"><span class="material-symbols-outlined" style="font-size:16px;">close</span></button>
-                    </div>
                 </div>
-            `;
-        }).join('') + `</div>`;
+                <div class="tb-squad-item-actions">
+                    <span class="tb-squad-item-xpts">${xpts.toFixed(1)} xP</span>
+                    <button type="button" class="tb-btn-icon${isPinned ? ' active' : ''}" title="${isPinned ? 'Unpin player' : 'Pin player'}" onclick="FPL.pinTeamBuilderPlayer(${player.id})"><span class="material-symbols-outlined">${isPinned ? 'lock' : 'lock_open'}</span></button>
+                    <button type="button" class="tb-btn-icon${isCaptain ? ' active' : ''}" title="Make Captain" onclick="FPL.setTeamBuilderCaptain(${player.id})"><span class="material-symbols-outlined">copyright</span></button>
+                    <button type="button" class="tb-btn-icon danger" title="Remove Player" onclick="FPL.removeTeamBuilderPlayer(${player.id})"><span class="material-symbols-outlined">close</span></button>
+                </div>
+            </div>`;
     },
 
     paintSquadPitch(squad, validation) {
         const container = document.getElementById('tb-squad-pitch');
         if (!container) return;
-        this.paintSquadList(squad, validation);
+        if (!squad.length) {
+            container.innerHTML = '';
+            return;
+        }
+        const self = this;
+        const builder = this.state.teamBuilder;
+        const pinnedIds = new Set(builder.pinnedIds || []);
+        const starterIds = new Set(builder.autoFillStarters || []);
+        const captainId = builder.captainId;
+
+        const groups = { GKP: [], DEF: [], MID: [], FWD: [] };
+        squad.forEach(p => {
+            const pos = (p.position || '').toUpperCase();
+            if (groups[pos]) groups[pos].push(p);
+        });
+
+        const lineup = this.optimalTeamBuilderLineup(squad) || [];
+        const lineupIds = new Set(lineup.map(p => p.id));
+        const starters = squad.filter(p => lineupIds.has(p.id));
+        const bench = squad.filter(p => !lineupIds.has(p.id));
+
+        const starterGroups = { GKP: [], DEF: [], MID: [], FWD: [] };
+        starters.forEach(p => {
+            const pos = (p.position || '').toUpperCase();
+            if (starterGroups[pos]) starterGroups[pos].push(p);
+        });
+
+        function playerCard(p) {
+            const xPts = self.teamBuilderXPts ? self.teamBuilderXPts(p) : 0;
+            const isCaptain = captainId === p.id;
+            const isPinned = pinnedIds.has(p.id);
+            const badge = isCaptain ? ' (C)' : '';
+            const borderStyle = isPinned ? 'border-color:rgba(0,255,133,0.6);' : '';
+            const shirtImg = self.pitchShirtMarkup(p, p.club || p.team);
+            return `<div class="tactics-player-card home aiteam-pitch-card tb-squad-pitch-card" style="${borderStyle}position:relative;" onclick="FPL.showPlayerDetail(${p.id})" title="${self.escapeHTML(p.name)} · ${p.position} · ${(p.club || p.team || '').toUpperCase()} · £${(p.costValue || (p.cost / 10) || 0).toFixed(1)}m · ${xPts.toFixed(1)} xPts">
+                <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;">${shirtImg}</div>
+                <div class="tactics-player-copy"><b class="aiteam-pitch-name${isCaptain ? ' is-captain' : ''}">${self.escapeHTML(p.name)}${badge}</b></div>
+                <div class="aiteam-pitch-cost">\u00A3${(p.costValue || (p.cost / 10) || 0).toFixed(1)}m</div>
+                <div class="aiteam-pitch-xpts">${xPts.toFixed(1)} xPts</div>
+            </div>`;
+        }
+
+        function emptySlot(pos, idx) {
+            return `<div class="tactics-player-card tb-empty-pitch-card" style="border-style:dashed;cursor:default;" title="Empty ${pos} slot">
+                <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.08);border-radius:4px;"><span class="material-symbols-outlined" style="font-size:18px;color:#3a5445;">person_add</span></div>
+                <div class="tactics-player-copy"><b class="aiteam-pitch-name">${pos}</b></div>
+            </div>`;
+        }
+
+        const rows = [];
+        if (starterGroups.FWD.length) rows.push(`<div class="tactics-pitch-row" style="--players:${Math.max(starterGroups.FWD.length, 1)};">${starterGroups.FWD.map(p => playerCard(p)).join('')}</div>`);
+        if (starterGroups.MID.length) rows.push(`<div class="tactics-pitch-row" style="--players:${Math.max(starterGroups.MID.length, 1)};">${starterGroups.MID.map(p => playerCard(p)).join('')}</div>`);
+        if (starterGroups.DEF.length) rows.push(`<div class="tactics-pitch-row" style="--players:${Math.max(starterGroups.DEF.length, 1)};">${starterGroups.DEF.map(p => playerCard(p)).join('')}</div>`);
+        if (starterGroups.GKP.length) rows.push(`<div class="tactics-pitch-row" style="--players:1;">${starterGroups.GKP.map(p => playerCard(p)).join('')}</div>`);
+        else rows.push(`<div class="tactics-pitch-row" style="--players:1;">${emptySlot('GKP', 0)}</div>`);
+
+        let benchHtml = '';
+        if (bench.length) {
+            benchHtml = `<div class="tb-bench-strip"><div class="tb-pitch-sub"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:-2px;">event_seat</span> BENCH</div><div class="tb-bench-cards" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">${bench.map(p => playerCard(p)).join('')}</div></div>`;
+        }
+
+        container.innerHTML = `<div class="tactics-pitch" style="min-height:420px;">${rows.join('')}</div>${benchHtml}`;
     },
 
     paintTeamBuilderMarket() {
