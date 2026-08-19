@@ -767,10 +767,11 @@ const FPL = {
         if (benchIdx >= 0) {
             builder.autoFillStarters.splice(builder.autoFillStarters.indexOf(benchId), 1, starterId);
         }
+        delete builder._swapSelected;
         this.saveTeamBuilderDraft();
         this.paintTeamBuilder();
         const message = document.getElementById('tb-market-message');
-        if (message) message.textContent = `Swapped ${starterPlayer.name} ↔ ${benchPlayer.name}`;
+        if (message) message.textContent = `Swapped ${starterPlayer.name} \u2194 ${benchPlayer.name}`;
     },
 
     setTeamBuilderCaptain(playerId) {
@@ -1954,20 +1955,14 @@ const FPL = {
         const container = document.getElementById('tb-squad-pitch');
         if (!container) return;
         if (!squad.length) {
-            container.innerHTML = '';
+            container.innerHTML = '<div class="tb-empty-state" style="padding:60px 20px;text-align:center;color:#5c7868;"><span class="material-symbols-outlined" style="font-size:48px;">sports_soccer</span><p style="margin-top:14px;">Add players to see your pitch view</p></div>';
             return;
         }
         const self = this;
         const builder = this.state.teamBuilder;
         const pinnedIds = new Set(builder.pinnedIds || []);
-        const starterIds = new Set(builder.autoFillStarters || []);
         const captainId = builder.captainId;
-
-        const groups = { GKP: [], DEF: [], MID: [], FWD: [] };
-        squad.forEach(p => {
-            const pos = (p.position || '').toUpperCase();
-            if (groups[pos]) groups[pos].push(p);
-        });
+        const swapSelectedId = builder._swapSelected;
 
         const lineup = this.optimalTeamBuilderLineup(squad) || [];
         const lineupIds = new Set(lineup.map(p => p.id));
@@ -1980,41 +1975,114 @@ const FPL = {
             if (starterGroups[pos]) starterGroups[pos].push(p);
         });
 
-        function playerCard(p) {
+        const formation = `${starterGroups.DEF.length}-${starterGroups.MID.length}-${starterGroups.FWD.length}`;
+
+        function playerCard(p, isBench) {
             const xPts = self.teamBuilderXPts ? self.teamBuilderXPts(p) : 0;
             const isCaptain = captainId === p.id;
             const isPinned = pinnedIds.has(p.id);
-            const badge = isCaptain ? ' (C)' : '';
-            const borderStyle = isPinned ? 'border-color:rgba(0,255,133,0.6);' : '';
+            const isSwapTarget = swapSelectedId === p.id;
+            const pos = (p.position || '').toUpperCase();
+            const canSwap = swapSelectedId && swapSelectedId !== p.id && isBench;
+            const swapPartner = swapSelectedId ? squad.find(sp => sp.id === swapSelectedId) : null;
+            const isSamePosition = swapPartner && swapPartner.position === p.position;
+
+            const inSwapMode = !!swapSelectedId;
+            const isEligibleSwapTarget = inSwapMode && !isBench && swapPartner && swapPartner.position === p.position;
+
+            let cardClass = 'tactics-player-card home aiteam-pitch-card tb-squad-pitch-card';
+            if (isPinned) cardClass += ' is-pinned';
+            if (isCaptain) cardClass += ' is-captain-card';
+            if (isSwapTarget) cardClass += ' is-swap-selected';
+            if (isEligibleSwapTarget) cardClass += ' is-swap-eligible';
+            if (isBench) cardClass += ' is-bench';
+
             const shirtImg = self.pitchShirtMarkup(p, p.club || p.team);
-            return `<div class="tactics-player-card home aiteam-pitch-card tb-squad-pitch-card" style="${borderStyle}position:relative;" onclick="FPL.showPlayerDetail(${p.id})" title="${self.escapeHTML(p.name)} · ${p.position} · ${(p.club || p.team || '').toUpperCase()} · £${(p.costValue || (p.cost / 10) || 0).toFixed(1)}m · ${xPts.toFixed(1)} xPts">
+            const captainBadge = isCaptain ? '<span class="tb-pitch-captain-badge">C</span>' : '';
+            const pinBadge = isPinned ? '<span class="tb-pitch-pin-badge"><span class="material-symbols-outlined">lock</span></span>' : '';
+
+            const swapLabel = isEligibleSwapTarget ? 'Click to swap in' : (inSwapMode && isBench && !isSwapTarget ? '' : '');
+            const swapDisabled = canSwap && !isSamePosition ? 'style="opacity:0.35;cursor:not-allowed;"' : '';
+
+            let clickHandler = '';
+            if (isEligibleSwapTarget) {
+                clickHandler = `onclick="FPL.swapTeamBuilderBenchStarter(${p.id},${swapSelectedId})"`;
+            } else if (!inSwapMode) {
+                clickHandler = `onclick="FPL.showPlayerDetail(${p.id})"`;
+            }
+
+            return `<div class="${cardClass}" ${swapDisabled} ${clickHandler} data-player-id="${p.id}" data-is-bench="${isBench}">
+                <div class="tb-pitch-card-actions">
+                    <button type="button" class="tb-pitch-action-btn${isPinned ? ' active' : ''}" title="${isPinned ? 'Unpin' : 'Pin'}" onclick="event.stopPropagation();FPL.pinTeamBuilderPlayer(${p.id})"><span class="material-symbols-outlined">${isPinned ? 'lock' : 'lock_open'}</span></button>
+                    <button type="button" class="tb-pitch-action-btn${isCaptain ? ' active' : ''}" title="Captain" onclick="event.stopPropagation();FPL.setTeamBuilderCaptain(${p.id})"><span class="material-symbols-outlined">shield</span></button>
+                    ${isBench && starters.some(sp => sp.position === pos) ? `<button type="button" class="tb-pitch-action-btn swap-btn" title="Swap into starting XI" onclick="event.stopPropagation();FPL.startSwapMode(${p.id})"><span class="material-symbols-outlined">swap_vert</span></button>` : ''}
+                    ${!isBench ? `<button type="button" class="tb-pitch-action-btn replace-btn" title="Replace player" onclick="event.stopPropagation();FPL.replaceTeamBuilderPlayer(${p.id})"><span class="material-symbols-outlined">swap_horiz</span></button>` : ''}
+                    <button type="button" class="tb-pitch-action-btn danger" title="Remove" onclick="event.stopPropagation();FPL.removeTeamBuilderPlayer(${p.id})"><span class="material-symbols-outlined">close</span></button>
+                </div>
                 <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;">${shirtImg}</div>
-                <div class="tactics-player-copy"><b class="aiteam-pitch-name${isCaptain ? ' is-captain' : ''}">${self.escapeHTML(p.name)}${badge}</b></div>
+                ${captainBadge}${pinBadge}
+                <div class="tactics-player-copy"><b class="aiteam-pitch-name">${self.escapeHTML(p.name)}</b></div>
                 <div class="aiteam-pitch-cost">\u00A3${(p.costValue || (p.cost / 10) || 0).toFixed(1)}m</div>
                 <div class="aiteam-pitch-xpts">${xPts.toFixed(1)} xPts</div>
-            </div>`;
-        }
-
-        function emptySlot(pos, idx) {
-            return `<div class="tactics-player-card tb-empty-pitch-card" style="border-style:dashed;cursor:default;" title="Empty ${pos} slot">
-                <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.08);border-radius:4px;"><span class="material-symbols-outlined" style="font-size:18px;color:#3a5445;">person_add</span></div>
-                <div class="tactics-player-copy"><b class="aiteam-pitch-name">${pos}</b></div>
+                ${swapLabel ? `<div class="tb-pitch-swap-hint">${swapLabel}</div>` : ''}
             </div>`;
         }
 
         const rows = [];
-        if (starterGroups.FWD.length) rows.push(`<div class="tactics-pitch-row" style="--players:${Math.max(starterGroups.FWD.length, 1)};">${starterGroups.FWD.map(p => playerCard(p)).join('')}</div>`);
-        if (starterGroups.MID.length) rows.push(`<div class="tactics-pitch-row" style="--players:${Math.max(starterGroups.MID.length, 1)};">${starterGroups.MID.map(p => playerCard(p)).join('')}</div>`);
-        if (starterGroups.DEF.length) rows.push(`<div class="tactics-pitch-row" style="--players:${Math.max(starterGroups.DEF.length, 1)};">${starterGroups.DEF.map(p => playerCard(p)).join('')}</div>`);
-        if (starterGroups.GKP.length) rows.push(`<div class="tactics-pitch-row" style="--players:1;">${starterGroups.GKP.map(p => playerCard(p)).join('')}</div>`);
-        else rows.push(`<div class="tactics-pitch-row" style="--players:1;">${emptySlot('GKP', 0)}</div>`);
+        if (starterGroups.FWD.length) rows.push(`<div class="tactics-pitch-row" style="--players:${starterGroups.FWD.length};">${starterGroups.FWD.map(p => playerCard(p, false)).join('')}</div>`);
+        if (starterGroups.MID.length) rows.push(`<div class="tactics-pitch-row" style="--players:${starterGroups.MID.length};">${starterGroups.MID.map(p => playerCard(p, false)).join('')}</div>`);
+        if (starterGroups.DEF.length) rows.push(`<div class="tactics-pitch-row" style="--players:${starterGroups.DEF.length};">${starterGroups.DEF.map(p => playerCard(p, false)).join('')}</div>`);
+        if (starterGroups.GKP.length) rows.push(`<div class="tactics-pitch-row" style="--players:1;">${starterGroups.GKP.map(p => playerCard(p, false)).join('')}</div>`);
+
+        let swapBanner = '';
+        if (swapSelectedId) {
+            const sp = squad.find(p => p.id === swapSelectedId);
+            swapBanner = `<div class="tb-swap-banner"><span class="material-symbols-outlined">swap_vert</span> Swapping <strong>${self.escapeHTML(sp?.name || '')}</strong> — click a same-position bench player below, or <button onclick="FPL.cancelSwapMode()">cancel</button></div>`;
+        }
 
         let benchHtml = '';
         if (bench.length) {
-            benchHtml = `<div class="tb-bench-strip"><div class="tb-pitch-sub"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:-2px;">event_seat</span> BENCH</div><div class="tb-bench-cards" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">${bench.map(p => playerCard(p)).join('')}</div></div>`;
+            const benchByPos = { GKP: [], DEF: [], MID: [], FWD: [] };
+            bench.forEach(p => { const pos = (p.position || '').toUpperCase(); if (benchByPos[pos]) benchByPos[pos].push(p); });
+            const benchRows = [];
+            ['GKP', 'DEF', 'MID', 'FWD'].forEach(pos => {
+                if (benchByPos[pos].length) benchRows.push(`<div class="tb-bench-position-row"><span class="tb-bench-pos-label">${pos}</span><div class="tb-bench-players-row" style="--players:${benchByPos[pos].length};">${benchByPos[pos].map(p => playerCard(p, true)).join('')}</div></div>`);
+            });
+            benchHtml = `<div class="tb-bench-strip"><div class="tb-pitch-sub"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">event_seat</span> BENCH</div>${benchRows.join('')}</div>`;
         }
 
-        container.innerHTML = `<div class="tactics-pitch" style="min-height:420px;">${rows.join('')}</div>${benchHtml}`;
+        const header = `<div class="tb-pitch-header"><span class="tb-formation-badge">${formation}</span><span class="tb-pitch-sub">${starters.length} starters · ${bench.length} bench</span></div>`;
+
+        container.innerHTML = `${header}${swapBanner}<div class="tactics-pitch" style="min-height:420px;">${rows.join('')}</div>${benchHtml}`;
+    },
+
+    startSwapMode(playerId) {
+        const builder = this.state.teamBuilder;
+        builder._swapSelected = playerId;
+        this.paintTeamBuilder();
+    },
+
+    cancelSwapMode() {
+        const builder = this.state.teamBuilder;
+        delete builder._swapSelected;
+        this.paintTeamBuilder();
+    },
+
+    replaceTeamBuilderPlayer(playerId) {
+        const builder = this.state.teamBuilder;
+        const player = builder.players.find(p => p.id === playerId);
+        if (!player) return;
+        this.removeTeamBuilderPlayer(playerId);
+        builder.query = '';
+        builder.position = (player.position || '').toLowerCase();
+        this.saveTeamBuilderDraft();
+        this.paintTeamBuilder();
+        const searchEl = document.getElementById('tb-position-filter');
+        if (searchEl) searchEl.value = builder.position;
+        const listEl = document.getElementById('tb-player-list');
+        if (listEl) listEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const msg = document.getElementById('tb-market-message');
+        if (msg) msg.textContent = `Replacing ${player.name} — select a new ${player.position} from the market.`;
     },
 
     paintTeamBuilderMarket() {
@@ -3688,69 +3756,48 @@ const FPL = {
     },
 
     switchFixtureSubView(subview) {
-        const matrixView = document.getElementById('fixture-subview-matrix');
-        const oddsView = document.getElementById('fixture-subview-odds');
-        const goalsView = document.getElementById('fixture-subview-goals');
-        const concededView = document.getElementById('fixture-subview-conceded');
-        const matrixBtn = document.getElementById('fixture-view-btn-matrix');
-        const oddsBtn = document.getElementById('fixture-view-btn-odds');
-        const goalsBtn = document.getElementById('fixture-view-btn-goals');
-        const concededBtn = document.getElementById('fixture-view-btn-conceded');
+        const views = ['matrix', 'odds', 'goals', 'conceded', 'news'];
+        const viewElements = {
+            matrix: document.getElementById('fixture-subview-matrix'),
+            odds: document.getElementById('fixture-subview-odds'),
+            goals: document.getElementById('fixture-subview-goals'),
+            conceded: document.getElementById('fixture-subview-conceded'),
+            news: document.getElementById('fixture-subview-news'),
+        };
+        const btnElements = {
+            matrix: document.getElementById('fixture-view-btn-matrix'),
+            odds: document.getElementById('fixture-view-btn-odds'),
+            goals: document.getElementById('fixture-view-btn-goals'),
+            conceded: document.getElementById('fixture-view-btn-conceded'),
+            news: document.getElementById('fixture-view-btn-news'),
+        };
         const oddsSelector = document.getElementById('fixture-odds-gw-selector');
         const goalsSelector = document.getElementById('fixture-goals-horizon-selector');
 
-        // Hide all views and reset all buttons
-        [matrixView, oddsView, goalsView, concededView].forEach(v => { if (v) v.style.display = 'none'; });
-        [matrixBtn, oddsBtn, goalsBtn, concededBtn].forEach(btn => {
-            if (btn) {
-                btn.style.background = 'transparent';
-                btn.style.color = '#b9cbb9';
-                btn.style.border = '1px solid #34453b';
-                btn.classList.remove('active');
+        views.forEach(v => {
+            if (viewElements[v]) viewElements[v].style.display = 'none';
+            if (btnElements[v]) {
+                btnElements[v].classList.remove('active');
             }
         });
         if (oddsSelector) oddsSelector.style.display = 'none';
         if (goalsSelector) goalsSelector.style.display = 'none';
 
-        // Activate selected view
-        if (subview === 'goals') {
-            if (goalsView) goalsView.style.display = 'block';
-            if (goalsBtn) {
-                goalsBtn.style.background = '#00FF85';
-                goalsBtn.style.color = '#0a0f0d';
-                goalsBtn.style.border = 'none';
-                goalsBtn.classList.add('active');
-            }
-            if (goalsSelector) goalsSelector.style.display = 'flex';
-            this.renderGoalsScoredProjections();
-        } else if (subview === 'conceded') {
-            if (concededView) concededView.style.display = 'block';
-            if (concededBtn) {
-                concededBtn.style.background = '#00FF85';
-                concededBtn.style.color = '#0a0f0d';
-                concededBtn.style.border = 'none';
-                concededBtn.classList.add('active');
-            }
-            if (goalsSelector) goalsSelector.style.display = 'flex';
-            this.renderGoalsConcededProjections();
-        } else if (subview === 'odds') {
-            if (oddsView) oddsView.style.display = 'block';
-            if (oddsBtn) {
-                oddsBtn.style.background = '#00FF85';
-                oddsBtn.style.color = '#0a0f0d';
-                oddsBtn.style.border = 'none';
-                oddsBtn.classList.add('active');
-            }
+        const activeView = views.includes(subview) ? subview : 'matrix';
+        if (viewElements[activeView]) viewElements[activeView].style.display = 'block';
+        if (btnElements[activeView]) btnElements[activeView].classList.add('active');
+
+        if (activeView === 'odds') {
             if (oddsSelector) oddsSelector.style.display = 'flex';
             this.renderFixtureOdds();
-        } else {
-            if (matrixView) matrixView.style.display = 'block';
-            if (matrixBtn) {
-                matrixBtn.style.background = '#00FF85';
-                matrixBtn.style.color = '#0a0f0d';
-                matrixBtn.style.border = 'none';
-                matrixBtn.classList.add('active');
-            }
+        } else if (activeView === 'goals') {
+            if (goalsSelector) goalsSelector.style.display = 'flex';
+            this.renderGoalsScoredProjections();
+        } else if (activeView === 'conceded') {
+            if (goalsSelector) goalsSelector.style.display = 'flex';
+            this.renderGoalsConcededProjections();
+        } else if (activeView === 'news') {
+            this.renderFixtureNews();
         }
     },
 
@@ -3936,12 +3983,9 @@ const FPL = {
                             const timeStr = this.formatSolioKickoff(m.kickoff);
 
                             return `
-                            <div class="solio-match-card" onclick="FPL.showFixtureProjectionReasoning('${m.id}')" style="cursor:pointer;" title="Click for projection model calculation reasoning">
-                                <div class="solio-match-time" style="display:flex;align-items:center;justify-content:space-between;">
+                            <div class="solio-match-card">
+                                <div class="solio-match-time">
                                     <span>${this.escapeHTML(timeStr)}</span>
-                                    <span style="font-size:10px;color:#00FF85;display:flex;align-items:center;gap:2px;">
-                                        <span class="material-symbols-outlined" style="font-size:12px;">info</span> Reason
-                                    </span>
                                 </div>
                                 <div class="solio-team-row">
                                     <div class="solio-team-info">
@@ -4029,20 +4073,193 @@ const FPL = {
         container.innerHTML = html;
     },
 
+    _newsInterval: null,
+
+    async renderFixtureNews() {
+        const container = document.getElementById('fixture-news-container');
+        if (!container) return;
+
+        const bootstrap = this.state.bootstrapData || {};
+        const teams = bootstrap.teams || [];
+        const elements = bootstrap.elements || [];
+        const currentGW = bootstrap.events?.find(e => e.is_current)?.id ||
+                          bootstrap.events?.find(e => e.is_next)?.id || 1;
+
+        const gwFixtures = (this.state.fixtures || []).filter(f => f.event === currentGW);
+        const teamIdsInGW = new Set();
+        gwFixtures.forEach(f => { teamIdsInGW.add(f.team_h); teamIdsInGW.add(f.team_a); });
+
+        const teamsInGW = teams.filter(t => teamIdsInGW.has(t.id));
+        const teamIdToName = {};
+        teams.forEach(t => { teamIdToName[t.id] = { name: t.name, short: t.short_name }; });
+
+        const newsItems = [];
+
+        elements.forEach(el => {
+            if (!teamIdsInGW.has(el.team)) return;
+            const teamInfo = teamIdToName[el.team] || { name: 'Unknown', short: '???' };
+            const posMap = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+            const pos = posMap[el.element_type] || 'MID';
+
+            if (el.news && el.news.trim()) {
+                const newsText = el.news.trim();
+                let tag = 'general';
+                let tagLabel = 'NEWS';
+                const lower = newsText.toLowerCase();
+                if (lower.includes('suspended') || lower.includes('ban') || lower.includes('red card')) {
+                    tag = 'suspension';
+                    tagLabel = 'SUSPENDED';
+                } else if (lower.includes('injury') || lower.includes('knock') || lower.includes('doubt') || lower.includes('calf') || lower.includes('hamstring') || lower.includes('knee') || lower.includes('ankle') || lower.includes('groin') || lower.includes('back') || lower.includes('thigh') || lower.includes('foot') || lower.includes('illness')) {
+                    tag = 'injury';
+                    tagLabel = 'INJURY';
+                } else if (lower.includes('ruled out') || lower.includes('unavailable') || lower.includes('will not') || lower.includes('expected to miss')) {
+                    tag = 'injury';
+                    tagLabel = 'RULED OUT';
+                } else if (lower.includes('return') || lower.includes('available') || lower.includes('fit') || lower.includes('back in')) {
+                    tag = 'return';
+                    tagLabel = 'RETURN';
+                } else if (lower.includes('transfer') || lower.includes('loan') || lower.includes('signing')) {
+                    tag = 'transfer';
+                    tagLabel = 'TRANSFER';
+                }
+
+                const statusLower = (el.status || '').toLowerCase();
+                if (statusLower === 'u') {
+                    tag = 'injury';
+                    tagLabel = 'UNAVAILABLE';
+                } else if (statusLower === 'd') {
+                    tag = 'fitness';
+                    tagLabel = 'DOUBTFUL';
+                }
+
+                newsItems.push({
+                    playerName: el.web_name || el.first_name + ' ' + el.last_name,
+                    teamName: teamInfo.short,
+                    teamFull: teamInfo.name,
+                    position: pos,
+                    news: newsText,
+                    tag,
+                    tagLabel,
+                    status: el.news_changes || el.status || '',
+                    chanceOfPlaying: el.chance_of_playing_next_round,
+                    type: 'player',
+                    elementId: el.id,
+                });
+            }
+
+            if (el.status === 'u' && (!el.news || !el.news.trim())) {
+                newsItems.push({
+                    playerName: el.web_name || el.first_name + ' ' + el.last_name,
+                    teamName: teamInfo.short,
+                    teamFull: teamInfo.name,
+                    position: pos,
+                    news: 'Unavailable for selection',
+                    tag: 'injury',
+                    tagLabel: 'UNAVAILABLE',
+                    status: '',
+                    chanceOfPlaying: 0,
+                    type: 'player',
+                    elementId: el.id,
+                });
+            }
+        });
+
+        const sortedNews = newsItems.sort((a, b) => {
+            const priority = { suspension: 0, injury: 1, 'ruled out': 1, unavailable: 1, fitness: 2, return: 3, transfer: 4, general: 5 };
+            const aP = priority[a.tag] ?? 5;
+            const bP = priority[b.tag] ?? 5;
+            return aP - bP;
+        });
+
+        let html = `<div class="news-container">
+            <div class="news-header">
+                <div class="news-header-title">
+                    <span class="material-symbols-outlined">newspaper</span>
+                    <h2>FPL News — GW${currentGW}</h2>
+                </div>
+                <div class="news-refresh-badge">
+                    <span class="material-symbols-outlined">schedule</span>
+                    <span id="news-refresh-timer">Refreshes in 30:00</span>
+                </div>
+            </div>`;
+
+        if (sortedNews.length === 0) {
+            html += `<div class="news-empty">
+                <span class="material-symbols-outlined">check_circle</span>
+                <p>No injury, suspension, or team news for GW${currentGW} fixtures. All squads appear clear.</p>
+            </div>`;
+        } else {
+            html += `<div class="news-grid">`;
+            sortedNews.forEach(item => {
+                const chanceText = item.chanceOfPlaying != null
+                    ? (item.chanceOfPlaying === 0 ? '0%' : item.chanceOfPlaying === 100 ? '100%' : item.chanceOfPlaying + '%')
+                    : '';
+                html += `<div class="news-card">
+                    <div class="news-card-header">
+                        <span class="news-card-tag ${item.tag}">${item.tagLabel}</span>
+                        ${chanceText ? `<span class="news-card-time">Chance: ${chanceText}</span>` : ''}
+                    </div>
+                    <div class="news-card-body">
+                        <p class="news-card-title">${this.escapeHTML(item.news)}</p>
+                        <div class="news-card-meta">
+                            <span class="news-card-player">
+                                <span class="material-symbols-outlined" style="font-size:14px;">person</span>
+                                ${this.escapeHTML(item.playerName)}
+                            </span>
+                            <span class="news-card-team">
+                                ${this.teamBadge(item.teamName, 14)}
+                                ${this.escapeHTML(item.teamName)} · ${item.position}
+                            </span>
+                        </div>
+                    </div>
+                </div>`;
+            });
+            html += `</div>`;
+        }
+
+        html += `</div>`;
+        container.innerHTML = html;
+
+        if (this._newsInterval) clearInterval(this._newsInterval);
+        let countdown = 30 * 60;
+        const timerEl = document.getElementById('news-refresh-timer');
+        this._newsInterval = setInterval(() => {
+            countdown--;
+            if (countdown <= 0) {
+                countdown = 30 * 60;
+                this.renderFixtureNews();
+            }
+            if (timerEl) {
+                const m = Math.floor(countdown / 60);
+                const s = countdown % 60;
+                timerEl.textContent = `Refreshes in ${m}:${String(s).padStart(2, '0')}`;
+            }
+        }, 1000);
+    },
+
     computeLocalTeamProjections(selectedGW) {
         const fixtures = this.state.fixtures || [];
         const bootstrap = this.state.bootstrapData || {};
         const teams = bootstrap.teams || [];
         const elements = bootstrap.elements || [];
+        const events = bootstrap.events || [];
         const getTeam = id => teams.find(t => t.id === id) || { id, short_name: '???', name: 'Unknown' };
 
         const gwFixtures = fixtures.filter(f => f.event === selectedGW);
+        const currentGW = events.find(e => e.is_current)?.id || events.find(e => e.is_next)?.id || 1;
+        const matchesPlayed = Math.max(1, currentGW - 1);
+
         const formatDay = (kickoffTime) => {
             if (!kickoffTime) return 'TBD';
             const d = new Date(kickoffTime);
             if (isNaN(d.getTime())) return 'TBD';
             const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
             return `${days[d.getUTCDay()]} ${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+        };
+
+        const toXGPerMatch = (totalXG, teamMatches) => {
+            if (teamMatches > 0) return totalXG / teamMatches;
+            return 0;
         };
 
         const matchProjections = gwFixtures.map(f => {
@@ -4052,40 +4269,79 @@ const FPL = {
             const fdrHome = f.team_h_difficulty || 3;
             const fdrAway = f.team_a_difficulty || 3;
 
-            const homePlayers = elements.filter(e => e.team === f.team_h && e.minutes > 180);
-            const awayPlayers = elements.filter(e => e.team === f.team_a && e.minutes > 180);
+            const homePlayers = elements.filter(e => e.team === f.team_h && e.minutes > 0);
+            const awayPlayers = elements.filter(e => e.team === f.team_a && e.minutes > 0);
 
             const homeXgSum = homePlayers.reduce((sum, p) => sum + (parseFloat(p.expected_goals) || 0), 0);
             const awayXgSum = awayPlayers.reduce((sum, p) => sum + (parseFloat(p.expected_goals) || 0), 0);
 
-            const homeMatches = Math.max(1, Math.max(...homePlayers.map(p => (p.minutes || 0) / 90), 1));
-            const awayMatches = Math.max(1, Math.max(...awayPlayers.map(p => (p.minutes || 0) / 90), 1));
+            const homeTeamMatches = homePlayers.length > 0
+                ? Math.max(1, Math.max(...homePlayers.map(p => (p.minutes || 0) / 90)))
+                : matchesPlayed;
+            const awayTeamMatches = awayPlayers.length > 0
+                ? Math.max(1, Math.max(...awayPlayers.map(p => (p.minutes || 0) / 90)))
+                : matchesPlayed;
 
-            const homeAtk = homeXgSum > 0 ? (homeXgSum / homeMatches) : ((homeTeam.strength_attack_home || 1100) / 1000 * 1.30);
-            const awayAtk = awayXgSum > 0 ? (awayXgSum / awayMatches) : ((awayTeam.strength_attack_away || 1050) / 1000 * 1.18);
+            let homeAtk, awayAtk;
+            if (homeXgSum > 0 && homeTeamMatches > 0) {
+                homeAtk = toXGPerMatch(homeXgSum, homeTeamMatches);
+            } else {
+                const str = homeTeam.strength_attack_home || 1100;
+                homeAtk = 0.65 + (str - 800) / 600 * 1.1;
+            }
+            if (awayXgSum > 0 && awayTeamMatches > 0) {
+                awayAtk = toXGPerMatch(awayXgSum, awayTeamMatches);
+            } else {
+                const str = awayTeam.strength_attack_away || 1100;
+                awayAtk = 0.55 + (str - 800) / 600 * 0.95;
+            }
 
-            const homeDef = ((2000 - (homeTeam.strength_defence_home || 1100)) / 1000) * 1.25;
-            const awayDef = ((2000 - (awayTeam.strength_defence_away || 1050)) / 1000) * 1.30;
+            const homeDefStr = homeTeam.strength_defence_home || 1100;
+            const awayDefStr = awayTeam.strength_defence_away || 1100;
+            const homeDefensiveStrength = 0.65 + (homeDefStr - 800) / 600 * 1.1;
+            const awayDefensiveStrength = 0.55 + (awayDefStr - 800) / 600 * 0.95;
 
-            const homeFdrMod = 1 + (3 - fdrHome) * 0.10;
-            const awayFdrMod = 1 + (3 - fdrAway) * 0.10;
+            const homeXGA = homePlayers.reduce((sum, p) => sum + (parseFloat(p.expected_goals_conceded) || 0), 0);
+            const awayXGA = awayPlayers.reduce((sum, p) => sum + (parseFloat(p.expected_goals_conceded) || 0), 0);
 
-            let homeGoals = Math.max(0.35, Math.min(3.40, (homeAtk * 0.50 + awayDef * 0.50) * 1.12 * homeFdrMod));
-            let awayGoals = Math.max(0.25, Math.min(3.00, (awayAtk * 0.50 + homeDef * 0.50) * 0.88 * awayFdrMod));
+            let homeDef, awayDef;
+            if (homeXGA > 0 && homeTeamMatches > 0) {
+                homeDef = toXGPerMatch(homeXGA, homeTeamMatches);
+            } else {
+                homeDef = homeDefensiveStrength;
+            }
+            if (awayXGA > 0 && awayTeamMatches > 0) {
+                awayDef = toXGPerMatch(awayXGA, awayTeamMatches);
+            } else {
+                awayDef = awayDefensiveStrength;
+            }
+
+            const homeAdvantage = 1.10;
+            const awayDisadvantage = 0.90;
+
+            let homeGoals = ((homeAtk * 0.55) + (awayDef * 0.45)) * homeAdvantage;
+            let awayGoals = ((awayAtk * 0.55) + (homeDef * 0.45)) * awayDisadvantage;
+
+            const fdrHomeMod = 1 + (3 - fdrHome) * 0.06;
+            const fdrAwayMod = 1 + (3 - fdrAway) * 0.06;
+            homeGoals *= fdrHomeMod;
+            awayGoals *= fdrAwayMod;
+
+            homeGoals = Math.max(0.30, Math.min(3.80, homeGoals));
+            awayGoals = Math.max(0.20, Math.min(3.50, awayGoals));
 
             homeGoals = Math.round(homeGoals * 100) / 100;
             awayGoals = Math.round(awayGoals * 100) / 100;
 
-            const rawHomeCS = Math.exp(-awayGoals) * (1 + 0.04 * Math.exp(-homeGoals));
-            const rawAwayCS = Math.exp(-homeGoals) * (1 + 0.04 * Math.exp(-awayGoals));
-
-            const homeCS = Math.min(88, Math.max(6, Math.round(rawHomeCS * 100)));
-            const awayCS = Math.min(88, Math.max(6, Math.round(rawAwayCS * 100)));
+            const rawHomeCS = Math.exp(-awayGoals) * (1 + 0.03 * Math.exp(-homeGoals));
+            const rawAwayCS = Math.exp(-homeGoals) * (1 + 0.03 * Math.exp(-awayGoals));
+            const homeCS = Math.min(85, Math.max(5, Math.round(rawHomeCS * 100)));
+            const awayCS = Math.min(85, Math.max(5, Math.round(rawAwayCS * 100)));
 
             return {
-                id: f.id, gw: selectedGW, dayStr: formatDay(f.kickoff_time),
-                homeTeam: { id: homeTeam.id, name: homeTeam.name, shortName: homeTeam.short_name, projectedGoals: homeGoals, cleanSheetPct: homeCS },
-                awayTeam: { id: awayTeam.id, name: awayTeam.name, shortName: awayTeam.short_name, projectedGoals: awayGoals, cleanSheetPct: awayCS }
+                id: f.id, gw: selectedGW, kickoff: f.kickoff_time, dayStr: formatDay(f.kickoff_time),
+                homeTeam: { id: homeTeam.id, name: homeTeam.name, shortName: homeTeam.short_name, projectedGoals: homeGoals, cleanSheetPct: homeCS, fdr: fdrHome },
+                awayTeam: { id: awayTeam.id, name: awayTeam.name, shortName: awayTeam.short_name, projectedGoals: awayGoals, cleanSheetPct: awayCS, fdr: fdrAway }
             };
         });
 
@@ -4103,115 +4359,6 @@ const FPL = {
         csList.forEach((item, index) => { item.rank = index + 1; });
 
         return { gw: selectedGW, matchProjections, teamsToTarget: { projectedGoals: goalsList, cleanSheets: csList } };
-    },
-
-    showFixtureProjectionReasoning(fixtureId) {
-        if (!this.state.lastFixtureProjectionsData) return;
-        const match = this.state.lastFixtureProjectionsData.matchProjections?.find(m => 
-            String(m.id) === String(fixtureId) ||
-            `${m.homeTeam?.shortName}_${m.awayTeam?.shortName}` === String(fixtureId) ||
-            `${m.homeTeam?.id}_${m.awayTeam?.id}` === String(fixtureId)
-        ) || this.state.lastFixtureProjectionsData.matchProjections?.[0];
-        if (!match) return;
-
-        const body = document.getElementById('projection-reasoning-body');
-        if (!body) return;
-
-        const h = match.homeTeam;
-        const a = match.awayTeam;
-
-        const hGoals = (typeof h.projectedGoals === 'number' ? h.projectedGoals : parseFloat(h.projectedGoals) || 0).toFixed(2);
-        const aGoals = (typeof a.projectedGoals === 'number' ? a.projectedGoals : parseFloat(a.projectedGoals) || 0).toFixed(2);
-
-        body.innerHTML = `
-            <div style="display:flex;flex-direction:column;gap:16px;color:#e2e8f0;font-family:var(--font-sans);">
-                <!-- Match Banner Header -->
-                <div style="background:#121824;border:1px solid #1e2738;border-radius:12px;padding:16px;display:flex;align-items:center;justify-content:space-around;text-align:center;">
-                    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
-                        ${this.teamBadge(h.shortName, 32)}
-                        <span style="font-family:var(--font-mono);font-weight:900;font-size:18px;color:#ffffff;">${this.escapeHTML(h.name)}</span>
-                        <span style="font-family:var(--font-mono);font-size:12px;color:#94a3b8;">Home</span>
-                    </div>
-                    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-                        <span style="font-family:var(--font-mono);font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;">VS</span>
-                        <span style="font-family:var(--font-mono);font-size:11px;color:#00FF85;background:rgba(0,255,133,0.1);padding:2px 8px;border-radius:4px;">GW ${match.gw || this.state.fixtureOddsGW}</span>
-                    </div>
-                    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
-                        ${this.teamBadge(a.shortName, 32)}
-                        <span style="font-family:var(--font-mono);font-weight:900;font-size:18px;color:#ffffff;">${this.escapeHTML(a.name)}</span>
-                        <span style="font-family:var(--font-mono);font-size:12px;color:#94a3b8;">Away</span>
-                    </div>
-                </div>
-
-                <!-- Key Derived Metrics Cards -->
-                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:12px;">
-                    <!-- Home Team Metrics -->
-                    <div style="background:#172030;border:1px solid #233047;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;">
-                        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #233047;padding-bottom:8px;">
-                            <span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:#00FF85;">${this.escapeHTML(h.shortName)}</span>
-                            <span style="font-family:var(--font-mono);font-size:11px;color:#94a3b8;">Home Projection</span>
-                        </div>
-                        <div style="display:flex;align-items:center;justify-content:space-between;">
-                            <span style="font-size:13px;color:#94a3b8;">Expected Goals (xG):</span>
-                            <span style="font-family:var(--font-mono);font-weight:900;font-size:15px;color:#1d72f3;">${hGoals} goals</span>
-                        </div>
-                        <div style="display:flex;align-items:center;justify-content:space-between;">
-                            <span style="font-size:13px;color:#94a3b8;">Clean Sheet Odds:</span>
-                            <span style="font-family:var(--font-mono);font-weight:900;font-size:15px;color:#e65100;">${h.cleanSheetPct}% CS</span>
-                        </div>
-                    </div>
-
-                    <!-- Away Team Metrics -->
-                    <div style="background:#172030;border:1px solid #233047;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;">
-                        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #233047;padding-bottom:8px;">
-                            <span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:#00FF85;">${this.escapeHTML(a.shortName)}</span>
-                            <span style="font-family:var(--font-mono);font-size:11px;color:#94a3b8;">Away Projection</span>
-                        </div>
-                        <div style="display:flex;align-items:center;justify-content:space-between;">
-                            <span style="font-size:13px;color:#94a3b8;">Expected Goals (xG):</span>
-                            <span style="font-family:var(--font-mono);font-weight:900;font-size:15px;color:#1d72f3;">${aGoals} goals</span>
-                        </div>
-                        <div style="display:flex;align-items:center;justify-content:space-between;">
-                            <span style="font-size:13px;color:#94a3b8;">Clean Sheet Odds:</span>
-                            <span style="font-family:var(--font-mono);font-weight:900;font-size:15px;color:#e65100;">${a.cleanSheetPct}% CS</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Calculation Rationale & Step-by-Step Reasonings -->
-                <div style="background:#121824;border:1px solid #1e2738;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;">
-                    <h4 style="margin:0;font-family:var(--font-mono);font-size:13px;font-weight:800;color:#00FF85;letter-spacing:0.5px;">HOW THESE PROJECTIONS ARE ARRIVED AT:</h4>
-                    
-                    <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5;color:#cbd5e1;">
-                        <div style="display:flex;gap:10px;align-items:flex-start;">
-                            <span class="material-symbols-outlined" style="color:#1d72f3;font-size:18px;margin-top:2px;">show_chart</span>
-                            <div>
-                                <strong style="color:#ffffff;">1. Attack Rating vs Opponent Defensive Rating:</strong>
-                                <p style="margin:2px 0 0 0;color:#94a3b8;font-size:12px;">${this.escapeHTML(h.shortName)}'s goal projection (${hGoals}) is calculated by blending their attacking xG output per 90 against ${this.escapeHTML(a.shortName)}'s expected goals conceded (xGA per 90).</p>
-                            </div>
-                        </div>
-
-                        <div style="display:flex;gap:10px;align-items:flex-start;">
-                            <span class="material-symbols-outlined" style="color:#e65100;font-size:18px;margin-top:2px;">home</span>
-                            <div>
-                                <strong style="color:#ffffff;">2. Home Advantage & Fixture Difficulty (FDR):</strong>
-                                <p style="margin:2px 0 0 0;color:#94a3b8;font-size:12px;">Home advantage applies a +12% multiplier to ${this.escapeHTML(h.shortName)}'s expected goals and a -12% dampener to ${this.escapeHTML(a.shortName)}'s away performance. FDR fixture difficulty modifies the expectations according to defensive ratings.</p>
-                            </div>
-                        </div>
-
-                        <div style="display:flex;gap:10px;align-items:flex-start;">
-                            <span class="material-symbols-outlined" style="color:#00FF85;font-size:18px;margin-top:2px;">functions</span>
-                            <div>
-                                <strong style="color:#ffffff;">3. Dixon-Coles Poisson Clean Sheet Probability:</strong>
-                                <p style="margin:2px 0 0 0;color:#94a3b8;font-size:12px;">Clean sheet odds rely on Dixon-Coles Poisson probability P(0 goals conceded) = e^(&minus;&lambda;) adjusted for low-scoring draw frequencies. Because ${this.escapeHTML(a.shortName)} is projected to score ${aGoals} goals, ${this.escapeHTML(h.shortName)} holds a <strong>${h.cleanSheetPct}% Clean Sheet Chance</strong>.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        this.showDialog('projection-reasoning-dialog');
     },
 
     renderGoalsScoredProjections: null,
