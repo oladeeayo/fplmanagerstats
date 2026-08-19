@@ -718,69 +718,6 @@ const FPL = {
         this.paintTeamBuilder();
     },
 
-    removeTeamBuilderPlayer(playerId) {
-        const builder = this.state.teamBuilder;
-        const index = builder.selectedIds.indexOf(playerId);
-        if (index < 0) return;
-        builder.selectedIds.splice(index, 1);
-        if (builder.captainId === playerId) builder.captainId = null;
-        const pinned = builder.pinnedIds || [];
-        const pidx = pinned.indexOf(playerId);
-        if (pidx >= 0) pinned.splice(pidx, 1);
-        this.saveTeamBuilderDraft();
-        this.paintTeamBuilder();
-    },
-
-    pinTeamBuilderPlayer(playerId) {
-        const builder = this.state.teamBuilder;
-        if (!builder.selectedIds.includes(playerId)) return;
-        if (!builder.pinnedIds) builder.pinnedIds = [];
-        const idx = builder.pinnedIds.indexOf(playerId);
-        if (idx >= 0) {
-            builder.pinnedIds.splice(idx, 1);
-        } else {
-            builder.pinnedIds.push(playerId);
-        }
-        this.saveTeamBuilderDraft();
-        this.paintTeamBuilder();
-    },
-
-    swapTeamBuilderBenchStarter(starterId, benchId) {
-        const builder = this.state.teamBuilder;
-        if (!builder.selectedIds.includes(starterId) || !builder.selectedIds.includes(benchId)) return;
-        const starterPlayer = builder.players.find(p => p.id === starterId);
-        const benchPlayer = builder.players.find(p => p.id === benchId);
-        if (!starterPlayer || !benchPlayer) return;
-        if (starterPlayer.position !== benchPlayer.position) {
-            const message = document.getElementById('tb-market-message');
-            if (message) message.textContent = 'Can only swap players of the same position.';
-            return;
-        }
-        if (!builder.autoFillStarters) builder.autoFillStarters = [];
-        const starterIdx = builder.autoFillStarters.indexOf(starterId);
-        const benchIdx = builder.autoFillStarters.indexOf(benchId);
-        if (starterIdx >= 0) {
-            builder.autoFillStarters.splice(starterIdx, 1, benchId);
-        } else if (benchIdx < 0) {
-            builder.autoFillStarters.push(benchId);
-        }
-        if (benchIdx >= 0) {
-            builder.autoFillStarters.splice(builder.autoFillStarters.indexOf(benchId), 1, starterId);
-        }
-        delete builder._swapSelected;
-        this.saveTeamBuilderDraft();
-        this.paintTeamBuilder();
-        const message = document.getElementById('tb-market-message');
-        if (message) message.textContent = `Swapped ${starterPlayer.name} \u2194 ${benchPlayer.name}`;
-    },
-
-    setTeamBuilderCaptain(playerId) {
-        if (!this.state.teamBuilder.selectedIds.includes(playerId)) return;
-        this.state.teamBuilder.captainId = playerId;
-        this.saveTeamBuilderDraft();
-        this.paintTeamBuilder();
-    },
-
     toggleTeamBuilderGW(gameweek) {
         const selected = this.state.teamBuilder.selectedGWs;
         const index = selected.indexOf(gameweek);
@@ -1981,50 +1918,48 @@ const FPL = {
             const xPts = self.teamBuilderXPts ? self.teamBuilderXPts(p) : 0;
             const isCaptain = captainId === p.id;
             const isPinned = pinnedIds.has(p.id);
-            const isSwapTarget = swapSelectedId === p.id;
             const pos = (p.position || '').toUpperCase();
-            const canSwap = swapSelectedId && swapSelectedId !== p.id && isBench;
-            const swapPartner = swapSelectedId ? squad.find(sp => sp.id === swapSelectedId) : null;
-            const isSamePosition = swapPartner && swapPartner.position === p.position;
 
             const inSwapMode = !!swapSelectedId;
-            const isEligibleSwapTarget = inSwapMode && !isBench && swapPartner && swapPartner.position === p.position;
+            const isSwapSource = swapSelectedId === p.id;
+            const swapPartner = swapSelectedId ? squad.find(sp => sp.id === swapSelectedId) : null;
+            const isSwapTarget = inSwapMode && !isSwapSource && swapPartner && swapPartner.position === pos;
 
             let cardClass = 'tactics-player-card home aiteam-pitch-card tb-squad-pitch-card';
             if (isPinned) cardClass += ' is-pinned';
             if (isCaptain) cardClass += ' is-captain-card';
-            if (isSwapTarget) cardClass += ' is-swap-selected';
-            if (isEligibleSwapTarget) cardClass += ' is-swap-eligible';
+            if (isSwapSource) cardClass += ' is-swap-selected';
+            if (isSwapTarget) cardClass += ' is-swap-eligible';
             if (isBench) cardClass += ' is-bench';
 
             const shirtImg = self.pitchShirtMarkup(p, p.club || p.team);
-            const captainBadge = isCaptain ? '<span class="tb-pitch-captain-badge">C</span>' : '';
-            const pinBadge = isPinned ? '<span class="tb-pitch-pin-badge"><span class="material-symbols-outlined">lock</span></span>' : '';
-
-            const swapLabel = isEligibleSwapTarget ? 'Click to swap in' : (inSwapMode && isBench && !isSwapTarget ? '' : '');
-            const swapDisabled = canSwap && !isSamePosition ? 'style="opacity:0.35;cursor:not-allowed;"' : '';
 
             let clickHandler = '';
-            if (isEligibleSwapTarget) {
-                clickHandler = `onclick="FPL.swapTeamBuilderBenchStarter(${p.id},${swapSelectedId})"`;
+            if (isSwapTarget) {
+                clickHandler = `onclick="FPL.confirmSwap(${swapSelectedId},${p.id})"`;
             } else if (!inSwapMode) {
                 clickHandler = `onclick="FPL.showPlayerDetail(${p.id})"`;
             }
 
-            return `<div class="${cardClass}" ${swapDisabled} ${clickHandler} data-player-id="${p.id}" data-is-bench="${isBench}">
+            const hasSamePosBench = bench.some(bp => bp.position === pos && bp.id !== p.id);
+            const hasSamePosStarter = starters.some(sp => sp.position === pos && sp.id !== p.id);
+
+            return `<div class="${cardClass}" ${clickHandler} data-player-id="${p.id}" data-is-bench="${isBench}">
                 <div class="tb-pitch-card-actions">
-                    <button type="button" class="tb-pitch-action-btn${isPinned ? ' active' : ''}" title="${isPinned ? 'Unpin' : 'Pin'}" onclick="event.stopPropagation();FPL.pinTeamBuilderPlayer(${p.id})"><span class="material-symbols-outlined">${isPinned ? 'lock' : 'lock_open'}</span></button>
-                    <button type="button" class="tb-pitch-action-btn${isCaptain ? ' active' : ''}" title="Captain" onclick="event.stopPropagation();FPL.setTeamBuilderCaptain(${p.id})"><span class="material-symbols-outlined">shield</span></button>
-                    ${isBench && starters.some(sp => sp.position === pos) ? `<button type="button" class="tb-pitch-action-btn swap-btn" title="Swap into starting XI" onclick="event.stopPropagation();FPL.startSwapMode(${p.id})"><span class="material-symbols-outlined">swap_vert</span></button>` : ''}
-                    ${!isBench ? `<button type="button" class="tb-pitch-action-btn replace-btn" title="Replace player" onclick="event.stopPropagation();FPL.replaceTeamBuilderPlayer(${p.id})"><span class="material-symbols-outlined">swap_horiz</span></button>` : ''}
+                    <button type="button" class="tb-pitch-action-btn${isPinned ? ' active' : ''}" title="${isPinned ? 'Unpin (auto-fill may remove)' : 'Pin (keeps in auto-fill)'}" onclick="event.stopPropagation();FPL.pinTeamBuilderPlayer(${p.id})"><span class="material-symbols-outlined">${isPinned ? 'lock' : 'lock_open'}</span></button>
+                    <button type="button" class="tb-pitch-action-btn${isCaptain ? ' active captain' : ''}" title="${isCaptain ? 'Remove captain' : 'Make captain'}" onclick="event.stopPropagation();FPL.setTeamBuilderCaptain(${p.id})"><span class="material-symbols-outlined">shield</span></button>
+                    ${isBench && hasSamePosStarter ? `<button type="button" class="tb-pitch-action-btn swap-btn" title="Swap with a starter" onclick="event.stopPropagation();FPL.startSwapMode(${p.id})"><span class="material-symbols-outlined">swap_vert</span></button>` : ''}
+                    ${!isBench && hasSamePosBench ? `<button type="button" class="tb-pitch-action-btn swap-btn" title="Swap with bench ${pos}" onclick="event.stopPropagation();FPL.startSwapMode(${p.id})"><span class="material-symbols-outlined">swap_vert</span></button>` : ''}
+                    ${!isBench ? `<button type="button" class="tb-pitch-action-btn replace-btn" title="Replace from market" onclick="event.stopPropagation();FPL.replaceTeamBuilderPlayer(${p.id})"><span class="material-symbols-outlined">swap_horiz</span></button>` : ''}
                     <button type="button" class="tb-pitch-action-btn danger" title="Remove" onclick="event.stopPropagation();FPL.removeTeamBuilderPlayer(${p.id})"><span class="material-symbols-outlined">close</span></button>
                 </div>
                 <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;">${shirtImg}</div>
-                ${captainBadge}${pinBadge}
+                ${isCaptain ? '<span class="tb-pitch-captain-badge">C</span>' : ''}
+                ${isPinned ? '<span class="tb-pitch-pin-badge"><span class="material-symbols-outlined">lock</span></span>' : ''}
                 <div class="tactics-player-copy"><b class="aiteam-pitch-name">${self.escapeHTML(p.name)}</b></div>
                 <div class="aiteam-pitch-cost">\u00A3${(p.costValue || (p.cost / 10) || 0).toFixed(1)}m</div>
                 <div class="aiteam-pitch-xpts">${xPts.toFixed(1)} xPts</div>
-                ${swapLabel ? `<div class="tb-pitch-swap-hint">${swapLabel}</div>` : ''}
+                ${isSwapTarget ? '<div class="tb-pitch-swap-hint">Tap to swap</div>' : ''}
             </div>`;
         }
 
@@ -2037,7 +1972,10 @@ const FPL = {
         let swapBanner = '';
         if (swapSelectedId) {
             const sp = squad.find(p => p.id === swapSelectedId);
-            swapBanner = `<div class="tb-swap-banner"><span class="material-symbols-outlined">swap_vert</span> Swapping <strong>${self.escapeHTML(sp?.name || '')}</strong> — click a same-position bench player below, or <button onclick="FPL.cancelSwapMode()">cancel</button></div>`;
+            const spPos = sp ? sp.position : '';
+            const targets = [...starters, ...bench].filter(x => x.position === spPos && x.id !== swapSelectedId);
+            const targetNames = targets.map(t => self.escapeHTML(t.name)).join(', ');
+            swapBanner = `<div class="tb-swap-banner"><span class="material-symbols-outlined">swap_vert</span><span><strong>${self.escapeHTML(sp?.name || '')}</strong> selected \u2014 tap a same-position player${targets.length ? ': ' + targetNames : ' to swap'}<button class="tb-swap-cancel" onclick="FPL.cancelSwapMode()">\u2715 Cancel</button></span></div>`;
         }
 
         let benchHtml = '';
@@ -2051,14 +1989,18 @@ const FPL = {
             benchHtml = `<div class="tb-bench-strip"><div class="tb-pitch-sub"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">event_seat</span> BENCH</div>${benchRows.join('')}</div>`;
         }
 
-        const header = `<div class="tb-pitch-header"><span class="tb-formation-badge">${formation}</span><span class="tb-pitch-sub">${starters.length} starters · ${bench.length} bench</span></div>`;
+        const header = `<div class="tb-pitch-header"><span class="tb-formation-badge">${formation}</span><span class="tb-pitch-sub">${starters.length} starters \u00B7 ${bench.length} bench</span></div>`;
 
         container.innerHTML = `${header}${swapBanner}<div class="tactics-pitch" style="min-height:420px;">${rows.join('')}</div>${benchHtml}`;
     },
 
     startSwapMode(playerId) {
         const builder = this.state.teamBuilder;
-        builder._swapSelected = playerId;
+        if (builder._swapSelected === playerId) {
+            delete builder._swapSelected;
+        } else {
+            builder._swapSelected = playerId;
+        }
         this.paintTeamBuilder();
     },
 
@@ -2068,21 +2010,120 @@ const FPL = {
         this.paintTeamBuilder();
     },
 
+    confirmSwap(idA, idB) {
+        const builder = this.state.teamBuilder;
+        const playerA = builder.players.find(p => p.id === idA);
+        const playerB = builder.players.find(p => p.id === idB);
+        if (!playerA || !playerB) return;
+        if (playerA.position !== playerB.position) {
+            this.showToast('Can only swap players of the same position', 'warn');
+            return;
+        }
+        if (!builder.autoFillStarters) builder.autoFillStarters = [];
+        const aIsStarter = builder.autoFillStarters.includes(idA);
+        const bIsStarter = builder.autoFillStarters.includes(idB);
+        if (aIsStarter && !bIsStarter) {
+            const idx = builder.autoFillStarters.indexOf(idA);
+            builder.autoFillStarters.splice(idx, 1, idB);
+        } else if (bIsStarter && !aIsStarter) {
+            const idx = builder.autoFillStarters.indexOf(idB);
+            builder.autoFillStarters.splice(idx, 1, idA);
+        }
+        delete builder._swapSelected;
+        this.saveTeamBuilderDraft();
+        this.paintTeamBuilder();
+        this.showToast(`Swapped ${playerA.name} \u2194 ${playerB.name}`, 'ok');
+    },
+
+    removeTeamBuilderPlayer(playerId) {
+        const builder = this.state.teamBuilder;
+        const player = builder.players.find(p => p.id === playerId);
+        const index = builder.selectedIds.indexOf(playerId);
+        if (index < 0) return;
+        builder.selectedIds.splice(index, 1);
+        if (builder.captainId === playerId) builder.captainId = null;
+        const pinned = builder.pinnedIds || [];
+        const pidx = pinned.indexOf(playerId);
+        if (pidx >= 0) pinned.splice(pidx, 1);
+        this.saveTeamBuilderDraft();
+        this.paintTeamBuilder();
+        if (player) this.showToast(`Removed ${player.name}`, 'info');
+    },
+
+    pinTeamBuilderPlayer(playerId) {
+        const builder = this.state.teamBuilder;
+        if (!builder.selectedIds.includes(playerId)) return;
+        if (!builder.pinnedIds) builder.pinnedIds = [];
+        const player = builder.players.find(p => p.id === playerId);
+        const idx = builder.pinnedIds.indexOf(playerId);
+        if (idx >= 0) {
+            builder.pinnedIds.splice(idx, 1);
+            if (player) this.showToast(`Unpinned ${player.name}`, 'info');
+        } else {
+            builder.pinnedIds.push(playerId);
+            if (player) this.showToast(`Pinned ${player.name} \u2014 kept in auto-fill`, 'ok');
+        }
+        this.saveTeamBuilderDraft();
+        this.paintTeamBuilder();
+    },
+
+    setTeamBuilderCaptain(playerId) {
+        const builder = this.state.teamBuilder;
+        if (!builder.selectedIds.includes(playerId)) return;
+        const player = builder.players.find(p => p.id === playerId);
+        if (builder.captainId === playerId) {
+            builder.captainId = null;
+            if (player) this.showToast(`Removed ${player.name} as captain`, 'info');
+        } else {
+            builder.captainId = playerId;
+            if (player) this.showToast(`${player.name} is now captain`, 'ok');
+        }
+        this.saveTeamBuilderDraft();
+        this.paintTeamBuilder();
+    },
+
     replaceTeamBuilderPlayer(playerId) {
         const builder = this.state.teamBuilder;
         const player = builder.players.find(p => p.id === playerId);
         if (!player) return;
-        this.removeTeamBuilderPlayer(playerId);
+        this.removeTeamBuilderPlayerNoToast(playerId);
         builder.query = '';
         builder.position = (player.position || '').toLowerCase();
         this.saveTeamBuilderDraft();
         this.paintTeamBuilder();
         const searchEl = document.getElementById('tb-position-filter');
         if (searchEl) searchEl.value = builder.position;
-        const listEl = document.getElementById('tb-player-list');
-        if (listEl) listEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        const msg = document.getElementById('tb-market-message');
-        if (msg) msg.textContent = `Replacing ${player.name} — select a new ${player.position} from the market.`;
+        this.showToast(`${player.name} removed \u2014 pick a replacement ${player.position} below`, 'info');
+    },
+
+    removeTeamBuilderPlayerNoToast(playerId) {
+        const builder = this.state.teamBuilder;
+        const index = builder.selectedIds.indexOf(playerId);
+        if (index < 0) return;
+        builder.selectedIds.splice(index, 1);
+        if (builder.captainId === playerId) builder.captainId = null;
+        const pinned = builder.pinnedIds || [];
+        const pidx = pinned.indexOf(playerId);
+        if (pidx >= 0) pinned.splice(pidx, 1);
+        this.saveTeamBuilderDraft();
+        this.paintTeamBuilder();
+    },
+
+    showToast(message, type = 'info') {
+        const existing = document.getElementById('tb-toast');
+        if (existing) existing.remove();
+        const toast = document.createElement('div');
+        toast.id = 'tb-toast';
+        toast.className = `tb-toast tb-toast-${type}`;
+        const icon = type === 'ok' ? 'check_circle' : type === 'warn' ? 'warning' : 'info';
+        toast.innerHTML = `<span class="material-symbols-outlined">${icon}</span><span>${message}</span>`;
+        document.body.appendChild(toast);
+        requestAnimationFrame(() => toast.classList.add('visible'));
+        clearTimeout(this._toastTimer);
+        this._toastTimer = setTimeout(() => {
+            toast.classList.remove('visible');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
     },
 
     paintTeamBuilderMarket() {
@@ -3868,7 +3909,7 @@ const FPL = {
             select.value = selectedGW;
         }
 
-        container.innerHTML = `<div style="padding:32px 16px;text-align:center;color:#b9cbb9;font-family:var(--font-mono);"><span class="material-symbols-outlined" style="font-size:36px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Calculating Goals & Clean Sheet Projections...</p></div>`;
+        container.innerHTML = `<div style="padding:32px 16px;text-align:center;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);"><span class="material-symbols-outlined" style="font-size:36px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Calculating Goals & Clean Sheet Projections...</p></div>`;
 
         let data = null;
         try {
@@ -3910,19 +3951,19 @@ const FPL = {
             <!-- Top Rated Highlights Summary Banner -->
             <div class="top-rated-highlights-container" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;margin-bottom:24px;">
                 <!-- Top Goals Teams -->
-                <div class="top-rated-card" style="background:#121824;border:1px solid #1e2738;border-radius:12px;padding:16px;">
+                <div class="top-rated-card" style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:16px;">
                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                        <span class="material-symbols-outlined" style="color:#1d72f3;font-size:20px;">sports_soccer</span>
-                        <span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:0.5px;">TOP PROJECTED GOAL SCORERS (GW${selectedGW})</span>
+                        <span class="material-symbols-outlined" style="color:var(--data-blue);font-size:20px;">sports_soccer</span>
+                        <span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--md-sys-color-on-surface-variant);letter-spacing:0.5px;">TOP PROJECTED GOAL SCORERS (GW${selectedGW})</span>
                     </div>
                     <div style="display:flex;flex-direction:column;gap:8px;">
                         ${top3Goals.map((t, idx) => `
-                            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#172030;border-radius:8px;border:1px solid #233047;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--md-sys-color-surface-container-high);border-radius:8px;border:1px solid var(--md-sys-color-outline-variant);">
                                 <div style="display:flex;align-items:center;gap:10px;">
                                     <span style="font-family:var(--font-mono);font-weight:900;font-size:13px;color:${idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : '#CD7F32'};">#${idx+1}</span>
                                     ${this.teamBadge(t.team, 20)}
-                                    <span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:#fff;">${this.escapeHTML(t.team)}</span>
-                                    <span style="font-family:var(--font-mono);font-size:11px;color:#64748b;">vs ${this.escapeHTML(t.opponent)}</span>
+                                    <span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:var(--md-sys-color-on-surface);">${this.escapeHTML(t.team)}</span>
+                                    <span style="font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-outline);">vs ${this.escapeHTML(t.opponent)}</span>
                                 </div>
                                 <span style="font-family:var(--font-mono);font-weight:900;font-size:14px;color:#90caf9;background:#113463;padding:4px 10px;border-radius:6px;">${(typeof t.goals === 'number' ? t.goals : parseFloat(t.goals) || 0).toFixed(2)} gls</span>
                             </div>
