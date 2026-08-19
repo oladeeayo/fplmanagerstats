@@ -4077,219 +4077,175 @@ const FPL = {
                 for (let i = 1; i <= 38; i++) {
                     const opt = document.createElement('option');
                     opt.value = i;
-                    opt.textContent = `GW ${i}`;
+                    opt.textContent = 'GW ' + i;
                     select.appendChild(opt);
                 }
             }
             select.value = selectedGW;
         }
 
-        container.innerHTML = `<div style="padding:32px 16px;text-align:center;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);"><span class="material-symbols-outlined" style="font-size:36px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Calculating Goals & Clean Sheet Projections...</p></div>`;
+        container.innerHTML = '<div style="padding:32px 16px;text-align:center;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);"><span class="material-symbols-outlined" style="font-size:36px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Calculating player projections...</p></div>';
 
         let data = null;
         try {
             data = await this.apiFetch(this.API.teamProjections(selectedGW));
         } catch (e) {
-            console.error('API team projections error, fallback to local compute:', e);
+            console.error('API projections error:', e);
         }
 
         if (!data || !data.matchProjections) {
-            data = this.computeLocalTeamProjections(selectedGW);
-        }
-
-        if (!data || !data.matchProjections || data.matchProjections.length === 0) {
-            container.innerHTML = `<div class="empty-state"><span class="material-symbols-outlined">event_busy</span><p>No fixture odds available for Gameweek ${selectedGW}.</p></div>`;
+            container.innerHTML = '<div class="empty-state"><span class="material-symbols-outlined">event_busy</span><p>No projection data for Gameweek ' + selectedGW + '.</p></div>';
             return;
         }
 
         this.state.lastFixtureProjectionsData = data;
 
-        const goalsLeaderboard = data.teamsToTarget?.projectedGoals || [];
-        const csLeaderboard = data.teamsToTarget?.cleanSheets || [];
+        const topPlayers = data.topPlayers || [];
+        const topGoalsPlayers = data.topGoals || [];
+        const topAssistsPlayers = data.topAssists || [];
 
-        const top3Goals = goalsLeaderboard.slice(0, 3);
-        const top3CS = csLeaderboard.slice(0, 3);
+        const posColor = (pos) => {
+            if (pos === 'FWD') return 'var(--fdr-5)';
+            if (pos === 'MID') return 'var(--data-blue)';
+            if (pos === 'DEF') return 'var(--md-sys-color-primary)';
+            return 'var(--md-sys-color-secondary)';
+        };
+        const posBg = (pos) => {
+            if (pos === 'FWD') return 'rgba(255,0,90,0.12)';
+            if (pos === 'MID') return 'rgba(0,209,255,0.12)';
+            if (pos === 'DEF') return 'rgba(0,228,118,0.12)';
+            return 'rgba(184,223,208,0.12)';
+        };
+        const medalColor = (idx) => idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : '#CD7F32';
+        const self = this;
 
-        let html = `
-        <div class="solio-container">
-            <!-- Header -->
-            <div class="solio-header">
-                <div class="solio-title-wrap">
-                    <h2 class="solio-title">
-                        Projected Goals & Clean Sheet Odds
-                        <span class="solio-gw-badge">GW${selectedGW}</span>
-                    </h2>
-                    <p class="solio-subtitle">Calculated for Gameweek ${selectedGW} · Updated ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}</p>
-                </div>
-            </div>
+        function renderPlayerRow(p, idx, valueLabel, value) {
+            return '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--md-sys-color-surface-container-high);border-radius:8px;border:1px solid var(--md-sys-color-outline-variant);">' +
+                '<div style="display:flex;align-items:center;gap:8px;">' +
+                '<span style="font-family:var(--font-mono);font-weight:900;font-size:12px;color:' + medalColor(idx) + ';">#' + (idx+1) + '</span>' +
+                self.teamBadge(p.team, 16) +
+                '<span style="font-family:var(--font-mono);font-weight:800;font-size:13px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(p.name) + '</span>' +
+                '<span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:' + posColor(p.position) + ';background:' + posBg(p.position) + ';padding:2px 6px;border-radius:4px;">' + p.position + '</span>' +
+                '</div>' +
+                '<span style="font-family:var(--font-mono);font-weight:900;font-size:13px;color:' + posColor(p.position) + ';background:' + posBg(p.position) + ';padding:3px 8px;border-radius:6px;">' + value + ' ' + valueLabel + '</span>' +
+                '</div>';
+        }
 
-            <!-- Top Rated Highlights Summary Banner -->
-            <div class="top-rated-highlights-container" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;margin-bottom:24px;">
-                <!-- Top Goals Teams -->
-                <div class="top-rated-card" style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:16px;">
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                        <span class="material-symbols-outlined" style="color:var(--data-blue);font-size:20px;">sports_soccer</span>
-                        <span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--md-sys-color-on-surface-variant);letter-spacing:0.5px;">TOP PROJECTED GOAL SCORERS (GW${selectedGW})</span>
-                    </div>
-                    <div style="display:flex;flex-direction:column;gap:8px;">
-                        ${top3Goals.map((t, idx) => `
-                            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--md-sys-color-surface-container-high);border-radius:8px;border:1px solid var(--md-sys-color-outline-variant);">
-                                <div style="display:flex;align-items:center;gap:10px;">
-                                    <span style="font-family:var(--font-mono);font-weight:900;font-size:13px;color:${idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : '#CD7F32'};">#${idx+1}</span>
-                                    ${this.teamBadge(t.team, 20)}
-                                    <span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:var(--md-sys-color-on-surface);">${this.escapeHTML(t.team)}</span>
-                                    <span style="font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-outline);">vs ${this.escapeHTML(t.opponent)}</span>
-                                </div>
-                                <span style="font-family:var(--font-mono);font-weight:900;font-size:14px;color:var(--data-blue);background:rgba(0,209,255,0.12);padding:4px 10px;border-radius:6px;">${(typeof t.goals === 'number' ? t.goals : parseFloat(t.goals) || 0).toFixed(2)} gls</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
+        function renderTopPlayersSmall(players) {
+            if (!players || players.length === 0) return '<span style="font-size:10px;color:var(--md-sys-color-outline);">\u2014</span>';
+            return players.map(function(p) {
+                return '<div style="display:flex;align-items:center;gap:4px;font-size:10px;">' +
+                    '<span style="font-family:var(--font-mono);font-weight:700;color:' + posColor(p.position) + ';">' + p.name + '</span>' +
+                    '<span style="font-family:var(--font-mono);color:var(--md-sys-color-on-surface-variant);">' + p.goals.toFixed(1) + 'g ' + p.assists.toFixed(1) + 'a</span>' +
+                    '</div>';
+            }).join('');
+        }
 
-                <!-- Top Clean Sheet Teams -->
-                <div class="top-rated-card" style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:16px;">
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                        <span class="material-symbols-outlined" style="color:var(--md-sys-color-primary);font-size:20px;">shield</span>
-                        <span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--md-sys-color-on-surface-variant);letter-spacing:0.5px;">HIGHEST CLEAN SHEET CHANCES (GW${selectedGW})</span>
-                    </div>
-                    <div style="display:flex;flex-direction:column;gap:8px;">
-                        ${top3CS.map((t, idx) => `
-                            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--md-sys-color-surface-container-high);border-radius:8px;border:1px solid var(--md-sys-color-outline-variant);">
-                                <div style="display:flex;align-items:center;gap:10px;">
-                                    <span style="font-family:var(--font-mono);font-weight:900;font-size:13px;color:${idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : '#CD7F32'};">#${idx+1}</span>
-                                    ${this.teamBadge(t.team, 20)}
-                                    <span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:var(--md-sys-color-on-surface);">${this.escapeHTML(t.team)}</span>
-                                    <span style="font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-outline);">vs ${this.escapeHTML(t.opponent)}</span>
-                                </div>
-                                <span style="font-family:var(--font-mono);font-weight:900;font-size:14px;color:var(--md-sys-color-primary);background:rgba(0,228,118,0.12);padding:4px 10px;border-radius:6px;">${t.csPct}% CS</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            </div>
+        var bannerCards = '';
+        if (topPlayers.length > 0) {
+            bannerCards += '<div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:16px;">' +
+                '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">' +
+                '<span class="material-symbols-outlined" style="color:var(--md-sys-color-primary);font-size:20px;">star</span>' +
+                '<span style="font-family:var(--font-mono);font-size:11px;font-weight:800;color:var(--md-sys-color-on-surface-variant);letter-spacing:0.5px;">TOP PROJECTED POINTS</span>' +
+                '</div><div style="display:flex;flex-direction:column;gap:6px;">' +
+                topPlayers.slice(0, 5).map(function(p, i) { return renderPlayerRow(p, i, 'pts', p.totalPoints.toFixed(1)); }).join('') +
+                '</div></div>';
+        }
+        if (topGoalsPlayers.length > 0) {
+            bannerCards += '<div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:16px;">' +
+                '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">' +
+                '<span class="material-symbols-outlined" style="color:var(--data-blue);font-size:20px;">sports_soccer</span>' +
+                '<span style="font-family:var(--font-mono);font-size:11px;font-weight:800;color:var(--md-sys-color-on-surface-variant);letter-spacing:0.5px;">TOP PROJECTED GOALS</span>' +
+                '</div><div style="display:flex;flex-direction:column;gap:6px;">' +
+                topGoalsPlayers.slice(0, 5).map(function(p, i) { return renderPlayerRow(p, i, 'gls', p.goals.toFixed(2)); }).join('') +
+                '</div></div>';
+        }
+        if (topAssistsPlayers.length > 0) {
+            bannerCards += '<div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:16px;">' +
+                '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">' +
+                '<span class="material-symbols-outlined" style="color:var(--fdr-4);font-size:20px;">gesture</span>' +
+                '<span style="font-family:var(--font-mono);font-size:11px;font-weight:800;color:var(--md-sys-color-on-surface-variant);letter-spacing:0.5px;">TOP PROJECTED ASSISTS</span>' +
+                '</div><div style="display:flex;flex-direction:column;gap:6px;">' +
+                topAssistsPlayers.slice(0, 5).map(function(p, i) { return renderPlayerRow(p, i, 'ast', p.assists.toFixed(2)); }).join('') +
+                '</div></div>';
+        }
 
-            <!-- Main Workspace: Split Grid -->
-            <div class="solio-grid-layout">
-                <!-- Left: Match-by-Match Grid -->
-                <div class="solio-matches-section">
-                    <div class="solio-matches-header">
-                        <div class="solio-matches-header-col">
-                            <span>PROJ GLS</span>
-                            <span>CS %</span>
-                        </div>
-                        <div class="solio-matches-header-col">
-                            <span>PROJ GLS</span>
-                            <span>CS %</span>
-                        </div>
-                    </div>
+        var matchCards = data.matchProjections.map(function(m) {
+            var hGoals = m.homeTeam.projectedGoals;
+            var aGoals = m.awayTeam.projectedGoals;
+            var hCS = m.homeTeam.cleanSheetPct;
+            var aCS = m.awayTeam.cleanSheetPct;
+            var hTop = (m.homeTeam.topPlayers || []).slice(0, 3);
+            var aTop = (m.awayTeam.topPlayers || []).slice(0, 3);
+            var timeStr = self.formatSolioKickoff(m.kickoff);
+            var hGoalsClass = hGoals >= 2.0 ? 'solio-goals-high' : hGoals >= 1.4 ? 'solio-goals-mid' : 'solio-goals-low';
+            var aGoalsClass = aGoals >= 2.0 ? 'solio-goals-high' : aGoals >= 1.4 ? 'solio-goals-mid' : 'solio-goals-low';
+            var hCSClass = hCS >= 35 ? 'solio-cs-high' : hCS >= 20 ? 'solio-cs-mid' : 'solio-cs-low';
+            var aCSClass = aCS >= 35 ? 'solio-cs-high' : aCS >= 20 ? 'solio-cs-mid' : 'solio-cs-low';
 
-                    <div class="solio-matches-grid">
-                        ${data.matchProjections.map(m => {
-                            const hGoals = m.homeTeam.projectedGoals.toFixed(2);
-                            const aGoals = m.awayTeam.projectedGoals.toFixed(2);
-                            const hCS = m.homeTeam.cleanSheetPct;
-                            const aCS = m.awayTeam.cleanSheetPct;
+            return '<div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:14px;">' +
+                '<div style="text-align:center;font-family:var(--font-mono);font-size:10px;color:var(--md-sys-color-outline);margin-bottom:10px;">' + self.escapeHTML(timeStr) + '</div>' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+                '<div style="display:flex;align-items:center;gap:8px;">' + self.teamBadge(m.homeTeam.shortName, 22) + '<span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(m.homeTeam.shortName) + '</span></div>' +
+                '<div style="display:flex;gap:6px;"><span class="solio-badge ' + hGoalsClass + '">' + hGoals.toFixed(2) + '</span><span class="solio-badge ' + hCSClass + '">' + hCS + '%</span></div>' +
+                '</div>' +
+                '<div style="padding-left:30px;margin-bottom:10px;">' + renderTopPlayersSmall(hTop) + '</div>' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+                '<div style="display:flex;align-items:center;gap:8px;">' + self.teamBadge(m.awayTeam.shortName, 22) + '<span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(m.awayTeam.shortName) + '</span></div>' +
+                '<div style="display:flex;gap:6px;"><span class="solio-badge ' + aGoalsClass + '">' + aGoals.toFixed(2) + '</span><span class="solio-badge ' + aCSClass + '">' + aCS + '%</span></div>' +
+                '</div>' +
+                '<div style="padding-left:30px;">' + renderTopPlayersSmall(aTop) + '</div>' +
+                '</div>';
+        }).join('');
 
-                            const hGoalsClass = m.homeTeam.projectedGoals >= 2.0 ? 'solio-goals-high' : m.homeTeam.projectedGoals >= 1.4 ? 'solio-goals-mid' : 'solio-goals-low';
-                            const aGoalsClass = m.awayTeam.projectedGoals >= 2.0 ? 'solio-goals-high' : m.awayTeam.projectedGoals >= 1.4 ? 'solio-goals-mid' : 'solio-goals-low';
+        var tableRows = topPlayers.slice(0, 50).map(function(p, idx) {
+            var isEven = idx % 2 === 1;
+            var bg = isEven ? 'var(--md-sys-color-surface-container-low)' : 'var(--md-sys-color-surface-container-lowest)';
+            return '<tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);background:' + bg + ';">' +
+                '<td style="padding:8px 12px;color:var(--md-sys-color-on-surface-variant);font-weight:700;">' + (idx + 1) + '</td>' +
+                '<td style="padding:8px 12px;font-weight:700;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(p.name) + '</td>' +
+                '<td style="padding:8px 12px;"><div style="display:flex;align-items:center;gap:6px;">' + self.teamBadge(p.team, 16) + '<span style="font-weight:600;">' + self.escapeHTML(p.team) + '</span></div></td>' +
+                '<td style="padding:8px 12px;"><span style="font-size:10px;font-weight:700;color:' + posColor(p.position) + ';background:' + posBg(p.position) + ';padding:2px 6px;border-radius:4px;">' + p.position + '</span></td>' +
+                '<td style="padding:8px 12px;text-align:center;font-weight:900;color:var(--md-sys-color-primary);">' + p.totalPoints.toFixed(1) + '</td>' +
+                '<td style="padding:8px 12px;text-align:center;font-weight:700;color:var(--data-blue);">' + p.goals.toFixed(2) + '</td>' +
+                '<td style="padding:8px 12px;text-align:center;font-weight:700;color:var(--fdr-4);">' + p.assists.toFixed(2) + '</td>' +
+                '<td style="padding:8px 12px;text-align:center;font-weight:700;color:var(--md-sys-color-primary);">' + (p.csProb || 0) + '%</td>' +
+                '<td style="padding:8px 12px;text-align:center;font-weight:700;color:var(--md-sys-color-on-surface-variant);">' + (p.bonus || 0).toFixed(2) + '</td>' +
+                '</tr>';
+        }).join('');
 
-                            const hCSClass = hCS >= 35 ? 'solio-cs-high' : hCS >= 20 ? 'solio-cs-mid' : 'solio-cs-low';
-                            const aCSClass = aCS >= 35 ? 'solio-cs-high' : aCS >= 20 ? 'solio-cs-mid' : 'solio-cs-low';
-
-                            const timeStr = this.formatSolioKickoff(m.kickoff);
-
-                            return `
-                            <div class="solio-match-card">
-                                <div class="solio-match-time">
-                                    <span>${this.escapeHTML(timeStr)}</span>
-                                </div>
-                                <div class="solio-team-row">
-                                    <div class="solio-team-info">
-                                        ${this.teamBadge(m.homeTeam.shortName, 22)}
-                                        <span class="solio-team-code">${this.escapeHTML(m.homeTeam.shortName)}</span>
-                                    </div>
-                                    <div class="solio-metrics-wrap">
-                                        <span class="solio-badge ${hGoalsClass}">${hGoals}</span>
-                                        <span class="solio-badge ${hCSClass}">${hCS}%</span>
-                                    </div>
-                                </div>
-                                <div class="solio-team-row">
-                                    <div class="solio-team-info">
-                                        ${this.teamBadge(m.awayTeam.shortName, 22)}
-                                        <span class="solio-team-code">${this.escapeHTML(m.awayTeam.shortName)}</span>
-                                    </div>
-                                    <div class="solio-metrics-wrap">
-                                        <span class="solio-badge ${aGoalsClass}">${aGoals}</span>
-                                        <span class="solio-badge ${aCSClass}">${aCS}%</span>
-                                    </div>
-                                </div>
-                            </div>`;
-                        }).join('')}
-                    </div>
-                </div>
-
-                <!-- Right: Ranked Leaderboards -->
-                <div class="solio-leaderboards-section">
-                    <div class="solio-leaderboards-grid">
-                        <!-- Projected Goals Column -->
-                        <div class="solio-leaderboard-col">
-                            <div class="solio-leaderboard-title">
-                                PROJECTED GOALS ↓
-                            </div>
-                            ${goalsLeaderboard.map(t => {
-                                const goalsVal = typeof t.goals === 'number' ? t.goals : parseFloat(t.goals) || 0;
-                                const barWidthPct = Math.min(100, Math.max(12, Math.round((goalsVal / 3.0) * 100)));
-                                return `
-                                <div class="solio-rank-row">
-                                    <div class="solio-rank-team-info">
-                                        ${this.teamBadge(t.team, 18)}
-                                        <span class="solio-rank-code">${this.escapeHTML(t.team)}</span>
-                                        <span class="solio-rank-opp">${this.escapeHTML(t.opponent)}</span>
-                                    </div>
-                                    <div class="solio-bar-wrap">
-                                        <div class="solio-bar-fill-goals" style="width:${barWidthPct}%;"></div>
-                                        <span class="solio-bar-text">${goalsVal.toFixed(2)}</span>
-                                    </div>
-                                </div>`;
-                            }).join('')}
-                        </div>
-
-                        <!-- Clean Sheet % Column -->
-                        <div class="solio-leaderboard-col">
-                            <div class="solio-leaderboard-title">
-                                CLEAN SHEET % ↓
-                            </div>
-                            ${csLeaderboard.map(t => {
-                                const csVal = typeof t.csPct === 'number' ? t.csPct : parseInt(t.csPct, 10) || 0;
-                                const barWidthPct = Math.min(100, Math.max(12, Math.round((csVal / 70) * 100)));
-                                return `
-                                <div class="solio-rank-row">
-                                    <div class="solio-rank-team-info">
-                                        ${this.teamBadge(t.team, 18)}
-                                        <span class="solio-rank-code">${this.escapeHTML(t.team)}</span>
-                                        <span class="solio-rank-opp">${this.escapeHTML(t.opponent)}</span>
-                                    </div>
-                                    <div class="solio-bar-wrap">
-                                        <div class="solio-bar-fill-cs" style="width:${barWidthPct}%;"></div>
-                                        <span class="solio-bar-text">${csVal}%</span>
-                                    </div>
-                                </div>`;
-                            }).join('')}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Footer -->
-            <div class="solio-footer">
-                Calculated using team attack/defence ratings, xG/xGA metrics, and Poisson distribution models.
-            </div>
-        </div>`;
+        var html = '<div class="solio-container">' +
+            '<div class="solio-header"><div class="solio-title-wrap">' +
+            '<h2 class="solio-title">Player Projections <span class="solio-gw-badge">GW' + selectedGW + '</span></h2>' +
+            '<p class="solio-subtitle">Per-player projected goals, assists, bonus & points \u00b7 ' + new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) + '</p>' +
+            '</div></div>' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:16px;margin-bottom:24px;">' + bannerCards + '</div>' +
+            '<div style="margin-bottom:16px;">' +
+            '<div style="font-family:var(--font-mono);font-size:11px;font-weight:800;color:var(--md-sys-color-on-surface-variant);letter-spacing:0.5px;margin-bottom:12px;text-align:center;">MATCH-BY-MATCH BREAKDOWN</div>' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));gap:12px;">' + matchCards + '</div></div>' +
+            '<div style="background:var(--md-sys-color-surface-container-low);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;overflow:hidden;margin-bottom:24px;">' +
+            '<div style="background:var(--md-sys-color-secondary);padding:14px 16px;border-bottom:1px solid var(--md-sys-color-outline-variant);display:flex;align-items:center;gap:8px;">' +
+            '<span class="material-symbols-outlined" style="font-size:18px;color:var(--md-sys-color-on-secondary);">leaderboard</span>' +
+            '<h3 style="font-family:var(--font-mono);font-size:13px;margin:0;color:var(--md-sys-color-on-secondary);">ALL PLAYERS \u2014 PROJECTED POINTS (GW' + selectedGW + ')</h3></div>' +
+            '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:12px;">' +
+            '<thead><tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);background:var(--md-sys-color-surface-container-high);">' +
+            '<th style="padding:8px 12px;text-align:left;color:var(--md-sys-color-on-surface);font-weight:700;">#</th>' +
+            '<th style="padding:8px 12px;text-align:left;color:var(--md-sys-color-on-surface);font-weight:700;">Player</th>' +
+            '<th style="padding:8px 12px;text-align:left;color:var(--md-sys-color-on-surface);font-weight:700;">Team</th>' +
+            '<th style="padding:8px 12px;text-align:left;color:var(--md-sys-color-on-surface);font-weight:700;">Pos</th>' +
+            '<th style="padding:8px 12px;text-align:center;color:var(--md-sys-color-primary);font-weight:700;">Pts</th>' +
+            '<th style="padding:8px 12px;text-align:center;color:var(--data-blue);font-weight:700;">Gls</th>' +
+            '<th style="padding:8px 12px;text-align:center;color:var(--fdr-4);font-weight:700;">Ast</th>' +
+            '<th style="padding:8px 12px;text-align:center;color:var(--md-sys-color-primary);font-weight:700;">CS%</th>' +
+            '<th style="padding:8px 12px;text-align:center;color:var(--md-sys-color-on-surface-variant);font-weight:700;">Bonus</th>' +
+            '</tr></thead><tbody>' + tableRows + '</tbody></table></div></div>' +
+            '<div class="solio-footer">Player projections calculated using FPL expected data (xG, xA, bonus), team strength ratings, fixture difficulty, and position-based adjustments.</div>' +
+            '</div>';
 
         container.innerHTML = html;
     },
 
-    _newsInterval: null,
+        _newsInterval: null,
 
     async renderFixtureNews() {
         const container = document.getElementById('fixture-news-container');
@@ -4464,7 +4420,6 @@ const FPL = {
 
         const gwFixtures = fixtures.filter(f => f.event === selectedGW);
         const currentGW = events.find(e => e.is_current)?.id || events.find(e => e.is_next)?.id || 1;
-        const matchesPlayed = Math.max(1, currentGW - 1);
 
         const formatDay = (kickoffTime) => {
             if (!kickoffTime) return 'TBD';
@@ -4474,110 +4429,110 @@ const FPL = {
             return `${days[d.getUTCDay()]} ${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
         };
 
-        // Compute league-mean strengths for relative deviation
+        const posMap = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+        const FPL_PTS = { GKP: { goal: 10, cs: 4 }, DEF: { goal: 6, cs: 4 }, MID: { goal: 5, cs: 1 }, FWD: { goal: 4, cs: 0 } };
+
         const meanAtkHome = teams.reduce((s, t) => s + (t.strength_attack_home || 1100), 0) / (teams.length || 20);
         const meanAtkAway = teams.reduce((s, t) => s + (t.strength_attack_away || 1100), 0) / (teams.length || 20);
         const meanDefHome = teams.reduce((s, t) => s + (t.strength_defence_home || 1100), 0) / (teams.length || 20);
         const meanDefAway = teams.reduce((s, t) => s + (t.strength_defence_away || 1100), 0) / (teams.length || 20);
 
-        const PL_XG_HOME = 1.55;
-        const PL_XG_AWAY = 1.15;
-        const PL_XGA_HOME = 1.15;
-        const PL_XGA_AWAY = 1.55;
-        const AMPLIFY = 0.006;
-
-        const matchProjections = gwFixtures.map(f => {
-            const homeTeam = getTeam(f.team_h);
-            const awayTeam = getTeam(f.team_a);
-
-            const fdrHome = f.team_h_difficulty || 3;
-            const fdrAway = f.team_a_difficulty || 3;
-
-            const homePlayers = elements.filter(e => e.team === f.team_h && e.minutes > 0);
-            const awayPlayers = elements.filter(e => e.team === f.team_a && e.minutes > 0);
-
-            const homeXgSum = homePlayers.reduce((sum, p) => sum + (parseFloat(p.expected_goals) || 0), 0);
-            const awayXgSum = awayPlayers.reduce((sum, p) => sum + (parseFloat(p.expected_goals) || 0), 0);
-            const homeXgaSum = homePlayers.reduce((sum, p) => sum + (parseFloat(p.expected_goals_conceded) || 0), 0);
-            const awayXgaSum = awayPlayers.reduce((sum, p) => sum + (parseFloat(p.expected_goals_conceded) || 0), 0);
-
-            const homeTeamMatches = homePlayers.length > 0
-                ? Math.max(1, Math.max(...homePlayers.map(p => (p.minutes || 0) / 90)))
-                : matchesPlayed;
-            const awayTeamMatches = awayPlayers.length > 0
-                ? Math.max(1, Math.max(...awayPlayers.map(p => (p.minutes || 0) / 90)))
-                : matchesPlayed;
-
-            let homeAtk, awayAtk, homeDef, awayDef;
-
-            if (homeXgSum > 0 && homeTeamMatches > 0) {
-                homeAtk = homeXgSum / homeTeamMatches;
-            } else {
-                const dev = ((homeTeam.strength_attack_home || 1100) - meanAtkHome) * AMPLIFY;
-                homeAtk = Math.max(0.7, Math.min(2.4, PL_XG_HOME + dev));
-            }
-            if (awayXgSum > 0 && awayTeamMatches > 0) {
-                awayAtk = awayXgSum / awayTeamMatches;
-            } else {
-                const dev = ((awayTeam.strength_attack_away || 1100) - meanAtkAway) * AMPLIFY;
-                awayAtk = Math.max(0.5, Math.min(2.0, PL_XG_AWAY + dev));
-            }
-            if (homeXgaSum > 0 && homeTeamMatches > 0) {
-                homeDef = homeXgaSum / homeTeamMatches;
-            } else {
-                const dev = (meanDefHome - (homeTeam.strength_defence_home || 1100)) * AMPLIFY;
-                homeDef = Math.max(0.6, Math.min(2.2, PL_XGA_HOME + dev));
-            }
-            if (awayXgaSum > 0 && awayTeamMatches > 0) {
-                awayDef = awayXgaSum / awayTeamMatches;
-            } else {
-                const dev = (meanDefAway - (awayTeam.strength_defence_away || 1100)) * AMPLIFY;
-                awayDef = Math.max(0.7, Math.min(2.4, PL_XGA_AWAY + dev));
-            }
-
-            const homeAdvantage = 1.10;
-            const awayDisadvantage = 0.90;
-
-            let homeGoals = ((homeAtk * 0.55) + (awayDef * 0.45)) * homeAdvantage;
-            let awayGoals = ((awayAtk * 0.55) + (homeDef * 0.45)) * awayDisadvantage;
-
-            const fdrHomeMod = 1 + (3 - fdrHome) * 0.06;
-            const fdrAwayMod = 1 + (3 - fdrAway) * 0.06;
-            homeGoals *= fdrHomeMod;
-            awayGoals *= fdrAwayMod;
-
-            homeGoals = Math.max(0.30, Math.min(3.80, homeGoals));
-            awayGoals = Math.max(0.20, Math.min(3.50, awayGoals));
-
-            homeGoals = Math.round(homeGoals * 100) / 100;
-            awayGoals = Math.round(awayGoals * 100) / 100;
-
-            const rawHomeCS = Math.exp(-awayGoals) * (1 + 0.03 * Math.exp(-homeGoals));
-            const rawAwayCS = Math.exp(-homeGoals) * (1 + 0.03 * Math.exp(-awayGoals));
-            const homeCS = Math.min(85, Math.max(5, Math.round(rawHomeCS * 100)));
-            const awayCS = Math.min(85, Math.max(5, Math.round(rawAwayCS * 100)));
-
-            return {
-                id: f.id, gw: selectedGW, kickoff: f.kickoff_time, dayStr: formatDay(f.kickoff_time),
-                homeTeam: { id: homeTeam.id, name: homeTeam.name, shortName: homeTeam.short_name, projectedGoals: homeGoals, cleanSheetPct: homeCS, fdr: fdrHome },
-                awayTeam: { id: awayTeam.id, name: awayTeam.name, shortName: awayTeam.short_name, projectedGoals: awayGoals, cleanSheetPct: awayCS, fdr: fdrAway }
+        const teamStrengths = {};
+        teams.forEach(t => {
+            teamStrengths[t.id] = {
+                attackHome: Math.exp(((t.strength_attack_home || 1100) - meanAtkHome) / 100 * 2.5),
+                attackAway: Math.exp(((t.strength_attack_away || 1100) - meanAtkAway) / 100 * 2.5),
+                defenseHome: Math.exp(((t.strength_defence_home || 1100) - meanDefHome) / 100 * 2.5),
+                defenseAway: Math.exp(((t.strength_defence_away || 1100) - meanDefAway) / 100 * 2.5),
             };
         });
 
-        const goalsList = [];
-        const csList = [];
-        matchProjections.forEach(m => {
-            goalsList.push({ team: m.homeTeam.shortName, opponent: `${m.awayTeam.shortName}(H)`, goals: m.homeTeam.projectedGoals });
-            goalsList.push({ team: m.awayTeam.shortName, opponent: `${m.homeTeam.shortName}(A)`, goals: m.awayTeam.projectedGoals });
-            csList.push({ team: m.homeTeam.shortName, opponent: `${m.awayTeam.shortName}(H)`, csPct: m.homeTeam.cleanSheetPct });
-            csList.push({ team: m.awayTeam.shortName, opponent: `${m.homeTeam.shortName}(A)`, csPct: m.awayTeam.cleanSheetPct });
-        });
-        goalsList.sort((a, b) => b.goals - a.goals);
-        csList.sort((a, b) => b.csPct - a.csPct);
-        goalsList.forEach((item, index) => { item.rank = index + 1; });
-        csList.forEach((item, index) => { item.rank = index + 1; });
+        const allPlayers = [];
+        const matchProjections = gwFixtures.map(f => {
+            const homeTeam = getTeam(f.team_h);
+            const awayTeam = getTeam(f.team_a);
+            const fdrHome = f.team_h_difficulty || 3;
+            const fdrAway = f.team_a_difficulty || 3;
+            const hStr = teamStrengths[f.team_h] || { attackHome: 1, attackAway: 1, defenseHome: 1, defenseAway: 1 };
+            const aStr = teamStrengths[f.team_a] || { attackHome: 1, attackAway: 1, defenseHome: 1, defenseAway: 1 };
 
-        return { gw: selectedGW, matchProjections, teamsToTarget: { projectedGoals: goalsList, cleanSheets: csList } };
+            const projectPlayer = (el, isHome, oppStr) => {
+                const pos = posMap[el.element_type] || 'MID';
+                const matches = Math.max(1, (el.minutes || 0) / 90);
+                const goalsPerMatch = matches > 0 ? (parseFloat(el.expected_goals) || 0) / matches : 0;
+                const assistsPerMatch = matches > 0 ? (parseFloat(el.expected_assists) || 0) / matches : 0;
+                const bonusPerMatch = matches > 0 ? (parseFloat(el.bonus_points) || 0) / matches : 0;
+                const csRate = matches > 0 ? (parseFloat(el.clean_sheets) || 0) / matches : 0.25;
+                const minutesMod = Math.min(1, (el.chance_of_playing_next_round || 100) / 100);
+                const atkMod = isHome ? hStr.attackHome : hStr.attackAway;
+                const oppDefMod = isHome ? (0.7 + (oppStr.defenseHome * 0.3)) : (0.7 + (oppStr.defenseAway * 0.3));
+                const posGoalsMod = { GKP: 0.02, DEF: 0.15, MID: 0.65, FWD: 1.0 }[pos];
+                const posAssistsMod = { GKP: 0.01, DEF: 0.20, MID: 0.75, FWD: 0.55 }[pos];
+                const posBonusMod = { GKP: 0.15, DEF: 0.25, MID: 0.45, FWD: 0.40 }[pos];
+                const posCSMod = { GKP: 1, DEF: 1, MID: 0.3, FWD: 0 }[pos];
+
+                const goals = Math.max(0, Math.min(2.5, goalsPerMatch * atkMod * oppDefMod * posGoalsMod * minutesMod));
+                const assists = Math.max(0, Math.min(2.0, assistsPerMatch * atkMod * oppDefMod * posAssistsMod * minutesMod));
+                const csProb = Math.round(Math.max(0, Math.min(85, csRate * (1 / (isHome ? hStr.defenseHome : hStr.defenseAway)) * posCSMod * minutesMod * 100)));
+                const bonus = Math.max(0, Math.min(3, bonusPerMatch * atkMod * posBonusMod * minutesMod));
+                const goalPts = goals * (FPL_PTS[pos]?.goal || 5);
+                const assistPts = assists * 3;
+                const csPts = (csProb / 100) * (FPL_PTS[pos]?.cs || 0);
+                const minsPts = minutesMod >= 0.8 ? 2 : minutesMod >= 0.4 ? 1 : 0;
+                const totalPoints = goalPts + assistPts + csPts + bonus + minsPts;
+
+                return {
+                    id: el.id, name: el.web_name, team: isHome ? homeTeam.short_name : awayTeam.short_name,
+                    teamId: isHome ? f.team_h : f.team_a, position: pos,
+                    price: (el.now_cost || 50) / 10,
+                    goals: Math.round(goals * 1000) / 1000,
+                    assists: Math.round(assists * 1000) / 1000,
+                    csProb, bonus: Math.round(bonus * 100) / 100,
+                    totalPoints: Math.round(totalPoints * 100) / 100,
+                    fixture: homeTeam.short_name + ' vs ' + awayTeam.short_name,
+                };
+            };
+
+            const homePlayers = elements.filter(e => e.team === f.team_h && e.minutes > 0).map(e => projectPlayer(e, true, aStr));
+            const awayPlayers = elements.filter(e => e.team === f.team_a && e.minutes > 0).map(e => projectPlayer(e, false, hStr));
+
+            allPlayers.push(...homePlayers, ...awayPlayers);
+
+            const hGoals = homePlayers.reduce((s, p) => s + p.goals, 0);
+            const aGoals = awayPlayers.reduce((s, p) => s + p.goals, 0);
+            const hCS = Math.min(85, Math.max(5, Math.round(Math.exp(-aGoals) * 100)));
+            const aCS = Math.min(85, Math.max(5, Math.round(Math.exp(-hGoals) * 100)));
+            const hTop = [...homePlayers].sort((a, b) => b.totalPoints - a.totalPoints).slice(0, 3).map(p => ({ name: p.name, position: p.position, points: p.totalPoints, goals: p.goals, assists: p.assists }));
+            const aTop = [...awayPlayers].sort((a, b) => b.totalPoints - a.totalPoints).slice(0, 3).map(p => ({ name: p.name, position: p.position, points: p.totalPoints, goals: p.goals, assists: p.assists }));
+
+            return {
+                id: f.id, gw: selectedGW, kickoff: f.kickoff_time, dayStr: formatDay(f.kickoff_time),
+                homeTeam: { id: homeTeam.id, name: homeTeam.name, shortName: homeTeam.short_name, projectedGoals: Math.round(hGoals * 100) / 100, cleanSheetPct: hCS, fdr: fdrHome, topPlayers: hTop, projectedPoints: Math.round(homePlayers.reduce((s, p) => s + p.totalPoints, 0) * 100) / 100 },
+                awayTeam: { id: awayTeam.id, name: awayTeam.name, shortName: awayTeam.short_name, projectedGoals: Math.round(aGoals * 100) / 100, cleanSheetPct: aCS, fdr: fdrAway, topPlayers: aTop, projectedPoints: Math.round(awayPlayers.reduce((s, p) => s + p.totalPoints, 0) * 100) / 100 },
+                players: [...homePlayers, ...awayPlayers].sort((a, b) => b.totalPoints - a.totalPoints),
+            };
+        });
+
+        allPlayers.sort((a, b) => b.totalPoints - a.totalPoints);
+        const goalsList = matchProjections.flatMap(m => [
+            { team: m.homeTeam.shortName, opponent: m.awayTeam.shortName, goals: m.homeTeam.projectedGoals },
+            { team: m.awayTeam.shortName, opponent: m.homeTeam.shortName, goals: m.awayTeam.projectedGoals },
+        ]).sort((a, b) => b.goals - a.goals);
+        const csList = matchProjections.flatMap(m => [
+            { team: m.homeTeam.shortName, opponent: m.awayTeam.shortName, csPct: m.homeTeam.cleanSheetPct },
+            { team: m.awayTeam.shortName, opponent: m.homeTeam.shortName, csPct: m.awayTeam.cleanSheetPct },
+        ]).sort((a, b) => b.csPct - a.csPct);
+        goalsList.forEach((item, i) => { item.rank = i + 1; });
+        csList.forEach((item, i) => { item.rank = i + 1; });
+
+        return {
+            gw: selectedGW, matchProjections,
+            teamsToTarget: { projectedGoals: goalsList, cleanSheets: csList },
+            topPlayers: allPlayers.slice(0, 30),
+            topGoals: [...allPlayers].sort((a, b) => b.goals - a.goals).slice(0, 20),
+            topAssists: [...allPlayers].sort((a, b) => b.assists - a.assists).slice(0, 20),
+            topBonus: [...allPlayers].sort((a, b) => b.bonus - a.bonus).slice(0, 20),
+        };
     },
 
     renderGoalsScoredProjections: null,
