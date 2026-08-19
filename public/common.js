@@ -2980,6 +2980,65 @@ const FPL = {
         }
     },
 
+    showNewsDetail(idx) {
+        const item = this._lastNewsItems?.[idx];
+        if (!item) return;
+        const body = document.getElementById('news-detail-body');
+        if (!body) return;
+
+        const statusMap = { a: 'Available', d: 'Doubtful', i: 'Injured', j: 'Suspended', u: 'Unavailable', s: 'Suspended' };
+        const statusText = statusMap[item.status] || item.status || 'N/A';
+        const chanceText = item.chanceOfPlaying != null
+            ? (item.chanceOfPlaying === 0 ? '0%' : item.chanceOfPlaying === 100 ? '100%' : item.chanceOfPlaying + '%')
+            : 'N/A';
+
+        const tagColors = {
+            suspension: '#ff4d4d', injury: '#FFA600', fitness: '#FFA600',
+            return: '#00FF85', transfer: '#90caf9', general: '#8ba396'
+        };
+        const tagColor = tagColors[item.tag] || '#8ba396';
+
+        body.innerHTML = `
+            <div style="padding:20px;">
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+                    <span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:${tagColor};background:${tagColor}18;border:1px solid ${tagColor}40;">
+                        <span class="material-symbols-outlined" style="font-size:14px;">${item.tag === 'injury' ? 'healing' : item.tag === 'suspension' ? 'block' : item.tag === 'return' ? 'check_circle' : item.tag === 'transfer' ? 'swap_horiz' : 'info'}</span>
+                        ${this.escapeHTML(item.tagLabel)}
+                    </span>
+                </div>
+                <div style="background:var(--md-sys-color-surface-container-high);border:1px solid var(--md-sys-color-outline-variant);border-radius:var(--radius-md);padding:16px;margin-bottom:20px;">
+                    <p style="font-size:14px;line-height:1.6;color:var(--md-sys-color-on-surface);margin:0;">${this.escapeHTML(item.news)}</p>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:var(--radius-md);padding:12px;">
+                        <div style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Player</div>
+                        <div style="font-size:14px;font-weight:600;color:var(--md-sys-color-on-surface);display:flex;align-items:center;gap:6px;">
+                            <span class="material-symbols-outlined" style="font-size:16px;">person</span>
+                            ${this.escapeHTML(item.playerName)}
+                        </div>
+                        <div style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin-top:4px;">${item.position}</div>
+                    </div>
+                    <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:var(--radius-md);padding:12px;">
+                        <div style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Team</div>
+                        <div style="font-size:14px;font-weight:600;color:var(--md-sys-color-on-surface);display:flex;align-items:center;gap:6px;">
+                            ${this.teamBadge(item.teamName, 16)}
+                            ${this.escapeHTML(item.teamFull || item.teamName)}
+                        </div>
+                    </div>
+                    <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:var(--radius-md);padding:12px;">
+                        <div style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Status</div>
+                        <div style="font-size:14px;font-weight:600;color:var(--md-sys-color-on-surface);">${this.escapeHTML(statusText)}</div>
+                    </div>
+                    <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:var(--radius-md);padding:12px;">
+                        <div style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Chance of Playing</div>
+                        <div style="font-size:14px;font-weight:600;color:${item.chanceOfPlaying === 0 ? '#ff4d4d' : item.chanceOfPlaying >= 75 ? '#00FF85' : '#FFA600'};">${chanceText}</div>
+                    </div>
+                </div>
+            </div>`;
+
+        this.showDialog('news-detail-dialog');
+    },
+
     confirmDialog({ title = 'Are you sure?', message = '', confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger = false } = {}) {
         return new Promise((resolve) => {
             const overlay = document.getElementById('confirm-dialog');
@@ -4309,11 +4368,11 @@ const FPL = {
             </div>`;
         } else {
             html += `<div class="news-grid">`;
-            sortedNews.forEach(item => {
+            sortedNews.forEach((item, idx) => {
                 const chanceText = item.chanceOfPlaying != null
                     ? (item.chanceOfPlaying === 0 ? '0%' : item.chanceOfPlaying === 100 ? '100%' : item.chanceOfPlaying + '%')
                     : '';
-                html += `<div class="news-card">
+                html += `<div class="news-card" onclick="FPL.showNewsDetail(${idx})">
                     <div class="news-card-header">
                         <span class="news-card-tag ${item.tag}">${item.tagLabel}</span>
                         ${chanceText ? `<span class="news-card-time">Chance: ${chanceText}</span>` : ''}
