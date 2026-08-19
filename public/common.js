@@ -1928,10 +1928,14 @@ const FPL = {
         const formation = `${starterGroups.DEF.length}-${starterGroups.MID.length}-${starterGroups.FWD.length}`;
 
         function emptySlot(pos) {
+            const posColor = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' }[pos] || '#5c7868';
+            const posImg = { GKP: 'gloves', DEF: 'shield', MID: 'sports_soccer', FWD: 'sports_soccer' }[pos] || 'sports_soccer';
             return `<div class="tactics-player-card home aiteam-pitch-card tb-squad-pitch-card tb-empty-slot" onclick="FPL.openMarketDrawer('${pos}')" title="Click to add a ${pos} from the market">
-                <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;"><span class="material-symbols-outlined" style="font-size:20px;color:#3a5445;">person_add</span></div>
-                <div class="tactics-player-copy"><b class="aiteam-pitch-name">${pos}</b></div>
-                <div class="aiteam-pitch-cost" style="color:#3a5445;">Empty slot</div>
+                <div class="tactics-player-shirt tb-ghost-jersey" style="display:grid;place-items:center;border-radius:4px;">
+                    <svg viewBox="0 0 60 70" width="36" height="42" style="opacity:0.25;"><path d="M15 8 L22 4 L38 4 L45 8 L52 14 L48 20 L42 16 L42 62 L18 62 L18 16 L12 20 L8 14 Z" fill="${posColor}" stroke="${posColor}" stroke-width="1.5" stroke-linejoin="round"/></svg>
+                </div>
+                <div class="tactics-player-copy"><b class="aiteam-pitch-name" style="color:${posColor};opacity:0.5;">${pos}</b></div>
+                <div class="aiteam-pitch-cost" style="color:${posColor};opacity:0.4;">Empty</div>
             </div>`;
         }
 
@@ -2369,6 +2373,25 @@ const FPL = {
         } else if (bIsStarter && !aIsStarter) {
             const idx = builder.autoFillStarters.indexOf(idB);
             builder.autoFillStarters.splice(idx, 1, idA);
+        }
+        if (builder.preferences) {
+            const pStarterIds = new Set(builder.preferences.starterIds || []);
+            const pBenchIds = new Set(builder.preferences.benchIds || []);
+            const aInPref = pStarterIds.has(idA);
+            const bInPref = pStarterIds.has(idB);
+            if (aInPref && !bInPref) {
+                pStarterIds.delete(idA);
+                pStarterIds.add(idB);
+                pBenchIds.delete(idB);
+                pBenchIds.add(idA);
+            } else if (bInPref && !aInPref) {
+                pStarterIds.delete(idB);
+                pStarterIds.add(idA);
+                pBenchIds.delete(idA);
+                pBenchIds.add(idB);
+            }
+            builder.preferences.starterIds = [...pStarterIds];
+            builder.preferences.benchIds = [...pBenchIds];
         }
         delete builder._swapSelected;
         this.saveTeamBuilderDraft();
