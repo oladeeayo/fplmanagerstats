@@ -710,8 +710,14 @@ const FPL = {
             return;
         }
         builder.selectedIds.push(playerId);
-        delete builder._replacementPosition;
-        delete builder._lockedBenchIds;
+        const position = (player.position || '').toUpperCase();
+        const vacancies = builder._removedStarterPositions || {};
+        if (vacancies[position]) {
+            vacancies[position] -= 1;
+            if (vacancies[position] <= 0) delete vacancies[position];
+        }
+        builder._removedStarterPositions = vacancies;
+        if (!Object.keys(vacancies).length) delete builder._lockedBenchIds;
         this.saveTeamBuilderDraft();
         this.paintTeamBuilder();
         this.hideReplacementSuggestions();
@@ -750,6 +756,8 @@ const FPL = {
             builder.autoFillFormation = null;
             builder.autoFillStarters = [];
             builder.preferences = null;
+            delete builder._removedStarterPositions;
+            delete builder._lockedBenchIds;
             const reroll = document.getElementById('tb-autofill-reroll');
             if (reroll) reroll.classList.add('hidden');
             const input = document.getElementById('tb-preferences-input');
@@ -928,6 +936,8 @@ const FPL = {
         const result = this.buildAutoFillSquad(0);
         if (!result?.ids?.length) return;
         builder.autoFillSeed = 1;
+        delete builder._removedStarterPositions;
+        delete builder._lockedBenchIds;
         const merged = result.ids.slice(0, 15);
         builder.selectedIds = merged;
         builder.autoFillStarters = result.starters || [];
@@ -957,6 +967,8 @@ const FPL = {
         builder.autoFillSeed += 1;
         const result = this.buildAutoFillSquad(builder.autoFillSeed);
         if (!result?.ids?.length) return;
+        delete builder._removedStarterPositions;
+        delete builder._lockedBenchIds;
         const merged = result.ids.slice(0, 15);
         builder.selectedIds = merged;
         builder.autoFillStarters = result.starters || [];
@@ -1933,7 +1945,7 @@ const FPL = {
         const pinnedIds = new Set(builder.pinnedIds || []);
         const captainId = builder.captainId;
         const swapSelectedId = builder._swapSelected;
-        const replacementPosition = (builder._replacementPosition || '').toUpperCase();
+        const removedStarterPositions = builder._removedStarterPositions || {};
 
         const lineup = this.optimalTeamBuilderLineup(squad) || [];
         const lineupIds = new Set(lineup.map(p => p.id));
@@ -1990,9 +2002,9 @@ const FPL = {
         const starterMinimums = { FWD: 1, MID: 2, DEF: 3, GKP: 1 };
         const rowCards = (pos) => [
             ...starterGroups[pos].map(p => playerCard(p, false)),
-            ...Array.from({ length: Math.max(0, starterMinimums[pos] - starterGroups[pos].length) + (replacementPosition === pos ? 1 : 0) }, () => emptySlot(pos))
+            ...Array.from({ length: Math.max(0, starterMinimums[pos] - starterGroups[pos].length, removedStarterPositions[pos] || 0) }, () => emptySlot(pos))
         ].join('');
-        const rowCount = (pos) => Math.max(starterGroups[pos].length, starterMinimums[pos]) + (replacementPosition === pos ? 1 : 0);
+        const rowCount = (pos) => starterGroups[pos].length + Math.max(0, starterMinimums[pos] - starterGroups[pos].length, removedStarterPositions[pos] || 0);
         const fwdCount = rowCount('FWD');
         const midCount = rowCount('MID');
         const defCount = rowCount('DEF');
@@ -2025,7 +2037,6 @@ const FPL = {
 
     startSwapMode(playerId) {
         const builder = this.state.teamBuilder;
-        delete builder._replacementPosition;
         if (builder._swapSelected === playerId) {
             delete builder._swapSelected;
         } else {
@@ -2037,7 +2048,6 @@ const FPL = {
     cancelSwapMode() {
         const builder = this.state.teamBuilder;
         delete builder._swapSelected;
-        delete builder._replacementPosition;
         this.paintTeamBuilder();
     },
 
@@ -2433,6 +2443,10 @@ const FPL = {
         const wasStarter = currentLineup.some(item => item.id === playerId);
         if (wasStarter) {
             builder._lockedBenchIds = currentSquad.filter(item => !currentLineup.some(starter => starter.id === item.id) && item.id !== playerId).map(item => item.id);
+            const position = (player?.position || '').toUpperCase();
+            const vacancies = builder._removedStarterPositions || {};
+            vacancies[position] = (vacancies[position] || 0) + 1;
+            builder._removedStarterPositions = vacancies;
         }
         builder.selectedIds.splice(index, 1);
         if (builder.captainId === playerId) builder.captainId = null;
@@ -2445,7 +2459,6 @@ const FPL = {
             builder.preferences.starterIds = (builder.preferences.starterIds || []).filter(id => id !== playerId);
             builder.preferences.benchIds = (builder.preferences.benchIds || []).filter(id => id !== playerId);
         }
-        if (player) builder._replacementPosition = (player.position || '').toUpperCase();
         this.saveTeamBuilderDraft();
         this.paintTeamBuilder();
         if (player) {
@@ -2582,6 +2595,10 @@ const FPL = {
         const wasStarter = currentLineup.some(item => item.id === playerId);
         if (wasStarter) {
             builder._lockedBenchIds = currentSquad.filter(item => !currentLineup.some(starter => starter.id === item.id) && item.id !== playerId).map(item => item.id);
+            const position = (removedPlayer?.position || '').toUpperCase();
+            const vacancies = builder._removedStarterPositions || {};
+            vacancies[position] = (vacancies[position] || 0) + 1;
+            builder._removedStarterPositions = vacancies;
         }
         builder.selectedIds.splice(index, 1);
         if (builder.captainId === playerId) builder.captainId = null;
@@ -2594,7 +2611,6 @@ const FPL = {
             builder.preferences.starterIds = (builder.preferences.starterIds || []).filter(id => id !== playerId);
             builder.preferences.benchIds = (builder.preferences.benchIds || []).filter(id => id !== playerId);
         }
-        if (removedPlayer) builder._replacementPosition = (removedPlayer.position || '').toUpperCase();
         this.saveTeamBuilderDraft();
         this.paintTeamBuilder();
     },
