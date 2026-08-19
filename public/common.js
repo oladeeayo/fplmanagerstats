@@ -710,6 +710,7 @@ const FPL = {
             return;
         }
         builder.selectedIds.push(playerId);
+        delete builder._replacementPosition;
         this.saveTeamBuilderDraft();
         this.paintTeamBuilder();
         this.hideReplacementSuggestions();
@@ -1913,6 +1914,7 @@ const FPL = {
         const pinnedIds = new Set(builder.pinnedIds || []);
         const captainId = builder.captainId;
         const swapSelectedId = builder._swapSelected;
+        const replacementPosition = (builder._replacementPosition || '').toUpperCase();
 
         const lineup = this.optimalTeamBuilderLineup(squad) || [];
         const lineupIds = new Set(lineup.map(p => p.id));
@@ -1922,6 +1924,7 @@ const FPL = {
         const starterGroups = { GKP: [], DEF: [], MID: [], FWD: [] };
         starters.forEach(p => {
             const pos = (p.position || '').toUpperCase();
+            if (swapSelectedId === p.id) return;
             if (starterGroups[pos]) starterGroups[pos].push(p);
         });
 
@@ -1968,11 +1971,12 @@ const FPL = {
         const starterMinimums = { FWD: 1, MID: 2, DEF: 3, GKP: 1 };
         const rowCards = (pos) => [
             ...starterGroups[pos].map(p => playerCard(p, false)),
-            ...Array.from({ length: Math.max(0, starterMinimums[pos] - starterGroups[pos].length) }, () => emptySlot(pos))
+            ...Array.from({ length: Math.max(0, starterMinimums[pos] - starterGroups[pos].length) + (replacementPosition === pos ? 1 : 0) }, () => emptySlot(pos))
         ].join('');
-        const fwdCount = Math.max(starterGroups.FWD.length, starterMinimums.FWD);
-        const midCount = Math.max(starterGroups.MID.length, starterMinimums.MID);
-        const defCount = Math.max(starterGroups.DEF.length, starterMinimums.DEF);
+        const rowCount = (pos) => Math.max(starterGroups[pos].length, starterMinimums[pos]) + (replacementPosition === pos ? 1 : 0);
+        const fwdCount = rowCount('FWD');
+        const midCount = rowCount('MID');
+        const defCount = rowCount('DEF');
         const fwdRow = rowCards('FWD');
         const midRow = rowCards('MID');
         const defRow = rowCards('DEF');
@@ -2002,6 +2006,7 @@ const FPL = {
 
     startSwapMode(playerId) {
         const builder = this.state.teamBuilder;
+        delete builder._replacementPosition;
         if (builder._swapSelected === playerId) {
             delete builder._swapSelected;
         } else {
@@ -2013,6 +2018,7 @@ const FPL = {
     cancelSwapMode() {
         const builder = this.state.teamBuilder;
         delete builder._swapSelected;
+        delete builder._replacementPosition;
         this.paintTeamBuilder();
     },
 
@@ -2409,6 +2415,7 @@ const FPL = {
         const pinned = builder.pinnedIds || [];
         const pidx = pinned.indexOf(playerId);
         if (pidx >= 0) pinned.splice(pidx, 1);
+        if (player) builder._replacementPosition = (player.position || '').toUpperCase();
         this.saveTeamBuilderDraft();
         this.paintTeamBuilder();
         if (player) {
@@ -2537,6 +2544,7 @@ const FPL = {
 
     removeTeamBuilderPlayerNoToast(playerId) {
         const builder = this.state.teamBuilder;
+        const removedPlayer = builder.players.find(p => p.id === playerId);
         const index = builder.selectedIds.indexOf(playerId);
         if (index < 0) return;
         builder.selectedIds.splice(index, 1);
@@ -2545,6 +2553,7 @@ const FPL = {
         const pinned = builder.pinnedIds || [];
         const pidx = pinned.indexOf(playerId);
         if (pidx >= 0) pinned.splice(pidx, 1);
+        if (removedPlayer) builder._replacementPosition = (removedPlayer.position || '').toUpperCase();
         this.saveTeamBuilderDraft();
         this.paintTeamBuilder();
     },

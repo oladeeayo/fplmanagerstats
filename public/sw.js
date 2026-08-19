@@ -1,9 +1,9 @@
-const CACHE_NAME = 'fpl-stats-react-v22';
+const CACHE_NAME = 'fpl-stats-react-v23';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
-    '/common.js?v=16',
-    '/design-system.css?v=17',
+    '/common.js?v=22',
+    '/design-system.css?v=19',
     '/football.ico',
     '/icon-192.png',
     '/icon-512.png',
