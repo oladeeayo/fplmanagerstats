@@ -45,6 +45,35 @@ function LegacyDashboardComponent({ activeTab }: LegacyDashboardProps) {
     dashboard.querySelectorAll<HTMLElement>('[data-tab]').forEach((element) => {
       element.classList.toggle('active', element.dataset.tab === activeTab);
     });
+
+    const sidebar = dashboard.querySelector<HTMLElement>('#sidebar');
+    const overlay = dashboard.querySelector<HTMLElement>('#sidebar-overlay');
+    const menuButton = dashboard.querySelector<HTMLButtonElement>('#mobile-menu-btn');
+    const closeButton = dashboard.querySelector<HTMLButtonElement>('#sidebar-mobile-close-btn');
+    if (sidebar && overlay && menuButton && menuButton.dataset.shellBound !== 'true' && menuButton.dataset.sidebarBound !== 'true' && menuButton.dataset.bound !== 'true') {
+      const closeSidebar = () => {
+        sidebar.classList.remove('mobile-open');
+        overlay.classList.remove('active');
+        menuButton.setAttribute('aria-expanded', 'false');
+      };
+      // Share the legacy binding marker so the data client does not attach a
+      // second toggle handler and immediately undo the drawer state.
+      menuButton.dataset.shellBound = 'true';
+      menuButton.dataset.sidebarBound = 'true';
+      menuButton.dataset.bound = 'true';
+      menuButton.addEventListener('click', () => {
+        const open = sidebar.classList.toggle('mobile-open');
+        overlay.classList.toggle('active', open);
+        menuButton.setAttribute('aria-expanded', String(open));
+      });
+      overlay.addEventListener('click', closeSidebar);
+      closeButton?.addEventListener('click', closeSidebar);
+      dashboard.querySelectorAll<HTMLElement>('.sidebar-nav-item').forEach((item) => {
+        item.addEventListener('click', () => {
+          if (window.innerWidth <= 1024) closeSidebar();
+        });
+      });
+    }
   }, [activeTab]);
 
   return (

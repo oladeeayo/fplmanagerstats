@@ -101,7 +101,7 @@
         .chart-bar-group { display: flex; align-items: center; gap: var(--space-sm); }
         .chart-bar-label { width: 40px; font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); text-align: right; }
         .chart-bar-track { flex: 1; height: 24px; background: var(--md-sys-color-surface-container-high); border-radius: var(--radius-sm); overflow: hidden; }
-        .chart-bar { height: 100%; border-radius: var(--radius-sm); transition: width var(--transition-slow); }
+        .chart-bar { height: 100%; border-radius: var(--radius-sm); }
         .chart-bar-value { width: 60px; font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); }
         .form-excellent { color: var(--fdr-1); }
         .form-good { color: var(--fdr-2); }
@@ -110,7 +110,7 @@
         .stat-detail { font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); margin-top: var(--space-xs); }
         .own-pos-btn { background: transparent; color: var(--md-sys-color-on-surface-variant); border: 1px solid transparent; padding: 5px 14px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all var(--transition-fast); }
         .own-pos-btn:hover { color: var(--md-sys-color-on-surface); background: rgba(255,255,255,0.08); }
-        .own-pos-btn.active { background: rgba(0, 255, 133, 0.16); color: #00FF85; border-color: rgba(0, 255, 133, 0.4); box-shadow: 0 0 10px rgba(0, 255, 133, 0.2); }
+        .own-pos-btn.active { background: rgba(0, 255, 133, 0.16); color: #00FF85; border-color: rgba(0, 255, 133, 0.4); }
     </style>
 </head>
 <body>
@@ -494,11 +494,11 @@
                             <p class="page-subtitle">Optimize transfers, lineup, captaincy, chips and rival strategy from one model.</p>
                         </div>
                         <div class="decision-controls">
-                            <label>GW <input id="decision-gw" type="number" min="1" max="38" value="1"></label>
-                            <label>Horizon <select id="decision-horizon"><option value="3">3 GWs</option><option value="5" selected>5 GWs</option><option value="8">8 GWs</option></select></label>
-                            <label>Mode <select id="decision-strategy"><option value="balanced">Balanced</option><option value="protect">Protect rank</option><option value="chase">Chase rank</option></select></label>
-                            <label>FT <input id="decision-ft" type="number" min="1" max="5" value="1"></label>
-                            <label>Bank <input id="decision-bank" type="number" min="0" max="20" step="0.1" placeholder="Auto"></label>
+                            <label>GW <input id="decision-gw" aria-label="Decision gameweek" type="number" min="1" max="38" value="1"></label>
+                            <label>Horizon <select id="decision-horizon" aria-label="Decision horizon"><option value="3">3 GWs</option><option value="5" selected>5 GWs</option><option value="8">8 GWs</option></select></label>
+                            <label>Mode <select id="decision-strategy" aria-label="Decision strategy"><option value="balanced">Balanced</option><option value="protect">Protect rank</option><option value="chase">Chase rank</option></select></label>
+                            <label>FT <input id="decision-ft" aria-label="Free transfers available" type="number" min="1" max="5" value="1"></label>
+                            <label>Bank <input id="decision-bank" aria-label="Money in bank" type="number" min="0" max="20" step="0.1" placeholder="Auto"></label>
                             <button class="btn btn-primary" type="button" onclick="FPL.loadDecisionCentre()"><span class="material-symbols-outlined">play_arrow</span> Run model</button>
                         </div>
                     </div>
@@ -637,12 +637,12 @@
                                 <input type="text" id="player-search" placeholder="Search players..." oninput="FPL.renderPlayers()" style="background:transparent;border:none;outline:none;color:#E0E0E0;font-family:var(--font-mono);font-size:12px;width:140px;" aria-label="Search players by name">
                             </div>
                             <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#8ba396;cursor:pointer;font-family:var(--font-mono);background:#1E1E1E;border:1px solid #1A2E28;border-radius:8px;padding:6px 12px;user-select:none;">
-                                <input type="checkbox" id="per90-toggle" onchange="FPL.renderPlayers()" style="accent-color:#00FF85;width:14px;height:14px;">
+                                <input type="checkbox" id="per90-toggle" aria-label="Show per 90 statistics" onchange="FPL.renderPlayers()" style="accent-color:#00FF85;width:14px;height:14px;">
                                 <span style="color:#B0B0B0;">Per 90</span>
                             </label>
                             <div style="display:flex;align-items:center;gap:8px;background:#1E1E1E;border:1px solid #1A2E28;border-radius:8px;padding:6px 12px;">
                                 <span class="material-symbols-outlined" style="font-size:20px;color:#B0B0B0;">sort</span>
-                                <select id="player-sort" onchange="FPL.sortByPlayerMetric(this.value)" style="background-color:transparent;color:#E0E0E0;border:none;outline:none;font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer;padding-right:16px;">
+                                <select id="player-sort" aria-label="Sort player statistics" onchange="FPL.sortByPlayerMetric(this.value)" style="background-color:transparent;color:#E0E0E0;border:none;outline:none;font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer;padding-right:16px;">
                                     <option value="pts">Total Points</option>
                                     <option value="xg">xG (T)</option>
                                     <option value="xa">xA (C)</option>
@@ -779,7 +779,7 @@
                                     GW:
                                 </span>
                                 <div class="fixtures-select-wrap">
-                                    <select id="fixture-odds-gw-select" onchange="FPL.setFixtureOddsGW(this.value)"></select>
+                                    <select id="fixture-odds-gw-select" aria-label="Odds gameweek" onchange="FPL.setFixtureOddsGW(this.value)"></select>
                                     <span class="material-symbols-outlined">unfold_more</span>
                                 </div>
                             </div>
@@ -789,7 +789,7 @@
                                     Horizon:
                                 </span>
                                 <div class="fixtures-select-wrap">
-                                    <select id="fixture-goals-horizon-select" onchange="FPL.setFixtureGoalsHorizon(this.value)"></select>
+                                    <select id="fixture-goals-horizon-select" aria-label="Goals projection horizon" onchange="FPL.setFixtureGoalsHorizon(this.value)"></select>
                                     <span class="material-symbols-outlined">unfold_more</span>
                                 </div>
                             </div>
@@ -1118,7 +1118,7 @@
                         </div>
 
                         <!-- Loading -->
-                        <div id="aiteam-loading" class="aiteam-loading hidden" role="status" aria-live="polite">
+                        <div id="aiteam-loading" class="aiteam-loading hidden" role="status" aria-live="polite" aria-busy="false">
                             <div class="pixel-loader-container">
                                 <span class="pixel-grid" aria-hidden="true">
                                     <span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span>

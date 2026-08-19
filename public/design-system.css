@@ -422,10 +422,6 @@ tbody tr:hover { background: var(--md-sys-color-surface-container); }
 /* Pitch / Football Field */
 .pitch {
     background: var(--pitch-green);
-    background-image:
-        linear-gradient(0deg, rgba(255,255,255,0.05) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
-    background-size: 60px 60px;
     border: 2px solid rgba(255,255,255,0.15);
     border-radius: var(--radius-lg);
     position: relative;
@@ -660,7 +656,7 @@ select.input {
     height: 100%;
     background: var(--md-sys-color-primary);
     border-radius: var(--radius-pill);
-    transition: width var(--transition-slow);
+    transition: none;
 }
 
 /* Divider */
@@ -1016,7 +1012,7 @@ select.input {
 .decision-compare-metrics { display:grid; grid-template-columns:repeat(2,1fr); gap:1px; background:#1a2e28; }
 .decision-compare-metrics span { display:flex; justify-content:space-between; gap:8px; background:#141916; padding:9px; color:#8ba396; font-size:11px; }
 .decision-compare-metrics b { color:#fff; font-family:var(--font-mono); }
-.decision-verdict { display:flex; gap:10px; margin-top:14px; border-left:2px solid var(--fpl-accent); background:#17221c; padding:13px; }
+.decision-verdict { display:flex; gap:10px; margin-top:14px; border:1px solid #294138; background:#17221c; padding:13px; }
 .decision-verdict span { color:var(--fpl-accent); }
 .decision-verdict p { margin:0; color:#b7c7bf; font-size:12px; }
 .decision-rival { margin-bottom:12px; border:1px solid #1a2e28; border-radius:6px; background:#141916; padding:16px; }
@@ -2566,11 +2562,7 @@ select option {
 .pixel-dot:nth-child(9) { animation-delay: 270ms; }
 
 .pixel-loader-label {
-    background: linear-gradient(90deg, #6c8577 35%, #00FF85 50%, #6c8577 65%);
-    background-size: 200% 100%;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: shimmer-text 1.4s linear infinite;
+    color: var(--md-sys-color-on-surface-variant);
     font-weight: 600;
     font-size: 13.5px;
     font-family: var(--font-body);
@@ -3683,7 +3675,7 @@ select option {
 }
 
 /* ==================== SIDEBAR COLLAPSE ==================== */
-.layout-sidebar { transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+.layout-sidebar { transition: none; }
 .layout-sidebar.collapsed { width: 68px; }
 .layout-sidebar.collapsed .sidebar-label,
 .layout-sidebar.collapsed #manager-id-display,
@@ -3761,7 +3753,7 @@ select option {
 .tb-card-action-btn .material-symbols-outlined { font-size: 14px; }
 .tb-breakdown-row { transition: background 0.15s ease; }
 .tb-breakdown-row:hover { background: rgba(255, 255, 255, 0.04) !important; }
-.tb-breakdown-row.selected-gw { background: rgba(0, 255, 133, 0.12) !important; border-left: 3px solid #00FF85; }
+.tb-breakdown-row.selected-gw { background: rgba(0, 255, 133, 0.12) !important; border: 1px solid rgba(0, 255, 133, 0.35); }
 .tb-gw-pitch-pill { transition: all 0.2s ease; }
 .tb-gw-pitch-pill:hover { border-color: #00FF85 !important; }
 
@@ -3911,16 +3903,24 @@ select option {
         gap: 8px;
     }
     .fixtures-nav-tabs {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         width: 100%;
-        overflow-x: auto;
-        justify-content: flex-start;
+        overflow: hidden;
+        gap: 2px;
+        max-width: 100%;
     }
     .fixture-view-btn {
-        padding: 6px 10px;
-        font-size: 10px;
+        width: 100%;
+        min-width: 0;
+        justify-content: center;
+        padding: 6px 3px;
+        font-size: 8px;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     .fixture-view-btn .material-symbols-outlined {
-        font-size: 14px;
+        font-size: 13px;
     }
 }
 
@@ -4490,5 +4490,3 @@ select option {
         font-size: 10px;
     }
 }
-
-

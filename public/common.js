@@ -118,7 +118,7 @@ const FPL = {
 
     async apiPost(url, body) {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 30000);
+        const timeout = setTimeout(() => controller.abort(), 60000);
         try {
             const res = await window.fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: controller.signal });
             const data = await res.json().catch(() => ({}));
@@ -599,9 +599,12 @@ const FPL = {
             const active = tab.dataset.view === view;
             tab.classList.toggle('active', active);
             tab.setAttribute('aria-selected', String(active));
+            tab.tabIndex = active ? 0 : -1;
         });
         document.querySelectorAll('.tb-view').forEach(panel => {
-            panel.classList.toggle('active', panel.dataset.view === view);
+            const active = panel.dataset.view === view;
+            panel.classList.toggle('active', active);
+            panel.hidden = !active;
         });
     },
 
@@ -2323,6 +2326,7 @@ const FPL = {
         const results = document.getElementById('aiteam-results');
         const errorEl = document.getElementById('aiteam-error');
         loading?.classList.remove('hidden');
+        loading?.setAttribute('aria-busy', 'true');
         results?.classList.add('hidden');
         errorEl?.classList.add('hidden');
         try {
@@ -2355,6 +2359,7 @@ const FPL = {
             }
         } finally {
             loading?.classList.add('hidden');
+            loading?.setAttribute('aria-busy', 'false');
         }
     },
 
@@ -2924,7 +2929,7 @@ const FPL = {
         const menuBtn = document.getElementById('mobile-menu-btn');
         const closeBtn = document.getElementById('sidebar-mobile-close-btn');
 
-        if (!sidebar || !overlay || !menuBtn || menuBtn.dataset.sidebarBound === 'true') return;
+        if (!sidebar || !overlay || !menuBtn || menuBtn.dataset.sidebarBound === 'true' || menuBtn.dataset.shellBound === 'true' || menuBtn.dataset.bound === 'true') return;
         menuBtn.dataset.sidebarBound = 'true';
 
         menuBtn.addEventListener('click', () => {
@@ -2987,6 +2992,22 @@ const FPL = {
                 header.click();
             });
         });
+
+        document.querySelectorAll('[role="tablist"]').forEach(tablist => {
+            if (tablist.dataset.keyboardBound === 'true') return;
+            tablist.dataset.keyboardBound = 'true';
+            tablist.addEventListener('keydown', event => {
+                if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(event.key)) return;
+                const tabs = [...tablist.querySelectorAll('[role="tab"]')];
+                if (!tabs.length) return;
+                const current = Math.max(0, tabs.indexOf(document.activeElement));
+                const direction = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1;
+                const next = tabs[(current + direction + tabs.length) % tabs.length];
+                event.preventDefault();
+                next.focus();
+                next.click();
+            });
+        });
     },
 
     showDialog(id) {
@@ -2997,12 +3018,15 @@ const FPL = {
             el.setAttribute('aria-hidden', 'false');
             document.querySelector('.layout')?.setAttribute('inert', '');
             document.querySelector('.bottom-nav')?.setAttribute('inert', '');
+            const firstFocusable = el.querySelector('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])');
             if (id === 'connect-dialog') {
                 const managerInput = document.getElementById('connect-manager-id');
                 const leagueInput = document.getElementById('connect-league-id');
                 if (managerInput) managerInput.value = this.state.managerId || '';
                 if (leagueInput) leagueInput.value = this.state.leagueId || '';
                 managerInput?.focus();
+            } else {
+                (firstFocusable || el.querySelector('.dialog'))?.focus?.();
             }
         }
     },
@@ -4810,7 +4834,8 @@ const FPL = {
 
     async autoCaptureSnapshot() {
         try {
-            await fetch('/api/ownership/snapshot', { method: 'POST' });
+            const snapshotResponse = await fetch('/api/ownership/snapshot', { method: 'POST' });
+            if (snapshotResponse.status === 503) return;
         } catch (e) {
             // Silent fail - snapshot is non-critical
         }
@@ -5531,7 +5556,12 @@ const FPL = {
             button.setAttribute('aria-selected', String(active));
             button.tabIndex = active ? 0 : -1;
         });
-        document.querySelectorAll('.decision-view').forEach(section => section.classList.toggle('active', section.dataset.view === view));
+
+        document.querySelectorAll('.decision-view').forEach(section => {
+            const active = section.dataset.view === view;
+            section.classList.toggle('active', active);
+            section.hidden = !active;
+        });
     },
 
     decisionPlayerRow(player, badge = '') {
@@ -5789,7 +5819,7 @@ const FPL = {
                                         <td style="text-align:center;font-family:var(--font-mono);color:${bench > 0 ? '#E57373' : '#444'};font-size:10px;">${bench > 0 ? '-' + bench : '--'}</td>
                                         <td style="text-align:center;width:80px;">
                                             <div style="height:4px;background:#1A2E28;border-radius:2px;overflow:hidden;">
-                                                <div style="height:100%;width:${barWidth}%;background:${ptsColor};border-radius:2px;transition:width 0.3s;"></div>
+                                                <div style="height:100%;width:${barWidth}%;background:${ptsColor};border-radius:2px;"></div>
                                             </div>
                                         </td>
                                     </tr>`;
@@ -6189,7 +6219,7 @@ const FPL = {
             if (mobileBtn) mobileBtn.setAttribute('aria-expanded', 'true');
         };
 
-        if (mobileBtn && mobileBtn.dataset.bound !== 'true') {
+        if (mobileBtn && mobileBtn.dataset.bound !== 'true' && mobileBtn.dataset.sidebarBound !== 'true' && mobileBtn.dataset.shellBound !== 'true') {
             mobileBtn.dataset.bound = 'true';
             mobileBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
