@@ -1,13 +1,13 @@
 :root {
     /* Pitch Precision — Material Design 3 Dark Theme */
     --md-sys-color-primary: #00e476;
-    --md-sys-color-on-primary: #003919;
+    --md-sys-color-on-primary: #002912;
     --md-sys-color-primary-container: #00ff85;
     --md-sys-color-on-primary-container: #007137;
-    --md-sys-color-secondary: #a7cfbc;
-    --md-sys-color-on-secondary: #103729;
+    --md-sys-color-secondary: #b8dfd0;
+    --md-sys-color-on-secondary: #0a2a1d;
     --md-sys-color-secondary-container: #2b5041;
-    --md-sys-color-on-secondary-container: #99c1ae;
+    --md-sys-color-on-secondary-container: #aadcc9;
     --md-sys-color-surface: #0f1412;
     --md-sys-color-surface-dim: #0f1412;
     --md-sys-color-surface-bright: #353a38;
@@ -16,18 +16,18 @@
     --md-sys-color-surface-container: #1c211e;
     --md-sys-color-surface-container-high: #262b29;
     --md-sys-color-surface-container-highest: #313633;
-    --md-sys-color-on-surface: #dfe4e0;
-    --md-sys-color-on-surface-variant: #b9cbb9;
-    --md-sys-color-inverse-surface: #dfe4e0;
-    --md-sys-color-inverse-on-surface: #2c322f;
-    --md-sys-color-outline: #849584;
+    --md-sys-color-on-surface: #e8ece9;
+    --md-sys-color-on-surface-variant: #c5d9c5;
+    --md-sys-color-inverse-surface: #e8ece9;
+    --md-sys-color-inverse-on-surface: #1a2420;
+    --md-sys-color-outline: #9ab09a;
     --md-sys-color-outline-variant: #3b4b3d;
     --md-sys-color-error: #ffb4ab;
     --md-sys-color-on-error: #690005;
     --md-sys-color-error-container: #93000a;
     --md-sys-color-on-error-container: #ffdad6;
     --md-sys-color-background: #0f1412;
-    --md-sys-color-on-background: #dfe4e0;
+    --md-sys-color-on-background: #e8ece9;
     --md-sys-color-surface-tint: #00e476;
 
     /* FPL Specific Colors */
@@ -42,10 +42,10 @@
     /* FPL Dark Palette (used across dashboard, fixtures, cards) */
     --fpl-surface-dark: #0a0f0d;
     --fpl-border: #1A2E28;
-    --fpl-text-muted: #849584;
+    --fpl-text-muted: #9ab09a;
     --fpl-surface-mid: #1c211e;
-    --fpl-surface-manager: #a7cfbc;
-    --fpl-manager-text: #103729;
+    --fpl-surface-manager: #b8dfd0;
+    --fpl-manager-text: #0a2a1d;
     --fpl-manager-value: #0a0f0d;
     --fpl-green-dark: #007137;
     --fpl-fixture-nav: #181d1a;
@@ -4331,13 +4331,13 @@ select option {
 
 /* Goals Badges (Data Blue) */
 .solio-goals-high { background: var(--data-blue); color: #ffffff; box-shadow: 0 0 8px rgba(0, 209, 255, 0.3); }
-.solio-goals-mid { background: rgba(0, 209, 255, 0.2); color: var(--data-blue); }
-.solio-goals-low { background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface-variant); }
+.solio-goals-mid { background: rgba(0, 209, 255, 0.2); color: #7dd9f5; }
+.solio-goals-low { background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface); }
 
 /* CS Badges (FPL Primary Green) */
-.solio-cs-high { background: var(--md-sys-color-primary); color: var(--md-sys-color-surface-container-lowest); box-shadow: 0 0 8px rgba(0, 228, 118, 0.3); }
-.solio-cs-mid { background: rgba(0, 228, 118, 0.15); color: var(--md-sys-color-primary); }
-.solio-cs-low { background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface-variant); }
+.solio-cs-high { background: var(--md-sys-color-primary); color: #002912; box-shadow: 0 0 8px rgba(0, 228, 118, 0.3); font-weight: 800; }
+.solio-cs-mid { background: rgba(0, 228, 118, 0.15); color: #66e8a8; }
+.solio-cs-low { background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface); }
 
 /* Leaderboards Section */
 .solio-leaderboards-section {

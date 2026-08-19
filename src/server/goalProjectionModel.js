@@ -85,23 +85,43 @@ function teamDefenceStrength(team, isHome) {
 // --- Build team profiles from bootstrap data when Understat is unavailable ---
 function buildBootstrapProfiles(teams) {
   const profiles = {};
+
+  // Compute league-mean strengths to get relative deviations
+  const meanAtkHome = teams.reduce((s, t) => s + (t.strength_attack_home || 1100), 0) / teams.length;
+  const meanAtkAway = teams.reduce((s, t) => s + (t.strength_attack_away || 1100), 0) / teams.length;
+  const meanDefHome = teams.reduce((s, t) => s + (t.strength_defence_home || 1100), 0) / teams.length;
+  const meanDefAway = teams.reduce((s, t) => s + (t.strength_defence_away || 1100), 0) / teams.length;
+
+  // PL baseline xG per match (home ~1.55, away ~1.15)
+  const PL_XG_HOME = 1.55;
+  const PL_XG_AWAY = 1.15;
+  const PL_XGA_HOME = 1.15;
+  const PL_XGA_AWAY = 1.55;
+
+  // Amplification factor: small FPL strength differences → meaningful xG spread
+  // FPL range is ~100 points. We want this to map to roughly ±0.6 xG
+  const AMPLIFY = 0.006; // per strength point deviation
+
   teams.forEach(t => {
-    // FPL strength ranges ~800-1400, avg ~1100
-    // Typical PL xG per match ranges ~0.8-2.2
-    // Convert strength to xG using linear mapping calibrated to PL averages
     const atkHome = t.strength_attack_home || 1100;
     const atkAway = t.strength_attack_away || 1100;
     const defHome = t.strength_defence_home || 1100;
     const defAway = t.strength_defence_away || 1100;
 
+    // Relative deviation from mean, amplified
+    const atkHomeDev = (atkHome - meanAtkHome) * AMPLIFY;
+    const atkAwayDev = (atkAway - meanAtkAway) * AMPLIFY;
+    const defHomeDev = (meanDefHome - defHome) * AMPLIFY; // inverted: strong defense = low xGA
+    const defAwayDev = (meanDefAway - defAway) * AMPLIFY;
+
     profiles[t.short_name] = {
       name: t.short_name,
       // Attack: higher strength = more goals scored
-      xG_home: 0.65 + (atkHome - 800) / 600 * 1.1,
-      xG_away: 0.55 + (atkAway - 800) / 600 * 0.95,
+      xG_home: Math.max(0.7, Math.min(2.4, PL_XG_HOME + atkHomeDev)),
+      xG_away: Math.max(0.5, Math.min(2.0, PL_XG_AWAY + atkAwayDev)),
       // Defense: higher strength = fewer goals conceded (inverted)
-      xGA_home: 0.65 + (1 - (defHome - 800) / 600) * 1.1,
-      xGA_away: 0.55 + (1 - (defAway - 800) / 600) * 0.95,
+      xGA_home: Math.max(0.6, Math.min(2.2, PL_XGA_HOME + defHomeDev)),
+      xGA_away: Math.max(0.7, Math.min(2.4, PL_XGA_AWAY + defAwayDev)),
       // Defensive strength: 0 = leaky, 1 = solid
       defStrength: defHome / 2000,
     };

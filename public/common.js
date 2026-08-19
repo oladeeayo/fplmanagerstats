@@ -922,11 +922,15 @@ const FPL = {
     autoFillTeamBuilder() {
         const builder = this.state.teamBuilder;
         if (!builder.players.length) return;
+        const existingIds = new Set(builder.selectedIds);
+        const pinnedIds = new Set(builder.pinnedIds || []);
+        if (existingIds.size >= 15) return;
         builder.autoFillSeed = 0;
         const result = this.buildAutoFillSquad(0);
         if (!result?.ids?.length) return;
         builder.autoFillSeed = 1;
-        builder.selectedIds = result.ids;
+        const merged = [...existingIds, ...result.ids.filter(id => !existingIds.has(id))].slice(0, 15);
+        builder.selectedIds = merged;
         builder.autoFillStarters = result.starters || [];
         builder.autoFillFormation = result.formation;
         if (builder.preferences) {
@@ -935,22 +939,27 @@ const FPL = {
         }
         builder.captainId = builder.preferences?.captainId && builder.selectedIds.includes(builder.preferences.captainId)
             ? builder.preferences.captainId
-            : this.pickAutoFillCaptain(result.ids);
+            : this.pickAutoFillCaptain(builder.selectedIds);
         this.saveTeamBuilderDraft();
         this.paintTeamBuilder();
         const reroll = document.getElementById('tb-autofill-reroll');
         if (reroll) reroll.classList.remove('hidden');
+        const added = merged.filter(id => !existingIds.has(id)).length;
         const message = document.getElementById('tb-market-message');
-        if (message) message.textContent = this.describeAutoFillResult(result);
+        if (message) message.textContent = added > 0
+            ? `Added ${added} players to fill your squad. ${result.formation} formation.`
+            : `Squad already full. ${result.formation} formation.`;
     },
 
     reRollTeamBuilderAutoFill() {
         const builder = this.state.teamBuilder;
         if (!builder.players.length) return;
+        const existingIds = new Set(builder.selectedIds);
         builder.autoFillSeed += 1;
         const result = this.buildAutoFillSquad(builder.autoFillSeed);
         if (!result?.ids?.length) return;
-        builder.selectedIds = result.ids;
+        const merged = [...existingIds, ...result.ids.filter(id => !existingIds.has(id))].slice(0, 15);
+        builder.selectedIds = merged;
         builder.autoFillStarters = result.starters || [];
         builder.autoFillFormation = result.formation;
         if (builder.preferences) {
@@ -959,11 +968,12 @@ const FPL = {
         }
         builder.captainId = builder.preferences?.captainId && builder.selectedIds.includes(builder.preferences.captainId)
             ? builder.preferences.captainId
-            : this.pickAutoFillCaptain(result.ids);
+            : this.pickAutoFillCaptain(builder.selectedIds);
         this.saveTeamBuilderDraft();
         this.paintTeamBuilder();
+        const added = merged.filter(id => !existingIds.has(id)).length;
         const message = document.getElementById('tb-market-message');
-        if (message) message.textContent = this.describeAutoFillResult(result, true);
+        if (message) message.textContent = `Re-rolled: added ${added} new players. ${result.formation} formation.`;
     },
 
     describeAutoFillResult(result, isReRoll = false) {
@@ -1733,10 +1743,19 @@ const FPL = {
         const preferredKeeper = keepers.find(player => player.teamStrengthRank <= 10 && Number(player.starterScore || 0) >= 55);
         if (preferredKeeper) keepers.sort((a, b) => (b.id === preferredKeeper.id) - (a.id === preferredKeeper.id));
         const groups = { GKP: keepers, DEF: byPosition('DEF'), MID: byPosition('MID'), FWD: byPosition('FWD') };
-        if (groups.GKP.length < 1 || groups.DEF.length < 3 || groups.MID.length < 2 || groups.FWD.length < 1 || squad.length < 11) return [];
+
+        const hasMinimum = groups.GKP.length >= 1 && groups.DEF.length >= 3 && groups.MID.length >= 2 && groups.FWD.length >= 1 && squad.length >= 11;
+
+        if (!hasMinimum) {
+            const partial = [];
+            if (groups.GKP[0]) partial.push(groups.GKP[0]);
+            groups.DEF.slice(0, 5).forEach(p => partial.push(p));
+            groups.MID.slice(0, 5).forEach(p => partial.push(p));
+            groups.FWD.slice(0, 3).forEach(p => partial.push(p));
+            return partial;
+        }
+
         const formations = [[3, 4, 3], [3, 5, 2], [4, 3, 3], [4, 4, 2], [4, 5, 1], [5, 3, 2], [5, 4, 1]];
-        // Prefer the formation the user auto-filled (or explicitly asked for) when the
-        // current squad can still field it; otherwise fall back to the best legal shape.
         const preferred = this.state.teamBuilder.autoFillFormation;
         const preferredShape = preferred ? formations.find(shape => shape.join('-') === preferred) : null;
         const ordered = preferredShape ? [preferredShape, ...formations.filter(shape => shape.join('-') !== preferred)] : formations;
@@ -1916,6 +1935,14 @@ const FPL = {
 
         const formation = `${starterGroups.DEF.length}-${starterGroups.MID.length}-${starterGroups.FWD.length}`;
 
+        function emptySlot(pos) {
+            return `<div class="tactics-player-card home aiteam-pitch-card tb-squad-pitch-card tb-empty-slot" onclick="FPL.setTBView('market')" title="Click Market to add a ${pos}">
+                <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;"><span class="material-symbols-outlined" style="font-size:20px;color:#3a5445;">person_add</span></div>
+                <div class="tactics-player-copy"><b class="aiteam-pitch-name">${pos}</b></div>
+                <div class="aiteam-pitch-cost" style="color:#3a5445;">Empty slot</div>
+            </div>`;
+        }
+
         function playerCard(p, isBench) {
             const xPts = self.teamBuilderXPts ? self.teamBuilderXPts(p) : 0;
             const isCaptain = captainId === p.id;
@@ -1966,10 +1993,22 @@ const FPL = {
         }
 
         const rows = [];
-        if (starterGroups.FWD.length) rows.push(`<div class="tactics-pitch-row" style="--players:${starterGroups.FWD.length};">${starterGroups.FWD.map(p => playerCard(p, false)).join('')}</div>`);
-        if (starterGroups.MID.length) rows.push(`<div class="tactics-pitch-row" style="--players:${starterGroups.MID.length};">${starterGroups.MID.map(p => playerCard(p, false)).join('')}</div>`);
-        if (starterGroups.DEF.length) rows.push(`<div class="tactics-pitch-row" style="--players:${starterGroups.DEF.length};">${starterGroups.DEF.map(p => playerCard(p, false)).join('')}</div>`);
-        if (starterGroups.GKP.length) rows.push(`<div class="tactics-pitch-row" style="--players:1;">${starterGroups.GKP.map(p => playerCard(p, false)).join('')}</div>`);
+        const fwdCount = Math.max(starterGroups.FWD.length, 1);
+        const midCount = Math.max(starterGroups.MID.length, 1);
+        const defCount = Math.max(starterGroups.DEF.length, 1);
+        const fwdRow = starterGroups.FWD.length
+            ? starterGroups.FWD.map(p => playerCard(p, false)).join('')
+            : emptySlot('FWD');
+        const midRow = starterGroups.MID.length
+            ? starterGroups.MID.map(p => playerCard(p, false)).join('')
+            : emptySlot('MID');
+        const defRow = starterGroups.DEF.length
+            ? starterGroups.DEF.map(p => playerCard(p, false)).join('')
+            : emptySlot('DEF');
+        rows.push(`<div class="tactics-pitch-row" style="--players:${fwdCount};">${fwdRow}</div>`);
+        rows.push(`<div class="tactics-pitch-row" style="--players:${midCount};">${midRow}</div>`);
+        rows.push(`<div class="tactics-pitch-row" style="--players:${defCount};">${defRow}</div>`);
+        rows.push(`<div class="tactics-pitch-row" style="--players:1;">${starterGroups.GKP.length ? starterGroups.GKP.map(p => playerCard(p, false)).join('') : emptySlot('GKP')}</div>`);
 
         let swapBanner = '';
         if (swapSelectedId) {
@@ -4435,10 +4474,17 @@ const FPL = {
             return `${days[d.getUTCDay()]} ${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
         };
 
-        const toXGPerMatch = (totalXG, teamMatches) => {
-            if (teamMatches > 0) return totalXG / teamMatches;
-            return 0;
-        };
+        // Compute league-mean strengths for relative deviation
+        const meanAtkHome = teams.reduce((s, t) => s + (t.strength_attack_home || 1100), 0) / (teams.length || 20);
+        const meanAtkAway = teams.reduce((s, t) => s + (t.strength_attack_away || 1100), 0) / (teams.length || 20);
+        const meanDefHome = teams.reduce((s, t) => s + (t.strength_defence_home || 1100), 0) / (teams.length || 20);
+        const meanDefAway = teams.reduce((s, t) => s + (t.strength_defence_away || 1100), 0) / (teams.length || 20);
+
+        const PL_XG_HOME = 1.55;
+        const PL_XG_AWAY = 1.15;
+        const PL_XGA_HOME = 1.15;
+        const PL_XGA_AWAY = 1.55;
+        const AMPLIFY = 0.006;
 
         const matchProjections = gwFixtures.map(f => {
             const homeTeam = getTeam(f.team_h);
@@ -4452,6 +4498,8 @@ const FPL = {
 
             const homeXgSum = homePlayers.reduce((sum, p) => sum + (parseFloat(p.expected_goals) || 0), 0);
             const awayXgSum = awayPlayers.reduce((sum, p) => sum + (parseFloat(p.expected_goals) || 0), 0);
+            const homeXgaSum = homePlayers.reduce((sum, p) => sum + (parseFloat(p.expected_goals_conceded) || 0), 0);
+            const awayXgaSum = awayPlayers.reduce((sum, p) => sum + (parseFloat(p.expected_goals_conceded) || 0), 0);
 
             const homeTeamMatches = homePlayers.length > 0
                 ? Math.max(1, Math.max(...homePlayers.map(p => (p.minutes || 0) / 90)))
@@ -4460,38 +4508,31 @@ const FPL = {
                 ? Math.max(1, Math.max(...awayPlayers.map(p => (p.minutes || 0) / 90)))
                 : matchesPlayed;
 
-            let homeAtk, awayAtk;
+            let homeAtk, awayAtk, homeDef, awayDef;
+
             if (homeXgSum > 0 && homeTeamMatches > 0) {
-                homeAtk = toXGPerMatch(homeXgSum, homeTeamMatches);
+                homeAtk = homeXgSum / homeTeamMatches;
             } else {
-                const str = homeTeam.strength_attack_home || 1100;
-                homeAtk = 0.65 + (str - 800) / 600 * 1.1;
+                const dev = ((homeTeam.strength_attack_home || 1100) - meanAtkHome) * AMPLIFY;
+                homeAtk = Math.max(0.7, Math.min(2.4, PL_XG_HOME + dev));
             }
             if (awayXgSum > 0 && awayTeamMatches > 0) {
-                awayAtk = toXGPerMatch(awayXgSum, awayTeamMatches);
+                awayAtk = awayXgSum / awayTeamMatches;
             } else {
-                const str = awayTeam.strength_attack_away || 1100;
-                awayAtk = 0.55 + (str - 800) / 600 * 0.95;
+                const dev = ((awayTeam.strength_attack_away || 1100) - meanAtkAway) * AMPLIFY;
+                awayAtk = Math.max(0.5, Math.min(2.0, PL_XG_AWAY + dev));
             }
-
-            const homeDefStr = homeTeam.strength_defence_home || 1100;
-            const awayDefStr = awayTeam.strength_defence_away || 1100;
-            const homeDefensiveStrength = 0.65 + (homeDefStr - 800) / 600 * 1.1;
-            const awayDefensiveStrength = 0.55 + (awayDefStr - 800) / 600 * 0.95;
-
-            const homeXGA = homePlayers.reduce((sum, p) => sum + (parseFloat(p.expected_goals_conceded) || 0), 0);
-            const awayXGA = awayPlayers.reduce((sum, p) => sum + (parseFloat(p.expected_goals_conceded) || 0), 0);
-
-            let homeDef, awayDef;
-            if (homeXGA > 0 && homeTeamMatches > 0) {
-                homeDef = toXGPerMatch(homeXGA, homeTeamMatches);
+            if (homeXgaSum > 0 && homeTeamMatches > 0) {
+                homeDef = homeXgaSum / homeTeamMatches;
             } else {
-                homeDef = homeDefensiveStrength;
+                const dev = (meanDefHome - (homeTeam.strength_defence_home || 1100)) * AMPLIFY;
+                homeDef = Math.max(0.6, Math.min(2.2, PL_XGA_HOME + dev));
             }
-            if (awayXGA > 0 && awayTeamMatches > 0) {
-                awayDef = toXGPerMatch(awayXGA, awayTeamMatches);
+            if (awayXgaSum > 0 && awayTeamMatches > 0) {
+                awayDef = awayXgaSum / awayTeamMatches;
             } else {
-                awayDef = awayDefensiveStrength;
+                const dev = (meanDefAway - (awayTeam.strength_defence_away || 1100)) * AMPLIFY;
+                awayDef = Math.max(0.7, Math.min(2.4, PL_XGA_AWAY + dev));
             }
 
             const homeAdvantage = 1.10;
