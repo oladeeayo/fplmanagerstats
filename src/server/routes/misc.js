@@ -11,6 +11,7 @@ const understat = require('../understat');
 const { projectMultiGW, computeRollingFDR, computeRollingForm, mergeProfiles, projectMatch, computeMatchXG, aggregateProbs, scoreMatrix } = require('../goalProjectionModel');
 const playerProj = require('../playerProjectionModel');
 const oddsModel = require('../oddsProjectionModel');
+const teamStrengthData = require('../teamStrengthData');
 
 const router = express.Router();
 
@@ -1144,10 +1145,52 @@ router.get('/team-projections', async (req, res) => {
         };
       });
     } else {
-      // Fall back to bootstrap player projection model
-      projectionSource = 'bootstrap';
-      const teamStrengths = playerProj.computeTeamStrengths(teams);
-      fixtureProjections = playerProj.projectGameweekPlayers(gwFixtures, teams, elements, teamStrengths);
+      // Check if FPL bootstrap strengths are set (non-zero)
+      const useHardcoded = teamStrengthData.areStrengthsZero(teams);
+
+      if (useHardcoded) {
+        // Use hard-coded 2024-25 xG data for GW1 (bootstrap strengths are 0)
+        projectionSource = 'historical';
+        fixtureProjections = gwFixtures.map(f => {
+          const homeTeam = getTeam(f.team_h);
+          const awayTeam = getTeam(f.team_a);
+          const fixtureXG = teamStrengthData.getFixtureXG(homeTeam.short_name, awayTeam.short_name);
+
+          const homePlayers = elements.filter(e => e.team === f.team_h && (e.minutes || 0) > 0).map(e => ({
+            ...e, team_short: homeTeam.short_name
+          }));
+          const awayPlayers = elements.filter(e => e.team === f.team_a && (e.minutes || 0) > 0).map(e => ({
+            ...e, team_short: awayTeam.short_name
+          }));
+
+          const distributedHome = oddsModel.distributeGoalsToPlayers(homePlayers, fixtureXG.homeGoals);
+          const distributedAway = oddsModel.distributeGoalsToPlayers(awayPlayers, fixtureXG.awayGoals);
+
+          const homeCS = Math.round(Math.exp(-fixtureXG.awayGoals) * 100);
+          const awayCS = Math.round(Math.exp(-fixtureXG.homeGoals) * 100);
+          distributedHome.forEach(p => { p.csProb = homeCS; });
+          distributedAway.forEach(p => { p.csProb = awayCS; });
+
+          return {
+            fixtureId: f.id,
+            gw: f.event,
+            kickoff: f.kickoff_time,
+            homeTeam: { id: homeTeam.id, name: homeTeam.name, shortName: homeTeam.short_name },
+            awayTeam: { id: awayTeam.id, name: awayTeam.name, shortName: awayTeam.short_name },
+            fdrHome: f.team_h_difficulty || 3,
+            fdrAway: f.team_a_difficulty || 3,
+            odds: null,
+            probabilities: null,
+            homePlayers: distributedHome,
+            awayPlayers: distributedAway,
+          };
+        });
+      } else {
+        // Use bootstrap player projection model (strengths are set after GW1+)
+        projectionSource = 'bootstrap';
+        const teamStrengths = playerProj.computeTeamStrengths(teams);
+        fixtureProjections = playerProj.projectGameweekPlayers(gwFixtures, teams, elements, teamStrengths);
+      }
     }
 
     // Build match-level projections (team totals from player sums)
