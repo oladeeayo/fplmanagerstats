@@ -1757,6 +1757,7 @@ const FPL = {
         const starterIds = new Set([...(preferences.starterIds || []), ...(this.state.teamBuilder.autoFillStarters || [])]);
         const lockedBenchIds = new Set(this.state.teamBuilder._lockedBenchIds || []);
         const priority = player => starterIds.has(player.id) ? 2 : benchIds.has(player.id) ? 0 : 1;
+        if (lockedBenchIds.size) return squad.filter(player => !lockedBenchIds.has(player.id));
         const byPosition = position => squad.filter(player => player.position === position && !lockedBenchIds.has(player.id)).sort((a, b) => priority(b) - priority(a) || score(b) - score(a));
         const keepers = byPosition('GKP');
         const preferredKeeper = keepers.find(player => player.teamStrengthRank <= 10 && Number(player.starterScore || 0) >= 55);

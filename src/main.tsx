@@ -28,7 +28,7 @@ importScript.addEventListener('load', () => {
   prefScript.defer = true;
   prefScript.addEventListener('load', () => {
     const legacyScript = document.createElement('script');
-     legacyScript.src = '/common.js?v=22';
+     legacyScript.src = '/common.js?v=23';
     legacyScript.defer = true;
     legacyScript.addEventListener('load', () => {
       const goalsRenderers = document.createElement('script');
