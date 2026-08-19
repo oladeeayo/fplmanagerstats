@@ -711,6 +711,7 @@ const FPL = {
         }
         builder.selectedIds.push(playerId);
         delete builder._replacementPosition;
+        delete builder._lockedBenchIds;
         this.saveTeamBuilderDraft();
         this.paintTeamBuilder();
         this.hideReplacementSuggestions();
@@ -1742,8 +1743,9 @@ const FPL = {
         const preferences = this.state.teamBuilder.preferences || {};
         const benchIds = new Set(preferences.benchIds || []);
         const starterIds = new Set([...(preferences.starterIds || []), ...(this.state.teamBuilder.autoFillStarters || [])]);
+        const lockedBenchIds = new Set(this.state.teamBuilder._lockedBenchIds || []);
         const priority = player => starterIds.has(player.id) ? 2 : benchIds.has(player.id) ? 0 : 1;
-        const byPosition = position => squad.filter(player => player.position === position).sort((a, b) => priority(b) - priority(a) || score(b) - score(a));
+        const byPosition = position => squad.filter(player => player.position === position && !lockedBenchIds.has(player.id)).sort((a, b) => priority(b) - priority(a) || score(b) - score(a));
         const keepers = byPosition('GKP');
         const preferredKeeper = keepers.find(player => player.teamStrengthRank <= 10 && Number(player.starterScore || 0) >= 55);
         if (preferredKeeper) keepers.sort((a, b) => (b.id === preferredKeeper.id) - (a.id === preferredKeeper.id));
@@ -2426,6 +2428,12 @@ const FPL = {
         const player = builder.players.find(p => p.id === playerId);
         const index = builder.selectedIds.indexOf(playerId);
         if (index < 0) return;
+        const currentSquad = this.teamBuilderSquad();
+        const currentLineup = this.optimalTeamBuilderLineup(currentSquad);
+        const wasStarter = currentLineup.some(item => item.id === playerId);
+        if (wasStarter) {
+            builder._lockedBenchIds = currentSquad.filter(item => !currentLineup.some(starter => starter.id === item.id) && item.id !== playerId).map(item => item.id);
+        }
         builder.selectedIds.splice(index, 1);
         if (builder.captainId === playerId) builder.captainId = null;
         if (builder.viceCaptainId === playerId) builder.viceCaptainId = null;
@@ -2569,6 +2577,12 @@ const FPL = {
         const removedPlayer = builder.players.find(p => p.id === playerId);
         const index = builder.selectedIds.indexOf(playerId);
         if (index < 0) return;
+        const currentSquad = this.teamBuilderSquad();
+        const currentLineup = this.optimalTeamBuilderLineup(currentSquad);
+        const wasStarter = currentLineup.some(item => item.id === playerId);
+        if (wasStarter) {
+            builder._lockedBenchIds = currentSquad.filter(item => !currentLineup.some(starter => starter.id === item.id) && item.id !== playerId).map(item => item.id);
+        }
         builder.selectedIds.splice(index, 1);
         if (builder.captainId === playerId) builder.captainId = null;
         if (builder.viceCaptainId === playerId) builder.viceCaptainId = null;
