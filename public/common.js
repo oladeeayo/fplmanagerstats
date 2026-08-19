@@ -4084,7 +4084,7 @@ const FPL = {
             select.value = selectedGW;
         }
 
-        container.innerHTML = '<div style="padding:32px 16px;text-align:center;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);"><span class="material-symbols-outlined" style="font-size:36px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Calculating player projections...</p></div>';
+        container.innerHTML = '<div style="padding:32px 16px;text-align:center;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);"><span class="material-symbols-outlined" style="font-size:36px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Calculating team projections...</p></div>';
 
         let data = null;
         try {
@@ -4099,163 +4099,105 @@ const FPL = {
         }
 
         this.state.lastFixtureProjectionsData = data;
-
-        const topPlayers = data.topPlayers || [];
-        const topGoalsPlayers = data.topGoals || [];
-        const topAssistsPlayers = data.topAssists || [];
-
-        const posColor = (pos) => {
-            if (pos === 'FWD') return 'var(--fdr-5)';
-            if (pos === 'MID') return 'var(--data-blue)';
-            if (pos === 'DEF') return 'var(--md-sys-color-primary)';
-            return 'var(--md-sys-color-secondary)';
-        };
-        const posBg = (pos) => {
-            if (pos === 'FWD') return 'rgba(255,0,90,0.12)';
-            if (pos === 'MID') return 'rgba(0,209,255,0.12)';
-            if (pos === 'DEF') return 'rgba(0,228,118,0.12)';
-            return 'rgba(184,223,208,0.12)';
-        };
-        const medalColor = (idx) => idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : '#CD7F32';
         const self = this;
 
-        function renderPlayerRow(p, idx, valueLabel, value) {
-            return '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--md-sys-color-surface-container-high);border-radius:8px;border:1px solid var(--md-sys-color-outline-variant);">' +
-                '<div style="display:flex;align-items:center;gap:8px;">' +
-                '<span style="font-family:var(--font-mono);font-weight:900;font-size:12px;color:' + medalColor(idx) + ';">#' + (idx+1) + '</span>' +
-                self.teamBadge(p.team, 16) +
-                '<span style="font-family:var(--font-mono);font-weight:800;font-size:13px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(p.name) + '</span>' +
-                '<span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:' + posColor(p.position) + ';background:' + posBg(p.position) + ';padding:2px 6px;border-radius:4px;">' + p.position + '</span>' +
-                '</div>' +
-                '<span style="font-family:var(--font-mono);font-weight:900;font-size:13px;color:' + posColor(p.position) + ';background:' + posBg(p.position) + ';padding:3px 8px;border-radius:6px;">' + value + ' ' + valueLabel + '</span>' +
-                '</div>';
-        }
+        const medalColor = (idx) => idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : '#CD7F32';
 
-        function renderTopPlayersSmall(players) {
-            if (!players || players.length === 0) return '<span style="font-size:10px;color:var(--md-sys-color-outline);">\u2014</span>';
-            return players.map(function(p) {
-                return '<div style="display:flex;align-items:center;gap:4px;font-size:10px;">' +
-                    '<span style="font-family:var(--font-mono);font-weight:700;color:' + posColor(p.position) + ';">' + p.name + '</span>' +
-                    '<span style="font-family:var(--font-mono);color:var(--md-sys-color-on-surface-variant);">' + p.goals.toFixed(1) + 'g ' + p.assists.toFixed(1) + 'a</span>' +
-                    '</div>';
-            }).join('');
-        }
-
-        var bannerCards = '';
-        if (topPlayers.length > 0) {
-            bannerCards += '<div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:16px;">' +
-                '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">' +
-                '<span class="material-symbols-outlined" style="color:var(--md-sys-color-primary);font-size:20px;">star</span>' +
-                '<span style="font-family:var(--font-mono);font-size:11px;font-weight:800;color:var(--md-sys-color-on-surface-variant);letter-spacing:0.5px;">TOP PROJECTED POINTS</span>' +
-                '</div><div style="display:flex;flex-direction:column;gap:6px;">' +
-                topPlayers.slice(0, 5).map(function(p, i) { return renderPlayerRow(p, i, 'pts', p.totalPoints.toFixed(1)); }).join('') +
-                '</div></div>';
-        }
-        if (topGoalsPlayers.length > 0) {
-            bannerCards += '<div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:16px;">' +
-                '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">' +
-                '<span class="material-symbols-outlined" style="color:var(--data-blue);font-size:20px;">sports_soccer</span>' +
-                '<span style="font-family:var(--font-mono);font-size:11px;font-weight:800;color:var(--md-sys-color-on-surface-variant);letter-spacing:0.5px;">TOP PROJECTED GOALS</span>' +
-                '</div><div style="display:flex;flex-direction:column;gap:6px;">' +
-                topGoalsPlayers.slice(0, 5).map(function(p, i) { return renderPlayerRow(p, i, 'gls', p.goals.toFixed(2)); }).join('') +
-                '</div></div>';
-        }
-        if (topAssistsPlayers.length > 0) {
-            bannerCards += '<div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:16px;">' +
-                '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">' +
-                '<span class="material-symbols-outlined" style="color:var(--fdr-4);font-size:20px;">gesture</span>' +
-                '<span style="font-family:var(--font-mono);font-size:11px;font-weight:800;color:var(--md-sys-color-on-surface-variant);letter-spacing:0.5px;">TOP PROJECTED ASSISTS</span>' +
-                '</div><div style="display:flex;flex-direction:column;gap:6px;">' +
-                topAssistsPlayers.slice(0, 5).map(function(p, i) { return renderPlayerRow(p, i, 'ast', p.assists.toFixed(2)); }).join('') +
-                '</div></div>';
+        function fdrColor(fdr) {
+            if (fdr <= 2) return 'var(--fdr-2)';
+            if (fdr === 3) return 'var(--fdr-3)';
+            if (fdr === 4) return 'var(--fdr-4)';
+            return 'var(--fdr-5)';
         }
 
         var matchCards = data.matchProjections.map(function(m) {
-            var hGoals = m.homeTeam.projectedGoals;
-            var aGoals = m.awayTeam.projectedGoals;
+            var hXG = m.homeTeam.projectedGoals;
+            var aXG = m.awayTeam.projectedGoals;
             var hCS = m.homeTeam.cleanSheetPct;
             var aCS = m.awayTeam.cleanSheetPct;
-            var hTop = (m.homeTeam.topPlayers || []).slice(0, 3);
-            var aTop = (m.awayTeam.topPlayers || []).slice(0, 3);
+            var hWin = m.homeTeam.winPct;
+            var aWin = m.awayTeam.winPct;
+            var draw = m.homeTeam.drawPct;
+            var hFDR = m.homeTeam.fdr;
+            var aFDR = m.awayTeam.fdr;
             var timeStr = self.formatSolioKickoff(m.kickoff);
-            var hGoalsClass = hGoals >= 2.0 ? 'solio-goals-high' : hGoals >= 1.4 ? 'solio-goals-mid' : 'solio-goals-low';
-            var aGoalsClass = aGoals >= 2.0 ? 'solio-goals-high' : aGoals >= 1.4 ? 'solio-goals-mid' : 'solio-goals-low';
-            var hCSClass = hCS >= 35 ? 'solio-cs-high' : hCS >= 20 ? 'solio-cs-mid' : 'solio-cs-low';
-            var aCSClass = aCS >= 35 ? 'solio-cs-high' : aCS >= 20 ? 'solio-cs-mid' : 'solio-cs-low';
+            var hXGClass = hXG >= 1.8 ? 'solio-goals-high' : hXG >= 1.3 ? 'solio-goals-mid' : 'solio-goals-low';
+            var aXGClass = aXG >= 1.8 ? 'solio-goals-high' : aXG >= 1.3 ? 'solio-goals-mid' : 'solio-goals-low';
+            var hCSClass = hCS >= 35 ? 'solio-cs-high' : hCS >= 22 ? 'solio-cs-mid' : 'solio-cs-low';
+            var aCSClass = aCS >= 35 ? 'solio-cs-high' : aCS >= 22 ? 'solio-cs-mid' : 'solio-cs-low';
 
-            var oddsRow = '';
+            var probRow = '<div style="display:flex;justify-content:center;gap:12px;margin:8px 0;font-family:var(--font-mono);font-size:10px;">' +
+                '<span style="color:var(--md-sys-color-primary);">H ' + hWin.toFixed(0) + '%</span>' +
+                '<span style="color:var(--md-sys-color-on-surface-variant);">D ' + draw.toFixed(0) + '%</span>' +
+                '<span style="color:var(--fdr-5);">A ' + aWin.toFixed(0) + '%</span>' +
+                '</div>';
+
+            var bttsRow = '';
             if (m.probabilities) {
-                oddsRow = '<div style="display:flex;justify-content:center;gap:12px;margin:8px 0;font-family:var(--font-mono);font-size:10px;">' +
-                    '<span style="color:var(--md-sys-color-primary);">H ' + m.probabilities.homeWin + '%</span>' +
-                    '<span style="color:var(--md-sys-color-on-surface-variant);">D ' + m.probabilities.draw + '%</span>' +
-                    '<span style="color:var(--fdr-5);">A ' + m.probabilities.awayWin + '%</span>' +
-                    '</div>';
-            } else if (m.odds) {
-                oddsRow = '<div style="display:flex;justify-content:center;gap:12px;margin:8px 0;font-family:var(--font-mono);font-size:10px;">' +
-                    '<span style="color:var(--md-sys-color-primary);">H ' + m.odds.home.toFixed(2) + '</span>' +
-                    '<span style="color:var(--md-sys-color-on-surface-variant);">D ' + m.odds.draw.toFixed(2) + '</span>' +
-                    '<span style="color:var(--fdr-5);">A ' + m.odds.away.toFixed(2) + '</span>' +
+                bttsRow = '<div style="display:flex;justify-content:center;gap:8px;margin-top:4px;font-family:var(--font-mono);font-size:9px;color:var(--md-sys-color-on-surface-variant);">' +
+                    '<span>BTTS ' + (m.probabilities.btts || 0) + '%</span>' +
+                    '<span>O1.5 ' + (m.probabilities.over15 || 0) + '%</span>' +
+                    '<span>O2.5 ' + (m.probabilities.over25 || 0) + '%</span>' +
                     '</div>';
             }
 
             return '<div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:14px;">' +
                 '<div style="text-align:center;font-family:var(--font-mono);font-size:10px;color:var(--md-sys-color-outline);margin-bottom:10px;">' + self.escapeHTML(timeStr) + '</div>' +
-                oddsRow +
-                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
-                '<div style="display:flex;align-items:center;gap:8px;">' + self.teamBadge(m.homeTeam.shortName, 22) + '<span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(m.homeTeam.shortName) + '</span></div>' +
-                '<div style="display:flex;gap:6px;"><span class="solio-badge ' + hGoalsClass + '">' + hGoals.toFixed(2) + '</span><span class="solio-badge ' + hCSClass + '">' + hCS + '%</span></div>' +
+                probRow +
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
+                '<div style="display:flex;align-items:center;gap:8px;">' + self.teamBadge(m.homeTeam.shortName, 22) + '<span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(m.homeTeam.shortName) + '</span>' +
+                '<span style="font-family:var(--font-mono);font-weight:900;font-size:10px;color:' + fdrColor(hFDR) + ';background:rgba(0,0,0,0.2);padding:2px 6px;border-radius:4px;">FDR ' + hFDR + '</span></div>' +
+                '<div style="display:flex;gap:6px;"><span class="solio-badge ' + hXGClass + '">' + hXG.toFixed(2) + ' xG</span><span class="solio-badge ' + hCSClass + '">' + hCS + '% CS</span></div>' +
                 '</div>' +
-                '<div style="padding-left:30px;margin-bottom:10px;">' + renderTopPlayersSmall(hTop) + '</div>' +
-                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
-                '<div style="display:flex;align-items:center;gap:8px;">' + self.teamBadge(m.awayTeam.shortName, 22) + '<span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(m.awayTeam.shortName) + '</span></div>' +
-                '<div style="display:flex;gap:6px;"><span class="solio-badge ' + aGoalsClass + '">' + aGoals.toFixed(2) + '</span><span class="solio-badge ' + aCSClass + '">' + aCS + '%</span></div>' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
+                '<div style="display:flex;align-items:center;gap:8px;">' + self.teamBadge(m.awayTeam.shortName, 22) + '<span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(m.awayTeam.shortName) + '</span>' +
+                '<span style="font-family:var(--font-mono);font-weight:900;font-size:10px;color:' + fdrColor(aFDR) + ';background:rgba(0,0,0,0.2);padding:2px 6px;border-radius:4px;">FDR ' + aFDR + '</span></div>' +
+                '<div style="display:flex;gap:6px;"><span class="solio-badge ' + aXGClass + '">' + aXG.toFixed(2) + ' xG</span><span class="solio-badge ' + aCSClass + '">' + aCS + '% CS</span></div>' +
                 '</div>' +
-                '<div style="padding-left:30px;">' + renderTopPlayersSmall(aTop) + '</div>' +
+                bttsRow +
                 '</div>';
         }).join('');
 
-        var tableRows = topPlayers.slice(0, 50).map(function(p, idx) {
-            var isEven = idx % 2 === 1;
-            var bg = isEven ? 'var(--md-sys-color-surface-container-low)' : 'var(--md-sys-color-surface-container-lowest)';
-            return '<tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);background:' + bg + ';">' +
-                '<td style="padding:8px 12px;color:var(--md-sys-color-on-surface-variant);font-weight:700;">' + (idx + 1) + '</td>' +
-                '<td style="padding:8px 12px;font-weight:700;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(p.name) + '</td>' +
-                '<td style="padding:8px 12px;"><div style="display:flex;align-items:center;gap:6px;">' + self.teamBadge(p.team, 16) + '<span style="font-weight:600;">' + self.escapeHTML(p.team) + '</span></div></td>' +
-                '<td style="padding:8px 12px;"><span style="font-size:10px;font-weight:700;color:' + posColor(p.position) + ';background:' + posBg(p.position) + ';padding:2px 6px;border-radius:4px;">' + p.position + '</span></td>' +
-                '<td style="padding:8px 12px;text-align:center;font-weight:900;color:var(--md-sys-color-primary);">' + p.totalPoints.toFixed(1) + '</td>' +
-                '<td style="padding:8px 12px;text-align:center;font-weight:700;color:var(--data-blue);">' + p.goals.toFixed(2) + '</td>' +
-                '<td style="padding:8px 12px;text-align:center;font-weight:700;color:var(--fdr-4);">' + p.assists.toFixed(2) + '</td>' +
-                '<td style="padding:8px 12px;text-align:center;font-weight:700;color:var(--md-sys-color-primary);">' + (p.csProb || 0) + '%</td>' +
-                '<td style="padding:8px 12px;text-align:center;font-weight:700;color:var(--md-sys-color-on-surface-variant);">' + (p.bonus || 0).toFixed(2) + '</td>' +
-                '</tr>';
-        }).join('');
+        var goalsRank = data.teamsToTarget?.projectedGoals || [];
+        var csRank = data.teamsToTarget?.cleanSheets || [];
+
+        function renderLeaderboard(title, icon, items, valueKey, valueLabel, colorFn) {
+            if (!items || items.length === 0) return '';
+            return '<div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:16px;">' +
+                '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">' +
+                '<span class="material-symbols-outlined" style="color:var(--md-sys-color-primary);font-size:20px;">' + icon + '</span>' +
+                '<span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--md-sys-color-on-surface-variant);">' + title + '</span>' +
+                '</div><div style="display:flex;flex-direction:column;gap:6px;">' +
+                items.slice(0, 10).map(function(t, idx) {
+                    var medal = idx < 3 ? medalColor(idx) : 'var(--md-sys-color-on-surface-variant)';
+                    var val = t[valueKey];
+                    var displayVal = typeof val === 'number' ? (valueKey.includes('cs') || valueKey.includes('win') ? val.toFixed(0) + '%' : val.toFixed(2)) : val;
+                    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--md-sys-color-surface-container-high);border-radius:6px;border:1px solid var(--md-sys-color-outline-variant);">' +
+                        '<div style="display:flex;align-items:center;gap:8px;">' +
+                        '<span style="font-family:var(--font-mono);font-weight:900;font-size:12px;color:' + medal + ';">#' + t.rank + '</span>' +
+                        self.teamBadge(t.team, 16) +
+                        '<span style="font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(t.team) + '</span>' +
+                        '<span style="font-family:var(--font-mono);font-size:10px;color:var(--md-sys-color-on-surface-variant);">vs ' + self.escapeHTML(t.opponent) + (t.isHome ? ' (H)' : ' (A)') + '</span>' +
+                        '</div>' +
+                        '<span style="font-family:var(--font-mono);font-weight:900;font-size:13px;color:' + (colorFn ? colorFn(t) : 'var(--data-blue)') + ';background:rgba(0,209,255,0.12);padding:3px 8px;border-radius:5px;">' + displayVal + ' ' + valueLabel + '</span></div>';
+                }).join('') +
+                '</div></div>';
+        }
 
         var html = '<div class="solio-container">' +
             '<div class="solio-header"><div class="solio-title-wrap">' +
-            '<h2 class="solio-title">Player Projections <span class="solio-gw-badge">GW' + selectedGW + '</span></h2>' +
-            '<p class="solio-subtitle">Per-player projected goals, assists, bonus & points \u00b7 ' + new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) + '</p>' +
+            '<h2 class="solio-title">Match Projections <span class="solio-gw-badge">GW' + selectedGW + '</span></h2>' +
+            '<p class="solio-subtitle">Dixon-Coles model \u00b7 2024-25 xG ratings \u00b7 ' + (data.projectionSource || 'team-level') + '</p>' +
             '</div></div>' +
-            '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:16px;margin-bottom:24px;">' + bannerCards + '</div>' +
-            '<div style="margin-bottom:16px;">' +
-            '<div style="font-family:var(--font-mono);font-size:11px;font-weight:800;color:var(--md-sys-color-on-surface-variant);letter-spacing:0.5px;margin-bottom:12px;text-align:center;">MATCH-BY-MATCH BREAKDOWN</div>' +
-            '<div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));gap:12px;">' + matchCards + '</div></div>' +
-            '<div style="background:var(--md-sys-color-surface-container-low);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;overflow:hidden;margin-bottom:24px;">' +
-            '<div style="background:var(--md-sys-color-secondary);padding:14px 16px;border-bottom:1px solid var(--md-sys-color-outline-variant);display:flex;align-items:center;gap:8px;">' +
-            '<span class="material-symbols-outlined" style="font-size:18px;color:var(--md-sys-color-on-secondary);">leaderboard</span>' +
-            '<h3 style="font-family:var(--font-mono);font-size:13px;margin:0;color:var(--md-sys-color-on-secondary);">ALL PLAYERS \u2014 PROJECTED POINTS (GW' + selectedGW + ')</h3></div>' +
-            '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:12px;">' +
-            '<thead><tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);background:var(--md-sys-color-surface-container-high);">' +
-            '<th style="padding:8px 12px;text-align:left;color:var(--md-sys-color-on-surface);font-weight:700;">#</th>' +
-            '<th style="padding:8px 12px;text-align:left;color:var(--md-sys-color-on-surface);font-weight:700;">Player</th>' +
-            '<th style="padding:8px 12px;text-align:left;color:var(--md-sys-color-on-surface);font-weight:700;">Team</th>' +
-            '<th style="padding:8px 12px;text-align:left;color:var(--md-sys-color-on-surface);font-weight:700;">Pos</th>' +
-            '<th style="padding:8px 12px;text-align:center;color:var(--md-sys-color-primary);font-weight:700;">Pts</th>' +
-            '<th style="padding:8px 12px;text-align:center;color:var(--data-blue);font-weight:700;">Gls</th>' +
-            '<th style="padding:8px 12px;text-align:center;color:var(--fdr-4);font-weight:700;">Ast</th>' +
-            '<th style="padding:8px 12px;text-align:center;color:var(--md-sys-color-primary);font-weight:700;">CS%</th>' +
-            '<th style="padding:8px 12px;text-align:center;color:var(--md-sys-color-on-surface-variant);font-weight:700;">Bonus</th>' +
-            '</tr></thead><tbody>' + tableRows + '</tbody></table></div></div>' +
-            '<div class="solio-footer">Projections based on ' + (data.projectionSource === 'odds' ? 'live betting odds (1X2 + Over/Under) converted to expected goals' : data.projectionSource === 'historical' ? '2024-25 PL xG data (historical team strengths for GW1)' : 'FPL expected data (xG, xA, bonus), team strength ratings, and fixture difficulty') + '.</div>' +
+
+            '<div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));gap:12px;margin-bottom:24px;">' + matchCards + '</div>' +
+
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:16px;margin-bottom:24px;">' +
+            renderLeaderboard('TOP PROJECTED GOALS', 'sports_soccer', goalsRank, 'goals', 'xG', function(t) { return 'var(--data-blue)'; }) +
+            renderLeaderboard('BEST CLEAN SHEET CHANCES', 'shield', csRank, 'csPct', 'CS%', function(t) { return 'var(--md-sys-color-primary)'; }) +
+            '</div>' +
+
+            '<div class="solio-footer">Projections based on Dixon-Coles model using 2024-25 Premier League xG data (team attack/defense ratings, home advantage, opponent strength).</div>' +
             '</div>';
 
         container.innerHTML = html;

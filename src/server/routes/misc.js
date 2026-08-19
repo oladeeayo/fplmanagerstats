@@ -1099,135 +1099,18 @@ router.get('/team-projections', async (req, res) => {
       return `${day} ${dd}/${mm}`;
     };
 
-    // --- Try odds-based projections first, fall back to bootstrap model ---
-    const oddsProjections = await oddsModel.getOddsBasedProjections(gwFixtures, teams).catch(() => null);
+    // --- Team-level projections using Dixon-Coles model ---
+    const teamProj = require('../teamProjectionModel');
 
-    let fixtureProjections;
-    let projectionSource;
+    // Build team ID -> short_name map
+    const teamIdMap = {};
+    teams.forEach(t => { teamIdMap[t.id] = t.short_name; });
 
-    if (oddsProjections && Object.keys(oddsProjections).length > 0) {
-      // Use odds-derived team xG to distribute to players
-      projectionSource = 'odds';
-      fixtureProjections = gwFixtures.map(f => {
-        const homeTeam = getTeam(f.team_h);
-        const awayTeam = getTeam(f.team_a);
-        const odds = oddsProjections[f.id];
-
-        const homePlayers = elements.filter(e => e.team === f.team_h && (e.minutes || 0) > 0).map(e => ({
-          ...e, team_short: homeTeam.short_name
-        }));
-        const awayPlayers = elements.filter(e => e.team === f.team_a && (e.minutes || 0) > 0).map(e => ({
-          ...e, team_short: awayTeam.short_name
-        }));
-
-        const homeGoals = odds ? odds.homeGoals : 1.5;
-        const awayGoals = odds ? odds.awayGoals : 1.2;
-
-        const distributedHome = oddsModel.distributeGoalsToPlayers(homePlayers, homeGoals);
-        const distributedAway = oddsModel.distributeGoalsToPlayers(awayPlayers, awayGoals);
-
-        // Set CS probability from odds
-        distributedHome.forEach(p => { p.csProb = odds ? odds.homeCS : 25; });
-        distributedAway.forEach(p => { p.csProb = odds ? odds.awayCS : 25; });
-
-        return {
-          fixtureId: f.id,
-          gw: f.event,
-          kickoff: f.kickoff_time,
-          homeTeam: { id: homeTeam.id, name: homeTeam.name, shortName: homeTeam.short_name },
-          awayTeam: { id: awayTeam.id, name: awayTeam.name, shortName: awayTeam.short_name },
-          fdrHome: f.team_h_difficulty || 3,
-          fdrAway: f.team_a_difficulty || 3,
-          odds: odds ? odds.odds : null,
-          probabilities: odds ? odds.probabilities : null,
-          homePlayers: distributedHome,
-          awayPlayers: distributedAway,
-        };
-      });
-    } else {
-      // Check if FPL bootstrap strengths are set (non-zero)
-      const useHardcoded = teamStrengthData.areStrengthsZero(teams);
-
-      if (useHardcoded) {
-        // Use hard-coded 2024-25 xG data for GW1 (bootstrap strengths are 0)
-        projectionSource = 'historical';
-        fixtureProjections = gwFixtures.map(f => {
-          const homeTeam = getTeam(f.team_h);
-          const awayTeam = getTeam(f.team_a);
-          const fixtureXG = teamStrengthData.getFixtureXG(homeTeam.short_name, awayTeam.short_name);
-
-          const homePlayers = elements.filter(e => e.team === f.team_h && (e.minutes || 0) > 0).map(e => ({
-            ...e, team_short: homeTeam.short_name
-          }));
-          const awayPlayers = elements.filter(e => e.team === f.team_a && (e.minutes || 0) > 0).map(e => ({
-            ...e, team_short: awayTeam.short_name
-          }));
-
-          const distributedHome = oddsModel.distributeGoalsToPlayers(homePlayers, fixtureXG.homeGoals);
-          const distributedAway = oddsModel.distributeGoalsToPlayers(awayPlayers, fixtureXG.awayGoals);
-
-          const homeCS = Math.round(Math.exp(-fixtureXG.awayGoals) * 100);
-          const awayCS = Math.round(Math.exp(-fixtureXG.homeGoals) * 100);
-          distributedHome.forEach(p => { p.csProb = homeCS; });
-          distributedAway.forEach(p => { p.csProb = awayCS; });
-
-          return {
-            fixtureId: f.id,
-            gw: f.event,
-            kickoff: f.kickoff_time,
-            homeTeam: { id: homeTeam.id, name: homeTeam.name, shortName: homeTeam.short_name },
-            awayTeam: { id: awayTeam.id, name: awayTeam.name, shortName: awayTeam.short_name },
-            fdrHome: f.team_h_difficulty || 3,
-            fdrAway: f.team_a_difficulty || 3,
-            odds: null,
-            probabilities: null,
-            homePlayers: distributedHome,
-            awayPlayers: distributedAway,
-          };
-        });
-      } else {
-        // Use bootstrap player projection model (strengths are set after GW1+)
-        projectionSource = 'bootstrap';
-        const teamStrengths = playerProj.computeTeamStrengths(teams);
-        fixtureProjections = playerProj.projectGameweekPlayers(gwFixtures, teams, elements, teamStrengths);
-      }
-    }
-
-    // Build match-level projections (team totals from player sums)
+    // Project each fixture with full Dixon-Coles model
     const matchProjections = gwFixtures.map(f => {
       const homeTeam = getTeam(f.team_h);
       const awayTeam = getTeam(f.team_a);
-      const fdrHome = f.team_h_difficulty || 3;
-      const fdrAway = f.team_a_difficulty || 3;
-
-      const fp = fixtureProjections.find(p => p.fixtureId === f.id);
-      if (!fp) return null;
-
-      // Sum player projections for team totals
-      const homeGoals = fp.homePlayers.reduce((s, p) => s + p.goals, 0);
-      const awayGoals = fp.awayPlayers.reduce((s, p) => s + p.goals, 0);
-      const homeAssists = fp.homePlayers.reduce((s, p) => s + p.assists, 0);
-      const awayAssists = fp.awayPlayers.reduce((s, p) => s + p.assists, 0);
-      const homeBonus = fp.homePlayers.reduce((s, p) => s + p.bonus, 0);
-      const awayBonus = fp.awayPlayers.reduce((s, p) => s + p.bonus, 0);
-      const homePoints = fp.homePlayers.reduce((s, p) => s + p.totalPoints, 0);
-      const awayPoints = fp.awayPlayers.reduce((s, p) => s + p.totalPoints, 0);
-
-      // Team CS probability = product of DEF/GKP individual CS probs (approximation)
-      const homeDefPlayers = fp.homePlayers.filter(p => p.position === 'DEF' || p.position === 'GKP');
-      const awayDefPlayers = fp.awayPlayers.filter(p => p.position === 'DEF' || p.position === 'GKP');
-      const homeCSProb = homeDefPlayers.length > 0
-        ? homeDefPlayers.reduce((s, p) => s * (1 - p.csProb / 100), 1)
-        : 0.3;
-      const awayCSProb = awayDefPlayers.length > 0
-        ? awayDefPlayers.reduce((s, p) => s * (1 - p.csProb / 100), 1)
-        : 0.3;
-      const homeCS = Math.round((1 - homeCSProb) * 100);
-      const awayCS = Math.round((1 - awayCSProb) * 100);
-
-      // Top 3 scorers for each team
-      const homeTop = [...fp.homePlayers].sort((a, b) => b.totalPoints - a.totalPoints).slice(0, 3);
-      const awayTop = [...fp.awayPlayers].sort((a, b) => b.totalPoints - a.totalPoints).slice(0, 3);
+      const proj = teamProj.projectFixture(homeTeam.short_name, awayTeam.short_name, teamProj.computeTeamRatings());
 
       return {
         id: f.id,
@@ -1238,73 +1121,64 @@ router.get('/team-projections', async (req, res) => {
         score: f.finished ? `${f.team_h_score} - ${f.team_a_score}` : null,
         homeTeam: {
           id: homeTeam.id, name: homeTeam.name, shortName: homeTeam.short_name,
-          projectedGoals: Math.round(homeGoals * 100) / 100,
-          projectedAssists: Math.round(homeAssists * 100) / 100,
-          projectedBonus: Math.round(homeBonus * 100) / 100,
-          projectedPoints: Math.round(homePoints * 100) / 100,
-          cleanSheetPct: homeCS,
-          fdr: fdrHome,
-          topPlayers: homeTop.map(p => ({ name: p.name, position: p.position, points: p.totalPoints, goals: p.goals, assists: p.assists })),
+          projectedGoals: proj.homeXG,
+          cleanSheetPct: proj.homeCleanSheet,
+          winPct: proj.homeWin,
+          drawPct: proj.draw,
+          fdr: f.team_h_difficulty || 3,
         },
         awayTeam: {
           id: awayTeam.id, name: awayTeam.name, shortName: awayTeam.short_name,
-          projectedGoals: Math.round(awayGoals * 100) / 100,
-          projectedAssists: Math.round(awayAssists * 100) / 100,
-          projectedBonus: Math.round(awayBonus * 100) / 100,
-          projectedPoints: Math.round(awayPoints * 100) / 100,
-          cleanSheetPct: awayCS,
-          fdr: fdrAway,
-          topPlayers: awayTop.map(p => ({ name: p.name, position: p.position, points: p.totalPoints, goals: p.goals, assists: p.assists })),
+          projectedGoals: proj.awayXG,
+          cleanSheetPct: proj.awayCleanSheet,
+          winPct: proj.awayWin,
+          drawPct: proj.draw,
+          fdr: f.team_a_difficulty || 3,
         },
-        odds: fp.odds || null,
-        probabilities: fp.probabilities || null,
-        players: [...fp.homePlayers, ...fp.awayPlayers].sort((a, b) => b.totalPoints - a.totalPoints),
+        probabilities: {
+          homeWin: proj.homeWin,
+          draw: proj.draw,
+          awayWin: proj.awayWin,
+          btts: proj.bttsYes,
+          over15: proj.over15,
+          over25: proj.over25,
+          over35: proj.over35,
+        },
       };
-    }).filter(Boolean);
-
-    // Build leaderboards from player projections
-    const allPlayers = [];
-    matchProjections.forEach(m => {
-      m.players.forEach(p => {
-        allPlayers.push({ ...p, fixture: `${m.homeTeam.shortName} vs ${m.awayTeam.shortName}` });
-      });
     });
 
-    // Goals leaderboard (team-level from player sums)
+    // Goals leaderboard — sorted by xG
     const goalsList = matchProjections.flatMap(m => [
-      { teamId: m.homeTeam.id, team: m.homeTeam.shortName, teamName: m.homeTeam.name, opponent: m.awayTeam.shortName, goals: m.homeTeam.projectedGoals, isHome: true },
-      { teamId: m.awayTeam.id, team: m.awayTeam.shortName, teamName: m.awayTeam.name, opponent: m.homeTeam.shortName, goals: m.awayTeam.projectedGoals, isHome: false },
+      { teamId: m.homeTeam.id, team: m.homeTeam.shortName, teamName: m.homeTeam.name, opponent: m.awayTeam.shortName, goals: m.homeTeam.projectedGoals, csPct: m.homeTeam.cleanSheetPct, fdr: m.homeTeam.fdr, isHome: true },
+      { teamId: m.awayTeam.id, team: m.awayTeam.shortName, teamName: m.awayTeam.name, opponent: m.homeTeam.shortName, goals: m.awayTeam.projectedGoals, csPct: m.awayTeam.cleanSheetPct, fdr: m.awayTeam.fdr, isHome: false },
     ]).sort((a, b) => b.goals - a.goals);
 
-    // CS leaderboard
+    // CS leaderboard — sorted by clean sheet probability
     const csList = matchProjections.flatMap(m => [
-      { teamId: m.homeTeam.id, team: m.homeTeam.shortName, teamName: m.homeTeam.name, opponent: m.awayTeam.shortName, csPct: m.homeTeam.cleanSheetPct, isHome: true },
-      { teamId: m.awayTeam.id, team: m.awayTeam.shortName, teamName: m.awayTeam.name, opponent: m.homeTeam.shortName, csPct: m.awayTeam.cleanSheetPct, isHome: false },
+      { teamId: m.homeTeam.id, team: m.homeTeam.shortName, teamName: m.homeTeam.name, opponent: m.awayTeam.shortName, csPct: m.homeTeam.cleanSheetPct, xG: m.homeTeam.projectedGoals, fdr: m.homeTeam.fdr, isHome: true },
+      { teamId: m.awayTeam.id, team: m.awayTeam.shortName, teamName: m.awayTeam.name, opponent: m.homeTeam.shortName, csPct: m.awayTeam.cleanSheetPct, xG: m.awayTeam.projectedGoals, fdr: m.awayTeam.fdr, isHome: false },
     ]).sort((a, b) => b.csPct - a.csPct);
 
     goalsList.forEach((item, index) => { item.rank = index + 1; });
     csList.forEach((item, index) => { item.rank = index + 1; });
 
-    // Top projected players for this GW
-    const topPlayers = [...allPlayers].sort((a, b) => b.totalPoints - a.totalPoints).slice(0, 30);
-    const topGoals = [...allPlayers].sort((a, b) => b.goals - a.goals).slice(0, 20);
-    const topAssists = [...allPlayers].sort((a, b) => b.assists - a.assists).slice(0, 20);
-    const topBonus = [...allPlayers].sort((a, b) => b.bonus - a.bonus).slice(0, 20);
+    // Win probability leaderboard
+    const winList = matchProjections.flatMap(m => [
+      { teamId: m.homeTeam.id, team: m.homeTeam.shortName, teamName: m.homeTeam.name, opponent: m.awayTeam.shortName, winPct: m.homeTeam.winPct, drawPct: m.homeTeam.drawPct, xG: m.homeTeam.projectedGoals, fdr: m.homeTeam.fdr, isHome: true },
+      { teamId: m.awayTeam.id, team: m.awayTeam.shortName, teamName: m.awayTeam.name, opponent: m.homeTeam.shortName, winPct: m.awayTeam.winPct, drawPct: m.awayTeam.drawPct, xG: m.awayTeam.projectedGoals, fdr: m.awayTeam.fdr, isHome: false },
+    ]).sort((a, b) => b.winPct - a.winPct);
 
     res.json({
       gw: selectedGW,
       currentGW,
       availableGWs: Array.from({ length: 38 }, (_, i) => i + 1),
-      projectionSource,
+      projectionSource: 'dixon-coles',
       matchProjections,
       teamsToTarget: {
         projectedGoals: goalsList,
-        cleanSheets: csList
+        cleanSheets: csList,
+        winProbability: winList,
       },
-      topPlayers,
-      topGoals,
-      topAssists,
-      topBonus,
     });
   } catch (e) {
     logger.error({ err: e }, 'Team projections error');
@@ -1325,9 +1199,11 @@ router.get('/goals-projections', async (req, res) => {
     const startGW = parseInt(req.query.gw) || currentGW;
     const horizon = Math.min(parseInt(req.query.horizon) || 6, 15);
 
-    const understatData = await understat.fetchTeams().catch(() => null);
-    const profiles = mergeProfiles(understatData, teams);
-    const projections = projectMultiGW(teams, fixtures, profiles, startGW, horizon);
+    const teamProj = require('../teamProjectionModel');
+    const teamIdMap = {};
+    teams.forEach(t => { teamIdMap[t.id] = t.short_name; });
+
+    const projections = teamProj.projectMultiGWTeams(teams, fixtures, teamIdMap, startGW, horizon);
 
     // Build ranked list for the full horizon
     const ranked = Object.values(projections)
@@ -1369,7 +1245,7 @@ router.get('/goals-projections', async (req, res) => {
       currentGW,
       ranked,
       perGW,
-      modelVersion: 'Poisson/Dixon-Coles Goal Projection v1.0',
+      modelVersion: 'Dixon-Coles (2024-25 xG data)',
     });
   } catch (e) {
     logger.error({ err: e }, 'Goals projections error');
@@ -1390,9 +1266,11 @@ router.get('/goals-conceded', async (req, res) => {
     const startGW = parseInt(req.query.gw) || currentGW;
     const horizon = Math.min(parseInt(req.query.horizon) || 6, 15);
 
-    const understatData = await understat.fetchTeams().catch(() => null);
-    const profiles = mergeProfiles(understatData, teams);
-    const projections = projectMultiGW(teams, fixtures, profiles, startGW, horizon);
+    const teamProj = require('../teamProjectionModel');
+    const teamIdMap = {};
+    teams.forEach(t => { teamIdMap[t.id] = t.short_name; });
+
+    const projections = teamProj.projectMultiGWTeams(teams, fixtures, teamIdMap, startGW, horizon);
 
     // Build ranked list sorted by fewest goals conceded (best defenses first)
     const ranked = Object.values(projections)
@@ -1437,7 +1315,7 @@ router.get('/goals-conceded', async (req, res) => {
       currentGW,
       ranked,
       perGW,
-      modelVersion: 'Poisson/Dixon-Coles Goals Conceded v1.0',
+      modelVersion: 'Dixon-Coles (2024-25 xG data)',
     });
   } catch (e) {
     logger.error({ err: e }, 'Goals conceded projections error');
