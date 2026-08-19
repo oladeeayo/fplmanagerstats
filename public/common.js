@@ -32,21 +32,19 @@ const FPL = {
             selectedIds: [],
             selectedGWs: [],
             captainId: null,
+            viceCaptainId: null,
             pinnedIds: [],
             query: '',
             position: 'all',
             club: 'all',
             sort: 'xpts',
-            importMatches: [],
-            importView: 'pitch',
-            importGW: null,
             lastAdvice: null,
             squadView: 'pitch',
             autoFillSeed: 0,
             autoFillFormation: null,
             autoFillStarters: [],
             preferences: null,
-            view: 'squad'
+            _modalPlayerId: null
         }
     },
 
@@ -565,6 +563,7 @@ const FPL = {
             const builderIds = Array.isArray(builder.selectedIds) ? builder.selectedIds : [];
             builder.selectedIds = (savedIds || builderIds).filter(id => playerIds.has(id)).slice(0, 15);
             builder.captainId = builder.selectedIds.includes(saved?.captainId) ? saved.captainId : (builder.selectedIds.includes(builder.captainId) ? builder.captainId : null);
+            builder.viceCaptainId = builder.selectedIds.includes(saved?.viceCaptainId) ? saved.viceCaptainId : (builder.selectedIds.includes(builder.viceCaptainId) ? builder.viceCaptainId : null);
             builder.pinnedIds = (Array.isArray(saved?.pinnedIds) ? saved.pinnedIds : []).filter(id => playerIds.has(id));
             builder.autoFillFormation = saved?.autoFillFormation || null;
             builder.autoFillStarters = (saved?.autoFillStarters || []).filter(id => playerIds.has(id));
@@ -592,20 +591,12 @@ const FPL = {
     },
 
     setTBView(view) {
-        const allowed = new Set(['squad', 'market', 'coach', 'import']);
-        if (!allowed.has(view)) return;
         this.state.teamBuilder.view = view;
-        document.querySelectorAll('.tb-tab').forEach(tab => {
-            const active = tab.dataset.view === view;
-            tab.classList.toggle('active', active);
-            tab.setAttribute('aria-selected', String(active));
-            tab.tabIndex = active ? 0 : -1;
-        });
-        document.querySelectorAll('.tb-view').forEach(panel => {
-            const active = panel.dataset.view === view;
-            panel.classList.toggle('active', active);
-            panel.hidden = !active;
-        });
+    },
+
+    setBuilderSquadView(view) {
+        this.state.teamBuilder.squadView = view;
+        this.paintTeamBuilder();
     },
 
     readTeamBuilderDraft() {
@@ -619,6 +610,7 @@ const FPL = {
             selectedIds: builder.selectedIds,
             selectedGWs: builder.selectedGWs,
             captainId: builder.captainId,
+            viceCaptainId: builder.viceCaptainId,
             pinnedIds: builder.pinnedIds || [],
             autoFillFormation: builder.autoFillFormation,
             autoFillStarters: builder.autoFillStarters,
@@ -691,6 +683,7 @@ const FPL = {
         if (index >= 0) {
             builder.selectedIds.splice(index, 1);
             if (builder.captainId === playerId) builder.captainId = null;
+            if (builder.viceCaptainId === playerId) builder.viceCaptainId = null;
         } else {
             const player = builder.players.find(item => item.id === playerId);
             const reason = player ? this.canAddTeamBuilderPlayer(player) : 'Player unavailable';
@@ -749,6 +742,7 @@ const FPL = {
             const builder = this.state.teamBuilder;
             builder.selectedIds = [];
             builder.captainId = null;
+            builder.viceCaptainId = null;
             builder.pinnedIds = [];
             builder.autoFillSeed = 0;
             builder.autoFillFormation = null;
@@ -911,6 +905,7 @@ const FPL = {
             if (!ids.length) throw new Error('No current squad was returned for this manager.');
             builder.selectedIds = [...new Set(ids)].slice(0, 15);
             builder.captainId = null;
+            builder.viceCaptainId = null;
             this.saveTeamBuilderDraft();
             this.paintTeamBuilder();
             if (message) message.textContent = `Loaded ${builder.selectedIds.length} players from your current FPL squad.`;
@@ -1628,8 +1623,6 @@ const FPL = {
         this.state.teamBuilder.captainId = detectedCaptain ? Number(detectedCaptain.playerId) : null;
         void originalIds;
         this.saveTeamBuilderDraft();
-        this.closeTeamScreenshotImport();
-        this.setTBView('squad');
         this.paintTeamBuilder();
         const status = document.getElementById('tb-save-status');
         if (status) status.textContent = `Imported ${validIds.length} players. Review the squad and add any missing picks.`;
@@ -1777,15 +1770,14 @@ const FPL = {
         const builder = this.state.teamBuilder;
         const squad = this.teamBuilderSquad();
         const validation = this.teamBuilderValidation(squad);
-        this.setTBView(builder.view || 'squad');
         const allGWs = [...new Set(builder.players.flatMap(player => player.nextFixtures.map(fixture => fixture.gw)))].sort((a, b) => a - b).slice(0, 8);
         const selector = document.getElementById('tb-gw-selector');
         if (selector) selector.innerHTML = allGWs.map(gw => `<button type="button" class="tb-gw-btn${builder.selectedGWs.includes(gw) ? ' active' : ''}" onclick="FPL.toggleTeamBuilderGW(${gw})" aria-pressed="${builder.selectedGWs.includes(gw)}"><span>GW</span>${gw}</button>`).join('');
 
         const count = document.getElementById('tb-squad-count');
-        if (count) count.textContent = `${squad.length} / 15 selected${validation.legal ? ' · Legal squad' : ''}`;
+        if (count) count.textContent = `${squad.length} / 15 selected${validation.legal ? ' \u00B7 Legal squad' : ''}`;
         const budget = document.getElementById('tb-budget-meter');
-        if (budget) budget.innerHTML = `<div><span>Budget used</span><strong>£${validation.cost.toFixed(1)}m</strong></div><div class="tb-budget-track"><span style="width:${Math.min(100, validation.cost)}%"></span></div><small>£${Math.max(0, 100 - validation.cost).toFixed(1)}m remaining</small>`;
+        if (budget) budget.innerHTML = `<div><span>Budget used</span><strong>\u00A3${validation.cost.toFixed(1)}m</strong></div><div class="tb-budget-track"><span style="width:${Math.min(100, validation.cost)}%"></span></div><small>\u00A3${Math.max(0, 100 - validation.cost).toFixed(1)}m remaining</small>`;
         const rules = document.getElementById('tb-rule-strip');
         if (rules) rules.innerHTML = Object.entries(validation.quotas).map(([position, quota]) => `<span class="${validation.positions[position] === quota ? 'complete' : ''}">${position} <b>${validation.positions[position]}/${quota}</b></span>`).join('') + `<span class="${Object.values(validation.clubs).every(value => value <= 3) ? 'complete' : ''}">Club max <b>3</b></span>`;
 
@@ -1803,13 +1795,12 @@ const FPL = {
             const selectedHorizon = builder.selectedGWs.length || 0;
             summary.innerHTML = `
                 <div class="tb-summary-card"><div class="tb-summary-icon" style="background:rgba(0,255,133,.12);color:#00FF85;"><span class="material-symbols-outlined">groups</span></div><div class="tb-summary-data"><div class="tb-summary-value">${squad.length}/15</div><div class="tb-summary-label">${validation.legal ? 'Legal squad' : 'Players selected'}</div></div></div>
-                <div class="tb-summary-card"><div class="tb-summary-icon" style="background:rgba(79,195,247,.12);color:#4FC3F7;"><span class="material-symbols-outlined">payments</span></div><div class="tb-summary-data"><div class="tb-summary-value">£${validation.cost.toFixed(1)}m</div><div class="tb-summary-label">£${remaining.toFixed(1)}m remaining</div></div></div>
-                <div class="tb-summary-card"><div class="tb-summary-icon" style="background:rgba(192,132,252,.12);color:#c084fc;"><span class="material-symbols-outlined">trending_up</span></div><div class="tb-summary-data"><div class="tb-summary-value">${horizonTotal.toFixed(1)}</div><div class="tb-summary-label">xPts across ${selectedHorizon} GWs</div></div></div>
-                <div class="tb-summary-card"><div class="tb-summary-icon" style="background:rgba(255,167,38,.12);color:#FFA726;"><span class="material-symbols-outlined">flag</span></div><div class="tb-summary-data"><div class="tb-summary-value">${builder.squadView === 'pitch' ? 'PITCH' : 'LIST'}</div><div class="tb-summary-label">Squad view</div></div></div>`;
+                <div class="tb-summary-card"><div class="tb-summary-icon" style="background:rgba(79,195,247,.12);color:#4FC3F7;"><span class="material-symbols-outlined">payments</span></div><div class="tb-summary-data"><div class="tb-summary-value">\u00A3${validation.cost.toFixed(1)}m</div><div class="tb-summary-label">\u00A3${remaining.toFixed(1)}m remaining</div></div></div>
+                <div class="tb-summary-card"><div class="tb-summary-icon" style="background:rgba(192,132,252,.12);color:#c084fc;"><span class="material-symbols-outlined">trending_up</span></div><div class="tb-summary-data"><div class="tb-summary-value">${horizonTotal.toFixed(1)}</div><div class="tb-summary-label">xPts across ${selectedHorizon} GWs</div></div></div>`;
         }
 
         // Update view toggle buttons
-        const squadView = builder.squadView || 'list';
+        const squadView = builder.squadView || 'pitch';
         document.querySelectorAll('.tb-squad-panel .tb-import-view-btn').forEach(btn => {
             const isActive = btn.dataset.view === squadView;
             btn.classList.toggle('active', isActive);
@@ -1886,15 +1877,18 @@ const FPL = {
 
     _squadItemHTML(player, builder, pinnedIds, starterIds, isBench) {
         const isCaptain = builder.captainId === player.id;
+        const isVice = builder.viceCaptainId === player.id;
         const isPinned = pinnedIds.has(player.id);
         const xpts = this.teamBuilderXPts ? this.teamBuilderXPts(player) : 0;
         return `
-            <div class="tb-squad-item${isPinned ? ' pinned' : ''}${isBench ? ' is-bench' : ''}" data-id="${player.id}">
+            <div class="tb-squad-item${isPinned ? ' pinned' : ''}${isBench ? ' is-bench' : ''}" data-id="${player.id}" onclick="FPL.openPlayerModal(${player.id})" style="cursor:pointer;">
                 <div class="tb-squad-item-info">
                     ${this.teamBadge(player.club || player.team, 22)}
                     <div class="tb-squad-item-text">
                         <div class="tb-squad-item-name-row">
                             <span class="tb-squad-item-name">${this.escapeHTML(player.name || player.web_name || '')}</span>
+                            ${isCaptain ? '<span class="tb-squad-captain-badge">C</span>' : ''}
+                            ${isVice ? '<span class="tb-squad-vice-badge">V</span>' : ''}
                             ${isPinned ? '<span class="material-symbols-outlined tb-squad-pin-icon">lock</span>' : ''}
                         </div>
                         <div class="tb-squad-item-meta-row">
@@ -1903,12 +1897,7 @@ const FPL = {
                         </div>
                     </div>
                 </div>
-                <div class="tb-squad-item-actions">
-                    <span class="tb-squad-item-xpts">${xpts.toFixed(1)} xP</span>
-                    <button type="button" class="tb-btn-icon${isPinned ? ' active' : ''}" title="${isPinned ? 'Unpin player' : 'Pin player'}" onclick="FPL.pinTeamBuilderPlayer(${player.id})"><span class="material-symbols-outlined">${isPinned ? 'lock' : 'lock_open'}</span></button>
-                    <button type="button" class="tb-btn-icon${isCaptain ? ' active' : ''}" title="Make Captain" onclick="FPL.setTeamBuilderCaptain(${player.id})"><span class="material-symbols-outlined">copyright</span></button>
-                    <button type="button" class="tb-btn-icon danger" title="Remove Player" onclick="FPL.removeTeamBuilderPlayer(${player.id})"><span class="material-symbols-outlined">close</span></button>
-                </div>
+                <div class="tb-squad-item-xpts">${xpts.toFixed(1)} xP</div>
             </div>`;
     },
 
@@ -1939,7 +1928,7 @@ const FPL = {
         const formation = `${starterGroups.DEF.length}-${starterGroups.MID.length}-${starterGroups.FWD.length}`;
 
         function emptySlot(pos) {
-            return `<div class="tactics-player-card home aiteam-pitch-card tb-squad-pitch-card tb-empty-slot" onclick="FPL.setTBView('market')" title="Click Market to add a ${pos}">
+            return `<div class="tactics-player-card home aiteam-pitch-card tb-squad-pitch-card tb-empty-slot" onclick="document.querySelector('.tb-market-panel').scrollIntoView({behavior:'smooth',block:'start'})" title="Click to add a ${pos} from the market">
                 <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;"><span class="material-symbols-outlined" style="font-size:20px;color:#3a5445;">person_add</span></div>
                 <div class="tactics-player-copy"><b class="aiteam-pitch-name">${pos}</b></div>
                 <div class="aiteam-pitch-cost" style="color:#3a5445;">Empty slot</div>
@@ -1949,49 +1938,25 @@ const FPL = {
         function playerCard(p, isBench) {
             const xPts = self.teamBuilderXPts ? self.teamBuilderXPts(p) : 0;
             const isCaptain = captainId === p.id;
+            const isVice = self.state.teamBuilder.viceCaptainId === p.id;
             const isPinned = pinnedIds.has(p.id);
-            const pos = (p.position || '').toUpperCase();
-
-            const inSwapMode = !!swapSelectedId;
-            const isSwapSource = swapSelectedId === p.id;
-            const swapPartner = swapSelectedId ? squad.find(sp => sp.id === swapSelectedId) : null;
-            const isSwapTarget = inSwapMode && !isSwapSource && swapPartner && swapPartner.position === pos;
 
             let cardClass = 'tactics-player-card home aiteam-pitch-card tb-squad-pitch-card';
             if (isPinned) cardClass += ' is-pinned';
             if (isCaptain) cardClass += ' is-captain-card';
-            if (isSwapSource) cardClass += ' is-swap-selected';
-            if (isSwapTarget) cardClass += ' is-swap-eligible';
+            if (isVice) cardClass += ' is-vice-card';
             if (isBench) cardClass += ' is-bench';
 
             const shirtImg = self.pitchShirtMarkup(p, p.club || p.team);
 
-            let clickHandler = '';
-            if (isSwapTarget) {
-                clickHandler = `onclick="FPL.confirmSwap(${swapSelectedId},${p.id})"`;
-            } else if (!inSwapMode) {
-                clickHandler = `onclick="FPL.showPlayerDetail(${p.id})"`;
-            }
-
-            const hasSamePosBench = bench.some(bp => bp.position === pos && bp.id !== p.id);
-            const hasSamePosStarter = starters.some(sp => sp.position === pos && sp.id !== p.id);
-
-            return `<div class="${cardClass}" ${clickHandler} data-player-id="${p.id}" data-is-bench="${isBench}">
-                <div class="tb-pitch-card-actions">
-                    <button type="button" class="tb-pitch-action-btn${isPinned ? ' active' : ''}" title="${isPinned ? 'Unpin (auto-fill may remove)' : 'Pin (keeps in auto-fill)'}" onclick="event.stopPropagation();FPL.pinTeamBuilderPlayer(${p.id})"><span class="material-symbols-outlined">${isPinned ? 'lock' : 'lock_open'}</span></button>
-                    <button type="button" class="tb-pitch-action-btn${isCaptain ? ' active captain' : ''}" title="${isCaptain ? 'Remove captain' : 'Make captain'}" onclick="event.stopPropagation();FPL.setTeamBuilderCaptain(${p.id})"><span class="material-symbols-outlined">shield</span></button>
-                    ${isBench && hasSamePosStarter ? `<button type="button" class="tb-pitch-action-btn swap-btn" title="Swap with a starter" onclick="event.stopPropagation();FPL.startSwapMode(${p.id})"><span class="material-symbols-outlined">swap_vert</span></button>` : ''}
-                    ${!isBench && hasSamePosBench ? `<button type="button" class="tb-pitch-action-btn swap-btn" title="Swap with bench ${pos}" onclick="event.stopPropagation();FPL.startSwapMode(${p.id})"><span class="material-symbols-outlined">swap_vert</span></button>` : ''}
-                    ${!isBench ? `<button type="button" class="tb-pitch-action-btn replace-btn" title="Replace from market" onclick="event.stopPropagation();FPL.replaceTeamBuilderPlayer(${p.id})"><span class="material-symbols-outlined">swap_horiz</span></button>` : ''}
-                    <button type="button" class="tb-pitch-action-btn danger" title="Remove" onclick="event.stopPropagation();FPL.removeTeamBuilderPlayer(${p.id})"><span class="material-symbols-outlined">close</span></button>
-                </div>
+            return `<div class="${cardClass}" onclick="FPL.openPlayerModal(${p.id})" data-player-id="${p.id}" data-is-bench="${isBench}">
                 <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;">${shirtImg}</div>
                 ${isCaptain ? '<span class="tb-pitch-captain-badge">C</span>' : ''}
+                ${isVice ? '<span class="tb-pitch-vice-badge">V</span>' : ''}
                 ${isPinned ? '<span class="tb-pitch-pin-badge"><span class="material-symbols-outlined">lock</span></span>' : ''}
                 <div class="tactics-player-copy"><b class="aiteam-pitch-name">${self.escapeHTML(p.name)}</b></div>
                 <div class="aiteam-pitch-cost">\u00A3${(p.costValue || (p.cost / 10) || 0).toFixed(1)}m</div>
                 <div class="aiteam-pitch-xpts">${xPts.toFixed(1)} xPts</div>
-                ${isSwapTarget ? '<div class="tb-pitch-swap-hint">Tap to swap</div>' : ''}
             </div>`;
         }
 
@@ -2054,6 +2019,126 @@ const FPL = {
         this.paintTeamBuilder();
     },
 
+    openPlayerModal(playerId) {
+        const builder = this.state.teamBuilder;
+        const player = builder.players.find(p => p.id === playerId);
+        if (!player) return;
+        const squad = this.teamBuilderSquad();
+        if (!squad.some(p => p.id === playerId)) return;
+
+        builder._modalPlayerId = playerId;
+        const modal = document.getElementById('tb-player-modal');
+        if (!modal) return;
+
+        const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
+        const posColor = posColors[player.position] || '#81C784';
+
+        document.getElementById('tb-modal-name').textContent = player.name || player.web_name || '';
+        document.getElementById('tb-modal-meta').textContent = `${player.position} \u00B7 ${player.club || player.team} \u00B7 \u00A3${(player.costValue || (player.cost / 10) || 0).toFixed(1)}m`;
+
+        const shirtEl = document.getElementById('tb-modal-shirt');
+        shirtEl.innerHTML = this.pitchShirtMarkup(player, player.club || player.team);
+
+        const isCaptain = builder.captainId === playerId;
+        const isVice = builder.viceCaptainId === playerId;
+        const captainBtn = document.getElementById('tb-modal-captain');
+        const viceBtn = document.getElementById('tb-modal-vice');
+        if (captainBtn) {
+            captainBtn.innerHTML = isCaptain
+                ? '<span class="material-symbols-outlined">shield</span> Remove captain (C)'
+                : '<span class="material-symbols-outlined">shield</span> Make captain (C)';
+        }
+        if (viceBtn) {
+            viceBtn.innerHTML = isVice
+                ? '<span class="material-symbols-outlined">shield</span> Remove vice-captain (V)'
+                : '<span class="material-symbols-outlined">shield</span> Make vice-captain (V)';
+        }
+
+        const lineup = this.optimalTeamBuilderLineup(squad) || [];
+        const lineupIds = new Set(lineup.map(p => p.id));
+        const bench = squad.filter(p => !lineupIds.has(p.id));
+        const benchList = document.getElementById('tb-modal-bench-list');
+        if (benchList) {
+            if (bench.length) {
+                benchList.innerHTML = bench.map(bp => {
+                    const bpCost = (bp.costValue || (bp.cost / 10) || 0).toFixed(1);
+                    return `<button type="button" class="tb-modal-bench-item" onclick="FPL.modalSwapWithBench(${bp.id})">
+                        <div class="tb-modal-bench-info">
+                            ${this.teamBadge(bp.club || bp.team, 18)}
+                            <span class="tb-modal-bench-name">${this.escapeHTML(bp.name)}</span>
+                            <span class="tb-modal-bench-meta">${bp.position} \u00B7 \u00A3${bpCost}m</span>
+                        </div>
+                        <span class="material-symbols-outlined">swap_vert</span>
+                    </button>`;
+                }).join('');
+            } else {
+                benchList.innerHTML = '<div class="tb-modal-bench-empty">No bench players</div>';
+            }
+        }
+
+        modal.hidden = false;
+        modal.setAttribute('aria-hidden', 'false');
+    },
+
+    closePlayerModal() {
+        const modal = document.getElementById('tb-player-modal');
+        if (modal) {
+            modal.hidden = true;
+            modal.setAttribute('aria-hidden', 'true');
+        }
+        this.state.teamBuilder._modalPlayerId = null;
+    },
+
+    modalMakeCaptain() {
+        const builder = this.state.teamBuilder;
+        const playerId = builder._modalPlayerId;
+        if (!playerId) return;
+        if (builder.captainId === playerId) {
+            builder.captainId = null;
+            this.showToast('Captain removed', 'info');
+        } else {
+            builder.captainId = playerId;
+            const player = builder.players.find(p => p.id === playerId);
+            this.showToast(`${player?.name || 'Player'} set as captain`, 'ok');
+        }
+        this.saveTeamBuilderDraft();
+        this.closePlayerModal();
+        this.paintTeamBuilder();
+    },
+
+    modalMakeViceCaptain() {
+        const builder = this.state.teamBuilder;
+        const playerId = builder._modalPlayerId;
+        if (!playerId) return;
+        if (builder.viceCaptainId === playerId) {
+            builder.viceCaptainId = null;
+            this.showToast('Vice-captain removed', 'info');
+        } else {
+            builder.viceCaptainId = playerId;
+            const player = builder.players.find(p => p.id === playerId);
+            this.showToast(`${player?.name || 'Player'} set as vice-captain`, 'ok');
+        }
+        this.saveTeamBuilderDraft();
+        this.closePlayerModal();
+        this.paintTeamBuilder();
+    },
+
+    modalSwapWithBench(benchPlayerId) {
+        const builder = this.state.teamBuilder;
+        const playerId = builder._modalPlayerId;
+        if (!playerId) return;
+        this.confirmSwap(playerId, benchPlayerId);
+        this.closePlayerModal();
+    },
+
+    modalRemovePlayer() {
+        const builder = this.state.teamBuilder;
+        const playerId = builder._modalPlayerId;
+        if (!playerId) return;
+        this.removeTeamBuilderPlayer(playerId);
+        this.closePlayerModal();
+    },
+
     confirmSwap(idA, idB) {
         const builder = this.state.teamBuilder;
         const playerA = builder.players.find(p => p.id === idA);
@@ -2086,6 +2171,7 @@ const FPL = {
         if (index < 0) return;
         builder.selectedIds.splice(index, 1);
         if (builder.captainId === playerId) builder.captainId = null;
+        if (builder.viceCaptainId === playerId) builder.viceCaptainId = null;
         const pinned = builder.pinnedIds || [];
         const pidx = pinned.indexOf(playerId);
         if (pidx >= 0) pinned.splice(pidx, 1);
@@ -2221,6 +2307,7 @@ const FPL = {
         if (index < 0) return;
         builder.selectedIds.splice(index, 1);
         if (builder.captainId === playerId) builder.captainId = null;
+        if (builder.viceCaptainId === playerId) builder.viceCaptainId = null;
         const pinned = builder.pinnedIds || [];
         const pidx = pinned.indexOf(playerId);
         if (pidx >= 0) pinned.splice(pidx, 1);
