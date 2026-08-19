@@ -13,14 +13,14 @@
     <link rel="icon" href="football.ico">
     <link rel="apple-touch-icon" href="icon-192.svg">
     <link rel="manifest" href="manifest.json">
-    <link rel="canonical" href="https://www.myfplstats.xyz/">
+    <link rel="canonical" href="https://fplmanager.xyz/">
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://www.myfplstats.xyz/">
+    <meta property="og:url" content="https://fplmanager.xyz/">
     <meta property="og:title" content="FPL Manager Stats - Fantasy Premier League Analytics Dashboard">
     <meta property="og:description" content="Free Fantasy Premier League analytics dashboard with advanced stats: xG/xA predictions, captain picks, transfer trends, ownership tracking, fixture difficulty ratings, and tactical zone analysis.">
-    <meta property="og:image" content="https://www.myfplstats.xyz/icon-512.svg">
+    <meta property="og:image" content="https://fplmanager.xyz/icon-512.svg">
     <meta property="og:image:alt" content="FPL Manager Stats - Fantasy Premier League Analytics Dashboard">
     <meta property="og:site_name" content="FPL Manager Stats">
     <meta property="og:locale" content="en_GB">
@@ -29,7 +29,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="FPL Manager Stats - Fantasy Premier League Analytics Dashboard">
     <meta name="twitter:description" content="Free Fantasy Premier League analytics dashboard with advanced stats: xG/xA predictions, captain picks, transfer trends, ownership tracking, and tactical zone analysis.">
-    <meta name="twitter:image" content="https://www.myfplstats.xyz/icon-512.svg">
+    <meta name="twitter:image" content="https://fplmanager.xyz/icon-512.svg">
     <meta name="twitter:image:alt" content="FPL Manager Stats - Fantasy Premier League Analytics Dashboard">
 
     <!-- JSON-LD Structured Data -->
@@ -38,7 +38,7 @@
       "@context": "https://schema.org",
       "@type": "WebApplication",
       "name": "FPL Manager Stats",
-      "url": "https://www.myfplstats.xyz/",
+      "url": "https://fplmanager.xyz/",
       "description": "Free Fantasy Premier League analytics dashboard with advanced stats: xG/xA predictions, captain picks, transfer trends, ownership tracking, fixture difficulty ratings, and tactical zone analysis.",
       "applicationCategory": "SportsApplication",
       "operatingSystem": "Web Browser",
@@ -50,7 +50,7 @@
       "creator": {
         "@type": "Organization",
         "name": "FPL Manager Stats",
-        "url": "https://www.myfplstats.xyz/"
+        "url": "https://fplmanager.xyz/"
       },
       "featureList": [
         "xG/xA player statistics",
@@ -64,7 +64,7 @@
         "Price change predictions",
         "Injury and suspension alerts"
       ],
-      "screenshot": "https://www.myfplstats.xyz/icon-512.svg"
+      "screenshot": "https://fplmanager.xyz/icon-512.svg"
     }
     </script>
     <script type="application/ld+json">
@@ -72,11 +72,11 @@
       "@context": "https://schema.org",
       "@type": "WebSite",
       "name": "FPL Manager Stats",
-      "url": "https://www.myfplstats.xyz/",
+      "url": "https://fplmanager.xyz/",
       "description": "Free Fantasy Premier League analytics dashboard with advanced stats: xG/xA predictions, captain picks, transfer trends, ownership tracking, fixture difficulty ratings, and tactical zone analysis.",
       "potentialAction": {
         "@type": "SearchAction",
-        "target": "https://www.myfplstats.xyz/?manager={search_term_string}",
+        "target": "https://fplmanager.xyz/?manager={search_term_string}",
         "query-input": "required name=search_term_string"
       }
     }
@@ -92,9 +92,9 @@
         @keyframes spin { to { transform: rotate(360deg); } }
         #error-toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: var(--md-sys-color-error); color: #000; padding: var(--space-sm) var(--space-lg); border-radius: var(--radius-pill); font-size: 0.875rem; font-weight: 600; z-index: 10000; transition: all var(--transition-normal); }
         #error-toast.hidden { opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(20px); }
-        .sidebar-nav-item { display: flex; align-items: center; gap: var(--space-md); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); color: var(--md-sys-color-on-surface-variant); text-decoration: none; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: all var(--transition-fast); }
+        .sidebar-nav-item { display: flex; align-items: center; gap: var(--space-md); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); color: var(--md-sys-color-on-surface-variant); text-decoration: none; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: all var(--transition-fast); position: relative; border-left: 3px solid transparent; }
         .sidebar-nav-item:hover { background: var(--md-sys-color-surface-container); color: var(--md-sys-color-on-surface); }
-        .sidebar-nav-item.active { background: var(--fpl-accent-dim); color: var(--md-sys-color-primary); }
+        .sidebar-nav-item.active { background: var(--fpl-accent-dim); color: var(--md-sys-color-primary); border-left-color: var(--md-sys-color-primary); font-weight: 600; }
         .sidebar-nav-item .material-symbols-outlined { font-size: 20px; }
         .sidebar-nav-button { width: 100%; border: 0; background: transparent; font-family: inherit; text-align: left; }
         .chart-bars { display: flex; flex-direction: column; gap: var(--space-sm); }
@@ -749,45 +749,49 @@
                 <!-- FIXTURES -->
                 <div id="content-fixtures" class="tab-content">
                     <!-- Top Fixture Subview Navigation -->
-                    <div class="fixtures-nav-bar" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;padding:8px 12px;background:#181d1a;border:1px solid #28362d;border-radius:10px;flex-wrap:wrap;">
-                        <div style="display:flex;align-items:center;gap:8px;">
-                            <button id="fixture-view-btn-matrix" onclick="FPL.switchFixtureSubView('matrix')" class="fixture-view-btn active" style="padding:8px 16px;border-radius:8px;border:none;background:#00FF85;color:#0a0f0d;font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;">
-                                <span class="material-symbols-outlined" style="font-size:16px;">grid_on</span>
-                                FDR Matrix Grid
+                    <div class="fixtures-nav-bar">
+                        <div class="fixtures-nav-tabs">
+                            <button id="fixture-view-btn-matrix" onclick="FPL.switchFixtureSubView('matrix')" class="fixture-view-btn active">
+                                <span class="material-symbols-outlined">grid_on</span>
+                                FDR Matrix
                             </button>
-                            <button id="fixture-view-btn-odds" onclick="FPL.switchFixtureSubView('odds')" class="fixture-view-btn" style="padding:8px 16px;border-radius:8px;border:1px solid #34453b;background:transparent;color:#b9cbb9;font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all 0.2s;">
-                                <span class="material-symbols-outlined" style="font-size:16px;color:#64B5F6;">analytics</span>
-                                Goals & CS Odds
+                            <button id="fixture-view-btn-odds" onclick="FPL.switchFixtureSubView('odds')" class="fixture-view-btn">
+                                <span class="material-symbols-outlined">analytics</span>
+                                Goals & CS
                             </button>
-                            <button id="fixture-view-btn-goals" onclick="FPL.switchFixtureSubView('goals')" class="fixture-view-btn" style="padding:8px 16px;border-radius:8px;border:1px solid #34453b;background:transparent;color:#b9cbb9;font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all 0.2s;">
-                                <span class="material-symbols-outlined" style="font-size:16px;color:#4caf50;">sports_soccer</span>
+                            <button id="fixture-view-btn-goals" onclick="FPL.switchFixtureSubView('goals')" class="fixture-view-btn">
+                                <span class="material-symbols-outlined">sports_soccer</span>
                                 Goals Scored
                             </button>
-                            <button id="fixture-view-btn-conceded" onclick="FPL.switchFixtureSubView('conceded')" class="fixture-view-btn" style="padding:8px 16px;border-radius:8px;border:1px solid #34453b;background:transparent;color:#b9cbb9;font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all 0.2s;">
-                                <span class="material-symbols-outlined" style="font-size:16px;color:#ff5722;">shield</span>
+                            <button id="fixture-view-btn-conceded" onclick="FPL.switchFixtureSubView('conceded')" class="fixture-view-btn">
+                                <span class="material-symbols-outlined">shield</span>
                                 Goals Conceded
                             </button>
+                            <button id="fixture-view-btn-news" onclick="FPL.switchFixtureSubView('news')" class="fixture-view-btn">
+                                <span class="material-symbols-outlined">newspaper</span>
+                                FPL News
+                            </button>
                         </div>
-                        <div id="fixture-odds-gw-selector" style="display:none;align-items:center;gap:8px;background:#121824;padding:6px 14px;border-radius:10px;border:1px solid #1e2738;">
-                            <span style="font-family:var(--font-sans);font-size:12px;font-weight:700;color:#94a3b8;display:flex;align-items:center;gap:6px;">
-                                <span class="material-symbols-outlined" style="font-size:16px;color:#00FF85;">event</span>
-                                Gameweek:
-                            </span>
-                            <div style="position:relative;display:inline-flex;align-items:center;">
-                                <select id="fixture-odds-gw-select" onchange="FPL.setFixtureOddsGW(this.value)" style="background-color:#1a2233;border:1px solid #2e3c54;border-radius:8px;padding:6px 28px 6px 12px;font-family:var(--font-mono);font-size:13px;font-weight:800;color:#ffffff;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;min-width:90px;">
-                                </select>
-                                <span class="material-symbols-outlined" style="position:absolute;right:6px;pointer-events:none;font-size:18px;color:#00FF85;">unfold_more</span>
+                        <div class="fixtures-nav-controls">
+                            <div id="fixture-odds-gw-selector" class="fixtures-selector" style="display:none;">
+                                <span class="fixtures-selector-label">
+                                    <span class="material-symbols-outlined">event</span>
+                                    GW:
+                                </span>
+                                <div class="fixtures-select-wrap">
+                                    <select id="fixture-odds-gw-select" onchange="FPL.setFixtureOddsGW(this.value)"></select>
+                                    <span class="material-symbols-outlined">unfold_more</span>
+                                </div>
                             </div>
-                        </div>
-                        <div id="fixture-goals-horizon-selector" style="display:none;align-items:center;gap:8px;background:#121824;padding:6px 14px;border-radius:10px;border:1px solid #1e2738;">
-                            <span style="font-family:var(--font-sans);font-size:12px;font-weight:700;color:#94a3b8;display:flex;align-items:center;gap:6px;">
-                                <span class="material-symbols-outlined" style="font-size:16px;color:#4caf50;">event</span>
-                                Horizon:
-                            </span>
-                            <div style="position:relative;display:inline-flex;align-items:center;">
-                                <select id="fixture-goals-horizon-select" onchange="FPL.setFixtureGoalsHorizon(this.value)" style="background-color:#1a2233;border:1px solid #2e3c54;border-radius:8px;padding:6px 28px 6px 12px;font-family:var(--font-mono);font-size:13px;font-weight:800;color:#ffffff;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;min-width:90px;">
-                                </select>
-                                <span class="material-symbols-outlined" style="position:absolute;right:6px;pointer-events:none;font-size:18px;color:#4caf50;">unfold_more</span>
+                            <div id="fixture-goals-horizon-selector" class="fixtures-selector" style="display:none;">
+                                <span class="fixtures-selector-label">
+                                    <span class="material-symbols-outlined">event</span>
+                                    Horizon:
+                                </span>
+                                <div class="fixtures-select-wrap">
+                                    <select id="fixture-goals-horizon-select" onchange="FPL.setFixtureGoalsHorizon(this.value)"></select>
+                                    <span class="material-symbols-outlined">unfold_more</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -883,6 +887,13 @@
                     <div id="fixture-subview-conceded" class="fixture-subview-content" style="display:none;">
                         <div id="fixture-conceded-container">
                             <div style="padding:24px;text-align:center;color:#b9cbb9;">Loading goals conceded projections...</div>
+                        </div>
+                    </div>
+
+                    <!-- SUBVIEW 5: FPL News -->
+                    <div id="fixture-subview-news" class="fixture-subview-content" style="display:none;">
+                        <div id="fixture-news-container">
+                            <div style="padding:24px;text-align:center;color:#b9cbb9;font-family:var(--font-mono);"><span class="material-symbols-outlined" style="font-size:36px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Loading FPL news feed...</p></div>
                         </div>
                     </div>
                 </div>
@@ -1355,25 +1366,6 @@
             </div>
             <div class="dialog-body" id="player-detail-body" style="padding:0;"></div>
             <div class="dialog-footer"><button class="btn btn-outline" onclick="FPL.hideDialog('player-detail-dialog')">Close</button></div>
-        </div>
-    </div>
-
-    <!-- Fixture Projection Reasoning Dialog -->
-    <div id="projection-reasoning-dialog" class="dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="projection-reasoning-dialog-title" aria-hidden="true">
-        <div class="dialog dialog-wide" style="max-width:680px;">
-            <div class="dialog-header">
-                <h3 id="projection-reasoning-dialog-title" style="font-family:var(--font-display);font-weight:700;display:flex;align-items:center;gap:8px;">
-                    <span class="material-symbols-outlined" style="color:#00FF85;">analytics</span>
-                    Model Calculation & Reasoning
-                </h3>
-                <button class="btn btn-ghost btn-icon" type="button" aria-label="Close dialog" onclick="FPL.hideDialog('projection-reasoning-dialog')">
-                    <span class="material-symbols-outlined" aria-hidden="true">close</span>
-                </button>
-            </div>
-            <div class="dialog-body" id="projection-reasoning-body" style="padding:16px;"></div>
-            <div class="dialog-footer">
-                <button class="btn btn-outline" onclick="FPL.hideDialog('projection-reasoning-dialog')">Close</button>
-            </div>
         </div>
     </div>
 

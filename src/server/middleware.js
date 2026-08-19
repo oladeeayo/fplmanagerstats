@@ -5,8 +5,8 @@ const logger = require('./logger');
 const { geoCache, GEO_CACHE_TTL } = require('./cache');
 
 const ALLOWED_ORIGINS = new Set([
-  'https://fplmanagerstats.vercel.app',
-  'https://www.myfplstats.xyz',
+  'https://fplmanager.xyz',
+  'https://www.fplmanager.xyz',
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://localhost:3000',

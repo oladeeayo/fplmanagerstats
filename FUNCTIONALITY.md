@@ -3,7 +3,7 @@
 ## Overview
 FPL Manager Stats is a comprehensive Fantasy Premier League analytics platform that helps managers make data-driven decisions. The site provides advanced analytics, predictions, and insights beyond what the official FPL site offers.
 
-**Live Site:** https://fplmanagerstats.vercel.app
+**Live Site:** https://fplmanager.xyz
 
 ---
 

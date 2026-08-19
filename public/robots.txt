@@ -1,5 +1,5 @@
 # Robots.txt for FPL Manager Stats
-# https://fplmanagerstats.vercel.app
+# https://fplmanager.xyz
 
 User-agent: *
 Allow: /
@@ -30,4 +30,4 @@ Allow: /
 Disallow: /api/
 Disallow: /sw.js
 
-Sitemap: https://fplmanagerstats.vercel.app/sitemap.xml
+Sitemap: https://fplmanager.xyz/sitemap.xml

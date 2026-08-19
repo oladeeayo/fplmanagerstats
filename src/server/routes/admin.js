@@ -296,7 +296,7 @@ router.get('/referrers', async (req, res) => {
           WHEN referrer LIKE '%reddit%' THEN 'Reddit'
           WHEN referrer LIKE '%instagram%' THEN 'Instagram'
           WHEN referrer LIKE '%youtube%' THEN 'YouTube'
-          WHEN referrer LIKE '%myfplstats%' THEN 'Internal'
+          WHEN referrer LIKE '%fplmanager%' THEN 'Internal'
           ELSE SUBSTRING(referrer FROM 'https?://([^/]+)')
         END as source,
         COUNT(*) as views, COUNT(DISTINCT session_id) as unique_visitors
