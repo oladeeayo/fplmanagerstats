@@ -1989,13 +1989,7 @@ const FPL = {
 
         let benchHtml = '';
         if (bench.length) {
-            const benchByPos = { GKP: [], DEF: [], MID: [], FWD: [] };
-            bench.forEach(p => { const pos = (p.position || '').toUpperCase(); if (benchByPos[pos]) benchByPos[pos].push(p); });
-            const benchRows = [];
-            ['GKP', 'DEF', 'MID', 'FWD'].forEach(pos => {
-                if (benchByPos[pos].length) benchRows.push(`<div class="tb-bench-position-row"><span class="tb-bench-pos-label">${pos}</span><div class="tb-bench-players-row" style="--players:${benchByPos[pos].length};">${benchByPos[pos].map(p => playerCard(p, true)).join('')}</div></div>`);
-            });
-            benchHtml = `<div class="tb-bench-strip"><div class="tb-pitch-sub"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">event_seat</span> BENCH</div>${benchRows.join('')}</div>`;
+            benchHtml = `<div class="tb-bench-strip"><div class="tb-pitch-sub"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">event_seat</span> BENCH</div><div class="tb-bench-players-row" style="--players:${bench.length};">${bench.map(p => playerCard(p, true)).join('')}</div></div>`;
         }
 
         const header = `<div class="tb-pitch-header"><span class="tb-formation-badge">${formation}</span><span class="tb-pitch-sub">${starters.length} starters \u00B7 ${bench.length} bench</span></div>`;
@@ -2187,7 +2181,7 @@ const FPL = {
         builder._drawerQuery = '';
         builder._drawerPosition = positionFilter || 'all';
         builder._drawerClub = 'all';
-        builder._drawerSort = 'xpts';
+        builder._drawerSort = 'value';
 
         const title = document.getElementById('tb-drawer-title');
         if (title) title.textContent = positionFilter ? `Select ${positionFilter}` : 'Select player';
@@ -2200,7 +2194,6 @@ const FPL = {
 
         drawer.hidden = false;
         drawer.setAttribute('aria-hidden', 'false');
-        document.body.style.overflow = 'hidden';
         const searchInput = document.getElementById('tb-drawer-search');
         if (searchInput) { searchInput.value = ''; searchInput.focus(); }
     },
@@ -2218,7 +2211,7 @@ const FPL = {
         builder._drawerQuery = '';
         builder._drawerPosition = (player.position || '').toUpperCase();
         builder._drawerClub = 'all';
-        builder._drawerSort = 'xpts';
+        builder._drawerSort = 'value';
 
         const title = document.getElementById('tb-drawer-title');
         if (title) title.textContent = `Replace ${player.name}`;
@@ -2231,7 +2224,6 @@ const FPL = {
 
         drawer.hidden = false;
         drawer.setAttribute('aria-hidden', 'false');
-        document.body.style.overflow = 'hidden';
         const searchInput = document.getElementById('tb-drawer-search');
         if (searchInput) { searchInput.value = ''; searchInput.focus(); }
     },
@@ -2288,6 +2280,12 @@ const FPL = {
             players = players.filter(p => (p.club || p.team || '').toLowerCase() === builder._drawerClub.toLowerCase());
         }
 
+        if (replaceId) {
+            players = players.filter(p => p.id !== replaceId && !selectedSet.has(p.id));
+        } else {
+            players = players.filter(p => !selectedSet.has(p.id));
+        }
+
         const sort = builder._drawerSort || 'xpts';
         players = [...players].sort((a, b) => {
             if (sort === 'xpts') return (this.teamBuilderXPts(b) || 0) - (this.teamBuilderXPts(a) || 0);
@@ -2300,33 +2298,21 @@ const FPL = {
         const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
 
         list.innerHTML = players.slice(0, 60).map(player => {
-            const isSelected = replaceId ? player.id === replaceId : selectedSet.has(player.id);
+            const isSelected = false;
             const xpts = this.teamBuilderXPts ? this.teamBuilderXPts(player) : 0;
             const cost = (player.costValue || (player.cost / 10) || 0).toFixed(1);
             const posColor = posColors[player.position] || '#81C784';
             let actionLabel, actionClass, actionHandler;
             if (replaceId) {
-                if (player.id === replaceId) {
-                    actionLabel = 'Current';
-                    actionClass = 'tb-drawer-action current';
-                    actionHandler = '';
-                } else {
-                    actionLabel = 'Swap in';
-                    actionClass = 'tb-drawer-action swap';
-                    actionHandler = `onclick="FPL.drawerReplacePlayer(${player.id})"`;
-                }
+                actionLabel = 'Swap in';
+                actionClass = 'tb-drawer-action swap';
+                actionHandler = `onclick="FPL.drawerReplacePlayer(${player.id})"`;
             } else {
-                if (selectedSet.has(player.id)) {
-                    actionLabel = 'Remove';
-                    actionClass = 'tb-drawer-action remove';
-                    actionHandler = `onclick="FPL.drawerRemovePlayer(${player.id})"`;
-                } else {
-                    actionLabel = 'Add';
-                    actionClass = 'tb-drawer-action add';
-                    actionHandler = `onclick="FPL.drawerAddPlayer(${player.id})"`;
-                }
+                actionLabel = 'Add';
+                actionClass = 'tb-drawer-action add';
+                actionHandler = `onclick="FPL.drawerAddPlayer(${player.id})"`;
             }
-            return `<div class="tb-drawer-card${isSelected ? ' selected' : ''}">
+            return `<div class="tb-drawer-card">
                 <div class="tb-drawer-card-left">
                     ${this.teamBadge(player.club || player.team, 22)}
                     <div class="tb-drawer-card-info">
