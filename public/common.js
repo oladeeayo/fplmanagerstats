@@ -923,12 +923,11 @@ const FPL = {
         if (!builder.players.length) return;
         const existingIds = new Set(builder.selectedIds);
         const pinnedIds = new Set(builder.pinnedIds || []);
-        if (existingIds.size >= 15) return;
         builder.autoFillSeed = 0;
         const result = this.buildAutoFillSquad(0);
         if (!result?.ids?.length) return;
         builder.autoFillSeed = 1;
-        const merged = [...existingIds, ...result.ids.filter(id => !existingIds.has(id))].slice(0, 15);
+        const merged = result.ids.slice(0, 15);
         builder.selectedIds = merged;
         builder.autoFillStarters = result.starters || [];
         builder.autoFillFormation = result.formation;
@@ -957,7 +956,7 @@ const FPL = {
         builder.autoFillSeed += 1;
         const result = this.buildAutoFillSquad(builder.autoFillSeed);
         if (!result?.ids?.length) return;
-        const merged = [...existingIds, ...result.ids.filter(id => !existingIds.has(id))].slice(0, 15);
+        const merged = result.ids.slice(0, 15);
         builder.selectedIds = merged;
         builder.autoFillStarters = result.starters || [];
         builder.autoFillFormation = result.formation;
@@ -1212,7 +1211,16 @@ const FPL = {
         if ([...starterIds].some(id => selected.includes(id) && !starters.some(player => player.id === id))) return null;
         if ([...benchIds].some(id => starters.some(player => player.id === id))) return null;
         const xiScore = starters.reduce((sum, player) => sum + this.teamBuilderXPts(player), 0);
-        return { ids: selected, starters: starters.map(player => player.id), formation: formation.join('-'), xiScore, cost };
+        const starterIdSet = new Set(starters.map(player => player.id));
+        return {
+            ids: selected,
+            starters: [...starterIdSet],
+            formation: formation.join('-'),
+            xiScore,
+            cost,
+            starterIds: [...starterIdSet],
+            benchIds: selected.filter(id => !starterIdSet.has(id)),
+        };
     },
 
     async serverOcrText(file) {
@@ -1733,7 +1741,7 @@ const FPL = {
         const score = player => this.teamBuilderXPts(player, [gameweek]);
         const preferences = this.state.teamBuilder.preferences || {};
         const benchIds = new Set(preferences.benchIds || []);
-        const starterIds = new Set(preferences.starterIds || []);
+        const starterIds = new Set([...(preferences.starterIds || []), ...(this.state.teamBuilder.autoFillStarters || [])]);
         const priority = player => starterIds.has(player.id) ? 2 : benchIds.has(player.id) ? 0 : 1;
         const byPosition = position => squad.filter(player => player.position === position).sort((a, b) => priority(b) - priority(a) || score(b) - score(a));
         const keepers = byPosition('GKP');
@@ -1764,6 +1772,15 @@ const FPL = {
             const total = lineup.reduce((sum, player) => sum + score(player), 0);
             return total > bestLineup.total ? { lineup, total } : bestLineup;
         }, { lineup: [], total: -Infinity });
+        if (!best.lineup.length) {
+            const fallback = ordered.map(([def, mid, fwd]) => [groups.GKP[0], ...groups.DEF.slice(0, def), ...groups.MID.slice(0, mid), ...groups.FWD.slice(0, fwd)])
+                .filter(lineup => lineup.length === 11)
+                .reduce((bestLineup, lineup) => {
+                    const total = lineup.reduce((sum, player) => sum + score(player), 0);
+                    return total > bestLineup.total ? { lineup, total } : bestLineup;
+                }, { lineup: [], total: -Infinity });
+            return fallback.lineup;
+        }
         return best.lineup;
     },
 
@@ -2415,6 +2432,11 @@ const FPL = {
         const pinned = builder.pinnedIds || [];
         const pidx = pinned.indexOf(playerId);
         if (pidx >= 0) pinned.splice(pidx, 1);
+        builder.autoFillStarters = (builder.autoFillStarters || []).filter(id => id !== playerId);
+        if (builder.preferences) {
+            builder.preferences.starterIds = (builder.preferences.starterIds || []).filter(id => id !== playerId);
+            builder.preferences.benchIds = (builder.preferences.benchIds || []).filter(id => id !== playerId);
+        }
         if (player) builder._replacementPosition = (player.position || '').toUpperCase();
         this.saveTeamBuilderDraft();
         this.paintTeamBuilder();
@@ -2553,6 +2575,11 @@ const FPL = {
         const pinned = builder.pinnedIds || [];
         const pidx = pinned.indexOf(playerId);
         if (pidx >= 0) pinned.splice(pidx, 1);
+        builder.autoFillStarters = (builder.autoFillStarters || []).filter(id => id !== playerId);
+        if (builder.preferences) {
+            builder.preferences.starterIds = (builder.preferences.starterIds || []).filter(id => id !== playerId);
+            builder.preferences.benchIds = (builder.preferences.benchIds || []).filter(id => id !== playerId);
+        }
         if (removedPlayer) builder._replacementPosition = (removedPlayer.position || '').toUpperCase();
         this.saveTeamBuilderDraft();
         this.paintTeamBuilder();
