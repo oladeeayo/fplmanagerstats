@@ -1929,13 +1929,13 @@ const FPL = {
 
         function emptySlot(pos) {
             const posColor = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' }[pos] || '#5c7868';
-            const posImg = { GKP: 'gloves', DEF: 'shield', MID: 'sports_soccer', FWD: 'sports_soccer' }[pos] || 'sports_soccer';
             return `<div class="tactics-player-card home aiteam-pitch-card tb-squad-pitch-card tb-empty-slot" onclick="FPL.openMarketDrawer('${pos}')" title="Click to add a ${pos} from the market">
                 <div class="tactics-player-shirt tb-ghost-jersey" style="display:grid;place-items:center;border-radius:4px;">
                     <svg viewBox="0 0 60 70" width="36" height="42" style="opacity:0.25;"><path d="M15 8 L22 4 L38 4 L45 8 L52 14 L48 20 L42 16 L42 62 L18 62 L18 16 L12 20 L8 14 Z" fill="${posColor}" stroke="${posColor}" stroke-width="1.5" stroke-linejoin="round"/></svg>
+                    <span class="tb-empty-slot-plus" style="color:${posColor};">+</span>
                 </div>
                 <div class="tactics-player-copy"><b class="aiteam-pitch-name" style="color:${posColor};opacity:0.5;">${pos}</b></div>
-                <div class="aiteam-pitch-cost" style="color:${posColor};opacity:0.4;">Empty</div>
+                <div class="aiteam-pitch-cost" style="color:${posColor};opacity:0.4;">Add player</div>
             </div>`;
         }
 
@@ -1965,22 +1965,21 @@ const FPL = {
         }
 
         const rows = [];
-        const fwdCount = Math.max(starterGroups.FWD.length, 1);
-        const midCount = Math.max(starterGroups.MID.length, 1);
-        const defCount = Math.max(starterGroups.DEF.length, 1);
-        const fwdRow = starterGroups.FWD.length
-            ? starterGroups.FWD.map(p => playerCard(p, false)).join('')
-            : emptySlot('FWD');
-        const midRow = starterGroups.MID.length
-            ? starterGroups.MID.map(p => playerCard(p, false)).join('')
-            : emptySlot('MID');
-        const defRow = starterGroups.DEF.length
-            ? starterGroups.DEF.map(p => playerCard(p, false)).join('')
-            : emptySlot('DEF');
+        const starterMinimums = { FWD: 1, MID: 2, DEF: 3, GKP: 1 };
+        const rowCards = (pos) => [
+            ...starterGroups[pos].map(p => playerCard(p, false)),
+            ...Array.from({ length: Math.max(0, starterMinimums[pos] - starterGroups[pos].length) }, () => emptySlot(pos))
+        ].join('');
+        const fwdCount = Math.max(starterGroups.FWD.length, starterMinimums.FWD);
+        const midCount = Math.max(starterGroups.MID.length, starterMinimums.MID);
+        const defCount = Math.max(starterGroups.DEF.length, starterMinimums.DEF);
+        const fwdRow = rowCards('FWD');
+        const midRow = rowCards('MID');
+        const defRow = rowCards('DEF');
         rows.push(`<div class="tactics-pitch-row" style="--players:${fwdCount};">${fwdRow}</div>`);
         rows.push(`<div class="tactics-pitch-row" style="--players:${midCount};">${midRow}</div>`);
         rows.push(`<div class="tactics-pitch-row" style="--players:${defCount};">${defRow}</div>`);
-        rows.push(`<div class="tactics-pitch-row" style="--players:1;">${starterGroups.GKP.length ? starterGroups.GKP.map(p => playerCard(p, false)).join('') : emptySlot('GKP')}</div>`);
+        rows.push(`<div class="tactics-pitch-row" style="--players:1;">${rowCards('GKP')}</div>`);
 
         let swapBanner = '';
         if (swapSelectedId) {
@@ -1988,7 +1987,7 @@ const FPL = {
             const spPos = sp ? sp.position : '';
             const targets = [...starters, ...bench].filter(x => x.position === spPos && x.id !== swapSelectedId);
             const targetNames = targets.map(t => self.escapeHTML(t.name)).join(', ');
-            swapBanner = `<div class="tb-swap-banner"><span class="material-symbols-outlined">swap_vert</span><span><strong>${self.escapeHTML(sp?.name || '')}</strong> selected \u2014 tap a same-position player${targets.length ? ': ' + targetNames : ' to swap'}<button class="tb-swap-cancel" onclick="FPL.cancelSwapMode()">\u2715 Cancel</button></span></div>`;
+            swapBanner = `<div class="tb-swap-banner"><div class="tb-swap-banner-content"><span class="material-symbols-outlined">swap_vert</span><span><strong>${self.escapeHTML(sp?.name || '')}</strong> selected \u2014 tap a same-position player${targets.length ? ': ' + targetNames : ' to swap'}</span><button class="tb-swap-cancel" onclick="FPL.cancelSwapMode()">\u2715 Cancel</button></div></div>`;
         }
 
         let benchHtml = '';
