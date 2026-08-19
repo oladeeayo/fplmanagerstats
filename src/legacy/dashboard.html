@@ -92,9 +92,9 @@
         @keyframes spin { to { transform: rotate(360deg); } }
         #error-toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: var(--md-sys-color-error); color: #000; padding: var(--space-sm) var(--space-lg); border-radius: var(--radius-pill); font-size: 0.875rem; font-weight: 600; z-index: 10000; transition: all var(--transition-normal); }
         #error-toast.hidden { opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(20px); }
-        .sidebar-nav-item { display: flex; align-items: center; gap: var(--space-md); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); color: var(--md-sys-color-on-surface-variant); text-decoration: none; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: all var(--transition-fast); position: relative; border-left: 3px solid transparent; }
+        .sidebar-nav-item { display: flex; align-items: center; gap: var(--space-md); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); color: var(--md-sys-color-on-surface-variant); text-decoration: none; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: all var(--transition-fast); position: relative; }
         .sidebar-nav-item:hover { background: var(--md-sys-color-surface-container); color: var(--md-sys-color-on-surface); }
-        .sidebar-nav-item.active { background: var(--fpl-accent-dim); color: var(--md-sys-color-primary); border-left-color: var(--md-sys-color-primary); font-weight: 600; }
+        .sidebar-nav-item.active { background: var(--fpl-accent-dim); color: var(--md-sys-color-primary); font-weight: 600; }
         .sidebar-nav-item .material-symbols-outlined { font-size: 20px; }
         .sidebar-nav-button { width: 100%; border: 0; background: transparent; font-family: inherit; text-align: left; }
         .chart-bars { display: flex; flex-direction: column; gap: var(--space-sm); }
@@ -1367,6 +1367,18 @@
             </div>
             <div class="dialog-body" id="player-detail-body" style="padding:0;"></div>
             <div class="dialog-footer"><button class="btn btn-outline" onclick="FPL.hideDialog('player-detail-dialog')">Close</button></div>
+        </div>
+    </div>
+
+    <!-- News Detail Dialog -->
+    <div id="news-detail-dialog" class="dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="news-detail-dialog-title" aria-hidden="true">
+        <div class="dialog dialog-wide" style="max-width:520px;">
+            <div class="dialog-header">
+                <h3 id="news-detail-dialog-title" style="font-family:var(--font-display);font-weight:700;">News Details</h3>
+                <button class="btn btn-ghost btn-icon" type="button" aria-label="Close dialog" onclick="FPL.hideDialog('news-detail-dialog')"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+            </div>
+            <div class="dialog-body" id="news-detail-body"></div>
+            <div class="dialog-footer"><button class="btn btn-outline" onclick="FPL.hideDialog('news-detail-dialog')">Close</button></div>
         </div>
     </div>
 

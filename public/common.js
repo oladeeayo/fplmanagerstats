@@ -716,6 +716,8 @@ const FPL = {
         builder.selectedIds.push(playerId);
         this.saveTeamBuilderDraft();
         this.paintTeamBuilder();
+        this.hideReplacementSuggestions();
+        this.showToast(`Added ${player.name}`, 'ok');
     },
 
     toggleTeamBuilderGW(gameweek) {
@@ -2047,7 +2049,96 @@ const FPL = {
         if (pidx >= 0) pinned.splice(pidx, 1);
         this.saveTeamBuilderDraft();
         this.paintTeamBuilder();
-        if (player) this.showToast(`Removed ${player.name}`, 'info');
+        if (player) {
+            this.showToast(`Removed ${player.name}`, 'info');
+            this.showReplacementSuggestions(player);
+        }
+    },
+
+    replaceTeamBuilderPlayer(playerId) {
+        const builder = this.state.teamBuilder;
+        const player = builder.players.find(p => p.id === playerId);
+        if (!player) return;
+        this.removeTeamBuilderPlayerNoToast(playerId);
+        builder.query = '';
+        builder.position = (player.position || '').toLowerCase();
+        this.saveTeamBuilderDraft();
+        this.paintTeamBuilder();
+        const searchEl = document.getElementById('tb-position-filter');
+        if (searchEl) searchEl.value = builder.position;
+        this.showReplacementSuggestions(player);
+    },
+
+    showReplacementSuggestions(removedPlayer) {
+        const builder = this.state.teamBuilder;
+        const squad = this.teamBuilderSquad();
+        const validation = this.teamBuilderValidation(squad);
+        const remaining = Math.max(0, 100 - validation.cost);
+        const pos = removedPlayer.position;
+        const selectedIds = new Set(builder.selectedIds);
+        const clubs = validation.clubs;
+
+        const candidates = builder.players
+            .filter(p => {
+                if (p.id === removedPlayer.id) return false;
+                if (selectedIds.has(p.id)) return false;
+                if (p.position !== pos) return false;
+                const cost = p.costValue || (p.cost / 10) || 0;
+                if (cost > remaining) return false;
+                if ((clubs[p.team] || 0) >= 3) return false;
+                return true;
+            })
+            .map(p => ({
+                ...p,
+                cost: p.costValue || (p.cost / 10) || 0,
+                xPts: this.teamBuilderXPts ? this.teamBuilderXPts(p) : 0,
+                value: this.teamBuilderXPts ? (this.teamBuilderXPts(p) / (p.costValue || (p.cost / 10) || 1)) : 0
+            }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 8);
+
+        const container = document.getElementById('tb-replace-suggestions');
+        if (!container) return;
+
+        if (!candidates.length) {
+            container.classList.add('hidden');
+            return;
+        }
+
+        const removedCost = removedPlayer.costValue || (removedPlayer.cost / 10) || 0;
+
+        container.innerHTML = `
+            <div class="tb-replace-header">
+                <span class="material-symbols-outlined">person_add</span>
+                <div>
+                    <strong>Suggested ${pos} replacements</strong>
+                    <span>Budget: \u00A3${remaining.toFixed(1)}m remaining \u00B7 Removed ${removedPlayer.name} (\u00A3${removedCost.toFixed(1)}m)</span>
+                </div>
+                <button class="tb-replace-close" onclick="FPL.hideReplacementSuggestions()"><span class="material-symbols-outlined">close</span></button>
+            </div>
+            <div class="tb-replace-grid">
+                ${candidates.map(p => `
+                    <button type="button" class="tb-replace-card" onclick="FPL.addTeamBuilderPlayer(${p.id})" title="Add ${p.name}">
+                        <div class="tb-replace-card-top">
+                            ${this.teamBadge(p.club || p.team, 18)}
+                            <span class="tb-pos-badge pos-${(p.position || '').toLowerCase()}">${p.position}</span>
+                            <span class="tb-replace-cost">\u00A3${p.cost.toFixed(1)}m</span>
+                        </div>
+                        <div class="tb-replace-name">${this.escapeHTML(p.name || p.web_name || '')}</div>
+                        <div class="tb-replace-card-bottom">
+                            <span class="tb-replace-xpts">${p.xPts.toFixed(1)} xPts</span>
+                            <span class="tb-replace-value">${p.value.toFixed(2)} xP/\u00A3m</span>
+                        </div>
+                    </button>
+                `).join('')}
+            </div>
+        `;
+        container.classList.remove('hidden');
+    },
+
+    hideReplacementSuggestions() {
+        const container = document.getElementById('tb-replace-suggestions');
+        if (container) container.classList.add('hidden');
     },
 
     pinTeamBuilderPlayer(playerId) {
@@ -2080,20 +2171,6 @@ const FPL = {
         }
         this.saveTeamBuilderDraft();
         this.paintTeamBuilder();
-    },
-
-    replaceTeamBuilderPlayer(playerId) {
-        const builder = this.state.teamBuilder;
-        const player = builder.players.find(p => p.id === playerId);
-        if (!player) return;
-        this.removeTeamBuilderPlayerNoToast(playerId);
-        builder.query = '';
-        builder.position = (player.position || '').toLowerCase();
-        this.saveTeamBuilderDraft();
-        this.paintTeamBuilder();
-        const searchEl = document.getElementById('tb-position-filter');
-        if (searchEl) searchEl.value = builder.position;
-        this.showToast(`${player.name} removed \u2014 pick a replacement ${player.position} below`, 'info');
     },
 
     removeTeamBuilderPlayerNoToast(playerId) {
@@ -4211,6 +4288,7 @@ const FPL = {
             const bP = priority[b.tag] ?? 5;
             return aP - bP;
         });
+        this._lastNewsItems = sortedNews;
 
         let html = `<div class="news-container">
             <div class="news-header">
