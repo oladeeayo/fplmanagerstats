@@ -4183,8 +4183,24 @@ const FPL = {
             var hCSClass = hCS >= 35 ? 'solio-cs-high' : hCS >= 20 ? 'solio-cs-mid' : 'solio-cs-low';
             var aCSClass = aCS >= 35 ? 'solio-cs-high' : aCS >= 20 ? 'solio-cs-mid' : 'solio-cs-low';
 
+            var oddsRow = '';
+            if (m.probabilities) {
+                oddsRow = '<div style="display:flex;justify-content:center;gap:12px;margin:8px 0;font-family:var(--font-mono);font-size:10px;">' +
+                    '<span style="color:var(--md-sys-color-primary);">H ' + m.probabilities.homeWin + '%</span>' +
+                    '<span style="color:var(--md-sys-color-on-surface-variant);">D ' + m.probabilities.draw + '%</span>' +
+                    '<span style="color:var(--fdr-5);">A ' + m.probabilities.awayWin + '%</span>' +
+                    '</div>';
+            } else if (m.odds) {
+                oddsRow = '<div style="display:flex;justify-content:center;gap:12px;margin:8px 0;font-family:var(--font-mono);font-size:10px;">' +
+                    '<span style="color:var(--md-sys-color-primary);">H ' + m.odds.home.toFixed(2) + '</span>' +
+                    '<span style="color:var(--md-sys-color-on-surface-variant);">D ' + m.odds.draw.toFixed(2) + '</span>' +
+                    '<span style="color:var(--fdr-5);">A ' + m.odds.away.toFixed(2) + '</span>' +
+                    '</div>';
+            }
+
             return '<div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:14px;">' +
                 '<div style="text-align:center;font-family:var(--font-mono);font-size:10px;color:var(--md-sys-color-outline);margin-bottom:10px;">' + self.escapeHTML(timeStr) + '</div>' +
+                oddsRow +
                 '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
                 '<div style="display:flex;align-items:center;gap:8px;">' + self.teamBadge(m.homeTeam.shortName, 22) + '<span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(m.homeTeam.shortName) + '</span></div>' +
                 '<div style="display:flex;gap:6px;"><span class="solio-badge ' + hGoalsClass + '">' + hGoals.toFixed(2) + '</span><span class="solio-badge ' + hCSClass + '">' + hCS + '%</span></div>' +
@@ -4239,7 +4255,7 @@ const FPL = {
             '<th style="padding:8px 12px;text-align:center;color:var(--md-sys-color-primary);font-weight:700;">CS%</th>' +
             '<th style="padding:8px 12px;text-align:center;color:var(--md-sys-color-on-surface-variant);font-weight:700;">Bonus</th>' +
             '</tr></thead><tbody>' + tableRows + '</tbody></table></div></div>' +
-            '<div class="solio-footer">Player projections calculated using FPL expected data (xG, xA, bonus), team strength ratings, fixture difficulty, and position-based adjustments.</div>' +
+            '<div class="solio-footer">Projections based on ' + (data.projectionSource === 'odds' ? 'live betting odds (1X2 + Over/Under) converted to expected goals' : 'FPL expected data (xG, xA, bonus), team strength ratings, and fixture difficulty') + '.</div>' +
             '</div>';
 
         container.innerHTML = html;

@@ -10,6 +10,7 @@ const { generateWithGeminiFallback, GEMINI_PREFERENCE_MODELS } = require('./fpl'
 const understat = require('../understat');
 const { projectMultiGW, computeRollingFDR, computeRollingForm, mergeProfiles, projectMatch, computeMatchXG, aggregateProbs, scoreMatrix } = require('../goalProjectionModel');
 const playerProj = require('../playerProjectionModel');
+const oddsModel = require('../oddsProjectionModel');
 
 const router = express.Router();
 
@@ -1097,11 +1098,57 @@ router.get('/team-projections', async (req, res) => {
       return `${day} ${dd}/${mm}`;
     };
 
-    // --- NEW: Player-level projection model ---
-    const teamStrengths = playerProj.computeTeamStrengths(teams);
+    // --- Try odds-based projections first, fall back to bootstrap model ---
+    const oddsProjections = await oddsModel.getOddsBasedProjections(gwFixtures, teams).catch(() => null);
 
-    // Project all players for each fixture
-    const fixtureProjections = playerProj.projectGameweekPlayers(gwFixtures, teams, elements, teamStrengths);
+    let fixtureProjections;
+    let projectionSource;
+
+    if (oddsProjections && Object.keys(oddsProjections).length > 0) {
+      // Use odds-derived team xG to distribute to players
+      projectionSource = 'odds';
+      fixtureProjections = gwFixtures.map(f => {
+        const homeTeam = getTeam(f.team_h);
+        const awayTeam = getTeam(f.team_a);
+        const odds = oddsProjections[f.id];
+
+        const homePlayers = elements.filter(e => e.team === f.team_h && (e.minutes || 0) > 0).map(e => ({
+          ...e, team_short: homeTeam.short_name
+        }));
+        const awayPlayers = elements.filter(e => e.team === f.team_a && (e.minutes || 0) > 0).map(e => ({
+          ...e, team_short: awayTeam.short_name
+        }));
+
+        const homeGoals = odds ? odds.homeGoals : 1.5;
+        const awayGoals = odds ? odds.awayGoals : 1.2;
+
+        const distributedHome = oddsModel.distributeGoalsToPlayers(homePlayers, homeGoals);
+        const distributedAway = oddsModel.distributeGoalsToPlayers(awayPlayers, awayGoals);
+
+        // Set CS probability from odds
+        distributedHome.forEach(p => { p.csProb = odds ? odds.homeCS : 25; });
+        distributedAway.forEach(p => { p.csProb = odds ? odds.awayCS : 25; });
+
+        return {
+          fixtureId: f.id,
+          gw: f.event,
+          kickoff: f.kickoff_time,
+          homeTeam: { id: homeTeam.id, name: homeTeam.name, shortName: homeTeam.short_name },
+          awayTeam: { id: awayTeam.id, name: awayTeam.name, shortName: awayTeam.short_name },
+          fdrHome: f.team_h_difficulty || 3,
+          fdrAway: f.team_a_difficulty || 3,
+          odds: odds ? odds.odds : null,
+          probabilities: odds ? odds.probabilities : null,
+          homePlayers: distributedHome,
+          awayPlayers: distributedAway,
+        };
+      });
+    } else {
+      // Fall back to bootstrap player projection model
+      projectionSource = 'bootstrap';
+      const teamStrengths = playerProj.computeTeamStrengths(teams);
+      fixtureProjections = playerProj.projectGameweekPlayers(gwFixtures, teams, elements, teamStrengths);
+    }
 
     // Build match-level projections (team totals from player sums)
     const matchProjections = gwFixtures.map(f => {
@@ -1166,6 +1213,8 @@ router.get('/team-projections', async (req, res) => {
           fdr: fdrAway,
           topPlayers: awayTop.map(p => ({ name: p.name, position: p.position, points: p.totalPoints, goals: p.goals, assists: p.assists })),
         },
+        odds: fp.odds || null,
+        probabilities: fp.probabilities || null,
         players: [...fp.homePlayers, ...fp.awayPlayers].sort((a, b) => b.totalPoints - a.totalPoints),
       };
     }).filter(Boolean);
@@ -1203,6 +1252,7 @@ router.get('/team-projections', async (req, res) => {
       gw: selectedGW,
       currentGW,
       availableGWs: Array.from({ length: 38 }, (_, i) => i + 1),
+      projectionSource,
       matchProjections,
       teamsToTarget: {
         projectedGoals: goalsList,
