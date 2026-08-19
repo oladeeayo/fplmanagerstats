@@ -49,53 +49,53 @@ async function renderGoalsScoredProjections() {
         '</div></div>' +
 
         '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;margin-bottom:24px;">' +
-        '<div style="background:#121824;border:1px solid #1e2738;border-radius:12px;padding:16px;">' +
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span class="material-symbols-outlined" style="color:#4caf50;font-size:20px;">sports_soccer</span><span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:#94a3b8;">TOP ATTACKING TEAMS</span></div>' +
+        '<div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:16px;">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span class="material-symbols-outlined" style="color:var(--md-sys-color-primary);font-size:20px;">sports_soccer</span><span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--md-sys-color-on-surface-variant);">TOP ATTACKING TEAMS</span></div>' +
         topTeams.slice(0, 5).map(function(t, idx) {
             var medal = idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : '#CD7F32';
-            return '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#172030;border-radius:6px;border:1px solid #233047;margin-bottom:4px;">' +
-                '<div style="display:flex;align-items:center;gap:8px;"><span style="font-family:var(--font-mono);font-weight:900;font-size:12px;color:' + medal + ';">#' + (idx + 1) + '</span>' + self.teamBadge(t.team, 16) + '<span style="font-family:var(--font-mono);font-weight:700;font-size:13px;color:#fff;">' + self.escapeHTML(t.team) + '</span></div>' +
-                '<span style="font-family:var(--font-mono);font-weight:900;font-size:13px;color:#4caf50;background:rgba(76,175,80,0.15);padding:3px 8px;border-radius:5px;">' + t.totalXG.toFixed(1) + ' xG</span></div>';
+            return '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--md-sys-color-surface-container-high);border-radius:6px;border:1px solid var(--md-sys-color-outline-variant);margin-bottom:4px;">' +
+                '<div style="display:flex;align-items:center;gap:8px;"><span style="font-family:var(--font-mono);font-weight:900;font-size:12px;color:' + medal + ';">#' + (idx + 1) + '</span>' + self.teamBadge(t.team, 16) + '<span style="font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(t.team) + '</span></div>' +
+                '<span style="font-family:var(--font-mono);font-weight:900;font-size:13px;color:var(--data-blue);background:rgba(0,209,255,0.12);padding:3px 8px;border-radius:5px;">' + t.totalXG.toFixed(1) + ' xG</span></div>';
         }).join('') +
         '</div>' +
-        '<div style="background:#121824;border:1px solid #1e2738;border-radius:12px;padding:16px;">' +
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span class="material-symbols-outlined" style="color:#ff5722;font-size:20px;">trending_down</span><span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:#94a3b8;">WEAKEST ATTACKS</span></div>' +
+        '<div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:16px;">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span class="material-symbols-outlined" style="color:var(--fdr-5);font-size:20px;">trending_down</span><span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--md-sys-color-on-surface-variant);">WEAKEST ATTACKS</span></div>' +
         bottomTeams.slice(0, 5).map(function(t, idx) {
-            return '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#172030;border-radius:6px;border:1px solid #233047;margin-bottom:4px;">' +
-                '<div style="display:flex;align-items:center;gap:8px;"><span style="font-family:var(--font-mono);font-weight:900;font-size:12px;color:#ef5350;">#' + (20 - idx) + '</span>' + self.teamBadge(t.team, 16) + '<span style="font-family:var(--font-mono);font-weight:700;font-size:13px;color:#fff;">' + self.escapeHTML(t.team) + '</span></div>' +
-                '<span style="font-family:var(--font-mono);font-weight:900;font-size:13px;color:#ff5722;background:rgba(255,87,34,0.15);padding:3px 8px;border-radius:5px;">' + t.totalXG.toFixed(1) + ' xG</span></div>';
+            return '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--md-sys-color-surface-container-high);border-radius:6px;border:1px solid var(--md-sys-color-outline-variant);margin-bottom:4px;">' +
+                '<div style="display:flex;align-items:center;gap:8px;"><span style="font-family:var(--font-mono);font-weight:900;font-size:12px;color:var(--fdr-5);">#' + (20 - idx) + '</span>' + self.teamBadge(t.team, 16) + '<span style="font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(t.team) + '</span></div>' +
+                '<span style="font-family:var(--font-mono);font-weight:900;font-size:13px;color:var(--fdr-5);background:rgba(255,0,90,0.12);padding:3px 8px;border-radius:5px;">' + t.totalXG.toFixed(1) + ' xG</span></div>';
         }).join('') +
         '</div></div>' +
 
-        '<div style="background:#1c211e;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;margin-bottom:24px;">' +
-        '<div style="background:#a7cfbc;padding:14px 16px;border-bottom:1px solid #1A2E28;display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:18px;color:#0a0f0d;">sports_soccer</span><h3 style="font-family:var(--font-mono);font-size:13px;margin:0;color:#0a0f0d;">ALL TEAMS — EXPECTED GOALS (' + horizon + ' GWs)</h3></div>' +
-        '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:12px;"><thead><tr style="border-bottom:1px solid #34453b;background:#202722;">' +
-        '<th style="padding:8px 12px;text-align:left;color:#dfe4e0;font-weight:700;">#</th>' +
-        '<th style="padding:8px 12px;text-align:left;color:#dfe4e0;font-weight:700;">Team</th>' +
-        '<th style="padding:8px 12px;text-align:center;color:#4caf50;font-weight:700;">Total xG</th>' +
-        '<th style="padding:8px 12px;text-align:center;color:#4caf50;font-weight:700;">Avg xG/GW</th>' +
-        '<th style="padding:8px 12px;text-align:center;color:#94a3b8;font-weight:700;">FDR (3GW)</th>' +
-        '<th style="padding:8px 12px;text-align:center;color:#94a3b8;font-weight:700;">FDR (5GW)</th>' +
-        gwList.map(function(gw) { return '<th style="padding:8px 12px;text-align:center;color:#dfe4e0;font-weight:700;min-width:60px;">GW' + gw + '</th>'; }).join('') +
+        '<div style="background:var(--md-sys-color-surface-container-low);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;overflow:hidden;margin-bottom:24px;">' +
+        '<div style="background:var(--md-sys-color-secondary);padding:14px 16px;border-bottom:1px solid var(--md-sys-color-outline-variant);display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:18px;color:var(--md-sys-color-on-secondary);">sports_soccer</span><h3 style="font-family:var(--font-mono);font-size:13px;margin:0;color:var(--md-sys-color-on-secondary);">ALL TEAMS — EXPECTED GOALS (' + horizon + ' GWs)</h3></div>' +
+        '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:12px;"><thead><tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);background:var(--md-sys-color-surface-container-high);">' +
+        '<th style="padding:8px 12px;text-align:left;color:var(--md-sys-color-on-surface);font-weight:700;">#</th>' +
+        '<th style="padding:8px 12px;text-align:left;color:var(--md-sys-color-on-surface);font-weight:700;">Team</th>' +
+        '<th style="padding:8px 12px;text-align:center;color:var(--data-blue);font-weight:700;">Total xG</th>' +
+        '<th style="padding:8px 12px;text-align:center;color:var(--data-blue);font-weight:700;">Avg xG/GW</th>' +
+        '<th style="padding:8px 12px;text-align:center;color:var(--md-sys-color-on-surface-variant);font-weight:700;">FDR (3GW)</th>' +
+        '<th style="padding:8px 12px;text-align:center;color:var(--md-sys-color-on-surface-variant);font-weight:700;">FDR (5GW)</th>' +
+        gwList.map(function(gw) { return '<th style="padding:8px 12px;text-align:center;color:var(--md-sys-color-on-surface);font-weight:700;min-width:60px;">GW' + gw + '</th>'; }).join('') +
         '</tr></thead><tbody>' +
         data.ranked.map(function(team, idx) {
             var isEven = idx % 2 === 1;
             var cells = gwList.map(function(gw) {
                 var gwData = team.gameweeks.find(function(g) { return g.gw === gw; });
-                if (!gwData) return '<td style="padding:8px 12px;text-align:center;color:#4a5568;">—</td>';
+                if (!gwData) return '<td style="padding:8px 12px;text-align:center;color:var(--md-sys-color-outline);">—</td>';
                 var barWidth = Math.min(100, Math.max(15, Math.round((gwData.xg / 3.0) * 100)));
                 return '<td style="padding:6px 8px;text-align:center;"><div style="display:flex;flex-direction:column;align-items:center;gap:2px;">' +
-                    '<span style="font-weight:700;color:#4caf50;font-size:11px;">' + gwData.xg.toFixed(2) + '</span>' +
-                    '<div style="width:100%;height:4px;background:#1a2233;border-radius:2px;overflow:hidden;"><div style="width:' + barWidth + '%;height:100%;background:#4caf50;border-radius:2px;"></div></div>' +
-                    '<span style="font-size:9px;color:#64748b;">' + (gwData.isHome ? 'H' : 'A') + ' ' + self.escapeHTML(gwData.opponent) + '</span></div></td>';
+                    '<span style="font-weight:700;color:var(--data-blue);font-size:11px;">' + gwData.xg.toFixed(2) + '</span>' +
+                    '<div style="width:100%;height:4px;background:var(--md-sys-color-surface-container-high);border-radius:2px;overflow:hidden;"><div style="width:' + barWidth + '%;height:100%;background:var(--data-blue);border-radius:2px;"></div></div>' +
+                    '<span style="font-size:9px;color:var(--md-sys-color-outline);">' + (gwData.isHome ? 'H' : 'A') + ' ' + self.escapeHTML(gwData.opponent) + '</span></div></td>';
             }).join('');
-            return '<tr style="border-bottom:1px solid #1A2E28;background:' + (isEven ? '#181d1a' : '#0f1412') + ';">' +
-                '<td style="padding:8px 12px;color:#94a3b8;font-weight:700;">' + (idx + 1) + '</td>' +
-                '<td style="padding:8px 12px;"><div style="display:flex;align-items:center;gap:8px;">' + self.teamBadge(team.team, 18) + '<span style="font-weight:700;color:#fff;">' + self.escapeHTML(team.team) + '</span></div></td>' +
-                '<td style="padding:8px 12px;text-align:center;font-weight:900;color:#4caf50;">' + team.totalXG.toFixed(1) + '</td>' +
-                '<td style="padding:8px 12px;text-align:center;font-weight:700;color:#81c784;">' + team.avgXG.toFixed(2) + '</td>' +
-                '<td style="padding:8px 12px;text-align:center;"><span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:20px;border-radius:4px;font-size:11px;font-weight:700;background:var(--fdr-' + Math.round(team.fdr3gw) + ');color:white;">' + team.fdr3gw.toFixed(1) + '</span></td>' +
-                '<td style="padding:8px 12px;text-align:center;"><span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:20px;border-radius:4px;font-size:11px;font-weight:700;background:var(--fdr-' + Math.round(team.fdr5gw) + ');color:white;">' + team.fdr5gw.toFixed(1) + '</span></td>' +
+            return '<tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);background:' + (isEven ? 'var(--md-sys-color-surface-container-low)' : 'var(--md-sys-color-surface-container-lowest)') + ';">' +
+                '<td style="padding:8px 12px;color:var(--md-sys-color-on-surface-variant);font-weight:700;">' + (idx + 1) + '</td>' +
+                '<td style="padding:8px 12px;"><div style="display:flex;align-items:center;gap:8px;">' + self.teamBadge(team.team, 18) + '<span style="font-weight:700;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(team.team) + '</span></div></td>' +
+                '<td style="padding:8px 12px;text-align:center;font-weight:900;color:var(--data-blue);">' + team.totalXG.toFixed(1) + '</td>' +
+                '<td style="padding:8px 12px;text-align:center;font-weight:700;color:var(--data-blue);">' + team.avgXG.toFixed(2) + '</td>' +
+                '<td style="padding:8px 12px;text-align:center;"><span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:20px;border-radius:4px;font-size:11px;font-weight:700;background:var(--fdr-' + Math.round(team.fdr3gw) + ');color:var(--md-sys-color-surface-container-lowest);">' + team.fdr3gw.toFixed(1) + '</span></td>' +
+                '<td style="padding:8px 12px;text-align:center;"><span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:20px;border-radius:4px;font-size:11px;font-weight:700;background:var(--fdr-' + Math.round(team.fdr5gw) + ');color:var(--md-sys-color-surface-container-lowest);">' + team.fdr5gw.toFixed(1) + '</span></td>' +
                 cells + '</tr>';
         }).join('') +
         '</tbody></table></div></div>' +
@@ -153,56 +153,56 @@ async function renderGoalsConcededProjections() {
         '</div></div>' +
 
         '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;margin-bottom:24px;">' +
-        '<div style="background:#121824;border:1px solid #1e2738;border-radius:12px;padding:16px;">' +
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span class="material-symbols-outlined" style="color:#4caf50;font-size:20px;">shield</span><span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:#94a3b8;">BEST DEFENCES</span></div>' +
+        '<div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:16px;">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span class="material-symbols-outlined" style="color:var(--md-sys-color-primary);font-size:20px;">shield</span><span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--md-sys-color-on-surface-variant);">BEST DEFENCES</span></div>' +
         bestDefences.slice(0, 5).map(function(t, idx) {
             var medal = idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : '#CD7F32';
-            return '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#172030;border-radius:6px;border:1px solid #233047;margin-bottom:4px;">' +
-                '<div style="display:flex;align-items:center;gap:8px;"><span style="font-family:var(--font-mono);font-weight:900;font-size:12px;color:' + medal + ';">#' + (idx + 1) + '</span>' + self.teamBadge(t.team, 16) + '<span style="font-family:var(--font-mono);font-weight:700;font-size:13px;color:#fff;">' + self.escapeHTML(t.team) + '</span></div>' +
-                '<div style="display:flex;gap:6px;"><span style="font-family:var(--font-mono);font-weight:900;font-size:12px;color:#4caf50;background:rgba(76,175,80,0.15);padding:3px 8px;border-radius:5px;">' + t.totalXGA.toFixed(1) + ' xGA</span><span style="font-family:var(--font-mono);font-weight:900;font-size:12px;color:#ffcc80;background:rgba(255,204,128,0.1);padding:3px 8px;border-radius:5px;">' + t.totalCS.toFixed(0) + '% CS</span></div></div>';
+            return '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--md-sys-color-surface-container-high);border-radius:6px;border:1px solid var(--md-sys-color-outline-variant);margin-bottom:4px;">' +
+                '<div style="display:flex;align-items:center;gap:8px;"><span style="font-family:var(--font-mono);font-weight:900;font-size:12px;color:' + medal + ';">#' + (idx + 1) + '</span>' + self.teamBadge(t.team, 16) + '<span style="font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(t.team) + '</span></div>' +
+                '<div style="display:flex;gap:6px;"><span style="font-family:var(--font-mono);font-weight:900;font-size:12px;color:var(--data-blue);background:rgba(0,209,255,0.12);padding:3px 8px;border-radius:5px;">' + t.totalXGA.toFixed(1) + ' xGA</span><span style="font-family:var(--font-mono);font-weight:900;font-size:12px;color:var(--md-sys-color-primary);background:rgba(0,228,118,0.1);padding:3px 8px;border-radius:5px;">' + t.totalCS.toFixed(0) + '% CS</span></div></div>';
         }).join('') +
         '</div>' +
-        '<div style="background:#121824;border:1px solid #1e2738;border-radius:12px;padding:16px;">' +
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span class="material-symbols-outlined" style="color:#ff5722;font-size:20px;">warning</span><span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:#94a3b8;">WORST DEFENCES</span></div>' +
+        '<div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:16px;">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span class="material-symbols-outlined" style="color:var(--fdr-5);font-size:20px;">warning</span><span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--md-sys-color-on-surface-variant);">WORST DEFENCES</span></div>' +
         worstDefences.slice(0, 5).map(function(t, idx) {
-            return '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#172030;border-radius:6px;border:1px solid #233047;margin-bottom:4px;">' +
-                '<div style="display:flex;align-items:center;gap:8px;"><span style="font-family:var(--font-mono);font-weight:900;font-size:12px;color:#ef5350;">#' + (20 - idx) + '</span>' + self.teamBadge(t.team, 16) + '<span style="font-family:var(--font-mono);font-weight:700;font-size:13px;color:#fff;">' + self.escapeHTML(t.team) + '</span></div>' +
-                '<div style="display:flex;gap:6px;"><span style="font-family:var(--font-mono);font-weight:900;font-size:12px;color:#ff5722;background:rgba(255,87,34,0.15);padding:3px 8px;border-radius:5px;">' + t.totalXGA.toFixed(1) + ' xGA</span><span style="font-family:var(--font-mono);font-weight:900;font-size:12px;color:#ef9a9a;background:rgba(239,83,80,0.1);padding:3px 8px;border-radius:5px;">' + t.totalCS.toFixed(0) + '% CS</span></div></div>';
+            return '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--md-sys-color-surface-container-high);border-radius:6px;border:1px solid var(--md-sys-color-outline-variant);margin-bottom:4px;">' +
+                '<div style="display:flex;align-items:center;gap:8px;"><span style="font-family:var(--font-mono);font-weight:900;font-size:12px;color:var(--fdr-5);">#' + (20 - idx) + '</span>' + self.teamBadge(t.team, 16) + '<span style="font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(t.team) + '</span></div>' +
+                '<div style="display:flex;gap:6px;"><span style="font-family:var(--font-mono);font-weight:900;font-size:12px;color:var(--fdr-5);background:rgba(255,0,90,0.12);padding:3px 8px;border-radius:5px;">' + t.totalXGA.toFixed(1) + ' xGA</span><span style="font-family:var(--font-mono);font-weight:900;font-size:12px;color:var(--fdr-4);background:rgba(255,166,0,0.1);padding:3px 8px;border-radius:5px;">' + t.totalCS.toFixed(0) + '% CS</span></div></div>';
         }).join('') +
         '</div></div>' +
 
-        '<div style="background:#1c211e;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;margin-bottom:24px;">' +
-        '<div style="background:#a7cfbc;padding:14px 16px;border-bottom:1px solid #1A2E28;display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:18px;color:#0a0f0d;">shield</span><h3 style="font-family:var(--font-mono);font-size:13px;margin:0;color:#0a0f0d;">ALL TEAMS — EXPECTED GOALS CONCEDED (' + horizon + ' GWs)</h3></div>' +
-        '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:12px;"><thead><tr style="border-bottom:1px solid #34453b;background:#202722;">' +
-        '<th style="padding:8px 12px;text-align:left;color:#dfe4e0;font-weight:700;">#</th>' +
-        '<th style="padding:8px 12px;text-align:left;color:#dfe4e0;font-weight:700;">Team</th>' +
-        '<th style="padding:8px 12px;text-align:center;color:#ff5722;font-weight:700;">Total xGA</th>' +
-        '<th style="padding:8px 12px;text-align:center;color:#ff5722;font-weight:700;">Avg xGA/GW</th>' +
-        '<th style="padding:8px 12px;text-align:center;color:#ffcc80;font-weight:700;">Total CS%</th>' +
-        '<th style="padding:8px 12px;text-align:center;color:#94a3b8;font-weight:700;">FDR (3GW)</th>' +
-        '<th style="padding:8px 12px;text-align:center;color:#94a3b8;font-weight:700;">FDR (5GW)</th>' +
-        gwList.map(function(gw) { return '<th style="padding:8px 12px;text-align:center;color:#dfe4e0;font-weight:700;min-width:70px;">GW' + gw + '</th>'; }).join('') +
+        '<div style="background:var(--md-sys-color-surface-container-low);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;overflow:hidden;margin-bottom:24px;">' +
+        '<div style="background:var(--md-sys-color-secondary);padding:14px 16px;border-bottom:1px solid var(--md-sys-color-outline-variant);display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:18px;color:var(--md-sys-color-on-secondary);">shield</span><h3 style="font-family:var(--font-mono);font-size:13px;margin:0;color:var(--md-sys-color-on-secondary);">ALL TEAMS — EXPECTED GOALS CONCEDED (' + horizon + ' GWs)</h3></div>' +
+        '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:12px;"><thead><tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);background:var(--md-sys-color-surface-container-high);">' +
+        '<th style="padding:8px 12px;text-align:left;color:var(--md-sys-color-on-surface);font-weight:700;">#</th>' +
+        '<th style="padding:8px 12px;text-align:left;color:var(--md-sys-color-on-surface);font-weight:700;">Team</th>' +
+        '<th style="padding:8px 12px;text-align:center;color:var(--fdr-5);font-weight:700;">Total xGA</th>' +
+        '<th style="padding:8px 12px;text-align:center;color:var(--fdr-5);font-weight:700;">Avg xGA/GW</th>' +
+        '<th style="padding:8px 12px;text-align:center;color:var(--md-sys-color-primary);font-weight:700;">Total CS%</th>' +
+        '<th style="padding:8px 12px;text-align:center;color:var(--md-sys-color-on-surface-variant);font-weight:700;">FDR (3GW)</th>' +
+        '<th style="padding:8px 12px;text-align:center;color:var(--md-sys-color-on-surface-variant);font-weight:700;">FDR (5GW)</th>' +
+        gwList.map(function(gw) { return '<th style="padding:8px 12px;text-align:center;color:var(--md-sys-color-on-surface);font-weight:700;min-width:70px;">GW' + gw + '</th>'; }).join('') +
         '</tr></thead><tbody>' +
         data.ranked.map(function(team, idx) {
             var isEven = idx % 2 === 1;
             var cells = gwList.map(function(gw) {
                 var gwData = team.gameweeks.find(function(g) { return g.gw === gw; });
-                if (!gwData) return '<td style="padding:8px 12px;text-align:center;color:#4a5568;">—</td>';
+                if (!gwData) return '<td style="padding:8px 12px;text-align:center;color:var(--md-sys-color-outline);">—</td>';
                 var barWidth = Math.min(100, Math.max(15, Math.round((gwData.xga / 3.0) * 100)));
-                var csColor = gwData.csPct >= 35 ? '#4caf50' : gwData.csPct >= 20 ? '#ffcc80' : '#ef5350';
+                var csColor = gwData.csPct >= 35 ? 'var(--md-sys-color-primary)' : gwData.csPct >= 20 ? 'var(--fdr-4)' : 'var(--fdr-5)';
                 return '<td style="padding:6px 8px;text-align:center;"><div style="display:flex;flex-direction:column;align-items:center;gap:2px;">' +
-                    '<span style="font-weight:700;color:#ff5722;font-size:11px;">' + gwData.xga.toFixed(2) + '</span>' +
-                    '<div style="width:100%;height:4px;background:#1a2233;border-radius:2px;overflow:hidden;"><div style="width:' + barWidth + '%;height:100%;background:#ff5722;border-radius:2px;"></div></div>' +
+                    '<span style="font-weight:700;color:var(--fdr-5);font-size:11px;">' + gwData.xga.toFixed(2) + '</span>' +
+                    '<div style="width:100%;height:4px;background:var(--md-sys-color-surface-container-high);border-radius:2px;overflow:hidden;"><div style="width:' + barWidth + '%;height:100%;background:var(--fdr-5);border-radius:2px;"></div></div>' +
                     '<span style="font-size:9px;color:' + csColor + ';">' + gwData.csPct + '% CS · ' + (gwData.isHome ? 'H' : 'A') + ' ' + self.escapeHTML(gwData.opponent) + '</span></div></td>';
             }).join('');
-            return '<tr style="border-bottom:1px solid #1A2E28;background:' + (isEven ? '#181d1a' : '#0f1412') + ';">' +
-                '<td style="padding:8px 12px;color:#94a3b8;font-weight:700;">' + (idx + 1) + '</td>' +
-                '<td style="padding:8px 12px;"><div style="display:flex;align-items:center;gap:8px;">' + self.teamBadge(team.team, 18) + '<span style="font-weight:700;color:#fff;">' + self.escapeHTML(team.team) + '</span></div></td>' +
-                '<td style="padding:8px 12px;text-align:center;font-weight:900;color:#ff5722;">' + team.totalXGA.toFixed(1) + '</td>' +
-                '<td style="padding:8px 12px;text-align:center;font-weight:700;color:#ff8a65;">' + team.avgXGA.toFixed(2) + '</td>' +
-                '<td style="padding:8px 12px;text-align:center;font-weight:700;color:#ffcc80;">' + team.totalCS.toFixed(0) + '%</td>' +
-                '<td style="padding:8px 12px;text-align:center;"><span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:20px;border-radius:4px;font-size:11px;font-weight:700;background:var(--fdr-' + Math.round(team.fdr3gw) + ');color:white;">' + team.fdr3gw.toFixed(1) + '</span></td>' +
-                '<td style="padding:8px 12px;text-align:center;"><span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:20px;border-radius:4px;font-size:11px;font-weight:700;background:var(--fdr-' + Math.round(team.fdr5gw) + ');color:white;">' + team.fdr5gw.toFixed(1) + '</span></td>' +
+            return '<tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);background:' + (isEven ? 'var(--md-sys-color-surface-container-low)' : 'var(--md-sys-color-surface-container-lowest)') + ';">' +
+                '<td style="padding:8px 12px;color:var(--md-sys-color-on-surface-variant);font-weight:700;">' + (idx + 1) + '</td>' +
+                '<td style="padding:8px 12px;"><div style="display:flex;align-items:center;gap:8px;">' + self.teamBadge(team.team, 18) + '<span style="font-weight:700;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(team.team) + '</span></div></td>' +
+                '<td style="padding:8px 12px;text-align:center;font-weight:900;color:var(--fdr-5);">' + team.totalXGA.toFixed(1) + '</td>' +
+                '<td style="padding:8px 12px;text-align:center;font-weight:700;color:var(--fdr-4);">' + team.avgXGA.toFixed(2) + '</td>' +
+                '<td style="padding:8px 12px;text-align:center;font-weight:700;color:var(--md-sys-color-primary);">' + team.totalCS.toFixed(0) + '%</td>' +
+                '<td style="padding:8px 12px;text-align:center;"><span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:20px;border-radius:4px;font-size:11px;font-weight:700;background:var(--fdr-' + Math.round(team.fdr3gw) + ');color:var(--md-sys-color-surface-container-lowest);">' + team.fdr3gw.toFixed(1) + '</span></td>' +
+                '<td style="padding:8px 12px;text-align:center;"><span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:20px;border-radius:4px;font-size:11px;font-weight:700;background:var(--fdr-' + Math.round(team.fdr5gw) + ');color:var(--md-sys-color-surface-container-lowest);">' + team.fdr5gw.toFixed(1) + '</span></td>' +
                 cells + '</tr>';
         }).join('') +
         '</tbody></table></div></div>' +

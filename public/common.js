@@ -3965,28 +3965,28 @@ const FPL = {
                                     <span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:var(--md-sys-color-on-surface);">${this.escapeHTML(t.team)}</span>
                                     <span style="font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-outline);">vs ${this.escapeHTML(t.opponent)}</span>
                                 </div>
-                                <span style="font-family:var(--font-mono);font-weight:900;font-size:14px;color:#90caf9;background:#113463;padding:4px 10px;border-radius:6px;">${(typeof t.goals === 'number' ? t.goals : parseFloat(t.goals) || 0).toFixed(2)} gls</span>
+                                <span style="font-family:var(--font-mono);font-weight:900;font-size:14px;color:var(--data-blue);background:rgba(0,209,255,0.12);padding:4px 10px;border-radius:6px;">${(typeof t.goals === 'number' ? t.goals : parseFloat(t.goals) || 0).toFixed(2)} gls</span>
                             </div>
                         `).join('')}
                     </div>
                 </div>
 
                 <!-- Top Clean Sheet Teams -->
-                <div class="top-rated-card" style="background:#121824;border:1px solid #1e2738;border-radius:12px;padding:16px;">
+                <div class="top-rated-card" style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:16px;">
                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                        <span class="material-symbols-outlined" style="color:#e65100;font-size:20px;">shield</span>
-                        <span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:0.5px;">HIGHEST CLEAN SHEET CHANCES (GW${selectedGW})</span>
+                        <span class="material-symbols-outlined" style="color:var(--md-sys-color-primary);font-size:20px;">shield</span>
+                        <span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--md-sys-color-on-surface-variant);letter-spacing:0.5px;">HIGHEST CLEAN SHEET CHANCES (GW${selectedGW})</span>
                     </div>
                     <div style="display:flex;flex-direction:column;gap:8px;">
                         ${top3CS.map((t, idx) => `
-                            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#172030;border-radius:8px;border:1px solid #233047;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--md-sys-color-surface-container-high);border-radius:8px;border:1px solid var(--md-sys-color-outline-variant);">
                                 <div style="display:flex;align-items:center;gap:10px;">
                                     <span style="font-family:var(--font-mono);font-weight:900;font-size:13px;color:${idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : '#CD7F32'};">#${idx+1}</span>
                                     ${this.teamBadge(t.team, 20)}
-                                    <span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:#fff;">${this.escapeHTML(t.team)}</span>
-                                    <span style="font-family:var(--font-mono);font-size:11px;color:#64748b;">vs ${this.escapeHTML(t.opponent)}</span>
+                                    <span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:var(--md-sys-color-on-surface);">${this.escapeHTML(t.team)}</span>
+                                    <span style="font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-outline);">vs ${this.escapeHTML(t.opponent)}</span>
                                 </div>
-                                <span style="font-family:var(--font-mono);font-weight:900;font-size:14px;color:#ffcc80;background:#542205;padding:4px 10px;border-radius:6px;">${t.csPct}% CS</span>
+                                <span style="font-family:var(--font-mono);font-weight:900;font-size:14px;color:var(--md-sys-color-primary);background:rgba(0,228,118,0.12);padding:4px 10px;border-radius:6px;">${t.csPct}% CS</span>
                             </div>
                         `).join('')}
                     </div>

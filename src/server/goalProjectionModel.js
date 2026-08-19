@@ -86,17 +86,24 @@ function teamDefenceStrength(team, isHome) {
 function buildBootstrapProfiles(teams) {
   const profiles = {};
   teams.forEach(t => {
+    // FPL strength ranges ~800-1400, avg ~1100
+    // Typical PL xG per match ranges ~0.8-2.2
+    // Convert strength to xG using linear mapping calibrated to PL averages
+    const atkHome = t.strength_attack_home || 1100;
+    const atkAway = t.strength_attack_away || 1100;
+    const defHome = t.strength_defence_home || 1100;
+    const defAway = t.strength_defence_away || 1100;
+
     profiles[t.short_name] = {
       name: t.short_name,
-      // Convert FPL strength ratings to approximate xG/xGA per match
-      // FPL strength ranges ~800-1400, avg 1100
-      // Typical PL xG per match ranges ~0.8-2.2
-      xG_home: (t.strength_attack_home || 1100) / 1100 * 1.45,
-      xG_away: (t.strength_attack_away || 1100) / 1100 * 1.15,
-      xGA_home: (1 - ((t.strength_defence_home || 1100) - 800) / 1200) * 1.5 + 0.3,
-      xGA_away: (1 - ((t.strength_defence_away || 1100) - 800) / 1200) * 1.5 + 0.4,
+      // Attack: higher strength = more goals scored
+      xG_home: 0.65 + (atkHome - 800) / 600 * 1.1,
+      xG_away: 0.55 + (atkAway - 800) / 600 * 0.95,
+      // Defense: higher strength = fewer goals conceded (inverted)
+      xGA_home: 0.65 + (1 - (defHome - 800) / 600) * 1.1,
+      xGA_away: 0.55 + (1 - (defAway - 800) / 600) * 0.95,
       // Defensive strength: 0 = leaky, 1 = solid
-      defStrength: (t.strength_defence_home || 1100) / 2000,
+      defStrength: defHome / 2000,
     };
   });
   return profiles;
