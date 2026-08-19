@@ -1217,6 +1217,7 @@
                                 <div class="tb-squad-actions">
                                     <button type="button" class="tb-btn tb-btn-autofill" onclick="FPL.autoFillTeamBuilder()" title="Auto-fill a legal 15-player squad"><span class="material-symbols-outlined">auto_awesome</span> Autofill</button>
                                     <button type="button" id="tb-autofill-reroll" class="tb-btn tb-btn-secondary hidden" onclick="FPL.reRollTeamBuilderAutoFill()" title="Alternative auto-fill"><span class="material-symbols-outlined">refresh</span> Re-roll</button>
+                                    <button type="button" class="tb-btn tb-btn-secondary" onclick="FPL.openMarketDrawer()" title="Add player from market"><span class="material-symbols-outlined">person_add</span> Add player</button>
                                     <button type="button" class="tb-btn tb-btn-secondary" onclick="FPL.clearTeamBuilder()" title="Remove all players"><span class="material-symbols-outlined">delete_sweep</span> Reset</button>
                                 </div>
                                 <div id="tb-budget-meter" class="tb-budget-meter"></div>
@@ -1225,21 +1226,6 @@
                                 <div id="tb-squad-pitch" class="tb-squad-pitch"></div>
                                 <div id="tb-replace-suggestions" class="tb-replace-suggestions hidden"></div>
                                 <div id="tb-save-status" class="tb-save-status" aria-live="polite"></div>
-                            </section>
-
-                            <!-- Market Panel (always visible on right) -->
-                            <section class="tb-market-panel" aria-labelledby="tb-market-title">
-                                <div class="tb-panel-heading">
-                                    <div><h2 id="tb-market-title">Player market</h2><span id="tb-market-count">All players</span></div>
-                                </div>
-                                <div class="tb-market-controls">
-                                    <label class="tb-search"><span class="material-symbols-outlined">search</span><input id="tb-player-search" type="search" placeholder="Search player or club" oninput="FPL.updateTeamBuilderFilters()" aria-label="Search players"></label>
-                                    <select id="tb-position-filter" onchange="FPL.updateTeamBuilderFilters()" aria-label="Filter by position"><option value="all">All positions</option><option>GKP</option><option>DEF</option><option>MID</option><option>FWD</option></select>
-                                    <select id="tb-club-filter" onchange="FPL.updateTeamBuilderFilters()" aria-label="Filter by club"><option value="all">All clubs</option></select>
-                                    <select id="tb-sort" onchange="FPL.updateTeamBuilderFilters()" aria-label="Sort players"><option value="xpts">Horizon xPts</option><option value="value">xPts per £m</option><option value="price-desc">Price high to low</option><option value="ownership">Ownership</option></select>
-                                </div>
-                                <div id="tb-market-message" class="tb-market-message" aria-live="polite"></div>
-                                <div id="tb-player-list" class="tb-player-list"></div>
                             </section>
                         </div>
 
@@ -1296,7 +1282,7 @@
                         <div class="tb-player-modal-header">
                             <div class="tb-player-modal-identity">
                                 <div class="tb-player-modal-shirt" id="tb-modal-shirt"></div>
-                                <div>
+                                <div class="tb-player-modal-text">
                                     <div class="tb-player-modal-name" id="tb-modal-name"></div>
                                     <div class="tb-player-modal-meta" id="tb-modal-meta"></div>
                                 </div>
@@ -1304,22 +1290,42 @@
                             <button type="button" class="tb-player-modal-close" onclick="FPL.closePlayerModal()" aria-label="Close"><span class="material-symbols-outlined">close</span></button>
                         </div>
                         <div class="tb-player-modal-body">
-                            <button type="button" class="tb-player-modal-action" id="tb-modal-captain" onclick="FPL.modalMakeCaptain()">
-                                <span class="material-symbols-outlined">shield</span> Make captain (C)
-                            </button>
-                            <button type="button" class="tb-player-modal-action" id="tb-modal-vice" onclick="FPL.modalMakeViceCaptain()">
-                                <span class="material-symbols-outlined">shield</span> Make vice-captain (V)
-                            </button>
-                            <div class="tb-player-modal-divider"></div>
-                            <div class="tb-player-modal-bench-section">
-                                <div class="tb-player-modal-bench-title">Swap with bench</div>
-                                <div id="tb-modal-bench-list" class="tb-player-modal-bench-list"></div>
+                            <div class="tb-player-modal-section">
+                                <button type="button" class="tb-player-modal-action" id="tb-modal-captain" onclick="FPL.modalMakeCaptain()"></button>
+                                <button type="button" class="tb-player-modal-action" id="tb-modal-vice" onclick="FPL.modalMakeViceCaptain()"></button>
                             </div>
-                            <div class="tb-player-modal-divider"></div>
-                            <button type="button" class="tb-player-modal-action danger" onclick="FPL.modalRemovePlayer()">
-                                <span class="material-symbols-outlined">delete</span> Remove from squad
-                            </button>
+                            <div class="tb-player-modal-section">
+                                <div class="tb-player-modal-section-title">Swap with bench</div>
+                                <div id="tb-modal-bench-list" class="tb-player-modal-bench-list"></div>
+                                <button type="button" class="tb-player-modal-action tb-player-modal-action-replace" id="tb-modal-replace" onclick="FPL.modalReplaceFromMarket()">
+                                    <span class="material-symbols-outlined">storefront</span> Replace from market
+                                </button>
+                            </div>
+                            <div class="tb-player-modal-section tb-player-modal-section-danger">
+                                <button type="button" class="tb-player-modal-action tb-player-modal-action-danger" onclick="FPL.modalRemovePlayer()">
+                                    <span class="material-symbols-outlined">delete</span> Remove from squad
+                                </button>
+                            </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Market Slide-out Panel -->
+                <div id="tb-market-drawer" class="tb-market-drawer" hidden>
+                    <div class="tb-market-drawer-backdrop" onclick="FPL.closeMarketDrawer()"></div>
+                    <div class="tb-market-drawer-content">
+                        <div class="tb-market-drawer-header">
+                            <h2 id="tb-drawer-title">Select player</h2>
+                            <button type="button" class="tb-market-drawer-close" onclick="FPL.closeMarketDrawer()" aria-label="Close"><span class="material-symbols-outlined">close</span></button>
+                        </div>
+                        <div class="tb-market-drawer-controls">
+                            <label class="tb-search"><span class="material-symbols-outlined">search</span><input id="tb-drawer-search" type="search" placeholder="Search player or club" oninput="FPL.updateDrawerFilters()" aria-label="Search players"></label>
+                            <select id="tb-drawer-position" onchange="FPL.updateDrawerFilters()" aria-label="Filter by position"><option value="all">All positions</option><option>GKP</option><option>DEF</option><option>MID</option><option>FWD</option></select>
+                            <select id="tb-drawer-club" onchange="FPL.updateDrawerFilters()" aria-label="Filter by club"><option value="all">All clubs</option></select>
+                            <select id="tb-drawer-sort" onchange="FPL.updateDrawerFilters()" aria-label="Sort players"><option value="xpts">Horizon xPts</option><option value="value">xPts per \u00A3m</option><option value="price-desc">Price high to low</option><option value="ownership">Ownership</option></select>
+                        </div>
+                        <div id="tb-drawer-message" class="tb-market-drawer-message" aria-live="polite"></div>
+                        <div id="tb-drawer-player-list" class="tb-market-drawer-list"></div>
                     </div>
                 </div>
 

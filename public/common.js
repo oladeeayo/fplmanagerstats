@@ -1928,7 +1928,7 @@ const FPL = {
         const formation = `${starterGroups.DEF.length}-${starterGroups.MID.length}-${starterGroups.FWD.length}`;
 
         function emptySlot(pos) {
-            return `<div class="tactics-player-card home aiteam-pitch-card tb-squad-pitch-card tb-empty-slot" onclick="document.querySelector('.tb-market-panel').scrollIntoView({behavior:'smooth',block:'start'})" title="Click to add a ${pos} from the market">
+            return `<div class="tactics-player-card home aiteam-pitch-card tb-squad-pitch-card tb-empty-slot" onclick="FPL.openMarketDrawer('${pos}')" title="Click to add a ${pos} from the market">
                 <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;"><span class="material-symbols-outlined" style="font-size:20px;color:#3a5445;">person_add</span></div>
                 <div class="tactics-player-copy"><b class="aiteam-pitch-name">${pos}</b></div>
                 <div class="aiteam-pitch-cost" style="color:#3a5445;">Empty slot</div>
@@ -2044,36 +2044,66 @@ const FPL = {
         const captainBtn = document.getElementById('tb-modal-captain');
         const viceBtn = document.getElementById('tb-modal-vice');
         if (captainBtn) {
+            const posBadge = `<span class="tb-modal-pos-badge" style="background:${posColors[player.position] || '#81C784'}18;color:${posColors[player.position] || '#81C784'};border:1px solid ${posColors[player.position] || '#81C784'}40;">${player.position}</span>`;
             captainBtn.innerHTML = isCaptain
-                ? '<span class="material-symbols-outlined">shield</span> Remove captain (C)'
-                : '<span class="material-symbols-outlined">shield</span> Make captain (C)';
+                ? `<span class="material-symbols-outlined">shield</span><span class="tb-modal-action-text"><span class="tb-modal-action-label">Remove captain</span><span class="tb-modal-action-hint">C</span></span>`
+                : `<span class="material-symbols-outlined">shield</span><span class="tb-modal-action-text"><span class="tb-modal-action-label">Make captain</span><span class="tb-modal-action-hint">C</span></span>`;
+            captainBtn.classList.toggle('tb-player-modal-action-active', isCaptain);
         }
         if (viceBtn) {
             viceBtn.innerHTML = isVice
-                ? '<span class="material-symbols-outlined">shield</span> Remove vice-captain (V)'
-                : '<span class="material-symbols-outlined">shield</span> Make vice-captain (V)';
+                ? `<span class="material-symbols-outlined">shield</span><span class="tb-modal-action-text"><span class="tb-modal-action-label">Remove vice-captain</span><span class="tb-modal-action-hint">V</span></span>`
+                : `<span class="material-symbols-outlined">shield</span><span class="tb-modal-action-text"><span class="tb-modal-action-label">Make vice-captain</span><span class="tb-modal-action-hint">V</span></span>`;
+            viceBtn.classList.toggle('tb-player-modal-action-active', isVice);
         }
 
         const lineup = this.optimalTeamBuilderLineup(squad) || [];
         const lineupIds = new Set(lineup.map(p => p.id));
         const bench = squad.filter(p => !lineupIds.has(p.id));
+        const playerPos = (player.position || '').toUpperCase();
+        const samePosBench = bench.filter(bp => (bp.position || '').toUpperCase() === playerPos);
+        const diffPosBench = bench.filter(bp => (bp.position || '').toUpperCase() !== playerPos);
         const benchList = document.getElementById('tb-modal-bench-list');
         if (benchList) {
-            if (bench.length) {
-                benchList.innerHTML = bench.map(bp => {
+            let benchHtml = '';
+            if (samePosBench.length) {
+                benchHtml += samePosBench.map(bp => {
                     const bpCost = (bp.costValue || (bp.cost / 10) || 0).toFixed(1);
                     return `<button type="button" class="tb-modal-bench-item" onclick="FPL.modalSwapWithBench(${bp.id})">
                         <div class="tb-modal-bench-info">
-                            ${this.teamBadge(bp.club || bp.team, 18)}
-                            <span class="tb-modal-bench-name">${this.escapeHTML(bp.name)}</span>
-                            <span class="tb-modal-bench-meta">${bp.position} \u00B7 \u00A3${bpCost}m</span>
+                            ${this.teamBadge(bp.club || bp.team, 20)}
+                            <div class="tb-modal-bench-text">
+                                <span class="tb-modal-bench-name">${this.escapeHTML(bp.name)}</span>
+                                <span class="tb-modal-bench-meta">\u00A3${bpCost}m</span>
+                            </div>
                         </div>
-                        <span class="material-symbols-outlined">swap_vert</span>
+                        <span class="material-symbols-outlined">swap_horiz</span>
                     </button>`;
                 }).join('');
-            } else {
-                benchList.innerHTML = '<div class="tb-modal-bench-empty">No bench players</div>';
             }
+            if (diffPosBench.length) {
+                benchHtml += `<div class="tb-modal-bench-unavailable">`;
+                diffPosBench.forEach(bp => {
+                    const bpCost = (bp.costValue || (bp.cost / 10) || 0).toFixed(1);
+                    benchHtml += `<div class="tb-modal-bench-item disabled">
+                        <div class="tb-modal-bench-info">
+                            ${this.teamBadge(bp.club || bp.team, 18)}
+                            <div class="tb-modal-bench-text">
+                                <span class="tb-modal-bench-name">${this.escapeHTML(bp.name)}</span>
+                                <span class="tb-modal-bench-meta">${bp.position} \u00B7 \u00A3${bpCost}m</span>
+                            </div>
+                        </div>
+                        <span class="tb-modal-bench-reason">${bp.position}</span>
+                    </div>`;
+                });
+                benchHtml += '</div>';
+            }
+            if (!bench.length) {
+                benchHtml = '<div class="tb-modal-bench-empty">No bench players available</div>';
+            } else if (!samePosBench.length) {
+                benchHtml = '<div class="tb-modal-bench-empty">No same-position players on bench</div>' + benchHtml;
+            }
+            benchList.innerHTML = benchHtml;
         }
 
         modal.hidden = false;
@@ -2137,6 +2167,202 @@ const FPL = {
         if (!playerId) return;
         this.removeTeamBuilderPlayer(playerId);
         this.closePlayerModal();
+    },
+
+    modalReplaceFromMarket() {
+        const builder = this.state.teamBuilder;
+        const playerId = builder._modalPlayerId;
+        if (!playerId) return;
+        this.closePlayerModal();
+        this.openMarketDrawerForReplace(playerId);
+    },
+
+    openMarketDrawer(positionFilter) {
+        const builder = this.state.teamBuilder;
+        const drawer = document.getElementById('tb-market-drawer');
+        if (!drawer) return;
+
+        builder._drawerMode = 'browse';
+        builder._drawerReplaceId = null;
+        builder._drawerQuery = '';
+        builder._drawerPosition = positionFilter || 'all';
+        builder._drawerClub = 'all';
+        builder._drawerSort = 'xpts';
+
+        const title = document.getElementById('tb-drawer-title');
+        if (title) title.textContent = positionFilter ? `Select ${positionFilter}` : 'Select player';
+
+        const posSelect = document.getElementById('tb-drawer-position');
+        if (posSelect) posSelect.value = builder._drawerPosition;
+
+        this._populateDrawerClubFilter();
+        this.paintDrawerPlayers();
+
+        drawer.hidden = false;
+        drawer.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        const searchInput = document.getElementById('tb-drawer-search');
+        if (searchInput) { searchInput.value = ''; searchInput.focus(); }
+    },
+
+    openMarketDrawerForReplace(playerId) {
+        const builder = this.state.teamBuilder;
+        const player = builder.players.find(p => p.id === playerId);
+        if (!player) return;
+
+        const drawer = document.getElementById('tb-market-drawer');
+        if (!drawer) return;
+
+        builder._drawerMode = 'replace';
+        builder._drawerReplaceId = playerId;
+        builder._drawerQuery = '';
+        builder._drawerPosition = (player.position || '').toUpperCase();
+        builder._drawerClub = 'all';
+        builder._drawerSort = 'xpts';
+
+        const title = document.getElementById('tb-drawer-title');
+        if (title) title.textContent = `Replace ${player.name}`;
+
+        const posSelect = document.getElementById('tb-drawer-position');
+        if (posSelect) posSelect.value = builder._drawerPosition;
+
+        this._populateDrawerClubFilter();
+        this.paintDrawerPlayers();
+
+        drawer.hidden = false;
+        drawer.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        const searchInput = document.getElementById('tb-drawer-search');
+        if (searchInput) { searchInput.value = ''; searchInput.focus(); }
+    },
+
+    closeMarketDrawer() {
+        const drawer = document.getElementById('tb-market-drawer');
+        if (drawer) {
+            drawer.hidden = true;
+            drawer.setAttribute('aria-hidden', 'true');
+        }
+        document.body.style.overflow = '';
+        const builder = this.state.teamBuilder;
+        builder._drawerMode = null;
+        builder._drawerReplaceId = null;
+    },
+
+    updateDrawerFilters() {
+        const builder = this.state.teamBuilder;
+        const searchInput = document.getElementById('tb-drawer-search');
+        const posSelect = document.getElementById('tb-drawer-position');
+        const clubSelect = document.getElementById('tb-drawer-club');
+        const sortSelect = document.getElementById('tb-drawer-sort');
+        builder._drawerQuery = (searchInput?.value || '').toLowerCase();
+        builder._drawerPosition = posSelect?.value || 'all';
+        builder._drawerClub = clubSelect?.value || 'all';
+        builder._drawerSort = sortSelect?.value || 'xpts';
+        this.paintDrawerPlayers();
+    },
+
+    _populateDrawerClubFilter() {
+        const builder = this.state.teamBuilder;
+        const clubSelect = document.getElementById('tb-drawer-club');
+        if (!clubSelect) return;
+        const teams = [...new Set(builder.players.map(p => p.club || p.team).filter(Boolean))].sort();
+        const current = builder._drawerClub || 'all';
+        clubSelect.innerHTML = '<option value="all">All clubs</option>' + teams.map(t => `<option value="${t}"${t === current ? ' selected' : ''}>${t}</option>`).join('');
+    },
+
+    paintDrawerPlayers() {
+        const list = document.getElementById('tb-drawer-player-list');
+        if (!list) return;
+        const builder = this.state.teamBuilder;
+        let players = builder.players || [];
+        const selectedSet = new Set(builder.selectedIds || []);
+        const replaceId = builder._drawerReplaceId;
+
+        if (builder._drawerQuery) {
+            players = players.filter(p => (p.name || p.web_name || '').toLowerCase().includes(builder._drawerQuery) || (p.club || p.team || '').toLowerCase().includes(builder._drawerQuery));
+        }
+        if (builder._drawerPosition && builder._drawerPosition !== 'all') {
+            players = players.filter(p => (p.position || '').toUpperCase() === builder._drawerPosition.toUpperCase());
+        }
+        if (builder._drawerClub && builder._drawerClub !== 'all') {
+            players = players.filter(p => (p.club || p.team || '').toLowerCase() === builder._drawerClub.toLowerCase());
+        }
+
+        const sort = builder._drawerSort || 'xpts';
+        players = [...players].sort((a, b) => {
+            if (sort === 'xpts') return (this.teamBuilderXPts(b) || 0) - (this.teamBuilderXPts(a) || 0);
+            if (sort === 'value') return ((this.teamBuilderXPts(b) || 0) / (b.costValue || 1)) - ((this.teamBuilderXPts(a) || 0) / (a.costValue || 1));
+            if (sort === 'price-desc') return (b.costValue || 0) - (a.costValue || 0);
+            if (sort === 'ownership') return (b.ownership || 0) - (a.ownership || 0);
+            return 0;
+        });
+
+        const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
+
+        list.innerHTML = players.slice(0, 60).map(player => {
+            const isSelected = replaceId ? player.id === replaceId : selectedSet.has(player.id);
+            const xpts = this.teamBuilderXPts ? this.teamBuilderXPts(player) : 0;
+            const cost = (player.costValue || (player.cost / 10) || 0).toFixed(1);
+            const posColor = posColors[player.position] || '#81C784';
+            let actionLabel, actionClass, actionHandler;
+            if (replaceId) {
+                if (player.id === replaceId) {
+                    actionLabel = 'Current';
+                    actionClass = 'tb-drawer-action current';
+                    actionHandler = '';
+                } else {
+                    actionLabel = 'Swap in';
+                    actionClass = 'tb-drawer-action swap';
+                    actionHandler = `onclick="FPL.drawerReplacePlayer(${player.id})"`;
+                }
+            } else {
+                if (selectedSet.has(player.id)) {
+                    actionLabel = 'Remove';
+                    actionClass = 'tb-drawer-action remove';
+                    actionHandler = `onclick="FPL.drawerRemovePlayer(${player.id})"`;
+                } else {
+                    actionLabel = 'Add';
+                    actionClass = 'tb-drawer-action add';
+                    actionHandler = `onclick="FPL.drawerAddPlayer(${player.id})"`;
+                }
+            }
+            return `<div class="tb-drawer-card${isSelected ? ' selected' : ''}">
+                <div class="tb-drawer-card-left">
+                    ${this.teamBadge(player.club || player.team, 22)}
+                    <div class="tb-drawer-card-info">
+                        <div class="tb-drawer-card-name">${this.escapeHTML(player.name || player.web_name || '')}</div>
+                        <div class="tb-drawer-card-meta">
+                            <span class="tb-drawer-pos-badge" style="background:${posColor}18;color:${posColor};border:1px solid ${posColor}40;">${player.position}</span>
+                            <span>\u00A3${cost}m</span>
+                            <span>${xpts.toFixed(1)} xPts</span>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="${actionClass}" ${actionHandler}>${actionLabel}</button>
+            </div>`;
+        }).join('') || '<div class="tb-drawer-empty">No players match your filters</div>';
+
+        const msg = document.getElementById('tb-drawer-message');
+        if (msg) msg.textContent = `${players.length} players found`;
+    },
+
+    drawerAddPlayer(playerId) {
+        this.addTeamBuilderPlayer(playerId);
+        this.paintDrawerPlayers();
+    },
+
+    drawerRemovePlayer(playerId) {
+        this.removeTeamBuilderPlayer(playerId);
+        this.paintDrawerPlayers();
+    },
+
+    drawerReplacePlayer(newPlayerId) {
+        const builder = this.state.teamBuilder;
+        const replaceId = builder._drawerReplaceId;
+        if (!replaceId) return;
+        this.removeTeamBuilderPlayerNoToast(replaceId);
+        this.addTeamBuilderPlayer(newPlayerId);
+        this.closeMarketDrawer();
     },
 
     confirmSwap(idA, idB) {
