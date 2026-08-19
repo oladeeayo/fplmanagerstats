@@ -108,13 +108,6 @@ function findBestTransfersForWeek(squad, candidates, freeTransfers, bank, strate
   return plans.sort((a, b) => b.netGain - a.netGain);
 }
 
-// Evaluate whether to roll a transfer
-function evaluateRollValue(topTransferGain, currentFT) {
-  if (currentFT >= MAX_BANKED_FT) return 0; // can't bank more
-  if (topTransferGain < FT_VALUE) return FT_VALUE; // rolling is worth more
-  return 0;
-}
-
 // Build multi-GW transfer plan with chip considerations
 function buildTransferStrategy(squad, allPlayers, options = {}) {
   const horizon = options.horizon || 5;
@@ -162,7 +155,6 @@ function generateTransferSummary(plan, options) {
 
 module.exports = {
   planTransfers,
-  evaluateRollValue,
   buildTransferStrategy,
   HIT_COST,
   MAX_BANKED_FT,

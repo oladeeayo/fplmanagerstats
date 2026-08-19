@@ -68,15 +68,8 @@ function calculateBookingRisk(player, options = {}) {
   };
 }
 
-// Adjust xPts for booking risk
-function adjustForBookingRisk(xPts, player, options = {}) {
-  const risk = calculateBookingRisk(player, options);
-  return Math.round((xPts + risk.expectedCardPoints) * 10) / 10;
-}
-
 module.exports = {
   calculateBookingRisk,
-  adjustForBookingRisk,
   BASE_YELLOW_RATE,
   BASE_RED_RATE,
 };

@@ -87,17 +87,8 @@ function predictPriceChange(player, options = {}) {
   };
 }
 
-// Adjust xPts for price change potential
-function adjustForPriceChange(xPts, player, options = {}) {
-  const price = predictPriceChange(player, options);
-  // Price rises are valuable (can sell for more later), falls are costly
-  const priceBonus = price.expectedChange * 2; // ~2 xPts equivalent per 0.1 price change
-  return Math.round((xPts + priceBonus) * 10) / 10;
-}
-
 module.exports = {
   calculateSellingPrice,
   predictPriceChange,
-  adjustForPriceChange,
   getPriceBracket,
 };

@@ -249,13 +249,13 @@
                                         </tbody>
                                     </table>
                                 </div>
-                                <div style="margin-top:16px;display:flex;justify-content:flex-end;align-items:center;gap:12px;font-size:11px;color:#8ba396;font-family:var(--font-mono);">
+                                <div style="margin-top:16px;display:flex;justify-content:flex-end;align-items:center;gap:12px;font-size:11px;color:var(--fpl-text-muted);font-family:var(--font-mono);">
                                     <span>FDR Key:</span>
-                                    <div style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#00FF85;"></span>1</div>
-                                    <div style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#37DB59;"></span>2</div>
-                                    <div style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#E1E1E1;"></span>3</div>
-                                    <div style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#FFA600;"></span>4</div>
-                                    <div style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#FF005A;"></span>5</div>
+                                    <div style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:var(--fdr-1);"></span>1</div>
+                                    <div style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:var(--fdr-2);"></span>2</div>
+                                    <div style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:var(--fdr-3);"></span>3</div>
+                                    <div style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:var(--fdr-4);"></span>4</div>
+                                    <div style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:var(--fdr-5);"></span>5</div>
                                 </div>
                             </section>
                         </div>
@@ -757,7 +757,15 @@
                             </button>
                             <button id="fixture-view-btn-odds" onclick="FPL.switchFixtureSubView('odds')" class="fixture-view-btn" style="padding:8px 16px;border-radius:8px;border:1px solid #34453b;background:transparent;color:#b9cbb9;font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all 0.2s;">
                                 <span class="material-symbols-outlined" style="font-size:16px;color:#64B5F6;">analytics</span>
-                                Goals & Clean Sheet Odds
+                                Goals & CS Odds
+                            </button>
+                            <button id="fixture-view-btn-goals" onclick="FPL.switchFixtureSubView('goals')" class="fixture-view-btn" style="padding:8px 16px;border-radius:8px;border:1px solid #34453b;background:transparent;color:#b9cbb9;font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all 0.2s;">
+                                <span class="material-symbols-outlined" style="font-size:16px;color:#4caf50;">sports_soccer</span>
+                                Goals Scored
+                            </button>
+                            <button id="fixture-view-btn-conceded" onclick="FPL.switchFixtureSubView('conceded')" class="fixture-view-btn" style="padding:8px 16px;border-radius:8px;border:1px solid #34453b;background:transparent;color:#b9cbb9;font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all 0.2s;">
+                                <span class="material-symbols-outlined" style="font-size:16px;color:#ff5722;">shield</span>
+                                Goals Conceded
                             </button>
                         </div>
                         <div id="fixture-odds-gw-selector" style="display:none;align-items:center;gap:8px;background:#121824;padding:6px 14px;border-radius:10px;border:1px solid #1e2738;">
@@ -769,6 +777,17 @@
                                 <select id="fixture-odds-gw-select" onchange="FPL.setFixtureOddsGW(this.value)" style="background-color:#1a2233;border:1px solid #2e3c54;border-radius:8px;padding:6px 28px 6px 12px;font-family:var(--font-mono);font-size:13px;font-weight:800;color:#ffffff;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;min-width:90px;">
                                 </select>
                                 <span class="material-symbols-outlined" style="position:absolute;right:6px;pointer-events:none;font-size:18px;color:#00FF85;">unfold_more</span>
+                            </div>
+                        </div>
+                        <div id="fixture-goals-horizon-selector" style="display:none;align-items:center;gap:8px;background:#121824;padding:6px 14px;border-radius:10px;border:1px solid #1e2738;">
+                            <span style="font-family:var(--font-sans);font-size:12px;font-weight:700;color:#94a3b8;display:flex;align-items:center;gap:6px;">
+                                <span class="material-symbols-outlined" style="font-size:16px;color:#4caf50;">event</span>
+                                Horizon:
+                            </span>
+                            <div style="position:relative;display:inline-flex;align-items:center;">
+                                <select id="fixture-goals-horizon-select" onchange="FPL.setFixtureGoalsHorizon(this.value)" style="background-color:#1a2233;border:1px solid #2e3c54;border-radius:8px;padding:6px 28px 6px 12px;font-family:var(--font-mono);font-size:13px;font-weight:800;color:#ffffff;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;min-width:90px;">
+                                </select>
+                                <span class="material-symbols-outlined" style="position:absolute;right:6px;pointer-events:none;font-size:18px;color:#4caf50;">unfold_more</span>
                             </div>
                         </div>
                     </div>
@@ -850,6 +869,20 @@
                     <div id="fixture-subview-odds" class="fixture-subview-content" style="display:none;">
                         <div id="fixture-odds-container">
                             <div style="padding:24px;text-align:center;color:#b9cbb9;">Loading projected goals & clean sheet odds...</div>
+                        </div>
+                    </div>
+
+                    <!-- SUBVIEW 3: Goals Scored Projections -->
+                    <div id="fixture-subview-goals" class="fixture-subview-content" style="display:none;">
+                        <div id="fixture-goals-container">
+                            <div style="padding:24px;text-align:center;color:#b9cbb9;">Loading goals scored projections...</div>
+                        </div>
+                    </div>
+
+                    <!-- SUBVIEW 4: Goals Conceded Projections -->
+                    <div id="fixture-subview-conceded" class="fixture-subview-content" style="display:none;">
+                        <div id="fixture-conceded-container">
+                            <div style="padding:24px;text-align:center;color:#b9cbb9;">Loading goals conceded projections...</div>
                         </div>
                     </div>
                 </div>

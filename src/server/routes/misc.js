@@ -1,13 +1,14 @@
 const express = require('express');
 const { buildCaptaincyModel, buildPlayerProjections } = require('../../captaincyModel');
 const { buildSquadAdvice } = require('../../decisionModel');
-const { DETAILED_POSITIONS, ZONE_MAP, ZONE_LABELS, ZONE_GROUP, POSITION_LABELS, ATTACKING_ZONES, DEFENSIVE_ZONES, MIDFIELD_ZONES, ALL_ZONES } = require('../../playerPositions');
-const { getCachedApiData, getGlobalPlayerHistory, BOOTSTRAP_URL, FIXTURES_URL, BOOTSTRAP_CACHE_TTL, redis } = require('../cache');
-const { POSITION_MAP, parsePositiveId, requireDatabase, stripCodeFences } = require('../helpers');
+const { DETAILED_POSITIONS, ZONE_MAP, ZONE_LABELS, ATTACKING_ZONES, DEFENSIVE_ZONES, MIDFIELD_ZONES, ALL_ZONES } = require('../../playerPositions');
+const { getCachedApiData, BOOTSTRAP_URL, FIXTURES_URL, BOOTSTRAP_CACHE_TTL, redis } = require('../cache');
+const { POSITION_MAP, parsePositiveId, stripCodeFences } = require('../helpers');
 const { heavyEndpointLimiter } = require('../middleware');
 const logger = require('../logger');
-const { sql } = require('../db');
 const { generateWithGeminiFallback, GEMINI_PREFERENCE_MODELS } = require('./fpl');
+const understat = require('../understat');
+const { projectMultiGW, computeRollingFDR, computeRollingForm, mergeProfiles, projectMatch, computeMatchXG, aggregateProbs, scoreMatrix } = require('../goalProjectionModel');
 
 const router = express.Router();
 
@@ -1034,13 +1035,27 @@ router.get('/fixtures-detail', async (req, res) => {
           ictIndex: parseFloat(p.ict_index) || 0
         }));
 
-      // FDR sum for next 5
+      // Rolling FDR for 3/5/10 GW windows
+      const rollingFDR = {};
+      [3, 5, 10].forEach(window => {
+        let sum = 0, count = 0;
+        for (let gw = selectedGW; gw < Math.min(selectedGW + window, 39); gw++) {
+          const fx = fixtures.find(f => f.event === gw && (f.team_h === team.id || f.team_a === team.id));
+          if (fx) {
+            sum += fx.team_h === team.id ? (fx.team_h_difficulty || 3) : (fx.team_a_difficulty || 3);
+            count++;
+          }
+        }
+        rollingFDR[`fdr_${window}gw`] = count > 0 ? Math.round((sum / count) * 100) / 100 : 3;
+        rollingFDR[`fdrSum_${window}gw`] = sum;
+      });
+
       const fdrSum = nextFixtures.reduce((s, f) => s + f.difficulty, 0);
       const avgFDR = nextFixtures.length > 0 ? (fdrSum / nextFixtures.length).toFixed(1) : '—';
 
       return {
         teamId: team.id, teamName: team.short_name, teamFullName: team.name,
-        nextFixtures, fdrSum, avgFDR,
+        nextFixtures, fdrSum, avgFDR, ...rollingFDR,
         topPlayers: teamPlayers
       };
     });
@@ -1081,6 +1096,10 @@ router.get('/team-projections', async (req, res) => {
       return `${day} ${dd}/${mm}`;
     };
 
+    // Use improved Poisson/Dixon-Coles model
+    const understatData = await understat.fetchTeams().catch(() => null);
+    const profiles = mergeProfiles(understatData, teams);
+
     const matchProjections = gwFixtures.map(f => {
       const homeTeam = getTeam(f.team_h);
       const awayTeam = getTeam(f.team_a);
@@ -1088,37 +1107,34 @@ router.get('/team-projections', async (req, res) => {
       const fdrHome = f.team_h_difficulty || 3;
       const fdrAway = f.team_a_difficulty || 3;
 
-      const homePlayers = elements.filter(e => e.team === f.team_h && e.minutes > 180);
-      const awayPlayers = elements.filter(e => e.team === f.team_a && e.minutes > 180);
+      const projection = projectMatch(homeTeam, awayTeam, profiles, { rho: -0.10, homeAdvantage: 1.12 });
 
-      const homeXgSum = homePlayers.reduce((sum, p) => sum + (parseFloat(p.expected_goals) || 0), 0);
-      const awayXgSum = awayPlayers.reduce((sum, p) => sum + (parseFloat(p.expected_goals) || 0), 0);
+      if (!projection) {
+        // Fallback to simpler model if profiles not found
+        const homePlayers = elements.filter(e => e.team === f.team_h && e.minutes > 180);
+        const awayPlayers = elements.filter(e => e.team === f.team_a && e.minutes > 180);
+        const homeXgSum = homePlayers.reduce((sum, p) => sum + (parseFloat(p.expected_goals) || 0), 0);
+        const awayXgSum = awayPlayers.reduce((sum, p) => sum + (parseFloat(p.expected_goals) || 0), 0);
+        const homeMatches = Math.max(1, Math.max(...homePlayers.map(p => (p.minutes || 0) / 90), 1));
+        const awayMatches = Math.max(1, Math.max(...awayPlayers.map(p => (p.minutes || 0) / 90), 1));
+        const homeAtk = homeXgSum > 0 ? (homeXgSum / homeMatches) : ((homeTeam.strength_attack_home || 1100) / 1000 * 1.30);
+        const awayAtk = awayXgSum > 0 ? (awayXgSum / awayMatches) : ((awayTeam.strength_attack_away || 1050) / 1000 * 1.18);
+        const homeDef = ((2000 - (homeTeam.strength_defence_home || 1100)) / 1000) * 1.25;
+        const awayDef = ((2000 - (awayTeam.strength_defence_away || 1050)) / 1000) * 1.30;
+        const homeFdrMod = 1 + (3 - fdrHome) * 0.10;
+        const awayFdrMod = 1 + (3 - fdrAway) * 0.10;
+        const homeGoals = Math.round(Math.max(0.35, Math.min(3.40, (homeAtk * 0.50 + awayDef * 0.50) * 1.12 * homeFdrMod)) * 100) / 100;
+        const awayGoals = Math.round(Math.max(0.25, Math.min(3.00, (awayAtk * 0.50 + homeDef * 0.50) * 0.88 * awayFdrMod)) * 100) / 100;
+        const homeCS = Math.min(88, Math.max(6, Math.round(Math.exp(-awayGoals) * (1 + 0.04 * Math.exp(-homeGoals)) * 100)));
+        const awayCS = Math.min(88, Math.max(6, Math.round(Math.exp(-homeGoals) * (1 + 0.04 * Math.exp(-awayGoals)) * 100)));
 
-      const homeMatches = Math.max(1, Math.max(...homePlayers.map(p => (p.minutes || 0) / 90), 1));
-      const awayMatches = Math.max(1, Math.max(...awayPlayers.map(p => (p.minutes || 0) / 90), 1));
-
-      const homeAtk = homeXgSum > 0 ? (homeXgSum / homeMatches) : ((homeTeam.strength_attack_home || 1100) / 1000 * 1.30);
-      const awayAtk = awayXgSum > 0 ? (awayXgSum / awayMatches) : ((awayTeam.strength_attack_away || 1050) / 1000 * 1.18);
-
-      const homeDef = ((2000 - (homeTeam.strength_defence_home || 1100)) / 1000) * 1.25;
-      const awayDef = ((2000 - (awayTeam.strength_defence_away || 1050)) / 1000) * 1.30;
-
-      const homeFdrMod = 1 + (3 - fdrHome) * 0.10;
-      const awayFdrMod = 1 + (3 - fdrAway) * 0.10;
-
-      // Dixon-Coles Poisson expected goals calculation (Home advantage = 1.12 multiplier)
-      let homeGoals = Math.max(0.35, Math.min(3.40, (homeAtk * 0.50 + awayDef * 0.50) * 1.12 * homeFdrMod));
-      let awayGoals = Math.max(0.25, Math.min(3.00, (awayAtk * 0.50 + homeDef * 0.50) * 0.88 * awayFdrMod));
-
-      homeGoals = Math.round(homeGoals * 100) / 100;
-      awayGoals = Math.round(awayGoals * 100) / 100;
-
-      // Dixon-Coles low-score draw correction for clean sheet probability: P(CS) = e^-lambda * (1 + rho correction)
-      const rawHomeCS = Math.exp(-awayGoals) * (1 + 0.04 * Math.exp(-homeGoals));
-      const rawAwayCS = Math.exp(-homeGoals) * (1 + 0.04 * Math.exp(-awayGoals));
-
-      const homeCS = Math.min(88, Math.max(6, Math.round(rawHomeCS * 100)));
-      const awayCS = Math.min(88, Math.max(6, Math.round(rawAwayCS * 100)));
+        return {
+          id: f.id, gw: selectedGW, kickoff: f.kickoff_time || null, dayStr: formatDay(f.kickoff_time),
+          finished: f.finished || false, score: f.finished ? `${f.team_h_score} - ${f.team_a_score}` : null,
+          homeTeam: { id: homeTeam.id, name: homeTeam.name, shortName: homeTeam.short_name, projectedGoals: homeGoals, cleanSheetPct: homeCS, fdr: fdrHome },
+          awayTeam: { id: awayTeam.id, name: awayTeam.name, shortName: awayTeam.short_name, projectedGoals: awayGoals, cleanSheetPct: awayCS, fdr: fdrAway },
+        };
+      }
 
       return {
         id: f.id,
@@ -1128,21 +1144,15 @@ router.get('/team-projections', async (req, res) => {
         finished: f.finished || false,
         score: f.finished ? `${f.team_h_score} - ${f.team_a_score}` : null,
         homeTeam: {
-          id: homeTeam.id,
-          name: homeTeam.name,
-          shortName: homeTeam.short_name,
-          projectedGoals: homeGoals,
-          cleanSheetPct: homeCS,
-          fdr: fdrHome
+          id: homeTeam.id, name: homeTeam.name, shortName: homeTeam.short_name,
+          projectedGoals: projection.homeXG, cleanSheetPct: projection.homeCleanSheet, fdr: fdrHome,
+          winPct: projection.homeWin, bttsPct: projection.bttsYes, over25Pct: projection.over25,
         },
         awayTeam: {
-          id: awayTeam.id,
-          name: awayTeam.name,
-          shortName: awayTeam.short_name,
-          projectedGoals: awayGoals,
-          cleanSheetPct: awayCS,
-          fdr: fdrAway
-        }
+          id: awayTeam.id, name: awayTeam.name, shortName: awayTeam.short_name,
+          projectedGoals: projection.awayXG, cleanSheetPct: projection.awayCleanSheet, fdr: fdrAway,
+          winPct: projection.awayWin, bttsPct: projection.bttsYes, over25Pct: projection.over25,
+        },
       };
     });
 
@@ -1204,6 +1214,178 @@ router.get('/team-projections', async (req, res) => {
   } catch (e) {
     logger.error({ err: e }, 'Team projections error');
     res.status(500).json({ error: 'Failed to calculate team projections' });
+  }
+});
+
+// ---- Goals Scored Projections (multi-GW Poisson model) ----
+router.get('/goals-projections', async (req, res) => {
+  try {
+    const [bs, fixtures] = await Promise.all([
+      getCachedApiData(BOOTSTRAP_URL),
+      getCachedApiData(FIXTURES_URL)
+    ]);
+
+    const teams = bs.teams || [];
+    const currentGW = bs.events?.find(e => e.is_current)?.id || bs.events?.find(e => e.is_next)?.id || 1;
+    const startGW = parseInt(req.query.gw) || currentGW;
+    const horizon = Math.min(parseInt(req.query.horizon) || 6, 15);
+
+    const understatData = await understat.fetchTeams().catch(() => null);
+    const profiles = mergeProfiles(understatData, teams);
+    const projections = projectMultiGW(teams, fixtures, profiles, startGW, horizon);
+
+    // Build ranked list for the full horizon
+    const ranked = Object.values(projections)
+      .sort((a, b) => b.totalXG - a.totalXG)
+      .map((team, idx) => ({
+        rank: idx + 1,
+        teamId: team.teamId,
+        team: team.teamName,
+        teamFullName: team.teamFullName,
+        totalXG: team.totalXG,
+        avgXG: team.avgXG,
+        gameweeks: team.gameweeks,
+        fdr3gw: Math.round((team.gameweeks.slice(0, 3).reduce((s, g) => s + g.fdr, 0) / Math.max(team.gameweeks.slice(0, 3).length, 1)) * 100) / 100,
+        fdr5gw: Math.round((team.gameweeks.slice(0, 5).reduce((s, g) => s + g.fdr, 0) / Math.max(team.gameweeks.slice(0, 5).length, 1)) * 100) / 100,
+      }));
+
+    // Per-GW breakdown
+    const perGW = {};
+    for (let gw = startGW; gw < Math.min(startGW + horizon, 39); gw++) {
+      perGW[gw] = [];
+      ranked.forEach(team => {
+        const gwData = team.gameweeks.find(g => g.gw === gw);
+        if (gwData) {
+          perGW[gw].push({
+            team: team.team,
+            opponent: gwData.opponent,
+            isHome: gwData.isHome,
+            xg: gwData.xg,
+            fdr: gwData.fdr,
+          });
+        }
+      });
+      perGW[gw].sort((a, b) => b.xg - a.xg);
+    }
+
+    res.json({
+      startGW,
+      horizon,
+      currentGW,
+      ranked,
+      perGW,
+      modelVersion: 'Poisson/Dixon-Coles Goal Projection v1.0',
+    });
+  } catch (e) {
+    logger.error({ err: e }, 'Goals projections error');
+    res.status(500).json({ error: 'Failed to calculate goals projections' });
+  }
+});
+
+// ---- Goals Conceded Projections (multi-GW Poisson model) ----
+router.get('/goals-conceded', async (req, res) => {
+  try {
+    const [bs, fixtures] = await Promise.all([
+      getCachedApiData(BOOTSTRAP_URL),
+      getCachedApiData(FIXTURES_URL)
+    ]);
+
+    const teams = bs.teams || [];
+    const currentGW = bs.events?.find(e => e.is_current)?.id || bs.events?.find(e => e.is_next)?.id || 1;
+    const startGW = parseInt(req.query.gw) || currentGW;
+    const horizon = Math.min(parseInt(req.query.horizon) || 6, 15);
+
+    const understatData = await understat.fetchTeams().catch(() => null);
+    const profiles = mergeProfiles(understatData, teams);
+    const projections = projectMultiGW(teams, fixtures, profiles, startGW, horizon);
+
+    // Build ranked list sorted by fewest goals conceded (best defenses first)
+    const ranked = Object.values(projections)
+      .sort((a, b) => a.totalXGA - b.totalXGA)
+      .map((team, idx) => ({
+        rank: idx + 1,
+        teamId: team.teamId,
+        team: team.teamName,
+        teamFullName: team.teamFullName,
+        totalXGA: team.totalXGA,
+        avgXGA: team.avgXGA,
+        totalCS: team.totalCS,
+        avgCS: team.avgCS,
+        gameweeks: team.gameweeks,
+        fdr3gw: Math.round((team.gameweeks.slice(0, 3).reduce((s, g) => s + g.fdr, 0) / Math.max(team.gameweeks.slice(0, 3).length, 1)) * 100) / 100,
+        fdr5gw: Math.round((team.gameweeks.slice(0, 5).reduce((s, g) => s + g.fdr, 0) / Math.max(team.gameweeks.slice(0, 5).length, 1)) * 100) / 100,
+      }));
+
+    // Per-GW breakdown
+    const perGW = {};
+    for (let gw = startGW; gw < Math.min(startGW + horizon, 39); gw++) {
+      perGW[gw] = [];
+      ranked.forEach(team => {
+        const gwData = team.gameweeks.find(g => g.gw === gw);
+        if (gwData) {
+          perGW[gw].push({
+            team: team.team,
+            opponent: gwData.opponent,
+            isHome: gwData.isHome,
+            xga: gwData.xga,
+            csPct: gwData.csPct,
+            fdr: gwData.fdr,
+          });
+        }
+      });
+      perGW[gw].sort((a, b) => a.xga - b.xga);
+    }
+
+    res.json({
+      startGW,
+      horizon,
+      currentGW,
+      ranked,
+      perGW,
+      modelVersion: 'Poisson/Dixon-Coles Goals Conceded v1.0',
+    });
+  } catch (e) {
+    logger.error({ err: e }, 'Goals conceded projections error');
+    res.status(500).json({ error: 'Failed to calculate goals conceded projections' });
+  }
+});
+
+// ---- Rolling Fixture Difficulty (3/5/10 GW) ----
+router.get('/rolling-fdr', async (req, res) => {
+  try {
+    const [bs, fixtures] = await Promise.all([
+      getCachedApiData(BOOTSTRAP_URL),
+      getCachedApiData(FIXTURES_URL)
+    ]);
+
+    const teams = bs.teams || [];
+    const currentGW = bs.events?.find(e => e.is_current)?.id || bs.events?.find(e => e.is_next)?.id || 1;
+    const startGW = parseInt(req.query.gw) || currentGW;
+
+    const windows = [3, 5, 10];
+    const result = {};
+
+    windows.forEach(window => {
+      result[window] = computeRollingFDR(teams, fixtures, startGW, window);
+    });
+
+    // Build combined ranking
+    const combined = teams.map(t => ({
+      teamId: t.id,
+      team: t.short_name,
+      teamFullName: t.name,
+      fdr3gw: result[3]?.[t.id]?.avgFDR || 3,
+      fdr5gw: result[5]?.[t.id]?.avgFDR || 3,
+      fdr10gw: result[10]?.[t.id]?.avgFDR || 3,
+      fdrSum3gw: result[3]?.[t.id]?.sumFDR || 0,
+      fdrSum5gw: result[5]?.[t.id]?.sumFDR || 0,
+      fdrSum10gw: result[10]?.[t.id]?.sumFDR || 0,
+    }));
+
+    res.json({ startGW, currentGW, windows, combined, detailed: result });
+  } catch (e) {
+    logger.error({ err: e }, 'Rolling FDR error');
+    res.status(500).json({ error: 'Failed to calculate rolling FDR' });
   }
 });
 
@@ -1721,15 +1903,8 @@ router.get('/differentials', async (req, res) => {
     const currentGW = bs.events.find(e => e.is_current)?.id || 1;
     const getTeam = id => teams.find(t => t.id === id);
 
-    // Get next 5 fixtures for FDR calculation
-    const getNextFDR = (teamId) => {
-      let fdrSum = 0, count = 0;
-      for (let gw = currentGW; gw <= Math.min(currentGW + 4, 38); gw++) {
-        const fx = fixtures.find(f => f.event === gw && (f.team_h === teamId || f.team_a === teamId));
-        if (fx) { fdrSum += fx.difficulty || 3; count++; }
-      }
-      return count > 0 ? (fdrSum / count).toFixed(1) : '3.0';
-    };
+    // Use the Poisson model's rolling FDR for consistency
+    const teamFDR = computeRollingFDR(fixtures, teams, currentGW, 5);
 
     // Calculate xGI per 90 minutes
     const differentials = elements
@@ -1743,7 +1918,8 @@ router.get('/differentials', async (req, res) => {
         const mins = p.minutes || 0;
         const xGI90 = mins > 0 ? (xGI / mins) * 90 : 0;
         const ptsPerMillion = cost > 0 ? (totalPts / (cost / 10)) : 0;
-        const avgFDR = getNextFDR(p.team);
+        const fdrData = teamFDR[p.team] || {};
+        const avgFDR = fdrData.avgFDR != null ? fdrData.avgFDR.toFixed(1) : '3.0';
 
         return {
           id: p.id, name: p.web_name, code: p.code,
@@ -1758,7 +1934,6 @@ router.get('/differentials', async (req, res) => {
           minutes: mins,
           goals: p.goals_scored || 0,
           assists: p.assists || 0,
-          // Differential score: low ownership + high output
           diffScore: Math.round((xGI90 * 10 + form * 2 + ptsPerMillion) * (100 - Math.min(ownership, 50)) / 100)
         };
       })

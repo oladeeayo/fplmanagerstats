@@ -102,29 +102,6 @@ function adjustedFDR(opponentName, isHome) {
   return Math.min(5, rounded + (rounded >= 4 ? 1 : 0));
 }
 
-// Get comprehensive opponent analysis
-function analyzeOpponent(opponentName, isHome, options = {}) {
-  const profile = teamProfiles[opponentName];
-  const defStr = opponentDefensiveStrength(opponentName);
-  const attStr = opponentAttackingStrength(opponentName);
-
-  return {
-    name: opponentName,
-    isHome,
-    fdr: adjustedFDR(opponentName, isHome),
-    csProbability: adjustedCleanSheetProbability(opponentName, isHome, options.teamDefensiveStrength),
-    attackModifier: adjustedAttackModifier(opponentName, isHome),
-    opponentDefensiveStrength: defStr,
-    opponentAttackingStrength: attStr,
-    // Raw Understat data if available
-    ...(profile ? {
-      xGA90: profile.xGA90,
-      xG90: profile.xG90,
-      csRate: profile.csRate,
-    } : {}),
-  };
-}
-
 module.exports = {
   setTeamProfiles,
   opponentDefensiveStrength,
@@ -132,7 +109,6 @@ module.exports = {
   adjustedCleanSheetProbability,
   adjustedAttackModifier,
   adjustedFDR,
-  analyzeOpponent,
   BASE_CS_PROB,
   ATTACK_MODIFIER,
 };

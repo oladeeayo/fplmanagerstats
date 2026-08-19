@@ -57,6 +57,8 @@ declare global {
         teamMap?: Record<number, any>;
         [key: string]: any;
       };
+      renderGoalsScoredProjections?: () => Promise<void>;
+      renderGoalsConcededProjections?: () => Promise<void>;
       init(): Promise<void>;
       initSidebar(): void;
       initSidebarCollapse(): void;
@@ -68,6 +70,10 @@ declare global {
       autoFillTeamBuilder(): void;
       reRollTeamBuilderAutoFill(): void;
       clearTeamBuilder(): void;
+      [key: string]: any;
     };
   }
+
+  declare function renderGoalsScoredProjections(): Promise<void>;
+  declare function renderGoalsConcededProjections(): Promise<void>;
 }

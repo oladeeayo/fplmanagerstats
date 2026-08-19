@@ -32,6 +32,7 @@ const FPL = {
             selectedIds: [],
             selectedGWs: [],
             captainId: null,
+            pinnedIds: [],
             query: '',
             position: 'all',
             club: 'all',
@@ -94,6 +95,9 @@ const FPL = {
         aiTeam: '/api/ai-team',
         teamBuilderAdvice: '/api/team-builder/advice',
         teamBuilderPreferences: '/api/team-builder/preferences',
+        goalsProjections: (gw, horizon) => `/api/goals-projections?gw=${gw || ''}&horizon=${horizon || 6}`,
+        goalsConceded: (gw, horizon) => `/api/goals-conceded?gw=${gw || ''}&horizon=${horizon || 6}`,
+        rollingFDR: (gw) => `/api/rolling-fdr?gw=${gw || ''}`,
     },
 
     async apiFetch(url) {
@@ -561,6 +565,7 @@ const FPL = {
             const builderIds = Array.isArray(builder.selectedIds) ? builder.selectedIds : [];
             builder.selectedIds = (savedIds || builderIds).filter(id => playerIds.has(id)).slice(0, 15);
             builder.captainId = builder.selectedIds.includes(saved?.captainId) ? saved.captainId : (builder.selectedIds.includes(builder.captainId) ? builder.captainId : null);
+            builder.pinnedIds = (Array.isArray(saved?.pinnedIds) ? saved.pinnedIds : []).filter(id => playerIds.has(id));
             builder.autoFillFormation = saved?.autoFillFormation || null;
             builder.autoFillStarters = (saved?.autoFillStarters || []).filter(id => playerIds.has(id));
             builder.preferences = saved?.preferences || null;
@@ -611,6 +616,7 @@ const FPL = {
             selectedIds: builder.selectedIds,
             selectedGWs: builder.selectedGWs,
             captainId: builder.captainId,
+            pinnedIds: builder.pinnedIds || [],
             autoFillFormation: builder.autoFillFormation,
             autoFillStarters: builder.autoFillStarters,
             preferences: builder.preferences
@@ -696,6 +702,77 @@ const FPL = {
         this.paintTeamBuilder();
     },
 
+    addTeamBuilderPlayer(playerId) {
+        const builder = this.state.teamBuilder;
+        const player = builder.players.find(item => item.id === playerId);
+        if (!player) return;
+        if (builder.selectedIds.includes(playerId)) return;
+        const reason = this.canAddTeamBuilderPlayer(player);
+        if (reason) {
+            const message = document.getElementById('tb-market-message');
+            if (message) message.textContent = reason;
+            return;
+        }
+        builder.selectedIds.push(playerId);
+        this.saveTeamBuilderDraft();
+        this.paintTeamBuilder();
+    },
+
+    removeTeamBuilderPlayer(playerId) {
+        const builder = this.state.teamBuilder;
+        const index = builder.selectedIds.indexOf(playerId);
+        if (index < 0) return;
+        builder.selectedIds.splice(index, 1);
+        if (builder.captainId === playerId) builder.captainId = null;
+        const pinned = builder.pinnedIds || [];
+        const pidx = pinned.indexOf(playerId);
+        if (pidx >= 0) pinned.splice(pidx, 1);
+        this.saveTeamBuilderDraft();
+        this.paintTeamBuilder();
+    },
+
+    pinTeamBuilderPlayer(playerId) {
+        const builder = this.state.teamBuilder;
+        if (!builder.selectedIds.includes(playerId)) return;
+        if (!builder.pinnedIds) builder.pinnedIds = [];
+        const idx = builder.pinnedIds.indexOf(playerId);
+        if (idx >= 0) {
+            builder.pinnedIds.splice(idx, 1);
+        } else {
+            builder.pinnedIds.push(playerId);
+        }
+        this.saveTeamBuilderDraft();
+        this.paintTeamBuilder();
+    },
+
+    swapTeamBuilderBenchStarter(starterId, benchId) {
+        const builder = this.state.teamBuilder;
+        if (!builder.selectedIds.includes(starterId) || !builder.selectedIds.includes(benchId)) return;
+        const starterPlayer = builder.players.find(p => p.id === starterId);
+        const benchPlayer = builder.players.find(p => p.id === benchId);
+        if (!starterPlayer || !benchPlayer) return;
+        if (starterPlayer.position !== benchPlayer.position) {
+            const message = document.getElementById('tb-market-message');
+            if (message) message.textContent = 'Can only swap players of the same position.';
+            return;
+        }
+        if (!builder.autoFillStarters) builder.autoFillStarters = [];
+        const starterIdx = builder.autoFillStarters.indexOf(starterId);
+        const benchIdx = builder.autoFillStarters.indexOf(benchId);
+        if (starterIdx >= 0) {
+            builder.autoFillStarters.splice(starterIdx, 1, benchId);
+        } else if (benchIdx < 0) {
+            builder.autoFillStarters.push(benchId);
+        }
+        if (benchIdx >= 0) {
+            builder.autoFillStarters.splice(builder.autoFillStarters.indexOf(benchId), 1, starterId);
+        }
+        this.saveTeamBuilderDraft();
+        this.paintTeamBuilder();
+        const message = document.getElementById('tb-market-message');
+        if (message) message.textContent = `Swapped ${starterPlayer.name} ↔ ${benchPlayer.name}`;
+    },
+
     setTeamBuilderCaptain(playerId) {
         if (!this.state.teamBuilder.selectedIds.includes(playerId)) return;
         this.state.teamBuilder.captainId = playerId;
@@ -729,6 +806,7 @@ const FPL = {
             const builder = this.state.teamBuilder;
             builder.selectedIds = [];
             builder.captainId = null;
+            builder.pinnedIds = [];
             builder.autoFillSeed = 0;
             builder.autoFillFormation = null;
             builder.autoFillStarters = [];
@@ -1017,7 +1095,7 @@ const FPL = {
         }
         constraints.benchIds = [...new Set([...(constraints.benchIds || []), ...requirementBenchIds])].slice(0, 4);
         constraints.starterIds = [...new Set([...(constraints.starterIds || []), ...requirementStarterIds])].filter(id => !constraints.benchIds.includes(id)).slice(0, 11);
-        const mustInclude = [...new Set([...(constraints.mustInclude || []), ...requirementIds])].filter(id => pool.some(player => player.id === id));
+        const mustInclude = [...new Set([...(constraints.mustInclude || []), ...requirementIds, ...(constraints.pinnedIds || [])])].filter(id => pool.some(player => player.id === id));
         const mustExclude = new Set(constraints.mustExclude || []);
         const rand = this._mulberry32(seed * 7919 + 13);
         const jitter = seed === 0 ? 1 : 0.9 + rand() * 0.2;
@@ -1803,21 +1881,33 @@ const FPL = {
             return;
         }
         const builder = this.state.teamBuilder;
+        const pinnedIds = new Set(builder.pinnedIds || []);
+        const starterIds = new Set(builder.autoFillStarters || []);
         container.innerHTML = `<div class="tb-squad-list-grid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:8px;padding:8px 0;">` + squad.map(player => {
             const isCaptain = builder.captainId === player.id;
+            const isPinned = pinnedIds.has(player.id);
+            const isStarter = starterIds.has(player.id);
             const xpts = this.teamBuilderXPts ? this.teamBuilderXPts(player) : 0;
             return `
-                <div class="tb-squad-item" data-id="${player.id}" style="display:flex;align-items:center;justify-content:space-between;background:#121824;border:1px solid #1a2233;border-radius:6px;padding:8px 12px;">
-                    <div class="tb-squad-item-info" style="display:flex;align-items:center;gap:8px;">
+                <div class="tb-squad-item${isPinned ? ' pinned' : ''}" data-id="${player.id}" style="display:flex;align-items:center;justify-content:space-between;background:#121824;border:1px solid ${isPinned ? 'rgba(0,255,133,0.4)' : '#1a2233'};border-radius:6px;padding:8px 12px;${isPinned ? 'box-shadow:0 0 8px rgba(0,255,133,0.1);' : ''}">
+                    <div class="tb-squad-item-info" style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;">
                         ${this.teamBadge(player.club || player.team, 20)}
-                        <span class="tb-squad-item-name" style="font-weight:700;color:#fff;">${this.escapeHTML(player.name || player.web_name || '')}</span>
-                        <span class="tb-pos-badge pos-${(player.position || '').toLowerCase()}">${this.escapeHTML(player.position || '')}</span>
+                        <div style="min-width:0;">
+                            <div style="display:flex;align-items:center;gap:4px;">
+                                <span class="tb-squad-item-name" style="font-weight:700;color:#fff;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${this.escapeHTML(player.name || player.web_name || '')}</span>
+                                ${isPinned ? '<span class="material-symbols-outlined" style="font-size:14px;color:#00FF85;">lock</span>' : ''}
+                            </div>
+                            <div style="display:flex;align-items:center;gap:4px;">
+                                <span class="tb-pos-badge pos-${(player.position || '').toLowerCase()}" style="font-size:10px;">${this.escapeHTML(player.position || '')}</span>
+                                <span style="font-size:11px;color:#64748b;">£${(player.costValue || (player.cost / 10) || 0).toFixed(1)}m</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="tb-squad-item-meta" style="display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:12px;">
-                        <span style="color:#94a3b8;">£${(player.costValue || (player.cost / 10) || 0).toFixed(1)}m</span>
-                        <span style="color:#00FF85;font-weight:700;">${xpts.toFixed(1)} xP</span>
-                        <button type="button" class="tb-btn-icon${isCaptain ? ' active' : ''}" style="background:none;border:none;color:${isCaptain ? '#00FF85' : '#64748b'};cursor:pointer;" title="Make Captain" onclick="FPL.setTeamBuilderCaptain(${player.id})"><span class="material-symbols-outlined" style="font-size:18px;">copyright</span></button>
-                        <button type="button" class="tb-btn-icon danger" style="background:none;border:none;color:#ff5252;cursor:pointer;" title="Remove Player" onclick="FPL.removeTeamBuilderPlayer(${player.id})"><span class="material-symbols-outlined" style="font-size:18px;">close</span></button>
+                    <div class="tb-squad-item-meta" style="display:flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:12px;flex-shrink:0;">
+                        <span style="color:#00FF85;font-weight:700;font-size:11px;">${xpts.toFixed(1)} xP</span>
+                        <button type="button" class="tb-btn-icon${isPinned ? ' active' : ''}" style="background:none;border:none;color:${isPinned ? '#00FF85' : '#64748b'};cursor:pointer;padding:2px;" title="${isPinned ? 'Unpin player' : 'Pin player (auto-fill will keep)'}" onclick="FPL.pinTeamBuilderPlayer(${player.id})"><span class="material-symbols-outlined" style="font-size:16px;">${isPinned ? 'lock' : 'lock_open'}</span></button>
+                        <button type="button" class="tb-btn-icon${isCaptain ? ' active' : ''}" style="background:none;border:none;color:${isCaptain ? '#00FF85' : '#64748b'};cursor:pointer;padding:2px;" title="Make Captain" onclick="FPL.setTeamBuilderCaptain(${player.id})"><span class="material-symbols-outlined" style="font-size:16px;">copyright</span></button>
+                        <button type="button" class="tb-btn-icon danger" style="background:none;border:none;color:#ff5252;cursor:pointer;padding:2px;" title="Remove Player" onclick="FPL.removeTeamBuilderPlayer(${player.id})"><span class="material-symbols-outlined" style="font-size:16px;">close</span></button>
                     </div>
                 </div>
             `;
@@ -2390,16 +2480,35 @@ const FPL = {
 
             const fdrHeaderRow = document.getElementById('dash-fdr-header-row');
             if (fdrHeaderRow && data.nextGWs) {
+                const dashSortGW = this.state.dashFDRSortGW || null;
+                const dashSortAsc = this.state.dashFDRSortAsc !== false;
                 fdrHeaderRow.innerHTML = `<th style="padding:8px 12px;text-align:left;color:#8ba396;background:#141916;position:sticky;left:0;z-index:2;">Team</th>` +
-                    data.nextGWs.map(gw => `<th style="padding:6px 8px;text-align:center;color:#8ba396;">GW${gw}</th>`).join('');
+                    data.nextGWs.map(gw => {
+                        const isSorted = dashSortGW === gw;
+                        const arrow = isSorted ? (dashSortAsc ? ' ▲' : ' ▼') : '';
+                        const color = isSorted ? '#00FF85' : '#8ba396';
+                        return `<th style="padding:6px 8px;text-align:center;color:${color};cursor:pointer;user-select:none;transition:color 0.2s;" onclick="FPL.sortDashFDRByGW(${gw})" title="Sort by GW${gw} FDR">GW${gw}${arrow}</th>`;
+                    }).join('');
             }
 
             const fdrTbody = document.getElementById('dash-fdr-tbody');
             if (fdrTbody && data.fdrGrid) {
-                fdrTbody.innerHTML = data.fdrGrid.map(row => `
+                const dashSortGW = this.state.dashFDRSortGW || null;
+                const dashSortAsc = this.state.dashFDRSortAsc !== false;
+                let grid = [...data.fdrGrid];
+                if (dashSortGW && data.nextGWs?.includes(dashSortGW)) {
+                    grid.sort((a, b) => {
+                        const colA = a.fixtures.find((f, i) => data.nextGWs[i] === dashSortGW);
+                        const colB = b.fixtures.find((f, i) => data.nextGWs[i] === dashSortGW);
+                        const fdrA = (Array.isArray(colA) ? colA[0]?.fdr : colA?.fdr) || 3;
+                        const fdrB = (Array.isArray(colB) ? colB[0]?.fdr : colB?.fdr) || 3;
+                        return dashSortAsc ? fdrA - fdrB : fdrB - fdrA;
+                    });
+                }
+                fdrTbody.innerHTML = grid.map(row => `
                     <tr style="border-bottom:1px solid #1A2E28;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
                         <td style="padding:8px 12px;text-align:left;font-weight:700;color:#ffffff;font-size:12px;font-family:var(--font-mono);background:#141916;white-space:nowrap;">${row.team}</td>
-                        ${row.fixtures.map(f => {
+                        ${row.fixtures.map((f, i) => {
                             if (Array.isArray(f)) {
                                 return `<td style="padding:4px;"><div style="display:flex;flex-direction:column;gap:2px;">${f.map(item => `<div class="mono" style="font-size:10px;font-weight:700;padding:3px 6px;border-radius:4px;${fdrColors[item.fdr] || fdrColors[3]}">${item.label}</div>`).join('')}</div></td>`;
                             }
@@ -3364,13 +3473,39 @@ const FPL = {
             targetGWs.push(g);
         }
 
+        // Fixture sorting state
+        const sortGW = this.state.fixtureSortGW || null;
+        const sortAsc = this.state.fixtureSortAsc !== false;
+
         const headerRow = document.getElementById('fixture-grid-header-row');
         const fixtureTable = document.querySelector('.fixture-grid-table');
         if (fixtureTable) fixtureTable.style.setProperty('--fixture-columns', targetGWs.length);
         if (headerRow) {
             headerRow.style.background = '#202722';
             headerRow.innerHTML = `<th style="padding:6px 8px;background:#202722;width:60px;max-width:60px;font-family:var(--font-mono);font-size:10px;color:#dfe4e0;font-weight:700;position:sticky;left:0;z-index:2;border-right:1px solid #34453b;">TEAM</th>` +
-                targetGWs.map(gw => `<th style="padding:4px 6px;text-align:center;font-family:var(--font-mono);font-size:10px;color:#dfe4e0;font-weight:700;background:#202722;">GW${gw}</th>`).join('');
+                targetGWs.map(gw => {
+                    const isSorted = sortGW === gw;
+                    const arrow = isSorted ? (sortAsc ? ' ▲' : ' ▼') : '';
+                    const color = isSorted ? '#00FF85' : '#dfe4e0';
+                    return `<th style="padding:4px 6px;text-align:center;font-family:var(--font-mono);font-size:10px;color:${color};font-weight:700;background:#202722;cursor:pointer;user-select:none;transition:color 0.2s;" onclick="FPL.sortFixturesByGW(${gw})" title="Sort by GW${gw} FDR">GW${gw}${arrow}</th>`;
+                }).join('');
+        }
+
+        // Compute team FDR values for sorting
+        const getTeamFDR = (teamId, gw) => {
+            const fx = fixtures.find(f => f.event === gw && (f.team_h === teamId || f.team_a === teamId));
+            if (!fx) return 6; // blanks sort last
+            return fx.team_h === teamId ? (fx.team_h_difficulty || fx.difficulty || 3) : (fx.team_a_difficulty || fx.difficulty || 3);
+        };
+
+        // Sort teams
+        let sortedTeams = [...teams];
+        if (sortGW && targetGWs.includes(sortGW)) {
+            sortedTeams.sort((a, b) => {
+                const fdrA = getTeamFDR(a.id, sortGW);
+                const fdrB = getTeamFDR(b.id, sortGW);
+                return sortAsc ? fdrA - fdrB : fdrB - fdrA;
+            });
         }
 
         // Render Table Rows for all 20 teams
@@ -3384,10 +3519,9 @@ const FPL = {
                 5: { bg: '#FF005A', text: '#dfe4e0' }
             };
 
-            tbody.innerHTML = teams.map((team, idx) => {
+            tbody.innerHTML = sortedTeams.map((team, idx) => {
                 const isEven = idx % 2 === 1;
                 let cellHTMLs = targetGWs.map(gw => {
-                    // Find fixture for this team in this GW
                     const fx = fixtures.find(f => f.event === gw && (f.team_h === team.id || f.team_a === team.id));
                     if (!fx) {
                         return `<td style="padding:3px;"><div style="background:#313633;border-radius:6px;padding:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;height:40px;opacity:0.5;"><span style="font-size:10px;font-family:var(--font-mono);color:#b9cbb9;font-weight:700;">BLANK</span></div></td>`;
@@ -3399,9 +3533,11 @@ const FPL = {
                     const diff = isHome ? (fx.team_h_difficulty || fx.difficulty || 3) : (fx.team_a_difficulty || fx.difficulty || 3);
                     const venueStr = isHome ? 'H' : 'A';
                     const colStyle = fdrColors[diff] || fdrColors[3];
+                    const isSortedCol = sortGW === gw;
+                    const highlight = isSortedCol ? `box-shadow:inset 0 0 0 1px rgba(0,255,133,0.3);` : '';
 
                     return `<td style="padding:3px;">
-                        <div style="background:${colStyle.bg};border-radius:6px;padding:4px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;height:40px;">
+                        <div style="background:${colStyle.bg};border-radius:6px;padding:4px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;height:40px;${highlight}">
                             <span style="font-size:10px;font-weight:700;font-family:var(--font-mono);color:${colStyle.text}">${oppShort} (${venueStr})</span>
                         </div>
                     </td>`;
@@ -3457,44 +3593,66 @@ const FPL = {
     switchFixtureSubView(subview) {
         const matrixView = document.getElementById('fixture-subview-matrix');
         const oddsView = document.getElementById('fixture-subview-odds');
+        const goalsView = document.getElementById('fixture-subview-goals');
+        const concededView = document.getElementById('fixture-subview-conceded');
         const matrixBtn = document.getElementById('fixture-view-btn-matrix');
         const oddsBtn = document.getElementById('fixture-view-btn-odds');
-        const selector = document.getElementById('fixture-odds-gw-selector');
+        const goalsBtn = document.getElementById('fixture-view-btn-goals');
+        const concededBtn = document.getElementById('fixture-view-btn-conceded');
+        const oddsSelector = document.getElementById('fixture-odds-gw-selector');
+        const goalsSelector = document.getElementById('fixture-goals-horizon-selector');
 
-        if (subview === 'odds') {
-            if (matrixView) matrixView.style.display = 'none';
-            if (oddsView) oddsView.style.display = 'block';
-            if (selector) selector.style.display = 'flex';
-
-            if (matrixBtn) {
-                matrixBtn.style.background = 'transparent';
-                matrixBtn.style.color = '#b9cbb9';
-                matrixBtn.style.border = '1px solid #34453b';
-                matrixBtn.classList.remove('active');
+        // Hide all views and reset all buttons
+        [matrixView, oddsView, goalsView, concededView].forEach(v => { if (v) v.style.display = 'none'; });
+        [matrixBtn, oddsBtn, goalsBtn, concededBtn].forEach(btn => {
+            if (btn) {
+                btn.style.background = 'transparent';
+                btn.style.color = '#b9cbb9';
+                btn.style.border = '1px solid #34453b';
+                btn.classList.remove('active');
             }
+        });
+        if (oddsSelector) oddsSelector.style.display = 'none';
+        if (goalsSelector) goalsSelector.style.display = 'none';
+
+        // Activate selected view
+        if (subview === 'goals') {
+            if (goalsView) goalsView.style.display = 'block';
+            if (goalsBtn) {
+                goalsBtn.style.background = '#00FF85';
+                goalsBtn.style.color = '#0a0f0d';
+                goalsBtn.style.border = 'none';
+                goalsBtn.classList.add('active');
+            }
+            if (goalsSelector) goalsSelector.style.display = 'flex';
+            this.renderGoalsScoredProjections();
+        } else if (subview === 'conceded') {
+            if (concededView) concededView.style.display = 'block';
+            if (concededBtn) {
+                concededBtn.style.background = '#00FF85';
+                concededBtn.style.color = '#0a0f0d';
+                concededBtn.style.border = 'none';
+                concededBtn.classList.add('active');
+            }
+            if (goalsSelector) goalsSelector.style.display = 'flex';
+            this.renderGoalsConcededProjections();
+        } else if (subview === 'odds') {
+            if (oddsView) oddsView.style.display = 'block';
             if (oddsBtn) {
                 oddsBtn.style.background = '#00FF85';
                 oddsBtn.style.color = '#0a0f0d';
                 oddsBtn.style.border = 'none';
                 oddsBtn.classList.add('active');
             }
+            if (oddsSelector) oddsSelector.style.display = 'flex';
             this.renderFixtureOdds();
         } else {
             if (matrixView) matrixView.style.display = 'block';
-            if (oddsView) oddsView.style.display = 'none';
-            if (selector) selector.style.display = 'none';
-
             if (matrixBtn) {
                 matrixBtn.style.background = '#00FF85';
                 matrixBtn.style.color = '#0a0f0d';
                 matrixBtn.style.border = 'none';
                 matrixBtn.classList.add('active');
-            }
-            if (oddsBtn) {
-                oddsBtn.style.background = 'transparent';
-                oddsBtn.style.color = '#b9cbb9';
-                oddsBtn.style.border = '1px solid #34453b';
-                oddsBtn.classList.remove('active');
             }
         }
     },
@@ -3502,6 +3660,33 @@ const FPL = {
     setFixtureOddsGW(gw) {
         this.state.fixtureOddsGW = parseInt(gw, 10);
         this.renderFixtureOdds();
+    },
+
+    sortFixturesByGW(gw) {
+        if (this.state.fixtureSortGW === gw) {
+            this.state.fixtureSortAsc = !this.state.fixtureSortAsc;
+        } else {
+            this.state.fixtureSortGW = gw;
+            this.state.fixtureSortAsc = true;
+        }
+        this.renderFixtures();
+    },
+
+    sortDashFDRByGW(gw) {
+        if (this.state.dashFDRSortGW === gw) {
+            this.state.dashFDRSortAsc = !this.state.dashFDRSortAsc;
+        } else {
+            this.state.dashFDRSortGW = gw;
+            this.state.dashFDRSortAsc = true;
+        }
+        this.renderGeneral();
+    },
+
+    setFixtureGoalsHorizon(horizon) {
+        this.state.fixtureGoalsHorizon = parseInt(horizon, 10) || 6;
+        const activeSubView = document.getElementById('fixture-subview-goals')?.style.display === 'block' ? 'goals' : 'conceded';
+        if (activeSubView === 'goals') this.renderGoalsScoredProjections();
+        else this.renderGoalsConcededProjections();
     },
 
     formatSolioKickoff(kickoffTime) {
@@ -3931,6 +4116,9 @@ const FPL = {
 
         this.showDialog('projection-reasoning-dialog');
     },
+
+    renderGoalsScoredProjections: null,
+    renderGoalsConcededProjections: null,
 
     renderFixtureDifficulty(gwFixtures) {
         const container = document.getElementById('fixture-difficulty-body');

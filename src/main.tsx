@@ -28,9 +28,25 @@ importScript.addEventListener('load', () => {
   prefScript.defer = true;
   prefScript.addEventListener('load', () => {
     const legacyScript = document.createElement('script');
-    legacyScript.src = '/common.js?v=17';
+    legacyScript.src = '/common.js?v=21';
     legacyScript.defer = true;
-    legacyScript.addEventListener('load', () => window.dispatchEvent(new CustomEvent('fpl-ready')));
+    legacyScript.addEventListener('load', () => {
+      const goalsRenderers = document.createElement('script');
+      goalsRenderers.src = '/goals-projections-renderers.js?v=1';
+      goalsRenderers.defer = true;
+      goalsRenderers.addEventListener('load', () => {
+        /* eslint-disable @typescript-eslint/no-explicit-any */
+        const fpl = (window as any).FPL;
+        if (typeof renderGoalsScoredProjections === 'function') fpl.renderGoalsScoredProjections = renderGoalsScoredProjections;
+        if (typeof renderGoalsConcededProjections === 'function') fpl.renderGoalsConcededProjections = renderGoalsConcededProjections;
+        window.dispatchEvent(new CustomEvent('fpl-ready'));
+      });
+      goalsRenderers.addEventListener('error', () => {
+        console.error('Failed to load goals projections renderers');
+        window.dispatchEvent(new CustomEvent('fpl-ready'));
+      });
+      document.head.appendChild(goalsRenderers);
+    });
     legacyScript.addEventListener('error', () => console.error('Failed to load the FPL dashboard data client.'));
     document.head.appendChild(legacyScript);
   });
