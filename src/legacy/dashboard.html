@@ -177,27 +177,27 @@
                 <!-- DASHBOARD -->
                 <div id="content-general" class="tab-content active">
                     <!-- Gameweek Overview Banner -->
-                    <section class="dash-stat-banner" style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;position:relative;margin-bottom:20px;">
+                    <section class="dash-stat-banner dash-card dash-card-padded" style="position:relative;margin-bottom:20px;">
                         <div class="dash-stat-title" style="text-align:center;margin-bottom:16px;">
                             <h1 style="font-size:22px;font-weight:700;color:#ffffff;margin:0;">Gameweek <span id="dash-gw-num">1</span></h1>
-                            <p style="font-size:11px;color:#8ba396;margin-top:4px;">Last updated: <span id="dash-last-updated">just now</span></p>
+                            <p class="dash-meta-text">Last updated: <span id="dash-last-updated">just now</span></p>
                         </div>
                         <div class="dash-stat-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;">
                             <div class="dash-stat-item" style="text-align:center;padding:8px 4px;border-right:1px solid #1A2E28;">
-                                <div style="font-size:9px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);font-weight:700;letter-spacing:0.06em;">AVG</div>
-                                <div style="font-size:20px;font-weight:700;color:#ffffff;margin-top:2px;" id="dash-gw-avg">--</div>
+                                <div class="dash-stat-label">AVG</div>
+                                <div class="dash-stat-value" id="dash-gw-avg">--</div>
                             </div>
                             <div class="dash-stat-item" style="text-align:center;padding:8px 4px;border-right:1px solid #1A2E28;">
-                                <div style="font-size:9px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);font-weight:700;letter-spacing:0.06em;">BEST</div>
-                                <div style="font-size:20px;font-weight:700;color:#00ff85;margin-top:2px;" id="dash-highest-score">--</div>
+                                <div class="dash-stat-label">BEST</div>
+                                <div class="dash-stat-value accent" id="dash-highest-score">--</div>
                             </div>
                             <div class="dash-stat-item" style="text-align:center;padding:8px 4px;border-right:1px solid #1A2E28;">
-                                <div style="font-size:9px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);font-weight:700;letter-spacing:0.06em;">TRANSFER</div>
-                                <div style="font-size:20px;font-weight:700;color:#ffffff;margin-top:2px;" id="dash-total-transfers">--</div>
+                                <div class="dash-stat-label">TRANSFER</div>
+                                <div class="dash-stat-value" id="dash-total-transfers">--</div>
                             </div>
                             <div class="dash-stat-item" style="text-align:center;padding:8px 4px;">
-                                <div style="font-size:9px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);font-weight:700;letter-spacing:0.06em;">DEADLINE</div>
-                                <div id="dash-countdown" style="font-size:18px;font-weight:700;color:#00ff85;font-family:var(--font-mono);margin-top:2px;">--:--</div>
+                                <div class="dash-stat-label">DEADLINE</div>
+                                <div id="dash-countdown" class="dash-stat-value accent mono">--:--</div>
                             </div>
                         </div>
                     </section>
