@@ -88,7 +88,7 @@ app.use('/api/admin', adminRoutes);
 // Team News — FPL bootstrap API + FFS injury scrape with manager quotes
 app.get('/api/team-news', async (req, res) => {
   const axios = require('axios');
-  const { scrapeFFSInjuries } = require('./ffsScraper');
+  const { scrapeFFSInjuries } = require('./server/ffsScraper');
 
   try {
     // Fetch both sources in parallel
