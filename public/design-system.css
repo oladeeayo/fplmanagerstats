@@ -727,9 +727,9 @@ select.input {
     -webkit-backdrop-filter: blur(16px);
     border-top: 1px solid rgba(255, 255, 255, 0.06);
     z-index: 100;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(5, 1fr);
     align-items: stretch;
-    padding: 0 2px env(safe-area-inset-bottom, 0px);
+    padding: 0 env(safe-area-inset-bottom, 0px);
 }
 
 .bottom-nav-item {
@@ -4055,7 +4055,7 @@ div.collapsed > .sidebar-section-toggle .sidebar-section-chevron { transform: ro
 @media (max-width: 768px) { .player-detail-stats { grid-template-columns: repeat(2, 1fr); } .player-detail-xg-breakdown { grid-template-columns: repeat(3, 1fr); gap: var(--space-sm); } .player-detail-header { flex-direction: column; text-align: center; } .player-detail-meta { justify-content: center; flex-wrap: wrap; } }
 
 /* ==================== BOTTOM NAV OVERFLOW ==================== */
-.bottom-nav { --nav-items: 6; }
+.bottom-nav { --nav-items: 5; }
 .bottom-nav-overflow { display: none; position: fixed; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); right: 8px; z-index: 101; }
 .bottom-nav-overflow-btn { width: auto !important; border-radius: var(--radius-pill) !important; background: transparent !important; border: none !important; color: inherit !important; }
 .bottom-nav-overflow-btn.active { color: var(--md-sys-color-primary) !important; }
@@ -4104,8 +4104,8 @@ div.collapsed > .sidebar-section-toggle .sidebar-section-chevron { transform: ro
 .bottom-nav-overflow-item .material-symbols-outlined { font-size: 20px; }
 @media (max-width: 1024px) {
     .layout-content { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important; }
-    .bottom-nav-overflow { display: block !important; }
-    .bottom-nav { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; padding-right: 0 !important; }
+    .bottom-nav-overflow { display: none !important; }
+    .bottom-nav { grid-template-columns: repeat(5, 1fr) !important; padding-right: 0 !important; }
 }
 
 /* ==================== TEAM BUILDER INTERACTIVITY & CARDS ==================== */
