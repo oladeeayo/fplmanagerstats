@@ -10,8 +10,6 @@ const router = express.Router();
 const ADMIN_KEY = process.env.ADMIN_KEY;
 const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET || ADMIN_KEY || crypto.randomBytes(32).toString('hex');
 
-// In-memory admin session store (ephemeral on serverless, fine for single-admin)
-const adminSessions = new Map();
 const ADMIN_SESSION_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 // Brute-force protection: track failed login attempts per IP
@@ -21,31 +19,28 @@ const LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
 
 function cleanupSessions() {
   const now = Date.now();
-  for (const [token, session] of adminSessions) {
-    if (now - session.createdAt > ADMIN_SESSION_TTL) adminSessions.delete(token);
-  }
   for (const [ip, record] of loginAttempts) {
     if (now - record.lastAttempt > LOCKOUT_MS) loginAttempts.delete(ip);
   }
 }
-setInterval(cleanupSessions, 5 * 60 * 1000);
+setInterval(cleanupSessions, 5 * 60 * 1000).unref();
 
 function generateAdminSessionToken() {
-  return crypto.randomBytes(32).toString('hex');
+  const payload = `${Date.now()}.${crypto.randomBytes(16).toString('hex')}`;
+  const signature = crypto.createHmac('sha256', ADMIN_SESSION_SECRET).update(payload).digest('hex');
+  return `${payload}.${signature}`;
 }
 
-function createAdminSession(res, ip) {
+function createAdminSession(req, res) {
   const token = generateAdminSessionToken();
-  adminSessions.set(token, { createdAt: Date.now(), ip });
-  const secure = true; // Always use Secure in production
+  const secure = req.secure || req.headers['x-forwarded-proto'] === 'https';
   res.setHeader('Set-Cookie', `fpl_admin_session=${token}; Max-Age=${ADMIN_SESSION_TTL / 1000}; Path=/api/admin; HttpOnly; SameSite=Strict${secure ? '; Secure' : ''}`);
   return token;
 }
 
 function destroyAdminSession(req, res) {
-  const token = parseAdminCookie(req);
-  if (token) adminSessions.delete(token);
-  res.setHeader('Set-Cookie', 'fpl_admin_session=; Max-Age=0; Path=/api/admin; HttpOnly; SameSite=Strict');
+  const secure = req.secure || req.headers['x-forwarded-proto'] === 'https';
+  res.setHeader('Set-Cookie', `fpl_admin_session=; Max-Age=0; Path=/api/admin; HttpOnly; SameSite=Strict${secure ? '; Secure' : ''}`);
 }
 
 function parseAdminCookie(req) {
@@ -60,9 +55,16 @@ function parseAdminCookie(req) {
 function isAdminAuthenticated(req) {
   const token = parseAdminCookie(req);
   if (!token) return false;
-  const session = adminSessions.get(token);
-  if (!session) return false;
-  return true;
+  const [createdAtValue, nonce, signature, ...extra] = token.split('.');
+  if (extra.length || !/^\d+$/.test(createdAtValue) || !/^[a-f0-9]{32}$/.test(nonce) || !/^[a-f0-9]{64}$/.test(signature)) return false;
+
+  const createdAt = Number(createdAtValue);
+  if (!Number.isSafeInteger(createdAt) || createdAt > Date.now() || Date.now() - createdAt > ADMIN_SESSION_TTL) return false;
+
+  const payload = `${createdAtValue}.${nonce}`;
+  const expected = crypto.createHmac('sha256', ADMIN_SESSION_SECRET).update(payload).digest();
+  const supplied = Buffer.from(signature, 'hex');
+  return supplied.length === expected.length && crypto.timingSafeEqual(supplied, expected);
 }
 
 // Login endpoint with brute-force protection
@@ -107,7 +109,7 @@ router.post('/login', adminLoginLimiter, (req, res) => {
 
   // Successful login - reset attempts
   loginAttempts.delete(ip);
-  const token = createAdminSession(res, ip);
+  createAdminSession(req, res);
   logger.info({ ip }, 'Admin login successful');
   res.json({ ok: true });
 });
