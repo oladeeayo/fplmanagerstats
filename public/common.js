@@ -4643,9 +4643,15 @@ const FPL = {
             <div class="tn-row-main">
                 <span class="tn-row-name">${this.escapeHTML(p.name)}</span>
                 <span class="tn-row-pos">${p.pos}</span>
+                ${p.injury ? `<span class="tn-row-injury">${this.escapeHTML(p.injury)}</span>` : ''}
                 ${chance ? `<span class="tn-row-chance" style="color:${p.chance === 0 ? '#ff4d4d' : p.chance >= 75 ? '#00FF85' : '#FFA600'}">${chance}</span>` : ''}
             </div>
             ${p.news ? `<div class="tn-row-news">${this.escapeHTML(p.news)}</div>` : ''}
+            ${p.managerQuote ? `<div class="tn-row-quote">"${this.escapeHTML(p.managerQuote)}"</div>` : ''}
+            <div class="tn-row-meta">
+                ${p.sourceUrl ? `<a class="tn-row-source" href="${this.escapeHTML(p.sourceUrl)}" target="_blank" rel="noopener">Source</a>` : ''}
+                ${p.returnDate ? `<span class="tn-row-return">Return: ${p.returnDate}</span>` : ''}
+            </div>
         </div>`;
     },
 

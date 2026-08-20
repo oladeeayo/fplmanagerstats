@@ -85,12 +85,19 @@ app.use('/api/ownership', ownershipRoutes);
 app.use('/api', miscRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Team News — FPL player availability from bootstrap API + FFS scrape
+// Team News — FPL bootstrap API + FFS injury scrape with manager quotes
 app.get('/api/team-news', async (req, res) => {
   const axios = require('axios');
+  const { scrapeFFSInjuries } = require('./ffsScraper');
+
   try {
-    const resp = await axios.get('https://fantasy.premierleague.com/api/bootstrap-static/', { timeout: 10000 });
-    const data = resp.data;
+    // Fetch both sources in parallel
+    const [fplResp, ffsData] = await Promise.all([
+      axios.get('https://fantasy.premierleague.com/api/bootstrap-static/', { timeout: 10000 }),
+      scrapeFFSInjuries().catch(() => []),
+    ]);
+
+    const data = fplResp.data;
     const teams = data.teams || [];
     const elements = data.elements || [];
     const events = data.events || [];
@@ -98,6 +105,27 @@ app.get('/api/team-news', async (req, res) => {
 
     const teamMap = {};
     teams.forEach(t => { teamMap[t.id] = { id: t.id, name: t.name, short: t.short_name }; });
+
+    // Build FFS lookup by teamCode + player name variants
+    const ffsByTeamName = {};
+    const ffsByTeamLastName = {};
+    const ffsByTeamFirstName = {};
+    (ffsData || []).forEach(entry => {
+      if (entry.player && entry.teamCode) {
+        const nameKey = `${entry.teamCode}|${entry.player.toLowerCase()}`;
+        ffsByTeamName[nameKey] = entry;
+        if (entry.lastName) {
+          const lastNameKey = `${entry.teamCode}|${entry.lastName.toLowerCase()}`;
+          if (!ffsByTeamLastName[lastNameKey]) ffsByTeamLastName[lastNameKey] = entry;
+        }
+        // Also index by first name (first word of full name)
+        const firstName = entry.player.split(/\s+/)[0].toLowerCase();
+        if (firstName) {
+          const firstNameKey = `${entry.teamCode}|${firstName}`;
+          if (!ffsByTeamFirstName[firstNameKey]) ffsByTeamFirstName[firstNameKey] = entry;
+        }
+      }
+    });
 
     const teamNews = {};
     elements.forEach(el => {
@@ -115,13 +143,56 @@ app.get('/api/team-news', async (req, res) => {
       else if (status === 'i') category = 'injury';
       else if (status === 'd') category = 'doubt';
 
+      // Try to find FFS data for this player by team code + name variants
+      const teamCode = team.short;
+      const webName = (el.web_name || '').toLowerCase();
+      const firstName = (el.first_name || '').toLowerCase();
+      const lastName = (el.last_name || '').toLowerCase();
+      const fullName = `${firstName} ${lastName}`;
+
+      // Handle abbreviated web names: "Bruno G." -> "bruno", "J.Timber" -> "timber"
+      const webNameDots = webName.replace(/\./g, '').trim();
+      const webNameParts = webName.split(/[.\s]+/).filter(Boolean);
+      const webNameLastPart = webNameParts.length > 1 ? webNameParts[webNameParts.length - 1] : webName;
+
+      const ffsEntry = ffsByTeamName[`${teamCode}|${webName}`]
+        || ffsByTeamLastName[`${teamCode}|${webName}`]
+        || ffsByTeamLastName[`${teamCode}|${webNameDots}`]
+        || ffsByTeamLastName[`${teamCode}|${webNameLastPart}`]
+        || ffsByTeamName[`${teamCode}|${lastName}`]
+        || ffsByTeamLastName[`${teamCode}|${lastName}`]
+        || ffsByTeamName[`${teamCode}|${fullName}`]
+        || ffsByTeamName[`${teamCode}|${firstName}`]
+        || ffsByTeamFirstName[`${teamCode}|${firstName}`];
+
+      // Use FFS news if richer, otherwise prefer FPL
+      let combinedNews = news;
+      let managerQuote = null;
+      let sourceUrl = null;
+      let returnDate = null;
+      let injury = null;
+
+      if (ffsEntry) {
+        if (ffsEntry.news && ffsEntry.news.length > combinedNews.length) {
+          combinedNews = ffsEntry.news;
+        }
+        managerQuote = ffsEntry.managerQuote || null;
+        sourceUrl = ffsEntry.sourceUrl || null;
+        returnDate = ffsEntry.returnDate || null;
+        injury = ffsEntry.injury || null;
+      }
+
       teamNews[team.id].players.push({
         name: el.web_name || el.first_name + ' ' + el.last_name,
         pos: { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' }[el.element_type] || '?',
         status,
-        news,
+        news: combinedNews,
         chance: el.chance_of_playing_next_round,
         category,
+        managerQuote,
+        sourceUrl,
+        returnDate,
+        injury,
       });
     });
 
@@ -132,7 +203,7 @@ app.get('/api/team-news', async (req, res) => {
     });
 
     const sorted = Object.values(teamNews).sort((a, b) => a.team.name.localeCompare(b.team.name));
-    res.json({ currentGW, teams: sorted });
+    res.json({ currentGW, teams: sorted, ffsCount: (ffsData || []).length });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch team news' });
   }

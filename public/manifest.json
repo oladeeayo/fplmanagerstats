@@ -1,24 +1,50 @@
 {
     "name": "FPL Manager Stats",
-    "short_name": "FPL Manager Stats",
+    "short_name": "FPL Stats",
     "description": "Advanced analytics and insights for Fantasy Premier League managers",
     "start_url": "/",
+    "scope": "/",
     "display": "standalone",
-    "background_color": "#0D0D0D",
+    "display_override": ["standalone", "minimal-ui"],
+    "background_color": "#0a0f0d",
     "theme_color": "#00FF85",
     "orientation": "any",
+    "edge_side_panel": {
+        "preferred_width": 400
+    },
+    "handle_links": "preferred",
+    "launch_handler": {
+        "client_mode": "navigate-existing"
+    },
+    "categories": ["sports", "utilities"],
+    "lang": "en",
+    "dir": "ltr",
+    "iarc_rating_id": "",
+    "prefer_related_applications": false,
     "icons": [
         {
             "src": "pwa-icon-192.png",
             "sizes": "192x192",
             "type": "image/png",
-            "purpose": "any maskable"
+            "purpose": "any"
+        },
+        {
+            "src": "pwa-icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
         },
         {
             "src": "pwa-icon-512.png",
             "sizes": "512x512",
             "type": "image/png",
-            "purpose": "any maskable"
+            "purpose": "any"
+        },
+        {
+            "src": "pwa-icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
         },
         {
             "src": "fpl-icon.svg",
@@ -26,6 +52,36 @@
             "type": "image/svg+xml"
         }
     ],
-    "categories": ["sports", "utilities"],
-    "lang": "en"
+    "shortcuts": [
+        {
+            "name": "Dashboard",
+            "short_name": "Home",
+            "url": "/",
+            "description": "View your FPL dashboard"
+        },
+        {
+            "name": "Player Stats",
+            "short_name": "Players",
+            "url": "/players",
+            "description": "Browse global player statistics"
+        },
+        {
+            "name": "Fixtures",
+            "short_name": "Fixtures",
+            "url": "/fixtures",
+            "description": "View fixture difficulty ratings"
+        },
+        {
+            "name": "Captaincy",
+            "short_name": "Captain",
+            "url": "/captaincy",
+            "description": "Captain pick recommendations"
+        },
+        {
+            "name": "Team Builder",
+            "short_name": "Builder",
+            "url": "/team-builder",
+            "description": "Build your dream squad"
+        }
+    ]
 }

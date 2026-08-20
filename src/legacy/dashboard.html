@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="FPL Stats">
     <title>FPL Manager Stats - Fantasy Premier League Analytics Dashboard | xG, Captain Picks, Transfers</title>
     <meta name="description" content="Free Fantasy Premier League analytics dashboard with advanced stats: xG/xA predictions, captain picks, transfer trends, ownership tracking, fixture difficulty ratings, and tactical zone analysis. Real-time FPL data updated daily.">
     <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
@@ -174,7 +178,7 @@
                     </button>
                     <div class="sidebar-section-items">
                         <a href="/set-pieces" class="sidebar-nav-item" data-tab="setpieces" onclick="event.preventDefault();FPL.navigateTo('setpieces')"><span class="material-symbols-outlined">sports_motorsports</span> Set Pieces</a>
-                        <a href="/ai-team" class="sidebar-nav-item" data-tab="aiteam" onclick="event.preventDefault();FPL.navigateTo('aiteam')"><span class="material-symbols-outlined">smart_toy</span> AI Team</a>
+                        <a href="/ai-team" class="sidebar-nav-item" data-tab="aiteam" onclick="event.preventDefault();FPL.navigateTo('aiteam')"><span class="material-symbols-outlined">auto_awesome</span> Smart Team</a>
                         <a href="/team-builder" class="sidebar-nav-item" data-tab="teambuilder" onclick="event.preventDefault();FPL.navigateTo('teambuilder')"><span class="material-symbols-outlined">edit_square</span> Team Builder</a>
                     </div>
                 </div>
@@ -1130,7 +1134,7 @@
                         <!-- Compact Header -->
                         <div class="aiteam-hero" style="padding:16px 0 12px;">
                             <div>
-                                <h1 class="aiteam-hero-title" style="font-size:24px;">AI Team</h1>
+                                <h1 class="aiteam-hero-title" style="font-size:24px;">Smart Team</h1>
                                 <p class="aiteam-hero-sub" style="margin:4px 0 0;font-size:12px;">Auto-built squad with fixture-based transfer suggestions.</p>
                             </div>
                             <div style="display:flex;align-items:center;gap:10px;">
@@ -1367,14 +1371,28 @@
     </div>
 
     <!-- Mobile Bottom Nav -->
-    <nav class="bottom-nav">
+    <nav class="bottom-nav" aria-label="Main navigation">
         <a href="/" class="bottom-nav-item active" data-tab="general" onclick="event.preventDefault();FPL.navigateTo('general')"><span class="material-symbols-outlined">dashboard</span><span>Home</span></a>
-        <a href="/manager" class="bottom-nav-item" data-tab="manager" onclick="event.preventDefault();FPL.navigateTo('manager')"><span class="material-symbols-outlined">groups</span><span>Team</span></a>
         <a href="/players" class="bottom-nav-item" data-tab="players" onclick="event.preventDefault();FPL.navigateTo('players')"><span class="material-symbols-outlined">person_search</span><span>Players</span></a>
         <a href="/fixtures" class="bottom-nav-item" data-tab="fixtures" onclick="event.preventDefault();FPL.navigateTo('fixtures')"><span class="material-symbols-outlined">calendar_month</span><span>Fixtures</span></a>
         <a href="/captaincy" class="bottom-nav-item" data-tab="captain" onclick="event.preventDefault();FPL.navigateTo('captain')"><span class="material-symbols-outlined">star</span><span>Captain</span></a>
         <a href="/team-builder" class="bottom-nav-item" data-tab="teambuilder" onclick="event.preventDefault();FPL.navigateTo('teambuilder')"><span class="material-symbols-outlined">edit_square</span><span>Build</span></a>
+        <button type="button" class="bottom-nav-item bottom-nav-overflow-btn" id="bottom-nav-overflow-btn" onclick="FPL.toggleBottomNavOverflow()" aria-label="More pages" aria-expanded="false" aria-haspopup="true"><span class="material-symbols-outlined">more_horiz</span><span>More</span></button>
     </nav>
+
+    <!-- Bottom Nav Overflow Menu -->
+    <div class="bottom-nav-overflow" id="bottom-nav-overflow">
+        <div class="bottom-nav-overflow-menu" id="bottom-nav-overflow-menu" role="menu">
+            <button class="bottom-nav-overflow-item" data-tab="manager" role="menuitem" onclick="FPL.navigateTo('manager')"><span class="material-symbols-outlined">groups</span> Team Analysis</button>
+            <button class="bottom-nav-overflow-item" data-tab="league" role="menuitem" onclick="FPL.navigateTo('league')"><span class="material-symbols-outlined">leaderboard</span> Standings</button>
+            <button class="bottom-nav-overflow-item" data-tab="zones" role="menuitem" onclick="FPL.navigateTo('zones')"><span class="material-symbols-outlined">sports</span> Tactics</button>
+            <button class="bottom-nav-overflow-item" data-tab="decision" role="menuitem" onclick="FPL.navigateTo('decision')"><span class="material-symbols-outlined">model_training</span> Decision Lab</button>
+            <button class="bottom-nav-overflow-item" data-tab="teamnews" role="menuitem" onclick="FPL.navigateTo('teamnews')"><span class="material-symbols-outlined">newspaper</span> Team News</button>
+            <button class="bottom-nav-overflow-item" data-tab="ownership" role="menuitem" onclick="FPL.navigateTo('ownership')"><span class="material-symbols-outlined">pie_chart</span> Ownership</button>
+            <button class="bottom-nav-overflow-item" data-tab="setpieces" role="menuitem" onclick="FPL.navigateTo('setpieces')"><span class="material-symbols-outlined">sports_motorsports</span> Set Pieces</button>
+            <button class="bottom-nav-overflow-item" data-tab="aiteam" role="menuitem" onclick="FPL.navigateTo('aiteam')"><span class="material-symbols-outlined">smart_toy</span> Smart Team</button>
+        </div>
+    </div>
 
     <!-- History Dialog -->
     <div id="history-dialog" class="dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="history-dialog-title" aria-hidden="true">
