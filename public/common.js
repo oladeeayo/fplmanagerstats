@@ -4630,9 +4630,13 @@ const FPL = {
                         <span class="material-symbols-outlined">newspaper</span>
                         <h2>Team News${currentGW ? ' — GW' + currentGW : ''}</h2>
                     </div>
-                    <div class="news-refresh-badge">
-                        <span class="material-symbols-outlined">schedule</span>
-                        <span id="news-refresh-timer">Updated just now</span>
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <button onclick="document.querySelectorAll('.team-news-card').forEach(c=>c.classList.remove('collapsed'))" style="background:none;border:1px solid #1A2E28;border-radius:6px;padding:4px 10px;color:#8ba396;font-size:11px;font-family:var(--font-mono);cursor:pointer;">Expand All</button>
+                        <button onclick="document.querySelectorAll('.team-news-card').forEach(c=>c.classList.add('collapsed'))" style="background:none;border:1px solid #1A2E28;border-radius:6px;padding:4px 10px;color:#8ba396;font-size:11px;font-family:var(--font-mono);cursor:pointer;">Collapse All</button>
+                        <div class="news-refresh-badge">
+                            <span class="material-symbols-outlined">schedule</span>
+                            <span id="news-refresh-timer">Updated just now</span>
+                        </div>
                     </div>
                 </div>`;
 
@@ -4642,9 +4646,9 @@ const FPL = {
                     <p>No injury or suspension news. All squads appear clear.</p>
                 </div>`;
             } else {
-                html += `<div style="display:flex;flex-direction:column;gap:16px;">`;
+                html += `<div style="display:flex;flex-direction:column;gap:8px;">`;
 
-                teams.forEach(teamData => {
+                teams.forEach((teamData, teamIdx) => {
                     const { team, players } = teamData;
                     const suspended = players.filter(p => p.category === 'suspended');
                     const ruledOut = players.filter(p => p.category === 'ruled_out');
@@ -4652,38 +4656,44 @@ const FPL = {
                     const doubtful = players.filter(p => p.category === 'doubtful');
                     const returning = players.filter(p => p.category === 'return');
 
-                    html += `<div style="background:#1c211e;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;">
-                        <div style="background:#202722;padding:12px 16px;border-bottom:1px solid #1A2E28;display:flex;align-items:center;gap:10px;">
-                            ${this.teamBadge(team.short, 24)}
-                            <span style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:#dfe4e0;">${this.escapeHTML(team.name)}</span>
-                            <span style="font-family:var(--font-mono);font-size:11px;color:#8ba396;margin-left:auto;">${players.length} flagged</span>
-                        </div>
-                        <div style="padding:12px 16px;">`;
+                    const summaryTags = [];
+                    if (suspended.length) summaryTags.push(`<span style="color:#ff4d4d;">${suspended.length}S</span>`);
+                    if (ruledOut.length) summaryTags.push(`<span style="color:#ff4d4d;">${ruledOut.length}O</span>`);
+                    if (injured.length) summaryTags.push(`<span style="color:#FFA600;">${injured.length}I</span>`);
+                    if (doubtful.length) summaryTags.push(`<span style="color:#FFA600;">${doubtful.length}D</span>`);
+                    if (returning.length) summaryTags.push(`<span style="color:#00FF85;">${returning.length}R</span>`);
 
-                    if (suspended.length > 0) {
-                        suspended.forEach(p => {
-                            html += this._newsPlayerRow(p, '#ff4d4d', 'SUSPENDED');
-                        });
+                    const fplTeamUrl = `https://fantasy.premierleague.com/fixtures?team=${team.id}`;
+
+                    html += `<div class="team-news-card collapsed" style="background:#1c211e;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;">
+                        <div onclick="this.parentElement.classList.toggle('collapsed')" style="background:#202722;padding:10px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;user-select:none;">
+                            <span class="material-symbols-outlined team-news-chevron" style="font-size:18px;color:#8ba396;transition:transform 0.2s;">expand_more</span>
+                            ${this.teamBadge(team.short, 22)}
+                            <span style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:#dfe4e0;">${this.escapeHTML(team.name)}</span>
+                            <div style="display:flex;gap:6px;margin-left:auto;font-family:var(--font-mono);font-size:11px;font-weight:700;">
+                                ${summaryTags.join('')}
+                            </div>
+                            <span style="font-family:var(--font-mono);font-size:10px;color:#8ba396;">${players.length} flagged</span>
+                            <a href="${fplTeamUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="View on FPL site" style="display:flex;align-items:center;color:#8ba396;text-decoration:none;padding:2px;">
+                                <span class="material-symbols-outlined" style="font-size:16px;">open_in_new</span>
+                            </a>
+                        </div>
+                        <div class="team-news-players" style="padding:0 16px;">`;
+
+                    if (suspended.length) {
+                        suspended.forEach(p => { html += this._newsPlayerRow(p, '#ff4d4d', 'SUSPENDED'); });
                     }
-                    if (ruledOut.length > 0) {
-                        ruledOut.forEach(p => {
-                            html += this._newsPlayerRow(p, '#ff4d4d', 'RULED OUT');
-                        });
+                    if (ruledOut.length) {
+                        ruledOut.forEach(p => { html += this._newsPlayerRow(p, '#ff4d4d', 'RULED OUT'); });
                     }
-                    if (injured.length > 0) {
-                        injured.forEach(p => {
-                            html += this._newsPlayerRow(p, '#FFA600', p.statusLabel || 'INJURY');
-                        });
+                    if (injured.length) {
+                        injured.forEach(p => { html += this._newsPlayerRow(p, '#FFA600', p.statusLabel || 'INJURY'); });
                     }
-                    if (doubtful.length > 0) {
-                        doubtful.forEach(p => {
-                            html += this._newsPlayerRow(p, '#FFA600', 'DOUBTFUL');
-                        });
+                    if (doubtful.length) {
+                        doubtful.forEach(p => { html += this._newsPlayerRow(p, '#FFA600', 'DOUBTFUL'); });
                     }
-                    if (returning.length > 0) {
-                        returning.forEach(p => {
-                            html += this._newsPlayerRow(p, '#00FF85', 'RETURN');
-                        });
+                    if (returning.length) {
+                        returning.forEach(p => { html += this._newsPlayerRow(p, '#00FF85', 'RETURN'); });
                     }
 
                     html += `</div></div>`;
@@ -4722,10 +4732,13 @@ const FPL = {
         const chanceText = p.chance != null
             ? (p.chance === 0 ? '0%' : p.chance === 100 ? '100%' : p.chance + '%')
             : '';
+        const fplPlayerUrl = `https://fantasy.premierleague.com/element/${p.elementId || ''}`;
         return `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #1A2E28;">
             <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:${color};background:${color}15;border:1px solid ${color}30;white-space:nowrap;flex-shrink:0;">${this.escapeHTML(label)}</span>
             <div style="min-width:0;flex:1;">
-                <div style="font-size:13px;font-weight:600;color:#dfe4e0;">${this.escapeHTML(p.name)} <span style="font-size:11px;color:#8ba396;font-weight:400;">${p.position}</span></div>
+                <div style="font-size:13px;font-weight:600;color:#dfe4e0;">
+                    ${this.escapeHTML(p.name)} <span style="font-size:11px;color:#8ba396;font-weight:400;">${p.position}</span>
+                </div>
                 ${p.news ? `<div style="font-size:12px;color:#8ba396;margin-top:2px;line-height:1.4;">${this.escapeHTML(p.news)}</div>` : ''}
             </div>
             ${chanceText ? `<div style="font-family:var(--font-mono);font-size:11px;color:${p.chance === 0 ? '#ff4d4d' : p.chance >= 75 ? '#00FF85' : '#FFA600'};flex-shrink:0;">${chanceText}</div>` : ''}
@@ -6590,7 +6603,24 @@ const FPL = {
             }
         });
 
+        // Auto-expand section containing active tab
+        this._expandActiveSection();
+
         this.initSidebarCollapse();
+    },
+
+    _expandActiveSection() {
+        const activeTab = this.state.activeTab;
+        if (!activeTab) return;
+        const activeItem = document.querySelector(`.sidebar-nav-item[data-tab="${activeTab}"]`);
+        if (activeItem) {
+            const section = activeItem.closest('div');
+            if (section && section.classList.contains('collapsed')) {
+                section.classList.remove('collapsed');
+                const idx = Array.from(document.querySelectorAll('#sidebar .sidebar-section-toggle')).indexOf(section.querySelector('.sidebar-section-toggle'));
+                if (idx >= 0) localStorage.setItem('fplSection_' + idx, 'false');
+            }
+        }
     },
 
     toggleSidebarCollapse() {
@@ -6620,6 +6650,18 @@ const FPL = {
         btn.setAttribute('aria-label', isCollapsed ? 'Expand sidebar' : 'Collapse sidebar');
         btn.title = isCollapsed ? 'Expand sidebar' : 'Collapse sidebar';
         if (icon) icon.textContent = isCollapsed ? 'chevron_right' : 'chevron_left';
+
+        // Restore section collapsed states
+        document.querySelectorAll('#sidebar .sidebar-section-toggle').forEach((toggle, idx) => {
+            const sectionDiv = toggle.parentElement;
+            const key = 'fplSection_' + idx;
+            const collapsed = localStorage.getItem(key) === 'true';
+            sectionDiv.classList.toggle('collapsed', collapsed);
+            toggle.addEventListener('click', () => {
+                sectionDiv.classList.toggle('collapsed');
+                localStorage.setItem(key, String(sectionDiv.classList.contains('collapsed')));
+            });
+        });
 
         if (btn.dataset.bound !== 'true') {
             btn.dataset.bound = 'true';

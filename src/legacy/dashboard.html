@@ -134,24 +134,52 @@
             </div>
             <nav style="padding:var(--space-md);flex:1;">
                 <div style="margin-bottom:var(--space-md);">
-                    <div style="font-size:0.625rem;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.1em;padding:var(--space-sm) var(--space-md);font-weight:600;">Menu</div>
-                    <a href="/" class="sidebar-nav-item active" data-tab="general" onclick="event.preventDefault();FPL.navigateTo('general')"><span class="material-symbols-outlined">dashboard</span> Dashboard</a>
-                    <a href="/manager" class="sidebar-nav-item" data-tab="manager" onclick="event.preventDefault();FPL.navigateTo('manager')"><span class="material-symbols-outlined">groups</span> Team Analysis</a>
-                    <a href="/decision-lab" class="sidebar-nav-item" data-tab="decision" onclick="event.preventDefault();FPL.navigateTo('decision')"><span class="material-symbols-outlined">model_training</span> Decision Lab</a>
-                    <a href="/league" class="sidebar-nav-item" data-tab="league" onclick="event.preventDefault();FPL.navigateTo('league')"><span class="material-symbols-outlined">leaderboard</span> Standings</a>
-                    <a href="/players" class="sidebar-nav-item" data-tab="players" onclick="event.preventDefault();FPL.navigateTo('players')"><span class="material-symbols-outlined">person_search</span> Player Stats</a>
-                    <a href="/tactics" class="sidebar-nav-item" data-tab="zones" onclick="event.preventDefault();FPL.navigateTo('zones')"><span class="material-symbols-outlined">sports</span> Tactics</a>
-                    <a href="/fixtures" class="sidebar-nav-item" data-tab="fixtures" onclick="event.preventDefault();FPL.navigateTo('fixtures')"><span class="material-symbols-outlined">calendar_month</span> Fixtures</a>
-                    <a href="/team-news" class="sidebar-nav-item" data-tab="teamnews" onclick="event.preventDefault();FPL.navigateTo('teamnews')"><span class="material-symbols-outlined">newspaper</span> Team News</a>
-                    <a href="/captaincy" class="sidebar-nav-item" data-tab="captain" onclick="event.preventDefault();FPL.navigateTo('captain')"><span class="material-symbols-outlined">star</span> Captaincy</a>
-                    <a href="/ownership" class="sidebar-nav-item" data-tab="ownership" onclick="event.preventDefault();FPL.navigateTo('ownership')"><span class="material-symbols-outlined">pie_chart</span> Ownership</a>
-                    <a href="/set-pieces" class="sidebar-nav-item" data-tab="setpieces" onclick="event.preventDefault();FPL.navigateTo('setpieces')"><span class="material-symbols-outlined">sports_motorsports</span> Set Pieces</a>
-                    <a href="/ai-team" class="sidebar-nav-item" data-tab="aiteam" onclick="event.preventDefault();FPL.navigateTo('aiteam')"><span class="material-symbols-outlined">smart_toy</span> AI Team</a>
-                    <a href="/team-builder" class="sidebar-nav-item" data-tab="teambuilder" onclick="event.preventDefault();FPL.navigateTo('teambuilder')"><span class="material-symbols-outlined">edit_square</span> Team Builder</a>
+                    <button type="button" class="sidebar-section-toggle" onclick="this.parentElement.classList.toggle('collapsed')">
+                        <span class="material-symbols-outlined sidebar-section-chevron">expand_more</span>
+                        Overview
+                    </button>
+                    <div class="sidebar-section-items">
+                        <a href="/" class="sidebar-nav-item active" data-tab="general" onclick="event.preventDefault();FPL.navigateTo('general')"><span class="material-symbols-outlined">dashboard</span> Dashboard</a>
+                        <a href="/league" class="sidebar-nav-item" data-tab="league" onclick="event.preventDefault();FPL.navigateTo('league')"><span class="material-symbols-outlined">leaderboard</span> Standings</a>
+                    </div>
+                </div>
+                <div style="margin-bottom:var(--space-md);">
+                    <button type="button" class="sidebar-section-toggle" onclick="this.parentElement.classList.toggle('collapsed')">
+                        <span class="material-symbols-outlined sidebar-section-chevron">expand_more</span>
+                        Analysis
+                    </button>
+                    <div class="sidebar-section-items">
+                        <a href="/manager" class="sidebar-nav-item" data-tab="manager" onclick="event.preventDefault();FPL.navigateTo('manager')"><span class="material-symbols-outlined">groups</span> Team Analysis</a>
+                        <a href="/players" class="sidebar-nav-item" data-tab="players" onclick="event.preventDefault();FPL.navigateTo('players')"><span class="material-symbols-outlined">person_search</span> Player Stats</a>
+                        <a href="/tactics" class="sidebar-nav-item" data-tab="zones" onclick="event.preventDefault();FPL.navigateTo('zones')"><span class="material-symbols-outlined">sports</span> Tactics</a>
+                        <a href="/decision-lab" class="sidebar-nav-item" data-tab="decision" onclick="event.preventDefault();FPL.navigateTo('decision')"><span class="material-symbols-outlined">model_training</span> Decision Lab</a>
+                    </div>
+                </div>
+                <div style="margin-bottom:var(--space-md);">
+                    <button type="button" class="sidebar-section-toggle" onclick="this.parentElement.classList.toggle('collapsed')">
+                        <span class="material-symbols-outlined sidebar-section-chevron">expand_more</span>
+                        Planning
+                    </button>
+                    <div class="sidebar-section-items">
+                        <a href="/fixtures" class="sidebar-nav-item" data-tab="fixtures" onclick="event.preventDefault();FPL.navigateTo('fixtures')"><span class="material-symbols-outlined">calendar_month</span> Fixtures</a>
+                        <a href="/team-news" class="sidebar-nav-item" data-tab="teamnews" onclick="event.preventDefault();FPL.navigateTo('teamnews')"><span class="material-symbols-outlined">newspaper</span> Team News</a>
+                        <a href="/captaincy" class="sidebar-nav-item" data-tab="captain" onclick="event.preventDefault();FPL.navigateTo('captain')"><span class="material-symbols-outlined">star</span> Captaincy</a>
+                        <a href="/ownership" class="sidebar-nav-item" data-tab="ownership" onclick="event.preventDefault();FPL.navigateTo('ownership')"><span class="material-symbols-outlined">pie_chart</span> Ownership</a>
+                    </div>
+                </div>
+                <div style="margin-bottom:var(--space-md);">
+                    <button type="button" class="sidebar-section-toggle" onclick="this.parentElement.classList.toggle('collapsed')">
+                        <span class="material-symbols-outlined sidebar-section-chevron">expand_more</span>
+                        Tools
+                    </button>
+                    <div class="sidebar-section-items">
+                        <a href="/set-pieces" class="sidebar-nav-item" data-tab="setpieces" onclick="event.preventDefault();FPL.navigateTo('setpieces')"><span class="material-symbols-outlined">sports_motorsports</span> Set Pieces</a>
+                        <a href="/ai-team" class="sidebar-nav-item" data-tab="aiteam" onclick="event.preventDefault();FPL.navigateTo('aiteam')"><span class="material-symbols-outlined">smart_toy</span> AI Team</a>
+                        <a href="/team-builder" class="sidebar-nav-item" data-tab="teambuilder" onclick="event.preventDefault();FPL.navigateTo('teambuilder')"><span class="material-symbols-outlined">edit_square</span> Team Builder</a>
+                    </div>
                 </div>
                 <div class="divider"></div>
                 <div>
-                    <div style="font-size:0.625rem;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.1em;padding:var(--space-sm) var(--space-md);font-weight:600;">More</div>
                     <button type="button" class="sidebar-nav-item sidebar-nav-button" onclick="FPL.showDialog('connect-dialog')"><span class="material-symbols-outlined">link</span> Connect FPL ID</button>
                     <button type="button" class="sidebar-nav-item sidebar-nav-button" onclick="FPL.initHistory()"><span class="material-symbols-outlined">history</span> History</button>
                     <button type="button" class="sidebar-nav-item sidebar-nav-button" onclick="FPL.initSettings()"><span class="material-symbols-outlined">settings</span> Settings</button>
