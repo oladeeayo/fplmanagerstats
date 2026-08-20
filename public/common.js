@@ -4565,15 +4565,6 @@ const FPL = {
 
             let html = `<div class="tn-wrap">`;
 
-            // Source links bar
-            html += `<div class="tn-sources">
-                <span class="tn-sources-label">Sources:</span>
-                <a href="https://fantasy.premierleague.com/api/bootstrap-static/" target="_blank" rel="noopener">FPL API</a>
-                <a href="https://www.fantasyfootballscout.co.uk/fantasy-football-injuries/" target="_blank" rel="noopener">FFS Injuries</a>
-                <a href="https://www.premierleague.com/en/latest-player-injuries" target="_blank" rel="noopener">PL Injuries</a>
-                <a href="https://www.premierfantasytools.com/premier-league-press-conferences/" target="_blank" rel="noopener">Press Conferences</a>
-            </div>`;
-
             if (teams.length === 0) {
                 html += `<div class="tn-empty">
                     <span class="material-symbols-outlined">check_circle</span>
@@ -4629,6 +4620,15 @@ const FPL = {
                     html += `</div></div>`;
                 });
             }
+
+            // Source links footer
+            html += `<div class="tn-sources">
+                <span class="tn-sources-label">Sources:</span>
+                <a href="https://fantasy.premierleague.com/api/bootstrap-static/" target="_blank" rel="noopener">FPL API</a>
+                <a href="https://www.fantasyfootballscout.co.uk/fantasy-football-injuries/" target="_blank" rel="noopener">FFS Injuries</a>
+                <a href="https://www.premierleague.com/en/latest-player-injuries" target="_blank" rel="noopener">PL Injuries</a>
+                <a href="https://www.premierfantasytools.com/premier-league-press-conferences/" target="_blank" rel="noopener">Press Conferences</a>
+            </div>`;
 
             html += `</div>`;
             container.innerHTML = html;
