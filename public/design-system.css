@@ -1182,7 +1182,7 @@ select.input {
 .decision-player-row small { margin-top:2px; color:var(--fpl-text-muted); font-size:11px; }
 .decision-player-numbers { text-align:right; }
 .decision-player-numbers strong { color:var(--fpl-accent); font:800 14px var(--font-mono); }
-.decision-pitch { position:relative; display:grid; gap:27px; min-height:520px; border:1px solid #315443; border-radius:6px; padding:45px 28px 30px; background:#398F1A url('/pitch.svg') center / 100% 100% no-repeat; overflow:hidden; }
+.decision-pitch { position:relative; display:grid; gap:27px; min-height:520px; border:1px solid #315443; border-radius:6px; padding:45px 28px 30px; background:#398F1A url('/pitch-wide.svg') center / contain no-repeat; overflow:hidden; }
 .decision-pitch:before { content:""; position:absolute; inset:16px; pointer-events:none; }
 .decision-pitch-label { position:absolute; top:8px; left:50%; transform:translateX(-50%); color:#83a995; font:700 9px var(--font-mono); }
 .decision-pitch-line { position:relative; z-index:1; display:flex; align-items:center; justify-content:space-evenly; gap:10px; }
@@ -1997,7 +1997,7 @@ select.input {
     overflow: hidden;
     border: 1px solid rgba(255,255,255,0.16);
     border-radius: var(--radius-md);
-    background: #398F1A url('/pitch.svg') center / 100% 100% no-repeat;
+    background: #398F1A url('/pitch-wide.svg') center / contain no-repeat;
 }
 
 .tactics-pitch-row { display: flex; width: 100%; min-width: 0; justify-content: center; gap: 16px; }
@@ -4771,5 +4771,23 @@ select option {
     }
     .solio-bar-text {
         font-size: 10px;
+    }
+}
+
+/* Keep the portrait artwork proportional on narrow screens after component overrides. */
+@media (max-width: 480px) {
+    .tactics-pitch,
+    .aiteam-pitch .tactics-pitch,
+    .tb-squad-pitch .tactics-pitch,
+    .tb-import-pitch .tactics-pitch {
+        min-height: clamp(440px, 136vw, 540px);
+        background-image: url('/pitch.svg');
+        background-size: contain;
+    }
+
+    .decision-pitch {
+        min-height: clamp(470px, 140vw, 560px);
+        background-image: url('/pitch.svg');
+        background-size: contain;
     }
 }
