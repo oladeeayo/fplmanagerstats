@@ -925,12 +925,10 @@
                         <div>
                             <div class="captaincy-kicker">PRE-GAME INTEL</div>
                             <h1 class="page-title">Team <span>News</span></h1>
-                            <p class="page-subtitle">Coach press conferences, injury updates, and confirmed team news ahead of each fixture.</p>
+                            <p class="page-subtitle">Injury updates, suspensions, and availability from official FPL data.</p>
                         </div>
                     </div>
-                    <div id="teamnews-container">
-                        <div style="padding:24px;text-align:center;color:#b9cbb9;font-family:var(--font-mono);"><span class="material-symbols-outlined" style="font-size:36px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Loading team news feed...</p></div>
-                    </div>
+                    <div id="teamnews-container"></div>
                 </div>
 
                 <!-- CAPTAINCY MATRIX -->
@@ -1428,18 +1426,6 @@
             </div>
             <div class="dialog-body" id="player-detail-body" style="padding:0;"></div>
             <div class="dialog-footer"><button class="btn btn-outline" onclick="FPL.hideDialog('player-detail-dialog')">Close</button></div>
-        </div>
-    </div>
-
-    <!-- News Detail Dialog -->
-    <div id="news-detail-dialog" class="dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="news-detail-dialog-title" aria-hidden="true">
-        <div class="dialog dialog-wide" style="max-width:520px;">
-            <div class="dialog-header">
-                <h3 id="news-detail-dialog-title" style="font-family:var(--font-display);font-weight:700;">News Details</h3>
-                <button class="btn btn-ghost btn-icon" type="button" aria-label="Close dialog" onclick="FPL.hideDialog('news-detail-dialog')"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
-            </div>
-            <div class="dialog-body" id="news-detail-body"></div>
-            <div class="dialog-footer"><button class="btn btn-outline" onclick="FPL.hideDialog('news-detail-dialog')">Close</button></div>
         </div>
     </div>
 

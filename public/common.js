@@ -3432,65 +3432,6 @@ const FPL = {
         }
     },
 
-    showNewsDetail(idx) {
-        const item = this._lastNewsItems?.[idx];
-        if (!item) return;
-        const body = document.getElementById('news-detail-body');
-        if (!body) return;
-
-        const statusMap = { a: 'Available', d: 'Doubtful', i: 'Injured', j: 'Suspended', u: 'Unavailable', s: 'Suspended' };
-        const statusText = statusMap[item.status] || item.status || 'N/A';
-        const chanceText = item.chanceOfPlaying != null
-            ? (item.chanceOfPlaying === 0 ? '0%' : item.chanceOfPlaying === 100 ? '100%' : item.chanceOfPlaying + '%')
-            : 'N/A';
-
-        const tagColors = {
-            suspension: '#ff4d4d', injury: '#FFA600', fitness: '#FFA600',
-            return: '#00FF85', transfer: '#90caf9', general: '#8ba396'
-        };
-        const tagColor = tagColors[item.tag] || '#8ba396';
-
-        body.innerHTML = `
-            <div style="padding:20px;">
-                <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-                    <span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:${tagColor};background:${tagColor}18;border:1px solid ${tagColor}40;">
-                        <span class="material-symbols-outlined" style="font-size:14px;">${item.tag === 'injury' ? 'healing' : item.tag === 'suspension' ? 'block' : item.tag === 'return' ? 'check_circle' : item.tag === 'transfer' ? 'swap_horiz' : 'info'}</span>
-                        ${this.escapeHTML(item.tagLabel)}
-                    </span>
-                </div>
-                <div style="background:var(--md-sys-color-surface-container-high);border:1px solid var(--md-sys-color-outline-variant);border-radius:var(--radius-md);padding:16px;margin-bottom:20px;">
-                    <p style="font-size:14px;line-height:1.6;color:var(--md-sys-color-on-surface);margin:0;">${this.escapeHTML(item.news)}</p>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                    <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:var(--radius-md);padding:12px;">
-                        <div style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Player</div>
-                        <div style="font-size:14px;font-weight:600;color:var(--md-sys-color-on-surface);display:flex;align-items:center;gap:6px;">
-                            <span class="material-symbols-outlined" style="font-size:16px;">person</span>
-                            ${this.escapeHTML(item.playerName)}
-                        </div>
-                        <div style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin-top:4px;">${item.position}</div>
-                    </div>
-                    <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:var(--radius-md);padding:12px;">
-                        <div style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Team</div>
-                        <div style="font-size:14px;font-weight:600;color:var(--md-sys-color-on-surface);display:flex;align-items:center;gap:6px;">
-                            ${this.teamBadge(item.teamName, 16)}
-                            ${this.escapeHTML(item.teamFull || item.teamName)}
-                        </div>
-                    </div>
-                    <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:var(--radius-md);padding:12px;">
-                        <div style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Status</div>
-                        <div style="font-size:14px;font-weight:600;color:var(--md-sys-color-on-surface);">${this.escapeHTML(statusText)}</div>
-                    </div>
-                    <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:var(--radius-md);padding:12px;">
-                        <div style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Chance of Playing</div>
-                        <div style="font-size:14px;font-weight:600;color:${item.chanceOfPlaying === 0 ? '#ff4d4d' : item.chanceOfPlaying >= 75 ? '#00FF85' : '#FFA600'};">${chanceText}</div>
-                    </div>
-                </div>
-            </div>`;
-
-        this.showDialog('news-detail-dialog');
-    },
-
     confirmDialog({ title = 'Are you sure?', message = '', confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger = false } = {}) {
         return new Promise((resolve) => {
             const overlay = document.getElementById('confirm-dialog');
@@ -4610,13 +4551,11 @@ const FPL = {
         container.innerHTML = html;
     },
 
-        _newsInterval: null,
-
     async renderTeamNews() {
         const container = document.getElementById('teamnews-container');
         if (!container) return;
 
-        container.innerHTML = `<div style="padding:24px;text-align:center;color:#b9cbb9;font-family:var(--font-mono);"><span class="material-symbols-outlined" style="font-size:36px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Loading team news...</p></div>`;
+        container.innerHTML = `<div style="padding:40px;text-align:center;color:#8ba396;"><span class="material-symbols-outlined" style="font-size:32px;animation:spin 1s linear infinite;">sync</span></div>`;
 
         try {
             const resp = await fetch('/api/team-news');
@@ -4624,121 +4563,89 @@ const FPL = {
             const teams = data.teams || [];
             const currentGW = data.currentGW || '';
 
-            let html = `<div class="news-container">
-                <div class="news-header">
-                    <div class="news-header-title">
-                        <span class="material-symbols-outlined">newspaper</span>
-                        <h2>Team News${currentGW ? ' — GW' + currentGW : ''}</h2>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:12px;">
-                        <button onclick="document.querySelectorAll('.team-news-card').forEach(c=>c.classList.remove('collapsed'))" style="background:none;border:1px solid #1A2E28;border-radius:6px;padding:4px 10px;color:#8ba396;font-size:11px;font-family:var(--font-mono);cursor:pointer;">Expand All</button>
-                        <button onclick="document.querySelectorAll('.team-news-card').forEach(c=>c.classList.add('collapsed'))" style="background:none;border:1px solid #1A2E28;border-radius:6px;padding:4px 10px;color:#8ba396;font-size:11px;font-family:var(--font-mono);cursor:pointer;">Collapse All</button>
-                        <div class="news-refresh-badge">
-                            <span class="material-symbols-outlined">schedule</span>
-                            <span id="news-refresh-timer">Updated just now</span>
-                        </div>
-                    </div>
-                </div>`;
+            let html = `<div class="tn-wrap">`;
+
+            // Source links bar
+            html += `<div class="tn-sources">
+                <span class="tn-sources-label">Sources:</span>
+                <a href="https://fantasy.premierleague.com/api/bootstrap-static/" target="_blank" rel="noopener">FPL API</a>
+                <a href="https://www.fantasyfootballscout.co.uk/fantasy-football-injuries/" target="_blank" rel="noopener">FFS Injuries</a>
+                <a href="https://www.premierleague.com/en/latest-player-injuries" target="_blank" rel="noopener">PL Injuries</a>
+                <a href="https://www.premierfantasytools.com/premier-league-press-conferences/" target="_blank" rel="noopener">Press Conferences</a>
+            </div>`;
 
             if (teams.length === 0) {
-                html += `<div class="news-empty">
+                html += `<div class="tn-empty">
                     <span class="material-symbols-outlined">check_circle</span>
-                    <p>No injury or suspension news. All squads appear clear.</p>
+                    <p>All squads clear — no flagged players.</p>
                 </div>`;
             } else {
-                html += `<div style="display:flex;flex-direction:column;gap:8px;">`;
-
-                teams.forEach((teamData, teamIdx) => {
+                teams.forEach(teamData => {
                     const { team, players } = teamData;
                     const suspended = players.filter(p => p.category === 'suspended');
-                    const ruledOut = players.filter(p => p.category === 'ruled_out');
+                    const out = players.filter(p => p.category === 'out');
                     const injured = players.filter(p => p.category === 'injury');
-                    const doubtful = players.filter(p => p.category === 'doubtful');
-                    const returning = players.filter(p => p.category === 'return');
+                    const doubt = players.filter(p => p.category === 'doubt');
+                    const other = players.filter(p => p.category === 'news');
 
-                    const summaryTags = [];
-                    if (suspended.length) summaryTags.push(`<span style="color:#ff4d4d;">${suspended.length}S</span>`);
-                    if (ruledOut.length) summaryTags.push(`<span style="color:#ff4d4d;">${ruledOut.length}O</span>`);
-                    if (injured.length) summaryTags.push(`<span style="color:#FFA600;">${injured.length}I</span>`);
-                    if (doubtful.length) summaryTags.push(`<span style="color:#FFA600;">${doubtful.length}D</span>`);
-                    if (returning.length) summaryTags.push(`<span style="color:#00FF85;">${returning.length}R</span>`);
+                    const count = players.length;
+                    const hasOut = suspended.length + out.length + injured.length;
 
-                    const fplTeamUrl = `https://fantasy.premierleague.com/fixtures?team=${team.id}`;
-
-                    html += `<div class="team-news-card collapsed" style="background:#1c211e;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;">
-                        <div onclick="this.parentElement.classList.toggle('collapsed')" style="background:#202722;padding:10px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;user-select:none;">
-                            <span class="material-symbols-outlined team-news-chevron" style="font-size:18px;color:#8ba396;transition:transform 0.2s;">expand_more</span>
-                            ${this.teamBadge(team.short, 22)}
-                            <span style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:#dfe4e0;">${this.escapeHTML(team.name)}</span>
-                            <div style="display:flex;gap:6px;margin-left:auto;font-family:var(--font-mono);font-size:11px;font-weight:700;">
-                                ${summaryTags.join('')}
-                            </div>
-                            <span style="font-family:var(--font-mono);font-size:10px;color:#8ba396;">${players.length} flagged</span>
-                            <a href="${fplTeamUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="View on FPL site" style="display:flex;align-items:center;color:#8ba396;text-decoration:none;padding:2px;">
-                                <span class="material-symbols-outlined" style="font-size:16px;">open_in_new</span>
-                            </a>
-                        </div>
-                        <div class="team-news-players" style="padding:0 16px;">`;
+                    html += `<div class="tn-card">
+                        <button class="tn-card-header" onclick="this.parentElement.classList.toggle('open')">
+                            <span class="tn-chevron material-symbols-outlined">expand_more</span>
+                            ${this.teamBadge(team.short, 20)}
+                            <span class="tn-team-name">${this.escapeHTML(team.name)}</span>
+                            <span class="tn-count">${count}</span>
+                        </button>
+                        <div class="tn-card-body">`;
 
                     if (suspended.length) {
-                        suspended.forEach(p => { html += this._newsPlayerRow(p, '#ff4d4d', 'SUSPENDED'); });
+                        html += `<div class="tn-section"><div class="tn-section-label tn-red">Suspended</div>`;
+                        suspended.forEach(p => { html += this._tnRow(p, '#ff4d4d'); });
+                        html += `</div>`;
                     }
-                    if (ruledOut.length) {
-                        ruledOut.forEach(p => { html += this._newsPlayerRow(p, '#ff4d4d', 'RULED OUT'); });
+                    if (out.length) {
+                        html += `<div class="tn-section"><div class="tn-section-label tn-red">Unavailable</div>`;
+                        out.forEach(p => { html += this._tnRow(p, '#ff4d4d'); });
+                        html += `</div>`;
                     }
                     if (injured.length) {
-                        injured.forEach(p => { html += this._newsPlayerRow(p, '#FFA600', p.statusLabel || 'INJURY'); });
+                        html += `<div class="tn-section"><div class="tn-section-label tn-amber">Injured</div>`;
+                        injured.forEach(p => { html += this._tnRow(p, '#FFA600'); });
+                        html += `</div>`;
                     }
-                    if (doubtful.length) {
-                        doubtful.forEach(p => { html += this._newsPlayerRow(p, '#FFA600', 'DOUBTFUL'); });
+                    if (doubt.length) {
+                        html += `<div class="tn-section"><div class="tn-section-label tn-amber">Doubtful</div>`;
+                        doubt.forEach(p => { html += this._tnRow(p, '#FFA600'); });
+                        html += `</div>`;
                     }
-                    if (returning.length) {
-                        returning.forEach(p => { html += this._newsPlayerRow(p, '#00FF85', 'RETURN'); });
+                    if (other.length) {
+                        html += `<div class="tn-section"><div class="tn-section-label tn-gray">News</div>`;
+                        other.forEach(p => { html += this._tnRow(p, '#8ba396'); });
+                        html += `</div>`;
                     }
 
                     html += `</div></div>`;
                 });
-
-                html += `</div>`;
             }
 
             html += `</div>`;
             container.innerHTML = html;
-
-            if (this._newsInterval) clearInterval(this._newsInterval);
-            let countdown = 15 * 60;
-            const timerEl = document.getElementById('news-refresh-timer');
-            this._newsInterval = setInterval(() => {
-                countdown--;
-                if (countdown <= 0) {
-                    countdown = 15 * 60;
-                    this.renderTeamNews();
-                }
-                if (timerEl) {
-                    const m = Math.floor(countdown / 60);
-                    const s = countdown % 60;
-                    timerEl.textContent = `Refreshes in ${m}:${String(s).padStart(2, '0')}`;
-                }
-            }, 1000);
         } catch (err) {
-            container.innerHTML = `<div class="news-empty">
-                <span class="material-symbols-outlined">error</span>
-                <p>Failed to load team news. Please try again later.</p>
-            </div>`;
+            container.innerHTML = `<div class="tn-empty"><span class="material-symbols-outlined">error</span><p>Failed to load team news.</p></div>`;
         }
     },
 
-    _newsPlayerRow(p, color, label) {
-        const chanceText = p.chance != null
-            ? (p.chance === 0 ? '0%' : p.chance === 100 ? '100%' : p.chance + '%')
-            : '';
-        return `<div class="team-news-player-row">
-            <span class="team-news-player-tag" style="color:${color};background:${color}15;border-color:${color}30;">${this.escapeHTML(label)}</span>
-            <div class="team-news-player-info">
-                <div class="team-news-player-name">${this.escapeHTML(p.name)} <span>${p.position}</span></div>
-                ${p.news ? `<div class="team-news-player-news">${this.escapeHTML(p.news)}</div>` : ''}
+    _tnRow(p, color) {
+        const chance = p.chance != null ? (p.chance === 0 ? '0%' : p.chance === 100 ? '100%' : p.chance + '%') : '';
+        return `<div class="tn-row">
+            <div class="tn-row-main">
+                <span class="tn-row-name">${this.escapeHTML(p.name)}</span>
+                <span class="tn-row-pos">${p.pos}</span>
+                ${chance ? `<span class="tn-row-chance" style="color:${p.chance === 0 ? '#ff4d4d' : p.chance >= 75 ? '#00FF85' : '#FFA600'}">${chance}</span>` : ''}
             </div>
-            ${chanceText ? `<div class="team-news-player-chance" style="color:${p.chance === 0 ? '#ff4d4d' : p.chance >= 75 ? '#00FF85' : '#FFA600'};">${chanceText}</div>` : ''}
+            ${p.news ? `<div class="tn-row-news">${this.escapeHTML(p.news)}</div>` : ''}
         </div>`;
     },
 

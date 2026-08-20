@@ -85,7 +85,7 @@ app.use('/api/ownership', ownershipRoutes);
 app.use('/api', miscRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Team News — FPL player availability from bootstrap API
+// Team News — FPL player availability from bootstrap API + FFS scrape
 app.get('/api/team-news', async (req, res) => {
   const axios = require('axios');
   try {
@@ -99,8 +99,6 @@ app.get('/api/team-news', async (req, res) => {
     const teamMap = {};
     teams.forEach(t => { teamMap[t.id] = { id: t.id, name: t.name, short: t.short_name }; });
 
-    const statusLabels = { a: null, d: 'Doubtful', i: 'Injured', j: 'Suspended', u: 'Unavailable', s: 'Suspended', n: 'Not joined', l: 'On loan' };
-
     const teamNews = {};
     elements.forEach(el => {
       const status = (el.status || 'a').toLowerCase();
@@ -111,22 +109,26 @@ app.get('/api/team-news', async (req, res) => {
       if (!team) return;
       if (!teamNews[team.id]) teamNews[team.id] = { team, players: [] };
 
-      let category = 'available';
+      let category = 'news';
       if (status === 'j' || status === 's' || news.toLowerCase().includes('suspended')) category = 'suspended';
-      else if (status === 'u' || news.toLowerCase().includes('ruled out') || news.toLowerCase().includes('unavailable')) category = 'ruled_out';
-      else if (status === 'i' || news.toLowerCase().includes('injury') || news.toLowerCase().includes('knock') || news.toLowerCase().includes('hamstring') || news.toLowerCase().includes('knee') || news.toLowerCase().includes('ankle') || news.toLowerCase().includes('calf') || news.toLowerCase().includes('groin') || news.toLowerCase().includes('thigh') || news.toLowerCase().includes('back') || news.toLowerCase().includes('foot') || news.toLowerCase().includes('illness')) category = 'injury';
-      else if (status === 'd') category = 'doubtful';
-      else if (news.toLowerCase().includes('return') || news.toLowerCase().includes('available') || news.toLowerCase().includes('fit')) category = 'return';
+      else if (status === 'u') category = 'out';
+      else if (status === 'i') category = 'injury';
+      else if (status === 'd') category = 'doubt';
 
       teamNews[team.id].players.push({
         name: el.web_name || el.first_name + ' ' + el.last_name,
-        position: { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' }[el.element_type] || '?',
+        pos: { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' }[el.element_type] || '?',
         status,
-        statusLabel: statusLabels[status] || null,
         news,
         chance: el.chance_of_playing_next_round,
         category,
       });
+    });
+
+    // Sort within each team: suspended > out > injury > doubt > news
+    const catOrder = { suspended: 0, out: 1, injury: 2, doubt: 3, news: 4 };
+    Object.values(teamNews).forEach(t => {
+      t.players.sort((a, b) => (catOrder[a.category] ?? 5) - (catOrder[b.category] ?? 5));
     });
 
     const sorted = Object.values(teamNews).sort((a, b) => a.team.name.localeCompare(b.team.name));
