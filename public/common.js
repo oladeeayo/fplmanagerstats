@@ -483,7 +483,7 @@ const FPL = {
     },
 
     navigateTo(tab) {
-        const validTabs = ['general', 'manager', 'decision', 'league', 'players', 'zones', 'fixtures', 'captain', 'ownership', 'setpieces', 'aiteam', 'teambuilder'];
+        const validTabs = ['general', 'manager', 'decision', 'league', 'players', 'zones', 'fixtures', 'teamnews', 'captain', 'ownership', 'setpieces', 'aiteam', 'teambuilder'];
         if (!validTabs.includes(tab)) tab = 'general';
         this.state.activeTab = tab;
 
@@ -519,6 +519,7 @@ const FPL = {
             case 'players': return this.renderPlayers();
             case 'league': return this.renderLeague();
             case 'fixtures': return this.renderFixtures();
+            case 'teamnews': return this.renderTeamNews();
             case 'captain': return this.renderCaptaincy();
             case 'ownership': return this.renderOwnership();
             case 'zones': return this.renderZones();
@@ -4384,20 +4385,18 @@ const FPL = {
     },
 
     switchFixtureSubView(subview) {
-        const views = ['matrix', 'odds', 'goals', 'conceded', 'news'];
+        const views = ['matrix', 'odds', 'goals', 'conceded'];
         const viewElements = {
             matrix: document.getElementById('fixture-subview-matrix'),
             odds: document.getElementById('fixture-subview-odds'),
             goals: document.getElementById('fixture-subview-goals'),
             conceded: document.getElementById('fixture-subview-conceded'),
-            news: document.getElementById('fixture-subview-news'),
         };
         const btnElements = {
             matrix: document.getElementById('fixture-view-btn-matrix'),
             odds: document.getElementById('fixture-view-btn-odds'),
             goals: document.getElementById('fixture-view-btn-goals'),
             conceded: document.getElementById('fixture-view-btn-conceded'),
-            news: document.getElementById('fixture-view-btn-news'),
         };
         const oddsSelector = document.getElementById('fixture-odds-gw-selector');
         const goalsSelector = document.getElementById('fixture-goals-horizon-selector');
@@ -4424,8 +4423,6 @@ const FPL = {
         } else if (activeView === 'conceded') {
             if (goalsSelector) goalsSelector.style.display = 'flex';
             this.renderGoalsConcededProjections();
-        } else if (activeView === 'news') {
-            this.renderFixtureNews();
         }
     },
 
@@ -4615,167 +4612,98 @@ const FPL = {
 
         _newsInterval: null,
 
-    async renderFixtureNews() {
-        const container = document.getElementById('fixture-news-container');
+    async renderTeamNews() {
+        const container = document.getElementById('teamnews-container');
         if (!container) return;
 
-        const bootstrap = this.state.bootstrapData || {};
-        const teams = bootstrap.teams || [];
-        const elements = bootstrap.elements || [];
-        const currentGW = bootstrap.events?.find(e => e.is_current)?.id ||
-                          bootstrap.events?.find(e => e.is_next)?.id || 1;
+        container.innerHTML = `<div style="padding:24px;text-align:center;color:#b9cbb9;font-family:var(--font-mono);"><span class="material-symbols-outlined" style="font-size:36px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Loading team news feed...</p></div>`;
 
-        const gwFixtures = (this.state.fixtures || []).filter(f => f.event === currentGW);
-        const teamIdsInGW = new Set();
-        gwFixtures.forEach(f => { teamIdsInGW.add(f.team_h); teamIdsInGW.add(f.team_a); });
+        try {
+            const resp = await fetch('/api/team-news');
+            const data = await resp.json();
+            const items = data.items || [];
 
-        const teamsInGW = teams.filter(t => teamIdsInGW.has(t.id));
-        const teamIdToName = {};
-        teams.forEach(t => { teamIdToName[t.id] = { name: t.name, short: t.short_name }; });
+            const bootstrap = this.state.bootstrapData || {};
+            const currentGW = bootstrap.events?.find(e => e.is_current)?.id ||
+                              bootstrap.events?.find(e => e.is_next)?.id || '';
 
-        const newsItems = [];
-
-        elements.forEach(el => {
-            if (!teamIdsInGW.has(el.team)) return;
-            const teamInfo = teamIdToName[el.team] || { name: 'Unknown', short: '???' };
-            const posMap = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
-            const pos = posMap[el.element_type] || 'MID';
-
-            if (el.news && el.news.trim()) {
-                const newsText = el.news.trim();
-                let tag = 'general';
-                let tagLabel = 'NEWS';
-                const lower = newsText.toLowerCase();
-                if (lower.includes('suspended') || lower.includes('ban') || lower.includes('red card')) {
-                    tag = 'suspension';
-                    tagLabel = 'SUSPENDED';
-                } else if (lower.includes('injury') || lower.includes('knock') || lower.includes('doubt') || lower.includes('calf') || lower.includes('hamstring') || lower.includes('knee') || lower.includes('ankle') || lower.includes('groin') || lower.includes('back') || lower.includes('thigh') || lower.includes('foot') || lower.includes('illness')) {
-                    tag = 'injury';
-                    tagLabel = 'INJURY';
-                } else if (lower.includes('ruled out') || lower.includes('unavailable') || lower.includes('will not') || lower.includes('expected to miss')) {
-                    tag = 'injury';
-                    tagLabel = 'RULED OUT';
-                } else if (lower.includes('return') || lower.includes('available') || lower.includes('fit') || lower.includes('back in')) {
-                    tag = 'return';
-                    tagLabel = 'RETURN';
-                } else if (lower.includes('transfer') || lower.includes('loan') || lower.includes('signing')) {
-                    tag = 'transfer';
-                    tagLabel = 'TRANSFER';
-                }
-
-                const statusLower = (el.status || '').toLowerCase();
-                if (statusLower === 'u') {
-                    tag = 'injury';
-                    tagLabel = 'UNAVAILABLE';
-                } else if (statusLower === 'd') {
-                    tag = 'fitness';
-                    tagLabel = 'DOUBTFUL';
-                }
-
-                newsItems.push({
-                    playerName: el.web_name || el.first_name + ' ' + el.last_name,
-                    teamName: teamInfo.short,
-                    teamFull: teamInfo.name,
-                    position: pos,
-                    news: newsText,
-                    tag,
-                    tagLabel,
-                    status: el.news_changes || el.status || '',
-                    chanceOfPlaying: el.chance_of_playing_next_round,
-                    type: 'player',
-                    elementId: el.id,
-                });
-            }
-
-            if (el.status === 'u' && (!el.news || !el.news.trim())) {
-                newsItems.push({
-                    playerName: el.web_name || el.first_name + ' ' + el.last_name,
-                    teamName: teamInfo.short,
-                    teamFull: teamInfo.name,
-                    position: pos,
-                    news: 'Unavailable for selection',
-                    tag: 'injury',
-                    tagLabel: 'UNAVAILABLE',
-                    status: '',
-                    chanceOfPlaying: 0,
-                    type: 'player',
-                    elementId: el.id,
-                });
-            }
-        });
-
-        const sortedNews = newsItems.sort((a, b) => {
-            const priority = { suspension: 0, injury: 1, 'ruled out': 1, unavailable: 1, fitness: 2, return: 3, transfer: 4, general: 5 };
-            const aP = priority[a.tag] ?? 5;
-            const bP = priority[b.tag] ?? 5;
-            return aP - bP;
-        });
-        this._lastNewsItems = sortedNews;
-
-        let html = `<div class="news-container">
-            <div class="news-header">
-                <div class="news-header-title">
-                    <span class="material-symbols-outlined">newspaper</span>
-                    <h2>FPL News — GW${currentGW}</h2>
-                </div>
-                <div class="news-refresh-badge">
-                    <span class="material-symbols-outlined">schedule</span>
-                    <span id="news-refresh-timer">Refreshes in 30:00</span>
-                </div>
-            </div>`;
-
-        if (sortedNews.length === 0) {
-            html += `<div class="news-empty">
-                <span class="material-symbols-outlined">check_circle</span>
-                <p>No injury, suspension, or team news for GW${currentGW} fixtures. All squads appear clear.</p>
-            </div>`;
-        } else {
-            html += `<div class="news-grid">`;
-            sortedNews.forEach((item, idx) => {
-                const chanceText = item.chanceOfPlaying != null
-                    ? (item.chanceOfPlaying === 0 ? '0%' : item.chanceOfPlaying === 100 ? '100%' : item.chanceOfPlaying + '%')
-                    : '';
-                html += `<div class="news-card" onclick="FPL.showNewsDetail(${idx})">
-                    <div class="news-card-header">
-                        <span class="news-card-tag ${item.tag}">${item.tagLabel}</span>
-                        ${chanceText ? `<span class="news-card-time">Chance: ${chanceText}</span>` : ''}
+            let html = `<div class="news-container">
+                <div class="news-header">
+                    <div class="news-header-title">
+                        <span class="material-symbols-outlined">newspaper</span>
+                        <h2>Team News${currentGW ? ' — GW' + currentGW : ''}</h2>
                     </div>
-                    <div class="news-card-body">
-                        <p class="news-card-title">${this.escapeHTML(item.news)}</p>
-                        <div class="news-card-meta">
-                            <span class="news-card-player">
-                                <span class="material-symbols-outlined" style="font-size:14px;">person</span>
-                                ${this.escapeHTML(item.playerName)}
-                            </span>
-                            <span class="news-card-team">
-                                ${this.teamBadge(item.teamName, 14)}
-                                ${this.escapeHTML(item.teamName)} · ${item.position}
-                            </span>
-                        </div>
+                    <div class="news-refresh-badge">
+                        <span class="material-symbols-outlined">schedule</span>
+                        <span id="news-refresh-timer">Updated just now</span>
                     </div>
                 </div>`;
-            });
+
+            if (items.length === 0) {
+                html += `<div class="news-empty">
+                    <span class="material-symbols-outlined">rss_feed</span>
+                    <p>No news articles available right now. Check back closer to the next gameweek.</p>
+                </div>`;
+            } else {
+                html += `<div class="news-grid">`;
+                items.forEach((item, idx) => {
+                    const sourceColors = {
+                        'Fantasy Football Scout': '#00FF85',
+                        'BBC Sport Football': '#bb1919',
+                        'Premier League': '#37003c',
+                    };
+                    const accentColor = sourceColors[item.source] || '#8ba396';
+                    const timeAgo = this._timeAgo(item.pubDate);
+                    html += `<div class="news-card" style="cursor:pointer;" onclick="window.open('${this.escapeHTML(item.link)}', '_blank')">
+                        <div class="news-card-header">
+                            <span class="news-card-tag" style="background:${accentColor}22;color:${accentColor};border:1px solid ${accentColor}40;">${this.escapeHTML(item.source)}</span>
+                            ${timeAgo ? `<span class="news-card-time">${timeAgo}</span>` : ''}
+                        </div>
+                        <div class="news-card-body">
+                            <p class="news-card-title">${this.escapeHTML(item.title)}</p>
+                            ${item.description ? `<p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:6px 0 0;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">${this.escapeHTML(item.description)}</p>` : ''}
+                        </div>
+                    </div>`;
+                });
+                html += `</div>`;
+            }
+
             html += `</div>`;
+            container.innerHTML = html;
+
+            if (this._newsInterval) clearInterval(this._newsInterval);
+            let countdown = 15 * 60;
+            const timerEl = document.getElementById('news-refresh-timer');
+            this._newsInterval = setInterval(() => {
+                countdown--;
+                if (countdown <= 0) {
+                    countdown = 15 * 60;
+                    this.renderTeamNews();
+                }
+                if (timerEl) {
+                    const m = Math.floor(countdown / 60);
+                    const s = countdown % 60;
+                    timerEl.textContent = `Refreshes in ${m}:${String(s).padStart(2, '0')}`;
+                }
+            }, 1000);
+        } catch (err) {
+            container.innerHTML = `<div class="news-empty">
+                <span class="material-symbols-outlined">error</span>
+                <p>Failed to load news feed. Please try again later.</p>
+            </div>`;
         }
+    },
 
-        html += `</div>`;
-        container.innerHTML = html;
-
-        if (this._newsInterval) clearInterval(this._newsInterval);
-        let countdown = 30 * 60;
-        const timerEl = document.getElementById('news-refresh-timer');
-        this._newsInterval = setInterval(() => {
-            countdown--;
-            if (countdown <= 0) {
-                countdown = 30 * 60;
-                this.renderFixtureNews();
-            }
-            if (timerEl) {
-                const m = Math.floor(countdown / 60);
-                const s = countdown % 60;
-                timerEl.textContent = `Refreshes in ${m}:${String(s).padStart(2, '0')}`;
-            }
-        }, 1000);
+    _timeAgo(dateStr) {
+        if (!dateStr) return '';
+        const diff = Date.now() - new Date(dateStr).getTime();
+        const mins = Math.floor(diff / 60000);
+        if (mins < 1) return 'just now';
+        if (mins < 60) return mins + 'm ago';
+        const hours = Math.floor(mins / 60);
+        if (hours < 24) return hours + 'h ago';
+        const days = Math.floor(hours / 24);
+        return days + 'd ago';
     },
 
     computeLocalTeamProjections(selectedGW) {

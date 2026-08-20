@@ -6,6 +6,7 @@ export const appRoutes = {
   players: '/players',
   zones: '/tactics',
   fixtures: '/fixtures',
+  teamnews: '/team-news',
   captain: '/captaincy',
   ownership: '/ownership',
   setpieces: '/set-pieces',

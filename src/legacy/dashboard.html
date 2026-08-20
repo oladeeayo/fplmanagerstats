@@ -142,6 +142,7 @@
                     <a href="/players" class="sidebar-nav-item" data-tab="players" onclick="event.preventDefault();FPL.navigateTo('players')"><span class="material-symbols-outlined">person_search</span> Player Stats</a>
                     <a href="/tactics" class="sidebar-nav-item" data-tab="zones" onclick="event.preventDefault();FPL.navigateTo('zones')"><span class="material-symbols-outlined">sports</span> Tactics</a>
                     <a href="/fixtures" class="sidebar-nav-item" data-tab="fixtures" onclick="event.preventDefault();FPL.navigateTo('fixtures')"><span class="material-symbols-outlined">calendar_month</span> Fixtures</a>
+                    <a href="/team-news" class="sidebar-nav-item" data-tab="teamnews" onclick="event.preventDefault();FPL.navigateTo('teamnews')"><span class="material-symbols-outlined">newspaper</span> Team News</a>
                     <a href="/captaincy" class="sidebar-nav-item" data-tab="captain" onclick="event.preventDefault();FPL.navigateTo('captain')"><span class="material-symbols-outlined">star</span> Captaincy</a>
                     <a href="/ownership" class="sidebar-nav-item" data-tab="ownership" onclick="event.preventDefault();FPL.navigateTo('ownership')"><span class="material-symbols-outlined">pie_chart</span> Ownership</a>
                     <a href="/set-pieces" class="sidebar-nav-item" data-tab="setpieces" onclick="event.preventDefault();FPL.navigateTo('setpieces')"><span class="material-symbols-outlined">sports_motorsports</span> Set Pieces</a>
@@ -767,10 +768,7 @@
                                 <span class="material-symbols-outlined">shield</span>
                                 Goals Conceded
                             </button>
-                            <button id="fixture-view-btn-news" onclick="FPL.switchFixtureSubView('news')" class="fixture-view-btn">
-                                <span class="material-symbols-outlined">newspaper</span>
-                                FPL News
-                            </button>
+
                         </div>
                         <div class="fixtures-nav-controls">
                             <div id="fixture-odds-gw-selector" class="fixtures-selector" style="display:none;">
@@ -890,11 +888,20 @@
                         </div>
                     </div>
 
-                    <!-- SUBVIEW 5: FPL News -->
-                    <div id="fixture-subview-news" class="fixture-subview-content" style="display:none;">
-                        <div id="fixture-news-container">
-                            <div style="padding:24px;text-align:center;color:#b9cbb9;font-family:var(--font-mono);"><span class="material-symbols-outlined" style="font-size:36px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Loading FPL news feed...</p></div>
+
+                </div>
+
+                <!-- TEAM NEWS -->
+                <div id="content-teamnews" class="tab-content">
+                    <div class="page-header">
+                        <div>
+                            <div class="captaincy-kicker">PRE-GAME INTEL</div>
+                            <h1 class="page-title">Team <span>News</span></h1>
+                            <p class="page-subtitle">Coach press conferences, injury updates, and confirmed team news ahead of each fixture.</p>
                         </div>
+                    </div>
+                    <div id="teamnews-container">
+                        <div style="padding:24px;text-align:center;color:#b9cbb9;font-family:var(--font-mono);"><span class="material-symbols-outlined" style="font-size:36px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Loading team news feed...</p></div>
                     </div>
                 </div>
 

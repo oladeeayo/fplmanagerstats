@@ -85,6 +85,52 @@ app.use('/api/ownership', ownershipRoutes);
 app.use('/api', miscRoutes);
 app.use('/api/admin', adminRoutes);
 
+// Team News RSS proxy
+app.get('/api/team-news', async (req, res) => {
+  const axios = require('axios');
+  const feeds = [
+    { name: 'Fantasy Football Scout', url: 'https://www.fantasyfootballscout.co.uk/feed/' },
+    { name: 'BBC Sport Football', url: 'https://feeds.bbci.co.uk/sport/football/rss.xml' },
+    { name: 'Premier League', url: 'https://www.premierleague.com/content/premierleague/en-gb/news/newsfeed.rss' },
+  ];
+
+  try {
+    const results = await Promise.allSettled(
+      feeds.map(async (feed) => {
+        const resp = await axios.get(feed.url, { timeout: 8000, headers: { 'User-Agent': 'FPLManagerStats/1.0' } });
+        const xml = resp.data;
+        const items = [];
+        const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+        let match;
+        while ((match = itemRegex.exec(xml)) !== null) {
+          const block = match[1];
+          const get = (tag) => {
+            const m = block.match(new RegExp(`<${tag}[^>]*><\\!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>|<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`));
+            return m ? (m[1] || m[2] || '').trim() : '';
+          };
+          const title = get('title');
+          const link = get('link');
+          const pubDate = get('pubDate');
+          const description = get('description');
+          if (title) {
+            items.push({ title, link, pubDate, description: description.replace(/<[^>]+>/g, '').slice(0, 300), source: feed.name });
+          }
+        }
+        return items.slice(0, 15);
+      })
+    );
+
+    const allItems = results
+      .filter(r => r.status === 'fulfilled')
+      .flatMap(r => r.value)
+      .sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+
+    res.json({ items: allItems.slice(0, 50) });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch news feeds' });
+  }
+});
+
 // Sentry request handler (must be after routes, before error handler)
 if (process.env.SENTRY_DSN) {
   const Sentry = require('@sentry/node');

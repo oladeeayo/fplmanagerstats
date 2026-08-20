@@ -79,7 +79,7 @@ function AppInner() {
     window.FPL.initSidebarCollapse();
     window.FPL.initBottomNavOverflow();
 
-    const overflowTabs = ['decision', 'league', 'zones', 'ownership', 'setpieces', 'aiteam'];
+    const overflowTabs = ['decision', 'league', 'zones', 'ownership', 'setpieces', 'aiteam', 'teamnews'];
     document.querySelectorAll<HTMLElement>('.sidebar-nav-item').forEach(el => {
       el.classList.toggle('active', el.dataset.tab === activeTab);
     });
