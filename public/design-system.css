@@ -421,16 +421,16 @@ tbody tr:hover { background: var(--md-sys-color-surface-container); }
 
 /* Pitch / Football Field */
 .pitch {
-    background: var(--pitch-green);
+    background: #398F1A url('/pitch.svg') center / 100% 100% no-repeat;
     border: 2px solid rgba(255,255,255,0.15);
     border-radius: var(--radius-lg);
     position: relative;
     overflow: hidden;
-    aspect-ratio: 68/105;
+    aspect-ratio: 95.2/136;
 }
 
-.pitch-3-5-2 { aspect-ratio: 68/105; }
-.pitch-4-4-2 { aspect-ratio: 68/105; }
+.pitch-3-5-2 { aspect-ratio: 95.2/136; }
+.pitch-4-4-2 { aspect-ratio: 95.2/136; }
 
 /* Pitch Zone */
 .pitch-zone {
@@ -1182,8 +1182,8 @@ select.input {
 .decision-player-row small { margin-top:2px; color:var(--fpl-text-muted); font-size:11px; }
 .decision-player-numbers { text-align:right; }
 .decision-player-numbers strong { color:var(--fpl-accent); font:800 14px var(--font-mono); }
-.decision-pitch { position:relative; display:grid; gap:27px; min-height:520px; border:1px solid #315443; border-radius:6px; padding:45px 28px 30px; background:linear-gradient(rgba(11,45,28,.93),rgba(8,35,23,.96)),repeating-linear-gradient(0deg,transparent 0 68px,rgba(255,255,255,.05) 69px 70px); overflow:hidden; }
-.decision-pitch:before { content:""; position:absolute; inset:16px; border:1px solid rgba(255,255,255,.25); pointer-events:none; }
+.decision-pitch { position:relative; display:grid; gap:27px; min-height:520px; border:1px solid #315443; border-radius:6px; padding:45px 28px 30px; background:#398F1A url('/pitch.svg') center / 100% 100% no-repeat; overflow:hidden; }
+.decision-pitch:before { content:""; position:absolute; inset:16px; pointer-events:none; }
 .decision-pitch-label { position:absolute; top:8px; left:50%; transform:translateX(-50%); color:#83a995; font:700 9px var(--font-mono); }
 .decision-pitch-line { position:relative; z-index:1; display:flex; align-items:center; justify-content:space-evenly; gap:10px; }
 .decision-pitch-player { display:grid; justify-items:center; min-width:80px; text-align:center; }
@@ -1987,20 +1987,20 @@ select.input {
 
 .tactics-pitch {
     display: flex;
+    width: 100%;
     min-height: 360px;
+    min-width: 0;
     flex-direction: column;
     justify-content: space-around;
     gap: 20px;
     padding: 24px 16px;
-    overflow-x: auto;
+    overflow: hidden;
     border: 1px solid rgba(255,255,255,0.16);
     border-radius: var(--radius-md);
-    background-color: var(--pitch-green);
-    background-image: linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px);
-    background-size: 48px 48px;
+    background: #398F1A url('/pitch.svg') center / 100% 100% no-repeat;
 }
 
-.tactics-pitch-row { display: flex; min-width: 100%; justify-content: center; gap: 16px; }
+.tactics-pitch-row { display: flex; width: 100%; min-width: 0; justify-content: center; gap: 16px; }
 
 .tactics-player-card {
     display: flex;
@@ -3447,7 +3447,7 @@ select option {
 .tb-btn-autofill:hover { border-color: #9d7bff; background: rgba(124,77,255,0.24); color: #e3d7ff; }
 .tb-squad-actions .tb-btn-secondary { flex: 1; }
 .tb-squad-pitch { padding: 0; }
-.tb-squad-pitch .tactics-pitch { min-height: 420px; padding: 24px 16px; border: 0; border-radius: 0; background-image: linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px); background-size: 48px 48px; }
+.tb-squad-pitch .tactics-pitch { min-height: 420px; padding: 24px 16px; border: 0; border-radius: 0; }
 .tb-squad-pitch .tactics-pitch-row { width: 100%; min-width: 0; margin-inline: auto; gap: clamp(8px, 2vw, 18px); padding-inline: 2px; justify-content: center; }
 .tb-squad-pitch .tactics-player-card { width: min(100px, calc((100% - ((var(--players) - 1) * clamp(8px, 2vw, 18px))) / var(--players))); min-width: 0; max-width: 100px; min-height: 120px; justify-content: flex-start; padding: 10px 6px; overflow: hidden; position: relative; transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s; }
 .tb-squad-pitch .tactics-player-card:hover { border-color: rgba(255,255,255,0.2); }
