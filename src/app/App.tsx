@@ -93,6 +93,10 @@ function AppInner() {
     if (overflowBtn) {
       overflowBtn.classList.toggle('active', overflowTabs.includes(activeTab));
     }
+    // Close overflow menu on tab change
+    if (window.FPL && typeof window.FPL.closeOverflowMenu === 'function') {
+      window.FPL.closeOverflowMenu();
+    }
 
     if (loadPromise && typeof loadPromise.then === 'function') {
       const minDelay = new Promise(resolve => setTimeout(resolve, 200));

@@ -6591,8 +6591,29 @@ const FPL = {
     },
 
     initBottomNavOverflow() {
-        const existing = document.querySelector('.bottom-nav-overflow');
-        if (existing) existing.remove();
+        // Click outside to close overflow menu
+        document.addEventListener('click', (e) => {
+            const overflow = document.getElementById('bottom-nav-overflow');
+            const menu = document.getElementById('bottom-nav-overflow-menu');
+            const btn = document.getElementById('bottom-nav-overflow-btn');
+            if (!overflow || !menu || !btn) return;
+            if (!overflow.contains(e.target)) {
+                this.closeOverflowMenu();
+            }
+        });
+    },
+
+    toggleBottomNavOverflow() {
+        const menu = document.getElementById('bottom-nav-overflow-menu');
+        const trigger = document.getElementById('bottom-nav-overflow-btn');
+        if (!menu || !trigger) return;
+        const isOpen = menu.classList.contains('open');
+        if (isOpen) {
+            this.closeOverflowMenu();
+        } else {
+            menu.classList.add('open');
+            trigger.setAttribute('aria-expanded', 'true');
+        }
     },
 
     closeOverflowMenu() {
