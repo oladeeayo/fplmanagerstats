@@ -85,49 +85,54 @@ app.use('/api/ownership', ownershipRoutes);
 app.use('/api', miscRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Team News RSS proxy
+// Team News — FPL player availability from bootstrap API
 app.get('/api/team-news', async (req, res) => {
   const axios = require('axios');
-  const feeds = [
-    { name: 'Fantasy Football Scout', url: 'https://www.fantasyfootballscout.co.uk/feed/' },
-    { name: 'BBC Sport Football', url: 'https://feeds.bbci.co.uk/sport/football/rss.xml' },
-    { name: 'Premier League', url: 'https://www.premierleague.com/content/premierleague/en-gb/news/newsfeed.rss' },
-  ];
-
   try {
-    const results = await Promise.allSettled(
-      feeds.map(async (feed) => {
-        const resp = await axios.get(feed.url, { timeout: 8000, headers: { 'User-Agent': 'FPLManagerStats/1.0' } });
-        const xml = resp.data;
-        const items = [];
-        const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-        let match;
-        while ((match = itemRegex.exec(xml)) !== null) {
-          const block = match[1];
-          const get = (tag) => {
-            const m = block.match(new RegExp(`<${tag}[^>]*><\\!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>|<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`));
-            return m ? (m[1] || m[2] || '').trim() : '';
-          };
-          const title = get('title');
-          const link = get('link');
-          const pubDate = get('pubDate');
-          const description = get('description');
-          if (title) {
-            items.push({ title, link, pubDate, description: description.replace(/<[^>]+>/g, '').slice(0, 300), source: feed.name });
-          }
-        }
-        return items.slice(0, 15);
-      })
-    );
+    const resp = await axios.get('https://fantasy.premierleague.com/api/bootstrap-static/', { timeout: 10000 });
+    const data = resp.data;
+    const teams = data.teams || [];
+    const elements = data.elements || [];
+    const events = data.events || [];
+    const currentGW = events.find(e => e.is_current)?.id || events.find(e => e.is_next)?.id || 1;
 
-    const allItems = results
-      .filter(r => r.status === 'fulfilled')
-      .flatMap(r => r.value)
-      .sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+    const teamMap = {};
+    teams.forEach(t => { teamMap[t.id] = { id: t.id, name: t.name, short: t.short_name }; });
 
-    res.json({ items: allItems.slice(0, 50) });
+    const statusLabels = { a: null, d: 'Doubtful', i: 'Injured', j: 'Suspended', u: 'Unavailable', s: 'Suspended', n: 'Not joined', l: 'On loan' };
+
+    const teamNews = {};
+    elements.forEach(el => {
+      const status = (el.status || 'a').toLowerCase();
+      const news = (el.news || '').trim();
+      if (status === 'a' && !news) return;
+
+      const team = teamMap[el.team];
+      if (!team) return;
+      if (!teamNews[team.id]) teamNews[team.id] = { team, players: [] };
+
+      let category = 'available';
+      if (status === 'j' || status === 's' || news.toLowerCase().includes('suspended')) category = 'suspended';
+      else if (status === 'u' || news.toLowerCase().includes('ruled out') || news.toLowerCase().includes('unavailable')) category = 'ruled_out';
+      else if (status === 'i' || news.toLowerCase().includes('injury') || news.toLowerCase().includes('knock') || news.toLowerCase().includes('hamstring') || news.toLowerCase().includes('knee') || news.toLowerCase().includes('ankle') || news.toLowerCase().includes('calf') || news.toLowerCase().includes('groin') || news.toLowerCase().includes('thigh') || news.toLowerCase().includes('back') || news.toLowerCase().includes('foot') || news.toLowerCase().includes('illness')) category = 'injury';
+      else if (status === 'd') category = 'doubtful';
+      else if (news.toLowerCase().includes('return') || news.toLowerCase().includes('available') || news.toLowerCase().includes('fit')) category = 'return';
+
+      teamNews[team.id].players.push({
+        name: el.web_name || el.first_name + ' ' + el.last_name,
+        position: { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' }[el.element_type] || '?',
+        status,
+        statusLabel: statusLabels[status] || null,
+        news,
+        chance: el.chance_of_playing_next_round,
+        category,
+      });
+    });
+
+    const sorted = Object.values(teamNews).sort((a, b) => a.team.name.localeCompare(b.team.name));
+    res.json({ currentGW, teams: sorted });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch news feeds' });
+    res.status(500).json({ error: 'Failed to fetch team news' });
   }
 });
 

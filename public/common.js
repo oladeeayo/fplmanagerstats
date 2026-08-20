@@ -4616,16 +4616,13 @@ const FPL = {
         const container = document.getElementById('teamnews-container');
         if (!container) return;
 
-        container.innerHTML = `<div style="padding:24px;text-align:center;color:#b9cbb9;font-family:var(--font-mono);"><span class="material-symbols-outlined" style="font-size:36px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Loading team news feed...</p></div>`;
+        container.innerHTML = `<div style="padding:24px;text-align:center;color:#b9cbb9;font-family:var(--font-mono);"><span class="material-symbols-outlined" style="font-size:36px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Loading team news...</p></div>`;
 
         try {
             const resp = await fetch('/api/team-news');
             const data = await resp.json();
-            const items = data.items || [];
-
-            const bootstrap = this.state.bootstrapData || {};
-            const currentGW = bootstrap.events?.find(e => e.is_current)?.id ||
-                              bootstrap.events?.find(e => e.is_next)?.id || '';
+            const teams = data.teams || [];
+            const currentGW = data.currentGW || '';
 
             let html = `<div class="news-container">
                 <div class="news-header">
@@ -4639,32 +4636,59 @@ const FPL = {
                     </div>
                 </div>`;
 
-            if (items.length === 0) {
+            if (teams.length === 0) {
                 html += `<div class="news-empty">
-                    <span class="material-symbols-outlined">rss_feed</span>
-                    <p>No news articles available right now. Check back closer to the next gameweek.</p>
+                    <span class="material-symbols-outlined">check_circle</span>
+                    <p>No injury or suspension news. All squads appear clear.</p>
                 </div>`;
             } else {
-                html += `<div class="news-grid">`;
-                items.forEach((item, idx) => {
-                    const sourceColors = {
-                        'Fantasy Football Scout': '#00FF85',
-                        'BBC Sport Football': '#bb1919',
-                        'Premier League': '#37003c',
-                    };
-                    const accentColor = sourceColors[item.source] || '#8ba396';
-                    const timeAgo = this._timeAgo(item.pubDate);
-                    html += `<div class="news-card" style="cursor:pointer;" onclick="window.open('${this.escapeHTML(item.link)}', '_blank')">
-                        <div class="news-card-header">
-                            <span class="news-card-tag" style="background:${accentColor}22;color:${accentColor};border:1px solid ${accentColor}40;">${this.escapeHTML(item.source)}</span>
-                            ${timeAgo ? `<span class="news-card-time">${timeAgo}</span>` : ''}
+                html += `<div style="display:flex;flex-direction:column;gap:16px;">`;
+
+                teams.forEach(teamData => {
+                    const { team, players } = teamData;
+                    const suspended = players.filter(p => p.category === 'suspended');
+                    const ruledOut = players.filter(p => p.category === 'ruled_out');
+                    const injured = players.filter(p => p.category === 'injury');
+                    const doubtful = players.filter(p => p.category === 'doubtful');
+                    const returning = players.filter(p => p.category === 'return');
+
+                    html += `<div style="background:#1c211e;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;">
+                        <div style="background:#202722;padding:12px 16px;border-bottom:1px solid #1A2E28;display:flex;align-items:center;gap:10px;">
+                            ${this.teamBadge(team.short, 24)}
+                            <span style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:#dfe4e0;">${this.escapeHTML(team.name)}</span>
+                            <span style="font-family:var(--font-mono);font-size:11px;color:#8ba396;margin-left:auto;">${players.length} flagged</span>
                         </div>
-                        <div class="news-card-body">
-                            <p class="news-card-title">${this.escapeHTML(item.title)}</p>
-                            ${item.description ? `<p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:6px 0 0;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">${this.escapeHTML(item.description)}</p>` : ''}
-                        </div>
-                    </div>`;
+                        <div style="padding:12px 16px;">`;
+
+                    if (suspended.length > 0) {
+                        suspended.forEach(p => {
+                            html += this._newsPlayerRow(p, '#ff4d4d', 'SUSPENDED');
+                        });
+                    }
+                    if (ruledOut.length > 0) {
+                        ruledOut.forEach(p => {
+                            html += this._newsPlayerRow(p, '#ff4d4d', 'RULED OUT');
+                        });
+                    }
+                    if (injured.length > 0) {
+                        injured.forEach(p => {
+                            html += this._newsPlayerRow(p, '#FFA600', p.statusLabel || 'INJURY');
+                        });
+                    }
+                    if (doubtful.length > 0) {
+                        doubtful.forEach(p => {
+                            html += this._newsPlayerRow(p, '#FFA600', 'DOUBTFUL');
+                        });
+                    }
+                    if (returning.length > 0) {
+                        returning.forEach(p => {
+                            html += this._newsPlayerRow(p, '#00FF85', 'RETURN');
+                        });
+                    }
+
+                    html += `</div></div>`;
                 });
+
                 html += `</div>`;
             }
 
@@ -4689,21 +4713,23 @@ const FPL = {
         } catch (err) {
             container.innerHTML = `<div class="news-empty">
                 <span class="material-symbols-outlined">error</span>
-                <p>Failed to load news feed. Please try again later.</p>
+                <p>Failed to load team news. Please try again later.</p>
             </div>`;
         }
     },
 
-    _timeAgo(dateStr) {
-        if (!dateStr) return '';
-        const diff = Date.now() - new Date(dateStr).getTime();
-        const mins = Math.floor(diff / 60000);
-        if (mins < 1) return 'just now';
-        if (mins < 60) return mins + 'm ago';
-        const hours = Math.floor(mins / 60);
-        if (hours < 24) return hours + 'h ago';
-        const days = Math.floor(hours / 24);
-        return days + 'd ago';
+    _newsPlayerRow(p, color, label) {
+        const chanceText = p.chance != null
+            ? (p.chance === 0 ? '0%' : p.chance === 100 ? '100%' : p.chance + '%')
+            : '';
+        return `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #1A2E28;">
+            <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:${color};background:${color}15;border:1px solid ${color}30;white-space:nowrap;flex-shrink:0;">${this.escapeHTML(label)}</span>
+            <div style="min-width:0;flex:1;">
+                <div style="font-size:13px;font-weight:600;color:#dfe4e0;">${this.escapeHTML(p.name)} <span style="font-size:11px;color:#8ba396;font-weight:400;">${p.position}</span></div>
+                ${p.news ? `<div style="font-size:12px;color:#8ba396;margin-top:2px;line-height:1.4;">${this.escapeHTML(p.news)}</div>` : ''}
+            </div>
+            ${chanceText ? `<div style="font-family:var(--font-mono);font-size:11px;color:${p.chance === 0 ? '#ff4d4d' : p.chance >= 75 ? '#00FF85' : '#FFA600'};flex-shrink:0;">${chanceText}</div>` : ''}
+        </div>`;
     },
 
     computeLocalTeamProjections(selectedGW) {
