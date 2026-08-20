@@ -4557,13 +4557,11 @@ const FPL = {
                 '<div style="text-align:center;font-family:var(--font-mono);font-size:10px;color:var(--md-sys-color-outline);margin-bottom:10px;">' + self.escapeHTML(timeStr) + '</div>' +
                 probRow +
                 '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
-                '<div style="display:flex;align-items:center;gap:8px;">' + self.teamBadge(m.homeTeam.shortName, 22) + '<span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(m.homeTeam.shortName) + '</span>' +
-                '<span style="font-family:var(--font-mono);font-weight:900;font-size:10px;color:' + fdrColor(hFDR) + ';background:rgba(0,0,0,0.2);padding:2px 6px;border-radius:4px;">FDR ' + hFDR + '</span></div>' +
+                '<div style="display:flex;align-items:center;gap:8px;">' + self.teamBadge(m.homeTeam.shortName, 22) + '<span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(m.homeTeam.shortName) + '</span></div>' +
                 '<div style="display:flex;gap:6px;"><span class="solio-badge ' + hXGClass + '">' + hXG.toFixed(2) + ' xG</span><span class="solio-badge ' + hCSClass + '">' + hCS + '% CS</span></div>' +
                 '</div>' +
                 '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
-                '<div style="display:flex;align-items:center;gap:8px;">' + self.teamBadge(m.awayTeam.shortName, 22) + '<span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(m.awayTeam.shortName) + '</span>' +
-                '<span style="font-family:var(--font-mono);font-weight:900;font-size:10px;color:' + fdrColor(aFDR) + ';background:rgba(0,0,0,0.2);padding:2px 6px;border-radius:4px;">FDR ' + aFDR + '</span></div>' +
+                '<div style="display:flex;align-items:center;gap:8px;">' + self.teamBadge(m.awayTeam.shortName, 22) + '<span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(m.awayTeam.shortName) + '</span></div>' +
                 '<div style="display:flex;gap:6px;"><span class="solio-badge ' + aXGClass + '">' + aXG.toFixed(2) + ' xG</span><span class="solio-badge ' + aCSClass + '">' + aCS + '% CS</span></div>' +
                 '</div>' +
                 bttsRow +
