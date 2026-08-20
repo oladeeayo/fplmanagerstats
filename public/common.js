@@ -5110,56 +5110,61 @@ const FPL = {
         const velContainer = document.getElementById('bento-velocity-content');
 
         const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
+        const hasTransfers = data.topTransferredIn && data.topTransferredIn.netTransfers !== 0;
 
         // 1. Transferred In
         if (inContainer && data.topTransferredIn) {
             const p = data.topTransferredIn;
-            const ownDeltaClass = p.delta24h >= 0 ? 'color:var(--fdr-1);' : 'color:var(--fdr-5);';
+            const ownDeltaClass = p.delta24h >= 0 ? 'color:#00FF85' : 'color:#ff6b6b';
             const deltaSign = p.delta24h >= 0 ? '+' : '';
             const sparklineSVG = this.generateSparklineSVG(p.sparkline, p.delta24h >= 0, 100, 32);
+            const netLabel = hasTransfers ? `+${this.formatNumber(p.netTransfers)} net` : `${p.ownership}% owned`;
+            const netColor = hasTransfers ? '#00FF85' : '#8ba396';
 
             inContainer.innerHTML = `
-                <div style="display:flex;align-items:center;gap:var(--space-md);cursor:pointer;" onclick="FPL.showPlayerDetail(${p.id || 0})">
-                    <span class="player-photo-shell" style="width:44px;height:44px;border-radius:50%;border:2px solid var(--fdr-1);">${this.playerPhotoMarkup(p, `${p.name || 'FPL Player'} - top transferred in`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}</span>
-                    <div>
-                        <div style="font-weight:700;font-size:0.9375rem;display:flex;align-items:center;gap:6px;">
+                <div style="display:flex;align-items:center;gap:14px;">
+                    <span class="player-photo-shell" style="width:48px;height:48px;min-width:48px;border-radius:50%;border:2px solid #00FF8540;">${this.playerPhotoMarkup(p, p.name, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}</span>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:700;font-size:0.9375rem;color:#dfe4e0;display:flex;align-items:center;gap:6px;">
                             ${p.name}
                             <span style="padding:1px 6px;border-radius:var(--radius-pill);font-size:0.625rem;font-weight:700;background:${posColors[p.position]}20;color:${posColors[p.position]};">${p.position}</span>
                         </div>
-                        <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">${p.team} • ${this.formatPriceDisplay(p.costStr, p.cost)}</div>
-                        <div class="mono" style="font-size:0.8125rem;font-weight:700;color:var(--fdr-1);margin-top:2px;">+${this.formatNumber(p.netTransfers)} net</div>
+                        <div style="font-size:0.75rem;color:#8ba396;">${p.team} • ${this.formatPriceDisplay(p.costStr, p.cost)}</div>
+                        <div class="mono" style="font-size:0.8125rem;font-weight:700;color:${netColor};margin-top:3px;">${netLabel}</div>
                     </div>
-                </div>
-                <div style="text-align:right;">
-                    <div class="mono" style="font-size:1.125rem;font-weight:800;${ownDeltaClass}">${p.ownership}%</div>
-                    <div class="mono" style="font-size:0.75rem;font-weight:600;${ownDeltaClass}">${deltaSign}${p.delta24h}% (24h)</div>
-                    <div style="margin-top:4px;">${sparklineSVG}</div>
+                    <div style="text-align:right;flex-shrink:0;">
+                        <div class="mono" style="font-size:1.25rem;font-weight:800;${ownDeltaClass};">${p.ownership}%</div>
+                        <div class="mono" style="font-size:0.6875rem;font-weight:600;${ownDeltaClass};">${deltaSign}${p.delta24h}% (24h)</div>
+                        <div style="margin-top:4px;">${sparklineSVG}</div>
+                    </div>
                 </div>`;
         }
 
         // 2. Transferred Out
         if (outContainer && data.topTransferredOut) {
             const p = data.topTransferredOut;
-            const ownDeltaClass = p.delta24h >= 0 ? 'color:var(--fdr-1);' : 'color:var(--fdr-5);';
+            const ownDeltaClass = p.delta24h >= 0 ? 'color:#00FF85' : 'color:#ff6b6b';
             const deltaSign = p.delta24h >= 0 ? '+' : '';
             const sparklineSVG = this.generateSparklineSVG(p.sparkline, p.delta24h >= 0, 100, 32);
+            const netLabel = hasTransfers ? `${this.formatNumber(p.netTransfers)} net` : `Differential pick`;
+            const netColor = hasTransfers ? '#FF005A' : '#8ba396';
 
             outContainer.innerHTML = `
-                <div style="display:flex;align-items:center;gap:var(--space-md);cursor:pointer;" onclick="FPL.showPlayerDetail(${p.id || 0})">
-                    <span class="player-photo-shell" style="width:44px;height:44px;border-radius:50%;border:2px solid var(--fdr-5);">${this.playerPhotoMarkup(p, `${p.name || 'FPL Player'} - top transferred out`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}</span>
-                    <div>
-                        <div style="font-weight:700;font-size:0.9375rem;display:flex;align-items:center;gap:6px;">
+                <div style="display:flex;align-items:center;gap:14px;">
+                    <span class="player-photo-shell" style="width:48px;height:48px;min-width:48px;border-radius:50%;border:2px solid #FF005A40;">${this.playerPhotoMarkup(p, p.name, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}</span>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:700;font-size:0.9375rem;color:#dfe4e0;display:flex;align-items:center;gap:6px;">
                             ${p.name}
                             <span style="padding:1px 6px;border-radius:var(--radius-pill);font-size:0.625rem;font-weight:700;background:${posColors[p.position]}20;color:${posColors[p.position]};">${p.position}</span>
                         </div>
-                        <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">${p.team} • ${this.formatPriceDisplay(p.costStr, p.cost)}</div>
-                        <div class="mono" style="font-size:0.8125rem;font-weight:700;color:var(--fdr-5);margin-top:2px;">${this.formatNumber(p.netTransfers)} net</div>
+                        <div style="font-size:0.75rem;color:#8ba396;">${p.team} • ${this.formatPriceDisplay(p.costStr, p.cost)}</div>
+                        <div class="mono" style="font-size:0.8125rem;font-weight:700;color:${netColor};margin-top:3px;">${netLabel}</div>
                     </div>
-                </div>
-                <div style="text-align:right;">
-                    <div class="mono" style="font-size:1.125rem;font-weight:800;${ownDeltaClass}">${p.ownership}%</div>
-                    <div class="mono" style="font-size:0.75rem;font-weight:600;${ownDeltaClass}">${deltaSign}${p.delta24h}% (24h)</div>
-                    <div style="margin-top:4px;">${sparklineSVG}</div>
+                    <div style="text-align:right;flex-shrink:0;">
+                        <div class="mono" style="font-size:1.25rem;font-weight:800;${ownDeltaClass};">${p.ownership}%</div>
+                        <div class="mono" style="font-size:0.6875rem;font-weight:600;${ownDeltaClass};">${deltaSign}${p.delta24h}% (24h)</div>
+                        <div style="margin-top:4px;">${sparklineSVG}</div>
+                    </div>
                 </div>`;
         }
 
@@ -5167,24 +5172,25 @@ const FPL = {
         if (velContainer && data.highestVelocity) {
             const p = data.highestVelocity;
             const velSign = p.velocityShift >= 0 ? '+' : '';
+            const velColor = p.velocityShift >= 0 ? '#00FF85' : '#ff6b6b';
             const sparklineSVG = this.generateSparklineSVG(p.sparkline, p.velocityShift >= 0, 100, 32);
 
             velContainer.innerHTML = `
-                <div style="display:flex;align-items:center;gap:var(--space-md);cursor:pointer;" onclick="FPL.showPlayerDetail(${p.id || 0})">
-                    <span class="player-photo-shell" style="width:44px;height:44px;border-radius:50%;border:2px solid var(--fdr-4);">${this.playerPhotoMarkup(p, `${p.name || 'FPL Player'} - price change`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}</span>
-                    <div>
-                        <div style="font-weight:700;font-size:0.9375rem;display:flex;align-items:center;gap:6px;">
+                <div style="display:flex;align-items:center;gap:14px;">
+                    <span class="player-photo-shell" style="width:48px;height:48px;min-width:48px;border-radius:50%;border:2px solid #FFA60040;">${this.playerPhotoMarkup(p, p.name, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}</span>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:700;font-size:0.9375rem;color:#dfe4e0;display:flex;align-items:center;gap:6px;">
                             ${p.name}
                             <span style="padding:1px 6px;border-radius:var(--radius-pill);font-size:0.625rem;font-weight:700;background:${posColors[p.position]}20;color:${posColors[p.position]};">${p.position}</span>
                         </div>
-                        <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">${p.team} • ${this.formatPriceDisplay(p.costStr, p.cost)}</div>
-                        <div class="mono" style="font-size:0.8125rem;font-weight:700;color:var(--fdr-4);margin-top:2px;">${velSign}${p.velocityShift}% Δ (7d vs 24h)</div>
+                        <div style="font-size:0.75rem;color:#8ba396;">${p.team} • ${this.formatPriceDisplay(p.costStr, p.cost)}</div>
+                        <div class="mono" style="font-size:0.8125rem;font-weight:700;color:${velColor};margin-top:3px;">${velSign}${p.velocityShift}% Δ (7d vs 24h)</div>
                     </div>
-                </div>
-                <div style="text-align:right;">
-                    <div class="mono" style="font-size:1.125rem;font-weight:800;color:var(--md-sys-color-primary);">${p.ownership}%</div>
-                    <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">Own %</div>
-                    <div style="margin-top:4px;">${sparklineSVG}</div>
+                    <div style="text-align:right;flex-shrink:0;">
+                        <div class="mono" style="font-size:1.25rem;font-weight:800;color:#FFA600;">${p.ownership}%</div>
+                        <div style="font-size:0.6875rem;color:#8ba396;">Own %</div>
+                        <div style="margin-top:4px;">${sparklineSVG}</div>
+                    </div>
                 </div>`;
         }
     },
