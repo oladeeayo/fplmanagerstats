@@ -4732,16 +4732,13 @@ const FPL = {
         const chanceText = p.chance != null
             ? (p.chance === 0 ? '0%' : p.chance === 100 ? '100%' : p.chance + '%')
             : '';
-        const fplPlayerUrl = `https://fantasy.premierleague.com/element/${p.elementId || ''}`;
-        return `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #1A2E28;">
-            <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:${color};background:${color}15;border:1px solid ${color}30;white-space:nowrap;flex-shrink:0;">${this.escapeHTML(label)}</span>
-            <div style="min-width:0;flex:1;">
-                <div style="font-size:13px;font-weight:600;color:#dfe4e0;">
-                    ${this.escapeHTML(p.name)} <span style="font-size:11px;color:#8ba396;font-weight:400;">${p.position}</span>
-                </div>
-                ${p.news ? `<div style="font-size:12px;color:#8ba396;margin-top:2px;line-height:1.4;">${this.escapeHTML(p.news)}</div>` : ''}
+        return `<div class="team-news-player-row">
+            <span class="team-news-player-tag" style="color:${color};background:${color}15;border-color:${color}30;">${this.escapeHTML(label)}</span>
+            <div class="team-news-player-info">
+                <div class="team-news-player-name">${this.escapeHTML(p.name)} <span>${p.position}</span></div>
+                ${p.news ? `<div class="team-news-player-news">${this.escapeHTML(p.news)}</div>` : ''}
             </div>
-            ${chanceText ? `<div style="font-family:var(--font-mono);font-size:11px;color:${p.chance === 0 ? '#ff4d4d' : p.chance >= 75 ? '#00FF85' : '#FFA600'};flex-shrink:0;">${chanceText}</div>` : ''}
+            ${chanceText ? `<div class="team-news-player-chance" style="color:${p.chance === 0 ? '#ff4d4d' : p.chance >= 75 ? '#00FF85' : '#FFA600'};">${chanceText}</div>` : ''}
         </div>`;
     },
 
