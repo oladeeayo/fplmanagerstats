@@ -234,19 +234,9 @@ router.get('/trends', async (req, res) => {
       })
       .sort((a, b) => b.ownership - a.ownership);
 
-    // Identify bento highlights
-    const hasTransfers = playersList.some(p => p.netTransfers !== 0);
-
-    let topTransferredIn, topTransferredOut;
-    if (hasTransfers) {
-      topTransferredIn = [...playersList].sort((a, b) => b.netTransfers - a.netTransfers)[0] || null;
-      topTransferredOut = [...playersList].sort((a, b) => a.netTransfers - b.netTransfers)[0] || null;
-    } else {
-      // Pre-season / no transfer data: show most owned (popular) and least owned (differential)
-      topTransferredIn = [...playersList].sort((a, b) => b.ownership - a.ownership)[0] || null;
-      topTransferredOut = [...playersList].filter(p => p.ownership >= 1).sort((a, b) => a.ownership - b.ownership)[0] || null;
-    }
-
+    // Identify bento highlights — use ownership delta from snapshots
+    const topTransferredIn = [...playersList].sort((a, b) => b.delta24h - a.delta24h)[0] || null;
+    const topTransferredOut = [...playersList].sort((a, b) => a.delta24h - b.delta24h)[0] || null;
     const highestVelocity = [...playersList].sort((a, b) => Math.abs(b.velocityShift) - Math.abs(a.velocityShift))[0] || null;
 
     res.json({

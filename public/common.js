@@ -5110,16 +5110,11 @@ const FPL = {
         const velContainer = document.getElementById('bento-velocity-content');
 
         const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
-        const hasTransfers = data.topTransferredIn && data.topTransferredIn.netTransfers !== 0;
 
-        // 1. Transferred In
+        // 1. Transferred In (biggest ownership gain)
         if (inContainer && data.topTransferredIn) {
             const p = data.topTransferredIn;
-            const ownDeltaClass = p.delta24h >= 0 ? 'color:#00FF85' : 'color:#ff6b6b';
-            const deltaSign = p.delta24h >= 0 ? '+' : '';
             const sparklineSVG = this.generateSparklineSVG(p.sparkline, p.delta24h >= 0, 100, 32);
-            const netLabel = hasTransfers ? `+${this.formatNumber(p.netTransfers)} net` : `${p.ownership}% owned`;
-            const netColor = hasTransfers ? '#00FF85' : '#8ba396';
 
             inContainer.innerHTML = `
                 <div style="display:flex;align-items:center;gap:14px;">
@@ -5130,24 +5125,20 @@ const FPL = {
                             <span style="padding:1px 6px;border-radius:var(--radius-pill);font-size:0.625rem;font-weight:700;background:${posColors[p.position]}20;color:${posColors[p.position]};">${p.position}</span>
                         </div>
                         <div style="font-size:0.75rem;color:#8ba396;">${p.team} • ${this.formatPriceDisplay(p.costStr, p.cost)}</div>
-                        <div class="mono" style="font-size:0.8125rem;font-weight:700;color:${netColor};margin-top:3px;">${netLabel}</div>
+                        <div class="mono" style="font-size:0.8125rem;font-weight:700;color:#00FF85;margin-top:3px;">+${p.delta24h}% (24h)</div>
                     </div>
                     <div style="text-align:right;flex-shrink:0;">
-                        <div class="mono" style="font-size:1.25rem;font-weight:800;${ownDeltaClass};">${p.ownership}%</div>
-                        <div class="mono" style="font-size:0.6875rem;font-weight:600;${ownDeltaClass};">${deltaSign}${p.delta24h}% (24h)</div>
+                        <div class="mono" style="font-size:1.25rem;font-weight:800;color:#dfe4e0;">${p.ownership}%</div>
+                        <div style="font-size:0.6875rem;color:#8ba396;">Own %</div>
                         <div style="margin-top:4px;">${sparklineSVG}</div>
                     </div>
                 </div>`;
         }
 
-        // 2. Transferred Out
+        // 2. Transferred Out (biggest ownership drop)
         if (outContainer && data.topTransferredOut) {
             const p = data.topTransferredOut;
-            const ownDeltaClass = p.delta24h >= 0 ? 'color:#00FF85' : 'color:#ff6b6b';
-            const deltaSign = p.delta24h >= 0 ? '+' : '';
             const sparklineSVG = this.generateSparklineSVG(p.sparkline, p.delta24h >= 0, 100, 32);
-            const netLabel = hasTransfers ? `${this.formatNumber(p.netTransfers)} net` : `Differential pick`;
-            const netColor = hasTransfers ? '#FF005A' : '#8ba396';
 
             outContainer.innerHTML = `
                 <div style="display:flex;align-items:center;gap:14px;">
@@ -5158,11 +5149,11 @@ const FPL = {
                             <span style="padding:1px 6px;border-radius:var(--radius-pill);font-size:0.625rem;font-weight:700;background:${posColors[p.position]}20;color:${posColors[p.position]};">${p.position}</span>
                         </div>
                         <div style="font-size:0.75rem;color:#8ba396;">${p.team} • ${this.formatPriceDisplay(p.costStr, p.cost)}</div>
-                        <div class="mono" style="font-size:0.8125rem;font-weight:700;color:${netColor};margin-top:3px;">${netLabel}</div>
+                        <div class="mono" style="font-size:0.8125rem;font-weight:700;color:#FF005A;margin-top:3px;">${p.delta24h}% (24h)</div>
                     </div>
                     <div style="text-align:right;flex-shrink:0;">
-                        <div class="mono" style="font-size:1.25rem;font-weight:800;${ownDeltaClass};">${p.ownership}%</div>
-                        <div class="mono" style="font-size:0.6875rem;font-weight:600;${ownDeltaClass};">${deltaSign}${p.delta24h}% (24h)</div>
+                        <div class="mono" style="font-size:1.25rem;font-weight:800;color:#dfe4e0;">${p.ownership}%</div>
+                        <div style="font-size:0.6875rem;color:#8ba396;">Own %</div>
                         <div style="margin-top:4px;">${sparklineSVG}</div>
                     </div>
                 </div>`;
