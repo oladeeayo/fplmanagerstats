@@ -3076,7 +3076,7 @@ const FPL = {
         // LEFT COLUMN: Top Captains Table
         const col1X = 45;
         const col1Y = 105;
-        const col1W = 530;
+        const col1W = 490;
         const col1H = 780;
 
         drawRoundedRect(col1X, col1Y, col1W, col1H, 14);
@@ -3142,51 +3142,42 @@ const FPL = {
                 ctx.fillText((item.team || '').substring(0, 3), badgeX + 12, badgeY + 12);
             }
 
-            // Player Name
-            ctx.font = '700 14px "Outfit", system-ui, sans-serif';
+            // Player Name (Positioned immediately after badge)
+            ctx.font = '700 15px "Outfit", system-ui, sans-serif';
             ctx.fillStyle = '#ffffff';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
             const pName = item.name || 'Player';
             ctx.fillText(pName, col1X + 76, rY + (rowH / 2));
 
-            // Team Short
-            ctx.font = '500 11px "Outfit", sans-serif';
-            ctx.fillStyle = '#64748b';
-            const fixStr = item.team || '';
-            ctx.fillText(fixStr, col1X + 270, rY + (rowH / 2));
-
-            // Dynamic Color Shaded Pill Box (Vibrant Blue/Cyan Shading)
+            // Dynamic Color Shaded Pill Box (Large, Prominent Pill Block)
             const itemVal = item.pct ?? item.count ?? 0;
             const ratio = topVal > 0 ? Math.max(0.06, Math.min(1, itemVal / topVal)) : 0.06;
             
-            const pillW = 130;
-            const pillH = 28;
-            const pillX = col1X + col1W - pillW - 16;
+            const pillW = 145;
+            const pillH = 32;
+            const pillX = col1X + col1W - pillW - 12;
             const pillY = rY + (rowH / 2) - (pillH / 2);
             
             drawRoundedRect(pillX, pillY, pillW, pillH, 6);
             
             if (ratio > 0.6) {
-                // Top Captains: Deep vibrant cyan-blue pill fill
-                ctx.fillStyle = `rgba(2, 132, 199, ${(0.35 + ratio * 0.45).toFixed(2)})`;
-                ctx.strokeStyle = `rgba(56, 189, 248, ${(0.6 + ratio * 0.4).toFixed(2)})`;
+                ctx.fillStyle = `rgba(2, 132, 199, ${(0.65 + ratio * 0.35).toFixed(2)})`;
+                ctx.strokeStyle = `rgba(56, 189, 248, ${(0.8 + ratio * 0.2).toFixed(2)})`;
             } else if (ratio > 0.2) {
-                // Mid Captains: Medium cyan fill
-                ctx.fillStyle = `rgba(3, 105, 161, ${(0.25 + ratio * 0.35).toFixed(2)})`;
-                ctx.strokeStyle = `rgba(56, 189, 248, ${(0.35 + ratio * 0.35).toFixed(2)})`;
+                ctx.fillStyle = `rgba(3, 105, 161, ${(0.55 + ratio * 0.35).toFixed(2)})`;
+                ctx.strokeStyle = `rgba(56, 189, 248, ${(0.5 + ratio * 0.3).toFixed(2)})`;
             } else {
-                // Lower Captains: Subtle cyan tint
-                ctx.fillStyle = `rgba(14, 165, 233, ${(0.10 + ratio * 0.20).toFixed(2)})`;
-                ctx.strokeStyle = `rgba(56, 189, 248, ${(0.20 + ratio * 0.20).toFixed(2)})`;
+                ctx.fillStyle = `rgba(14, 116, 144, ${(0.45 + ratio * 0.30).toFixed(2)})`;
+                ctx.strokeStyle = `rgba(56, 189, 248, ${(0.3 + ratio * 0.2).toFixed(2)})`;
             }
             
             ctx.fill();
             ctx.lineWidth = 1;
             ctx.stroke();
 
-            ctx.font = '800 12px "Fira Code", monospace';
-            ctx.fillStyle = ratio > 0.6 ? '#ffffff' : '#38bdf8';
+            ctx.font = '800 13px "Fira Code", monospace';
+            ctx.fillStyle = '#ffffff';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             const mCount = item.count ?? (item.pct != null && totalManagers ? Math.round((item.pct / 100) * totalManagers) : null);
@@ -3196,9 +3187,9 @@ const FPL = {
         });
 
         // RIGHT COLUMN: Pitch & Tactical Formation
-        const col2X = 600;
+        const col2X = 565;
         const col2Y = 105;
-        const col2W = 755;
+        const col2W = 790;
         const col2H = 780;
 
         drawRoundedRect(col2X, col2Y, col2W, col2H, 16);
@@ -3215,20 +3206,20 @@ const FPL = {
         const pPad = 16;
         ctx.strokeRect(col2X + pPad, col2Y + pPad, col2W - (pPad * 2), col2H - (pPad * 2));
 
-        const pBoxW = 400;
-        const pBoxH = 135;
+        const pBoxW = 420;
+        const pBoxH = 140;
         const pBoxX = col2X + (col2W / 2) - (pBoxW / 2);
         ctx.strokeRect(pBoxX, col2Y + pPad, pBoxW, pBoxH);
 
-        const gBoxW = 180;
-        const gBoxH = 45;
+        const gBoxW = 190;
+        const gBoxH = 48;
         ctx.strokeRect(col2X + (col2W / 2) - (gBoxW / 2), col2Y + pPad, gBoxW, gBoxH);
 
         ctx.beginPath();
         ctx.arc(col2X + (col2W / 2), col2Y + pPad + pBoxH, 50, 0.1 * Math.PI, 0.9 * Math.PI);
         ctx.stroke();
 
-        const midY = col2Y + 415;
+        const midY = col2Y + 365;
         ctx.beginPath();
         ctx.moveTo(col2X + pPad, midY);
         ctx.lineTo(col2X + col2W - pPad, midY);
@@ -3251,7 +3242,7 @@ const FPL = {
             drawPlayerHead(hImg, x, y, 30, isTopCap);
 
             // 2. Draw Player Tag Card below Headshot
-            const cardW = 110;
+            const cardW = 106;
             const cardH = 44;
             const cardX = x - (cardW / 2);
             const cardY = y + 36;
@@ -3294,17 +3285,17 @@ const FPL = {
             });
         };
 
-        // Render Pitch Lines (GK, DEF, MID, FWD)
-        drawPlayerRow(starterGkp, col2Y + 42);
-        drawPlayerRow(starterDef, col2Y + 155);
-        drawPlayerRow(starterMid, col2Y + 280);
-        drawPlayerRow(starterFwd, col2Y + 405);
+        // Render Pitch Lines evenly spaced (GK, DEF, MID, FWD)
+        drawPlayerRow(starterGkp, col2Y + 50);
+        drawPlayerRow(starterDef, col2Y + 175);
+        drawPlayerRow(starterMid, col2Y + 300);
+        drawPlayerRow(starterFwd, col2Y + 425);
 
         // Bench Area
         const benchX = col2X + 18;
-        const benchY = col2Y + 630;
+        const benchY = col2Y + 590;
         const benchW = col2W - 36;
-        const benchH = 132;
+        const benchH = 168;
 
         drawRoundedRect(benchX, benchY, benchW, benchH, 12);
         ctx.fillStyle = 'rgba(8, 14, 24, 0.92)';
@@ -3313,16 +3304,16 @@ const FPL = {
         ctx.lineWidth = 1;
         ctx.stroke();
 
-        ctx.font = '800 10px "Fira Code", monospace';
+        ctx.font = '800 10.5px "Fira Code", monospace';
         ctx.fillStyle = '#94a3b8';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.fillText('BENCH SQUAD (MOST OWNED SUBSTITUTES)', benchX + (benchW / 2), benchY + 8);
+        ctx.fillText('BENCH SQUAD (MOST OWNED SUBSTITUTES)', benchX + (benchW / 2), benchY + 10);
 
         const bStep = benchW / (benchPlayers.length + 1);
         benchPlayers.forEach((p, i) => {
             const bx = benchX + bStep * (i + 1);
-            drawPitchPlayer(p, bx, benchY + 38);
+            drawPitchPlayer(p, bx, benchY + 52);
         });
 
         // Canvas Footer
