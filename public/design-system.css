@@ -187,7 +187,7 @@ h4, .h4 { font-size: 1rem; }
     overscroll-behavior: contain;
 }
 .layout-main { flex: 1; min-width: 0; }
-.layout-content { padding: var(--space-lg); padding-top: 8px; max-width: 1400px; margin: 0 auto; }
+.layout-content { padding: var(--space-lg); padding-top: 28px; max-width: 1400px; margin: 0 auto; }
 
 /* Sidebar Nav Items */
 .sidebar-nav-item {
@@ -1737,15 +1737,15 @@ body.sidebar-open {
     .topbar {
         position: fixed; top: 0; left: 0; right: 0; z-index: 999;
         margin: 0;
-        height: 56px;
+        height: calc(56px + env(safe-area-inset-top, 0px));
         padding: 0 16px;
         padding-top: env(safe-area-inset-top, 0px);
         border-radius: 0;
         border: none;
         border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-        background: rgba(10, 15, 13, 0.92);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
+        background: rgba(10, 15, 13, 0.98);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
         box-shadow: 0 2px 16px rgba(0,0,0,0.6);
     }
     /* Ensure background covers the status bar area fully */
@@ -1753,8 +1753,8 @@ body.sidebar-open {
         content: '';
         position: absolute;
         top: 0; left: 0; right: 0;
-        height: env(safe-area-inset-top, 0px);
-        background: rgba(10, 15, 13, 0.92);
+        height: calc(env(safe-area-inset-top, 0px) + 4px);
+        background: rgba(10, 15, 13, 0.98);
     }
     .topbar-left { gap: 8px; min-width: 0; }
     .topbar-title { font-size: 0.875rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
@@ -1763,7 +1763,7 @@ body.sidebar-open {
     .topbar-right .btn { min-height: 34px; padding: 0 10px; font-size: 12px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     /* Content area — push down for fixed topbar */
-    .layout-content { min-width: 0; padding: 14px; padding-top: 72px; padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
+    .layout-content { min-width: 0; padding: 14px; padding-top: calc(72px + env(safe-area-inset-top, 0px)); padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
     .layout-main { padding-top: 0; }
 
     /* Prevent iOS zoom on input focus — all inputs must be >= 16px */
