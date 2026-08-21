@@ -429,4 +429,5 @@ router.get('/understat/players', heavyEndpointLimiter, async (req, res) => {
   }
 });
 
+router.analyzeManager = analyzeManager;
 module.exports = router;

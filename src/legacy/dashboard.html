@@ -627,14 +627,14 @@
                             <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:13px;white-space:nowrap;min-width:750px;">
                                 <thead>
                                     <tr style="background:rgba(255,255,255,0.03);color:var(--md-sys-color-on-surface);font-size:11px;font-family:var(--font-mono);">
-                                        <th style="text-align:left;width:36px;background:rgba(24,24,27,0.9);position:sticky;left:0;z-index:2;">RANK</th>
-                                        <th style="text-align:left;background:rgba(24,24,27,0.9);">TEAM</th>
-                                        <th style="text-align:center;">GW PTS</th>
-                                        <th style="text-align:center;">xGW-PTS</th>
-                                        <th style="text-align:center;">TOTAL PTS</th>
-                                        <th style="text-align:center;" class="desktop-only">CAPTAIN</th>
-                                        <th style="text-align:center;">RANK DIFF</th>
-                                        <th style="text-align:center;">DIFF COUNT</th>
+                                        <th style="text-align:left;width:36px;background:rgba(24,24,27,0.9);position:sticky;left:0;z-index:2;cursor:pointer;" onclick="FPL.toggleStandingsSort('rank')" title="Sort by Rank">RANK <span id="standings-sort-icon-rank" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;color:#00FF85;">arrow_upward</span></th>
+                                        <th style="text-align:left;background:rgba(24,24,27,0.9);cursor:pointer;" onclick="FPL.toggleStandingsSort('team')" title="Sort by Team / Manager">TEAM <span id="standings-sort-icon-team" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th style="text-align:center;cursor:pointer;" onclick="FPL.toggleStandingsSort('eventTotal')" title="Sort by GW Points">GW PTS <span id="standings-sort-icon-eventTotal" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th style="text-align:center;cursor:pointer;" onclick="FPL.toggleStandingsSort('xGWPts')" title="Sort by Expected GW Points">xGW-PTS <span id="standings-sort-icon-xGWPts" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th style="text-align:center;cursor:pointer;" onclick="FPL.toggleStandingsSort('total')" title="Sort by Total Points">TOTAL PTS <span id="standings-sort-icon-total" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th style="text-align:center;cursor:pointer;" class="desktop-only" onclick="FPL.toggleStandingsSort('captainName')" title="Sort by Captain">CAPTAIN <span id="standings-sort-icon-captainName" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th style="text-align:center;cursor:pointer;" onclick="FPL.toggleStandingsSort('rankDiff')" title="Sort by Rank Movement">RANK DIFF <span id="standings-sort-icon-rankDiff" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th style="text-align:center;cursor:pointer;" onclick="FPL.toggleStandingsSort('diffCount')" title="Sort by Points Behind Leader">DIFF COUNT <span id="standings-sort-icon-diffCount" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
                                     </tr>
                                 </thead>
                                 <tbody id="league-standings-body">

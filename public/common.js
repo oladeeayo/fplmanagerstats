@@ -28,7 +28,9 @@ const FPL = {
         managerId: localStorage.getItem('fplManagerId') || null,
         leagueId: localStorage.getItem('fplLeagueId') || COMMUNITY_LEAGUE_ID,
         theme: document.documentElement.dataset.theme === 'light' ? 'light' : 'dark',
-        aiTeamGWView: 1
+        aiTeamGWView: 1,
+        standingsSortKey: 'rank',
+        standingsSortDir: 'asc'
     },
 
     // Client-side tab data cache (avoids re-fetching when switching tabs)
@@ -2149,11 +2151,37 @@ const FPL = {
             // Render Table Rows
             const managers = data.managers || [];
             if (managers.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:var(--space-lg);color:var(--md-sys-color-on-surface-variant);">No standings data available.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:var(--space-lg);color:var(--md-sys-color-on-surface-variant);">No standings data available.</td></tr>`;
                 return;
             }
 
-            tbody.innerHTML = managers.map((m, idx) => {
+            let sortedManagers = [...managers];
+            if (this.state.standingsSortKey) {
+                const key = this.state.standingsSortKey;
+                const dir = this.state.standingsSortDir === 'asc' ? 1 : -1;
+                sortedManagers.sort((a, b) => {
+                    let valA, valB;
+                    if (key === 'team') {
+                        valA = (a.entryName || a.managerName || '').toLowerCase();
+                        valB = (b.entryName || b.managerName || '').toLowerCase();
+                    } else if (key === 'captainName') {
+                        valA = (a.captainName || '').toLowerCase();
+                        valB = (b.captainName || '').toLowerCase();
+                    } else {
+                        valA = a[key] ?? (this.state.standingsSortDir === 'asc' ? Infinity : -Infinity);
+                        valB = b[key] ?? (this.state.standingsSortDir === 'asc' ? Infinity : -Infinity);
+                    }
+
+                    if (typeof valA === 'string') {
+                        return valA.localeCompare(valB) * dir;
+                    }
+                    return (valA - valB) * dir;
+                });
+            }
+
+            this.updateStandingsSortIcons();
+
+            tbody.innerHTML = sortedManagers.map((m, idx) => {
                 const isEven = idx % 2 === 1;
                 const rowBg = isEven ? 'background:rgba(255,255,255,0.03);' : '';
                 
@@ -2251,6 +2279,38 @@ const FPL = {
         this.renderLeague();
     },
 
+    toggleStandingsSort(key) {
+        if (this.state.standingsSortKey === key) {
+            this.state.standingsSortDir = this.state.standingsSortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            this.state.standingsSortKey = key;
+            this.state.standingsSortDir = (key === 'rank' || key === 'team' || key === 'captainName') ? 'asc' : 'desc';
+        }
+        this.renderLeague();
+    },
+
+    updateStandingsSortIcons() {
+        const keys = ['rank', 'team', 'eventTotal', 'xGWPts', 'total', 'captainName', 'rankDiff', 'diffCount'];
+        keys.forEach(key => {
+            const iconEl = document.getElementById(`standings-sort-icon-${key}`);
+            if (iconEl) {
+                if (this.state.standingsSortKey === key) {
+                    const iconName = this.state.standingsSortDir === 'asc' ? 'arrow_upward' : 'arrow_downward';
+                    iconEl.className = 'material-symbols-outlined';
+                    iconEl.style.fontSize = '12px';
+                    iconEl.style.verticalAlign = 'middle';
+                    iconEl.style.color = '#00FF85';
+                    iconEl.style.display = 'inline-block';
+                    iconEl.style.marginLeft = '2px';
+                    iconEl.textContent = iconName;
+                } else {
+                    iconEl.textContent = '';
+                    iconEl.style.display = 'none';
+                }
+            }
+        });
+    },
+
     renderLeagueTemplatePitch(data) {
         const container = document.getElementById('league-template-pitch');
         if (!container) return;
@@ -2263,29 +2323,53 @@ const FPL = {
 
         this.state.currentLeagueTemplate = template;
 
-        const gkps = template.filter(p => p.posType === 1);
-        const defs = template.filter(p => p.posType === 2);
-        const mids = template.filter(p => p.posType === 3);
-        const fwds = template.filter(p => p.posType === 4);
+        const getPct = (p) => Number(p.ownershipPct ?? p.pct ?? p.count ?? 0);
+
+        const gkps = template.filter(p => p.posType === 1).sort((a, b) => getPct(b) - getPct(a));
+        const defs = template.filter(p => p.posType === 2).sort((a, b) => getPct(b) - getPct(a));
+        const mids = template.filter(p => p.posType === 3).sort((a, b) => getPct(b) - getPct(a));
+        const fwds = template.filter(p => p.posType === 4).sort((a, b) => getPct(b) - getPct(a));
 
         const startingGkp = gkps.slice(0, 1);
         const benchGkp = gkps.slice(1, 2);
-        
-        const startingDef = defs.slice(0, 4);
-        const benchDef = defs.slice(4, 5);
 
-        const startingMid = mids.slice(0, 4);
-        const benchMid = mids.slice(4, 5);
+        // Candidate valid FPL formations: [nD, nM, nF]
+        const candidateFormations = [
+            [3, 5, 2], [3, 4, 3], [4, 4, 2], [4, 3, 3],
+            [4, 5, 1], [5, 3, 2], [5, 4, 1], [5, 2, 3]
+        ];
 
-        const startingFwd = fwds.slice(0, 2);
-        const benchFwd = fwds.slice(2, 3);
+        let bestFormation = [4, 4, 2];
+        let maxTotalPct = -1;
+
+        candidateFormations.forEach(([nD, nM, nF]) => {
+            if (defs.length >= nD && mids.length >= nM && fwds.length >= nF) {
+                const sumD = defs.slice(0, nD).reduce((sum, p) => sum + getPct(p), 0);
+                const sumM = mids.slice(0, nM).reduce((sum, p) => sum + getPct(p), 0);
+                const sumF = fwds.slice(0, nF).reduce((sum, p) => sum + getPct(p), 0);
+                const total = sumD + sumM + sumF;
+                if (total > maxTotalPct) {
+                    maxTotalPct = total;
+                    bestFormation = [nD, nM, nF];
+                }
+            }
+        });
+
+        const [numDef, numMid, numFwd] = bestFormation;
+        const startingDef = defs.slice(0, numDef);
+        const startingMid = mids.slice(0, numMid);
+        const startingFwd = fwds.slice(0, numFwd);
+
+        const benchDef = defs.slice(numDef);
+        const benchMid = mids.slice(numMid);
+        const benchFwd = fwds.slice(numFwd);
 
         const benchPlayers = [...benchGkp, ...benchDef, ...benchMid, ...benchFwd];
 
         const renderPlayerBadge = (p, isBench = false) => {
             const photoUrl = p.code ? `https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png` : '';
             return `<div class="template-player-badge" onclick="FPL.showTemplatePlayerOwners(${p.id})" style="display:flex;flex-direction:column;align-items:center;cursor:pointer;width:68px;transition:transform 0.15s;" onmouseover="this.style.transform='scale(1.06)'" onmouseout="this.style.transform='scale(1)'" title="Click to view managers who own ${this.escapeHTML(p.name)}">
-                <div style="position:relative;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.08);border:1.5px solid ${isBench ? 'rgba(255,255,255,0.2)' : 'var(--fdr-1)'};overflow:hidden;display:flex;align-items:center;justify-content:center;">
+                <div style="position:relative;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.06);overflow:hidden;display:flex;align-items:center;justify-content:center;">
                     <img src="${photoUrl}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2244%22 height=%2244%22 viewBox=%220 0 24 24%22 fill=%22%23777%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E'" style="width:100%;height:100%;object-fit:cover;object-position:top;" alt="${p.name}">
                 </div>
                 <div style="margin-top:3px;background:rgba(0,0,0,0.85);border:1px solid rgba(255,255,255,0.1);border-radius:4px;padding:1px 4px;text-align:center;width:100%;">
@@ -2330,8 +2414,8 @@ const FPL = {
         container.innerHTML = captaincy.map((item) => {
             const photoUrl = item.code ? `https://resources.premierleague.com/premierleague/photos/players/110x140/p${item.code}.png` : '';
             return `<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:12px;">
-                <div style="width:36px;height:42px;border-radius:4px;background:rgba(255,255,255,0.08);overflow:hidden;flex-shrink:0;">
-                    <img src="${photoUrl}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2236%22 height=%2242%22 viewBox=%220 0 24 24%22 fill=%22%23777%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E'" style="width:100%;height:100%;object-fit:cover;object-position:top;" alt="${item.name}">
+                <div style="width:36px;height:42px;overflow:hidden;flex-shrink:0;">
+                    <img src="${photoUrl}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2236%22 height=%2242%22 viewBox=%220 0 24 24%22 fill=%22%23777%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E'" style="width:100%;height:100%;object-fit:cover;object-position:top;" alt="${item.name}">
                 </div>
                 <div style="flex:1;min-width:0;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
@@ -2941,15 +3025,16 @@ const FPL = {
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = '#ffffff';
-        ctx.fillText('Projected pts & Solio picks ', 45, 52);
+        const titlePrefix = 'League Captains & Most Owned Squad ';
+        ctx.fillText(titlePrefix, 45, 52);
 
-        const titleWidth = ctx.measureText('Projected pts & Solio picks ').width;
+        const titleWidth = ctx.measureText(titlePrefix).width;
         ctx.fillStyle = '#ff6b00';
         ctx.fillText(`GW${currentGW}`, 45 + titleWidth, 52);
 
         ctx.font = '500 12px "Fira Code", monospace';
         ctx.fillStyle = '#94a3b8';
-        ctx.fillText(`Live projections & template XI from FPL Manager Analytics | ${leagueName} | Updated: ${todayDate}`, 45, 78);
+        ctx.fillText(`Live manager picks & template XI from FPL Manager Analytics | ${leagueName} | Updated: ${todayDate}`, 45, 78);
 
         // Header Site Badge
         const logoX = width - 190;
@@ -2999,6 +3084,8 @@ const FPL = {
 
         const rowH = 47;
         const renderCaptains = topCaptains.slice(0, 15);
+        const topVal = renderCaptains[0]?.pct ?? renderCaptains[0]?.count ?? 1;
+
         renderCaptains.forEach((item, idx) => {
             const rY = col1Y + 44 + (idx * rowH);
 
@@ -3050,15 +3137,20 @@ const FPL = {
             const fixStr = item.team || '';
             ctx.fillText(fixStr, col1X + 270, rY + (rowH / 2));
 
-            // Points / Count Pill Badge
+            // Dynamic Color Shaded Pill Box
+            const itemVal = item.pct ?? item.count ?? 0;
+            const ratio = topVal > 0 ? Math.max(0.08, itemVal / topVal) : 0.08;
+            const fillAlpha = (0.08 + (ratio * 0.40)).toFixed(2);
+            const strokeAlpha = (0.20 + (ratio * 0.50)).toFixed(2);
+
             const pillW = 130;
             const pillH = 28;
             const pillX = col1X + col1W - pillW - 16;
             const pillY = rY + (rowH / 2) - (pillH / 2);
             drawRoundedRect(pillX, pillY, pillW, pillH, 6);
-            ctx.fillStyle = 'rgba(14, 165, 233, 0.15)';
+            ctx.fillStyle = `rgba(14, 165, 233, ${fillAlpha})`;
             ctx.fill();
-            ctx.strokeStyle = 'rgba(14, 165, 233, 0.35)';
+            ctx.strokeStyle = `rgba(14, 165, 233, ${strokeAlpha})`;
             ctx.lineWidth = 1;
             ctx.stroke();
 
@@ -3066,9 +3158,9 @@ const FPL = {
             ctx.fillStyle = '#38bdf8';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            const countTxt = (item.eventPoints != null || item.points != null)
-                ? `${item.eventPoints ?? item.points} pts`
-                : (item.pct != null ? `${item.count} (${item.pct}%)` : `${item.count} mgrs`);
+            const countTxt = (item.count != null && item.pct != null)
+                ? `${item.count} (${item.pct}%)`
+                : (item.pct != null ? `${item.pct}%` : `${item.count || 0} mgrs`);
             ctx.fillText(countTxt, pillX + (pillW / 2), pillY + (pillH / 2));
         });
 
@@ -3125,13 +3217,13 @@ const FPL = {
             const isTopCap = (player.name === topCaptainName || player.web_name === topCaptainName);
 
             // 1. Draw Headshot Photo
-            drawPlayerHead(hImg, x, y, 26, isTopCap);
+            drawPlayerHead(hImg, x, y, 28, isTopCap);
 
             // 2. Draw Player Tag Card below Headshot
             const cardW = 108;
             const cardH = 42;
             const cardX = x - (cardW / 2);
-            const cardY = y + 30;
+            const cardY = y + 32;
 
             drawRoundedRect(cardX, cardY, cardW, cardH, 6);
             ctx.fillStyle = '#ffffff';
@@ -3155,8 +3247,8 @@ const FPL = {
 
             ctx.font = '800 10px "Fira Code", monospace';
             ctx.fillStyle = '#047857';
-            const statStr = (player.eventPoints != null || player.points != null)
-                ? `${player.eventPoints ?? player.points} pts`
+            const statStr = (player.count != null && player.ownershipPct != null)
+                ? `${player.count} (${player.ownershipPct}%)`
                 : (player.ownershipPct != null ? `${player.ownershipPct}%` : `${player.count || 0} mgrs`);
             ctx.fillText(statStr, x, cardY + 29);
         };

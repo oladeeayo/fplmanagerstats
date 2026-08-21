@@ -2133,7 +2133,7 @@ router.get('/manager-roi/:managerId', heavyEndpointLimiter, async (req, res) => 
   if (!managerId) return res.status(400).json({ error: 'A valid managerId is required' });
   try {
     const bs = await getCachedApiData(BOOTSTRAP_URL);
-    const { analyzeManager } = require('../routes/decision');
+    const { analyzeManager } = require('./decision');
     const managerData = await analyzeManager(managerId, bs);
     
     const players = managerData.playerStats || [];
