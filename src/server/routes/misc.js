@@ -40,9 +40,39 @@ router.get('/health', (req, res) => {
   }
 });
 
-// ---- Snapshot Status ----
-router.get('/snapshot-status', (req, res) => {
-  res.json(snapshotManager.getSnapshotStatus());
+// ---- Image Proxy for Canvas Export ----
+router.get('/image-proxy', async (req, res) => {
+  const imageUrl = req.query.url;
+  if (!imageUrl) return res.status(400).send('Missing url parameter');
+
+  try {
+    const parsed = new URL(imageUrl);
+    const host = parsed.hostname.toLowerCase();
+    if (!host.endsWith('premierleague.com') && !host.endsWith('fotmob.com')) {
+      return res.status(403).send('Domain not allowed');
+    }
+
+    const response = await fetch(imageUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+    });
+
+    if (!response.ok) {
+      return res.status(response.status).send('Failed to fetch image');
+    }
+
+    const contentType = response.headers.get('content-type') || 'image/png';
+    const buffer = Buffer.from(await response.arrayBuffer());
+
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.send(buffer);
+  } catch (err) {
+    logger.error({ err: err.message }, 'Image proxy error');
+    return res.status(500).send('Image proxy failed');
+  }
 });
 
 // ---- Manager Lookup (validate ID and return team info) ----

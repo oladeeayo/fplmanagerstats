@@ -2367,10 +2367,12 @@ const FPL = {
         const benchPlayers = [...benchGkp, ...benchDef, ...benchMid, ...benchFwd];
 
         const renderPlayerBadge = (p, isBench = false) => {
-            const photoUrl = p.code ? `https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png` : '';
+            const fotmobPhoto = this.playerPhotoUrl(p, '110x140', true);
+            const plFallback = p.code ? `https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png` : '';
+            const photoUrl = fotmobPhoto || plFallback;
             return `<div class="template-player-badge" onclick="FPL.showTemplatePlayerOwners(${p.id})" style="display:flex;flex-direction:column;align-items:center;cursor:pointer;width:68px;transition:transform 0.15s;" onmouseover="this.style.transform='scale(1.06)'" onmouseout="this.style.transform='scale(1)'" title="Click to view managers who own ${this.escapeHTML(p.name)}">
                 <div style="position:relative;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.06);overflow:hidden;display:flex;align-items:center;justify-content:center;">
-                    <img src="${photoUrl}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2244%22 height=%2244%22 viewBox=%220 0 24 24%22 fill=%22%23777%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E'" style="width:100%;height:100%;object-fit:cover;object-position:top;" alt="${p.name}">
+                    <img src="${photoUrl}" onerror="if(this.src!=='${plFallback}'&&'${plFallback}'){this.src='${plFallback}';}else{this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2244%22 height=%2244%22 viewBox=%220 0 24 24%22 fill=%22%23777%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E';}" style="width:100%;height:100%;object-fit:cover;object-position:top;" alt="${p.name}">
                 </div>
                 <div style="margin-top:3px;background:rgba(0,0,0,0.85);border:1px solid rgba(255,255,255,0.1);border-radius:4px;padding:1px 4px;text-align:center;width:100%;">
                     <div style="font-weight:700;font-size:10px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(p.name)}</div>
@@ -2412,10 +2414,12 @@ const FPL = {
         }
 
         container.innerHTML = captaincy.map((item) => {
-            const photoUrl = item.code ? `https://resources.premierleague.com/premierleague/photos/players/110x140/p${item.code}.png` : '';
+            const fotmobPhoto = this.playerPhotoUrl(item, '110x140', true);
+            const plFallback = item.code ? `https://resources.premierleague.com/premierleague/photos/players/110x140/p${item.code}.png` : '';
+            const photoUrl = fotmobPhoto || plFallback;
             return `<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:12px;">
                 <div style="width:36px;height:42px;overflow:hidden;flex-shrink:0;">
-                    <img src="${photoUrl}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2236%22 height=%2242%22 viewBox=%220 0 24 24%22 fill=%22%23777%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E'" style="width:100%;height:100%;object-fit:cover;object-position:top;" alt="${item.name}">
+                    <img src="${photoUrl}" onerror="if(this.src!=='${plFallback}'&&'${plFallback}'){this.src='${plFallback}';}else{this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2236%22 height=%2242%22 viewBox=%220 0 24 24%22 fill=%22%23777%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E';}" style="width:100%;height:100%;object-fit:cover;object-position:top;" alt="${item.name}">
                 </div>
                 <div style="flex:1;min-width:0;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
@@ -2827,18 +2831,23 @@ const FPL = {
         const ctx = canvas.getContext('2d');
         ctx.scale(scale, scale);
 
-        const teamBadgeImgs = {};
-        const playerHeadImgs = {};
-        const elementsList = this.state.bootstrapData?.elements || [];
-        const teamList = this.state.bootstrapData?.teams || [];
+        const getProxiedUrl = (url) => {
+            if (!url) return '';
+            return `/api/image-proxy?url=${encodeURIComponent(url)}`;
+        };
 
         const loadImage = (src) => new Promise(resolve => {
             if (!src) return resolve(null);
             const img = new Image();
             img.crossOrigin = 'anonymous';
             img.onload = () => resolve(img);
-            img.onerror = () => resolve(null);
-            img.src = src;
+            img.onerror = () => {
+                const directImg = new Image();
+                directImg.onload = () => resolve(directImg);
+                directImg.onerror = () => resolve(null);
+                directImg.src = src;
+            };
+            img.src = getProxiedUrl(src);
         });
 
         const topCaptains = captaincy.slice(0, 15);
@@ -2972,7 +2981,7 @@ const FPL = {
             ctx.restore();
 
             ctx.save();
-            ctx.strokeStyle = isTopCap ? '#f59e0b' : '#ffffff';
+            ctx.strokeStyle = isTopCap ? '#f59e0b' : 'rgba(255, 255, 255, 0.8)';
             ctx.lineWidth = isTopCap ? 3 : 2;
             ctx.beginPath();
             ctx.arc(x, y, radius, 0, Math.PI * 2);
@@ -3137,25 +3146,37 @@ const FPL = {
             const fixStr = item.team || '';
             ctx.fillText(fixStr, col1X + 270, rY + (rowH / 2));
 
-            // Dynamic Color Shaded Pill Box
+            // Dynamic Color Shaded Pill Box (Vibrant Blue/Cyan Shading)
             const itemVal = item.pct ?? item.count ?? 0;
-            const ratio = topVal > 0 ? Math.max(0.08, itemVal / topVal) : 0.08;
-            const fillAlpha = (0.08 + (ratio * 0.40)).toFixed(2);
-            const strokeAlpha = (0.20 + (ratio * 0.50)).toFixed(2);
-
+            const ratio = topVal > 0 ? Math.max(0.06, Math.min(1, itemVal / topVal)) : 0.06;
+            
             const pillW = 130;
             const pillH = 28;
             const pillX = col1X + col1W - pillW - 16;
             const pillY = rY + (rowH / 2) - (pillH / 2);
+            
             drawRoundedRect(pillX, pillY, pillW, pillH, 6);
-            ctx.fillStyle = `rgba(14, 165, 233, ${fillAlpha})`;
+            
+            if (ratio > 0.6) {
+                // Top Captains: Deep vibrant cyan-blue pill fill
+                ctx.fillStyle = `rgba(2, 132, 199, ${(0.35 + ratio * 0.45).toFixed(2)})`;
+                ctx.strokeStyle = `rgba(56, 189, 248, ${(0.6 + ratio * 0.4).toFixed(2)})`;
+            } else if (ratio > 0.2) {
+                // Mid Captains: Medium cyan fill
+                ctx.fillStyle = `rgba(3, 105, 161, ${(0.25 + ratio * 0.35).toFixed(2)})`;
+                ctx.strokeStyle = `rgba(56, 189, 248, ${(0.35 + ratio * 0.35).toFixed(2)})`;
+            } else {
+                // Lower Captains: Subtle cyan tint
+                ctx.fillStyle = `rgba(14, 165, 233, ${(0.10 + ratio * 0.20).toFixed(2)})`;
+                ctx.strokeStyle = `rgba(56, 189, 248, ${(0.20 + ratio * 0.20).toFixed(2)})`;
+            }
+            
             ctx.fill();
-            ctx.strokeStyle = `rgba(14, 165, 233, ${strokeAlpha})`;
             ctx.lineWidth = 1;
             ctx.stroke();
 
             ctx.font = '800 12px "Fira Code", monospace';
-            ctx.fillStyle = '#38bdf8';
+            ctx.fillStyle = ratio > 0.6 ? '#ffffff' : '#38bdf8';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             const countTxt = (item.count != null && item.pct != null)
@@ -3216,23 +3237,23 @@ const FPL = {
 
             const isTopCap = (player.name === topCaptainName || player.web_name === topCaptainName);
 
-            // 1. Draw Headshot Photo
-            drawPlayerHead(hImg, x, y, 28, isTopCap);
+            // 1. Draw Headshot Photo (Radius 30px)
+            drawPlayerHead(hImg, x, y, 30, isTopCap);
 
             // 2. Draw Player Tag Card below Headshot
-            const cardW = 108;
-            const cardH = 42;
+            const cardW = 110;
+            const cardH = 44;
             const cardX = x - (cardW / 2);
-            const cardY = y + 32;
+            const cardY = y + 36;
 
             drawRoundedRect(cardX, cardY, cardW, cardH, 6);
             ctx.fillStyle = '#ffffff';
             ctx.fill();
             ctx.strokeStyle = isTopCap ? '#f59e0b' : '#cbd5e1';
-            ctx.lineWidth = isTopCap ? 2 : 1;
+            ctx.lineWidth = isTopCap ? 2.5 : 1;
             ctx.stroke();
 
-            ctx.font = '800 10px "Outfit", system-ui, sans-serif';
+            ctx.font = '800 10.5px "Outfit", system-ui, sans-serif';
             ctx.fillStyle = '#0f172a';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
@@ -3241,16 +3262,16 @@ const FPL = {
             if (isTopCap) nameStr += ' (C)';
             ctx.fillText(nameStr, x, cardY + 5);
 
-            ctx.font = '500 9px "Outfit", system-ui, sans-serif';
+            ctx.font = '600 9.5px "Outfit", system-ui, sans-serif';
             ctx.fillStyle = '#64748b';
             ctx.fillText(player.teamShort || player.team || '', x, cardY + 18);
 
-            ctx.font = '800 10px "Fira Code", monospace';
+            ctx.font = '800 10.5px "Fira Code", monospace';
             ctx.fillStyle = '#047857';
             const statStr = (player.count != null && player.ownershipPct != null)
                 ? `${player.count} (${player.ownershipPct}%)`
                 : (player.ownershipPct != null ? `${player.ownershipPct}%` : `${player.count || 0} mgrs`);
-            ctx.fillText(statStr, x, cardY + 29);
+            ctx.fillText(statStr, x, cardY + 30);
         };
 
         const drawPlayerRow = (players, y) => {
@@ -4756,14 +4777,17 @@ const FPL = {
 
     playerPhotoUrl(player, size = '110x140', alwaysShow = false) {
         if (!alwaysShow && this.getSetting('showPhotos') === false) return '';
-        const current = this.resolvePlayer(player) || player;
+        const current = this.resolvePlayer(player) || player || {};
         const rawPhoto = String(current?.photo ?? current?.photoId ?? '').replace(/^p/i, '').replace(/\.(png|jpe?g)$/i, '');
-        const code = Number(current?.code || rawPhoto);
-        if (this.state.fotmobUnavailablePhotos.has(String(code))) return '';
-        const fotmobId = Number(current?.fotmobId || this.state.fotmobPlayerIds[String(code)]);
-        return Number.isFinite(fotmobId) && fotmobId > 0
-            ? `https://images.fotmob.com/image_resources/playerimages/${fotmobId}.png`
-            : '';
+        const code = Number(current?.code || player?.code || rawPhoto);
+        if (this.state.fotmobUnavailablePhotos.has(String(code))) {
+            return code ? `https://resources.premierleague.com/premierleague/photos/players/110x140/p${code}.png` : '';
+        }
+        const fotmobId = Number(current?.fotmobId || player?.fotmobId || (code ? this.state.fotmobPlayerIds[String(code)] : null));
+        if (Number.isFinite(fotmobId) && fotmobId > 0) {
+            return `https://images.fotmob.com/image_resources/playerimages/${fotmobId}.png`;
+        }
+        return code ? `https://resources.premierleague.com/premierleague/photos/players/110x140/p${code}.png` : '';
     },
 
     playerInitials(player) {
@@ -4822,15 +4846,23 @@ const FPL = {
 
 
     playerPhotoMarkup(player, alt = 'FPL player', className = '', style = '', alwaysShow = false) {
+        const current = this.resolvePlayer(player) || player || {};
+        const code = current?.code || player?.code || '';
         const src = this.playerPhotoUrl(player, '110x140', alwaysShow);
         const shirt = this.playerTeamShirtUrl(player);
-        const image = src ? `<img${className ? ` class="${className}"` : ''} src="${src}" alt="${this.escapeHTML(alt)}" loading="lazy" decoding="async" onerror="FPL.handlePlayerPhotoError(this)" style="${style}">` : '';
+        const image = src ? `<img${className ? ` class="${className}"` : ''} src="${src}" data-code="${code}" alt="${this.escapeHTML(alt)}" loading="lazy" decoding="async" onerror="FPL.handlePlayerPhotoError(this)" style="${style}">` : '';
         const shirtImage = shirt ? `<img class="player-current-shirt" src="${shirt}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'" style="width:80%;height:80%;object-fit:contain;">` : '';
         return `${image}<span class="player-photo-fallback" data-player-fallback aria-hidden="true">${shirtImage}</span>`;
     },
 
     handlePlayerPhotoError(image) {
         image.onerror = null;
+        const currentSrc = image.src || '';
+        const playerCode = image.getAttribute('data-code');
+        if (currentSrc.includes('fotmob.com') && playerCode) {
+            image.src = `https://resources.premierleague.com/premierleague/photos/players/110x140/p${playerCode}.png`;
+            return;
+        }
         image.style.display = 'none';
         const fallback = image.parentElement?.querySelector('[data-player-fallback]');
         if (fallback) fallback.style.display = 'flex';
@@ -6381,13 +6413,14 @@ const FPL = {
         }
 
         const fdrColors = { 1: '#1A9F39', 2: '#42B659', 3: '#F9D243', 4: '#F0613D', 5: '#E21C3D' };
-        const photoUrl = `https://resources.premierleague.com/premierleague25/photos/players/110x140/${player.code}.png`;
+        const plFallback = player.code ? `https://resources.premierleague.com/premierleague/photos/players/110x140/p${player.code}.png` : '';
+        const photoUrl = this.playerPhotoUrl(player, '110x140', true) || plFallback;
         const formBars = [form >= 5 ? 1 : 2, form >= 4 ? 2 : 3, form >= 3 ? 1 : 2, form >= 2 ? 3 : 4, form >= 1 ? 1 : 5];
 
         const html = `
             <div class="player-detail-header">
                 <div class="player-detail-photo">
-                    <img src="${photoUrl}" alt="${player.web_name} photo" onerror="this.style.display='none'" loading="lazy">
+                    <img src="${photoUrl}" alt="${player.web_name} photo" onerror="if(this.src!=='${plFallback}'&&'${plFallback}'){this.src='${plFallback}';}else{this.style.display='none';}" loading="lazy">
                 </div>
                 <div class="player-detail-info">
                     <h3 class="player-detail-name">${this.escapeHTML(player.web_name)}</h3>
