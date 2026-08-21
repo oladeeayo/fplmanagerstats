@@ -202,6 +202,7 @@ const FPL = {
             // Load manager data if connected
             if (this.state.managerId) {
                 void this.loadManagerData(this.state.managerId).then(() => {
+                    this.refreshConnectionUI();
                     if (this.state.activeTab === 'manager') this.renderTeamAnalysis();
                 });
             }
@@ -221,6 +222,20 @@ const FPL = {
             if (!data) {
                 data = await this.apiFetch(this.API.analyzeManager(managerId));
                 this.setCachedTabData(cacheKey, data);
+                // Save connected manager to DB for name search
+                window.fetch('/api/save-manager', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        managerId: Number(managerId),
+                        teamName: data.managerInfo?.teamName || null,
+                        playerFirstName: data.managerInfo?.playerFirstName || null,
+                        playerLastName: data.managerInfo?.playerLastName || null,
+                        overallPoints: data.managerInfo?.overallPoints || null,
+                        overallRank: data.managerInfo?.overallRank || null,
+                        leagueId: this.state.leagueId ? Number(this.state.leagueId) : null
+                    })
+                }).catch(() => {});
             }
             this.state.managerData = data;
             this.state.managerId = managerId;
@@ -249,6 +264,39 @@ const FPL = {
         } catch (err) {
             console.error('Error loading manager data:', err);
             this.showError('Failed to load manager data');
+        }
+    },
+
+    refreshConnectionUI() {
+        const id = this.state.managerId;
+        const data = this.state.managerData;
+
+        // Update sidebar manager ID display
+        const display = document.getElementById('manager-id-display');
+        if (display) {
+            if (id) {
+                display.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:8px;height:8px;border-radius:50%;background:#00FF85;box-shadow:0 0 6px #00FF85;"></span> ${this.escapeHTML(data?.managerInfo?.name || 'Manager ' + id)}</span>`;
+            } else {
+                display.textContent = 'No manager connected';
+            }
+        }
+
+        // Update topbar connect button
+        const topbarBtn = document.querySelector('.topbar-right .btn-primary');
+        if (topbarBtn) {
+            if (id) {
+                topbarBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px;color:#00FF85;">check_circle</span> ${this.escapeHTML(data?.managerInfo?.teamName || 'Connected')}`;
+                topbarBtn.onclick = () => this.showDialog('connect-dialog');
+                topbarBtn.style.background = 'rgba(0,255,133,0.12)';
+                topbarBtn.style.border = '1px solid rgba(0,255,133,0.3)';
+                topbarBtn.style.color = '#00FF85';
+            } else {
+                topbarBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px;">link</span> Connect`;
+                topbarBtn.onclick = () => this.showDialog('connect-dialog');
+                topbarBtn.style.background = '';
+                topbarBtn.style.border = '';
+                topbarBtn.style.color = '';
+            }
         }
     },
 
@@ -503,6 +551,9 @@ const FPL = {
         document.querySelectorAll('.bottom-nav-item').forEach(el => {
             el.classList.toggle('active', el.dataset.tab === tab);
         });
+
+        // Ensure connection UI is always in sync
+        this.refreshConnectionUI();
 
         // Update URL
         const url = new URL(window.location);
@@ -3988,7 +4039,7 @@ const FPL = {
 
     // ==================== RENDER: LEAGUE STANDINGS ====================
     async renderLeague() {
-        const leagueId = this.state.selectedLeagueId || this.state.leagueId || 314;
+        const leagueId = this.state.selectedLeagueId || this.state.leagueId;
         const page = this.state.standingsPage || 1;
         
         const tbody = document.getElementById('league-standings-body');
@@ -5931,28 +5982,60 @@ const FPL = {
         if (!input || !resultsEl) return;
         const val = input.value.trim();
         clearTimeout(this._managerSearchTimers[inputId]);
-        if (!/^\d{3,}$/.test(val)) {
-            resultsEl.innerHTML = '';
-            resultsEl.style.display = 'none';
-            this._selectedLeagueId[inputId] = null;
+
+        // Numeric ID lookup via FPL API
+        if (/^\d{3,}$/.test(val)) {
+            resultsEl.innerHTML = '<div style="padding:8px 12px;color:var(--md-sys-color-on-surface-variant);font-size:12px;">Searching...</div>';
+            resultsEl.style.display = 'block';
+            this._managerSearchTimers[inputId] = setTimeout(async () => {
+                try {
+                    const data = await this.apiFetch(this.API.managerLookup(val));
+                    const name = data.name || 'Unknown Team';
+                    const owner = [data.playerFirstName, data.playerLastName].filter(Boolean).join(' ');
+                    const nameEsc = this.escapeHTML(name).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    const ownerEsc = this.escapeHTML(owner).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    resultsEl.innerHTML = `<div class="fpl-mgr-result" data-manager-id="${data.id}" style="padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;" onclick="event.stopPropagation();FPL.selectManagerAndLoadLeagues('${inputId}','${resultsId}',${data.id},'${nameEsc}','${ownerEsc}')"><span class="material-symbols-outlined" style="font-size:16px;color:#00FF85;">check_circle</span><div><div style="font-size:13px;font-weight:600;color:var(--md-sys-color-on-surface);">${this.escapeHTML(name)}</div><div style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">${this.escapeHTML(owner)} · ID: ${data.id}</div></div></div>`;
+                    resultsEl.style.display = 'block';
+                } catch {
+                    resultsEl.innerHTML = '<div style="padding:8px 12px;color:var(--md-sys-color-error,#f44336);font-size:12px;">Manager not found</div>';
+                    resultsEl.style.display = 'block';
+                }
+            }, 300);
             return;
         }
-        resultsEl.innerHTML = '<div style="padding:8px 12px;color:var(--md-sys-color-on-surface-variant);font-size:12px;">Searching...</div>';
-        resultsEl.style.display = 'block';
-        this._managerSearchTimers[inputId] = setTimeout(async () => {
-            try {
-                const data = await this.apiFetch(this.API.managerLookup(val));
-                const name = data.name || 'Unknown Team';
-                const owner = [data.playerFirstName, data.playerLastName].filter(Boolean).join(' ');
-                const nameEsc = this.escapeHTML(name).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-                const ownerEsc = this.escapeHTML(owner).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-                resultsEl.innerHTML = `<div class="fpl-mgr-result" data-manager-id="${data.id}" style="padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;" onclick="event.stopPropagation();FPL.selectManagerAndLoadLeagues('${inputId}','${resultsId}',${data.id},'${nameEsc}','${ownerEsc}')"><span class="material-symbols-outlined" style="font-size:16px;color:#00FF85;">check_circle</span><div><div style="font-size:13px;font-weight:600;color:var(--md-sys-color-on-surface);">${this.escapeHTML(name)}</div><div style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">${this.escapeHTML(owner)} · ID: ${data.id}</div></div></div>`;
-                resultsEl.style.display = 'block';
-            } catch {
-                resultsEl.innerHTML = '<div style="padding:8px 12px;color:var(--md-sys-color-error,#f44336);font-size:12px;">Manager not found</div>';
-                resultsEl.style.display = 'block';
-            }
-        }, 300);
+
+        // Name search in connected_managers table
+        if (val.length >= 2) {
+            resultsEl.innerHTML = '<div style="padding:8px 12px;color:var(--md-sys-color-on-surface-variant);font-size:12px;">Searching connected managers...</div>';
+            resultsEl.style.display = 'block';
+            this._managerSearchTimers[inputId] = setTimeout(async () => {
+                try {
+                    const res = await window.fetch(`/api/search-managers?q=${encodeURIComponent(val)}`);
+                    const data = await res.json();
+                    const managers = data.managers || [];
+                    if (managers.length === 0) {
+                        resultsEl.innerHTML = '<div style="padding:8px 12px;color:var(--md-sys-color-on-surface-variant);font-size:12px;">No managers found. Try entering their numeric ID.</div>';
+                    } else {
+                        resultsEl.innerHTML = managers.map(m => {
+                            const name = m.team_name || 'Unknown Team';
+                            const owner = [m.player_first_name, m.player_last_name].filter(Boolean).join(' ');
+                            const nameEsc = this.escapeHTML(name).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                            const ownerEsc = this.escapeHTML(owner).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                            return `<div class="fpl-mgr-result" data-manager-id="${m.manager_id}" style="padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;" onclick="event.stopPropagation();FPL.selectManagerAndLoadLeagues('${inputId}','${resultsId}',${m.manager_id},'${nameEsc}','${ownerEsc}')"><span class="material-symbols-outlined" style="font-size:16px;color:#00FF85;">check_circle</span><div><div style="font-size:13px;font-weight:600;color:var(--md-sys-color-on-surface);">${this.escapeHTML(name)}</div><div style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">${this.escapeHTML(owner)} · ID: ${m.manager_id}</div></div></div>`;
+                        }).join('');
+                    }
+                    resultsEl.style.display = 'block';
+                } catch {
+                    resultsEl.innerHTML = '<div style="padding:8px 12px;color:var(--md-sys-color-on-surface-variant);font-size:12px;">Search unavailable. Try entering the numeric ID.</div>';
+                    resultsEl.style.display = 'block';
+                }
+            }, 300);
+            return;
+        }
+
+        resultsEl.innerHTML = '';
+        resultsEl.style.display = 'none';
+        this._selectedLeagueId[inputId] = null;
     },
 
     async selectManagerAndLoadLeagues(inputId, resultsId, id, name, owner) {

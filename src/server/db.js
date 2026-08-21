@@ -93,6 +93,23 @@ async function initDatabase() {
       `.then(() => sql`INSERT INTO ownership_snapshot_lock (id, last_timestamp) VALUES (TRUE, 0) ON CONFLICT (id) DO NOTHING`),
 
       sql`
+        CREATE TABLE IF NOT EXISTS connected_managers (
+          id SERIAL PRIMARY KEY,
+          manager_id INT UNIQUE NOT NULL,
+          team_name VARCHAR(255),
+          player_first_name VARCHAR(128),
+          player_last_name VARCHAR(128),
+          overall_points INT,
+          overall_rank INT,
+          league_id INT,
+          first_connected TIMESTAMP DEFAULT NOW(),
+          last_seen TIMESTAMP DEFAULT NOW()
+        )
+      `.then(async () => {
+        await sql`ALTER TABLE connected_managers ADD COLUMN IF NOT EXISTS league_id INT`;
+      }),
+
+      sql`
         CREATE TABLE IF NOT EXISTS ai_team (
           id SERIAL PRIMARY KEY,
           session_id VARCHAR(64) NOT NULL,

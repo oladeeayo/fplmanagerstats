@@ -2,6 +2,7 @@ const express = require('express');
 const { buildCaptaincyModel, buildPlayerProjections } = require('../../captaincyModel');
 const { buildSquadAdvice } = require('../../decisionModel');
 const { DETAILED_POSITIONS, ZONE_MAP, ZONE_LABELS, ATTACKING_ZONES, DEFENSIVE_ZONES, MIDFIELD_ZONES, ALL_ZONES } = require('../../playerPositions');
+const { sql } = require('../db');
 const { getCachedApiData, BOOTSTRAP_URL, FIXTURES_URL, BOOTSTRAP_CACHE_TTL, redis } = require('../cache');
 const { POSITION_MAP, parsePositiveId, stripCodeFences } = require('../helpers');
 const { heavyEndpointLimiter } = require('../middleware');
@@ -65,6 +66,55 @@ router.get('/manager-leagues/:id', async (req, res) => {
     if (status === 404) return res.status(404).json({ error: 'Manager not found' });
     logger.error({ err: error }, 'Manager leagues lookup error');
     res.status(status).json({ error: 'Failed to fetch manager leagues' });
+  }
+});
+
+// ---- Save Manager (cache connected manager info for name search) ----
+router.post('/save-manager', async (req, res) => {
+  if (!sql) return res.status(503).json({ error: 'Database not available' });
+  const managerId = parsePositiveId(req.body?.managerId);
+  if (!managerId) return res.status(400).json({ error: 'Invalid manager ID' });
+  try {
+    const { teamName, playerFirstName, playerLastName, overallPoints, overallRank, leagueId } = req.body || {};
+    await sql`
+      INSERT INTO connected_managers (manager_id, team_name, player_first_name, player_last_name, overall_points, overall_rank, league_id, last_seen)
+      VALUES (${managerId}, ${teamName || null}, ${playerFirstName || null}, ${playerLastName || null}, ${overallPoints || null}, ${overallRank || null}, ${leagueId || null}, NOW())
+      ON CONFLICT (manager_id) DO UPDATE SET
+        team_name = EXCLUDED.team_name,
+        player_first_name = EXCLUDED.player_first_name,
+        player_last_name = EXCLUDED.player_last_name,
+        overall_points = EXCLUDED.overall_points,
+        overall_rank = EXCLUDED.overall_rank,
+        league_id = COALESCE(EXCLUDED.league_id, connected_managers.league_id),
+        last_seen = NOW()
+    `;
+    res.json({ ok: true });
+  } catch (e) {
+    logger.error({ err: e }, 'Save manager error');
+    res.status(500).json({ error: 'Failed to save manager' });
+  }
+});
+
+// ---- Search Managers (by team name or owner name in connected_managers) ----
+router.get('/search-managers', async (req, res) => {
+  if (!sql) return res.json({ managers: [] });
+  const q = String(req.query.q || '').trim();
+  if (q.length < 2) return res.json({ managers: [] });
+  try {
+    const pattern = `%${q}%`;
+    const managers = await sql`
+      SELECT manager_id, team_name, player_first_name, player_last_name, overall_points, overall_rank
+      FROM connected_managers
+      WHERE team_name ILIKE ${pattern}
+         OR player_first_name ILIKE ${pattern}
+         OR player_last_name ILIKE ${pattern}
+      ORDER BY last_seen DESC
+      LIMIT 10
+    `;
+    res.json({ managers });
+  } catch (e) {
+    logger.error({ err: e }, 'Search managers error');
+    res.json({ managers: [] });
   }
 });
 

@@ -415,4 +415,27 @@ router.get('/device-visits', async (req, res) => {
   }
 });
 
+router.get('/connected-managers', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(10, parseInt(req.query.limit) || 50));
+    const offset = (page - 1) * limit;
+    const [managers, countResult] = await Promise.all([
+      sql`
+        SELECT manager_id, team_name, player_first_name, player_last_name,
+               overall_points, overall_rank, league_id, first_connected, last_seen
+        FROM connected_managers
+        ORDER BY last_seen DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `,
+      sql`SELECT COUNT(*) as total FROM connected_managers`
+    ]);
+    res.json({ managers, total: countResult[0].total, page, limit, totalPages: Math.ceil(countResult[0].total / limit) });
+  } catch (e) {
+    logger.error({ err: e }, 'Admin connected managers error');
+    res.status(500).json({ error: 'Failed to fetch connected managers' });
+  }
+});
+
 module.exports = router;

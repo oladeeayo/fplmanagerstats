@@ -207,11 +207,43 @@ const Admin = (() => {
     pag.innerHTML = btns;
   }
 
+  let managersPage = 1;
+
+  async function loadManagers() {
+    const d = await api(`/api/admin/connected-managers?page=${managersPage}&limit=50`);
+    const tbody = document.getElementById('managers-body');
+    if (d.managers.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#8ba396;padding:20px;">No managers connected yet</td></tr>';
+      document.getElementById('managers-pagination').innerHTML = '';
+      return;
+    }
+    tbody.innerHTML = d.managers.map(m => {
+      const fullName = [m.player_first_name, m.player_last_name].filter(Boolean).join(' ');
+      return `<tr>
+        <td style="font-weight:600;color:#fff;">${escapeHTML(m.team_name || '--')}</td>
+        <td style="color:#8ba396;">${escapeHTML(fullName || '--')}</td>
+        <td style="font-family:'JetBrains Mono',monospace;">${m.manager_id}</td>
+        <td style="font-family:'JetBrains Mono',monospace;">${m.overall_points?.toLocaleString() || '--'}</td>
+        <td style="font-family:'JetBrains Mono',monospace;">${m.overall_rank?.toLocaleString() || '--'}</td>
+        <td style="color:#8ba396;">${timeAgo(m.first_connected)}</td>
+        <td style="color:#00ff85;">${timeAgo(m.last_seen)}</td>
+      </tr>`;
+    }).join('');
+
+    const pag = document.getElementById('managers-pagination');
+    if (d.totalPages <= 1) { pag.innerHTML = ''; return; }
+    let btns = '';
+    for (let i = 1; i <= Math.min(d.totalPages, 10); i++) {
+      btns += `<button class="page-btn ${i === d.page ? 'active' : ''}" onclick="Admin.goManagerPage(${i})">${i}</button>`;
+    }
+    pag.innerHTML = btns;
+  }
+
   async function loadAll() {
     try {
       await Promise.all([
         loadStats(), loadCountries(), loadDevices(), loadDaily(),
-        loadReferrers(), loadPages(), loadVisitors()
+        loadReferrers(), loadPages(), loadVisitors(), loadManagers()
       ]);
     } catch (e) {
       console.error('Dashboard load error:', e);
@@ -275,6 +307,7 @@ const Admin = (() => {
   }
 
   function goPage(p) { visitorsPage = p; loadVisitors(); }
+  function goManagerPage(p) { managersPage = p; loadManagers(); }
 
   // Check if already authenticated on load
   (async function checkSession() {
@@ -289,5 +322,5 @@ const Admin = (() => {
     if (e.key === 'Enter') login();
   });
 
-  return { login, logout, setPeriod, goPage };
+  return { login, logout, setPeriod, goPage, goManagerPage };
 })();
