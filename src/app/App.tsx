@@ -75,6 +75,7 @@ function AppInner() {
 
     window.FPL.state.activeTab = activeTab;
     const loadPromise = window.FPL.loadTabData(activeTab);
+    window.FPL.refreshConnectionUI();
     window.FPL.initSidebar();
     window.FPL.initSidebarCollapse();
     window.FPL.initBottomNavOverflow();
