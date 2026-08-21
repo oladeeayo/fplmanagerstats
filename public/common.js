@@ -1944,15 +1944,16 @@ const FPL = {
                 }
 
                 const borderTier = m.rank === 1 ? 'fdr-1' : m.rank === 2 ? 'fdr-2' : m.rank === 3 ? 'fdr-3' : m.rank === 4 ? 'fdr-4' : 'fdr-5';
+                const teamDisplayName = m.entryName || m.managerName || 'Team';
+                const managerIdArg = m.managerId ? m.managerId : 'null';
 
-                return `<tr class="data-row" style="border-bottom:1px solid rgba(255,255,255,0.05);transition:background 0.2s;${rowBg}" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='${isEven ? 'rgba(255,255,255,0.03)' : 'transparent'}'">
-                    <td style="padding:4px 6px;position:relative;font-weight:700;color:var(--md-sys-color-on-surface);width:40px;background:${isEven ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.05)'};">
+                return `<tr class="data-row" style="border-bottom:1px solid rgba(255,255,255,0.05);transition:background 0.2s;${rowBg}cursor:pointer;" onclick="FPL.showManagerDetail(${managerIdArg}, '${this.escapeHTML(m.managerName || '').replace(/'/g, "\\'")}', '${this.escapeHTML(m.entryName || '').replace(/'/g, "\\'")}', ${m.rank}, ${m.eventTotal}, ${m.total}, ${m.rankDiff}, ${m.diffCount})" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='${isEven ? 'rgba(255,255,255,0.03)' : 'transparent'}'" title="Click to view manager details">
+                    <td style="padding:4px 6px;position:relative;font-weight:700;color:var(--md-sys-color-on-surface);width:36px;background:${isEven ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.05)'};">
                         <div style="position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:70%;background:var(--${borderTier});border-radius:0 2px 2px 0;"></div>
                         ${m.rank}
                     </td>
-                    <td style="padding:4px 6px;background:${isEven ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.05)'};max-width:140px;overflow:hidden;">
-                        <div style="font-weight:700;color:var(--md-sys-color-on-surface);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(m.managerName)}</div>
-                        <div style="font-size:9px;color:var(--md-sys-color-on-surface-variant);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(m.entryName)}</div>
+                    <td style="padding:4px 6px;background:${isEven ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.05)'};max-width:95px;overflow:hidden;" title="${this.escapeHTML(teamDisplayName)} (${this.escapeHTML(m.managerName)})">
+                        <div style="font-weight:700;color:var(--md-sys-color-on-surface);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(teamDisplayName)}</div>
                     </td>
                     <td style="padding:4px 6px;text-align:center;color:var(--md-sys-color-on-surface);font-weight:600;">${m.eventTotal}</td>
                     <td class="mono" style="padding:4px 6px;text-align:center;color:var(--fdr-1);font-weight:800;">${this.formatNumber(m.total)}</td>
@@ -2010,6 +2011,81 @@ const FPL = {
         if (p < 1 || p > totalPages) return;
         this.state.standingsPage = p;
         this.renderLeague();
+    },
+
+    showManagerDetail(managerId, managerName, teamName, rank, eventTotal, total, rankDiff, diffCount) {
+        const bodyEl = document.getElementById('manager-detail-body');
+        if (!bodyEl) return;
+
+        let diffText = '0';
+        let diffColor = 'var(--md-sys-color-on-surface-variant)';
+        let diffIcon = 'remove';
+        if (rankDiff > 0) {
+            diffText = `+${rankDiff}`;
+            diffColor = 'var(--fdr-2)';
+            diffIcon = 'arrow_upward';
+        } else if (rankDiff < 0) {
+            diffText = `${rankDiff}`;
+            diffColor = 'var(--fdr-5)';
+            diffIcon = 'arrow_downward';
+        }
+
+        bodyEl.innerHTML = `
+            <div style="padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 16px;">
+                    <div>
+                        <div style="font-size: 1.25rem; font-weight: 800; color: var(--md-sys-color-on-surface); line-height: 1.2;">${this.escapeHTML(teamName || 'Team')}</div>
+                        <div style="font-size: 0.875rem; color: var(--fdr-1); margin-top: 4px; font-weight: 600;">Manager: ${this.escapeHTML(managerName || 'Unknown')}</div>
+                    </div>
+                    <div style="text-align: right; background: rgba(0,255,133,0.1); border: 1px solid rgba(0,255,133,0.2); padding: 8px 14px; border-radius: 12px;">
+                        <div style="font-size: 0.6875rem; font-family: var(--font-mono); color: var(--md-sys-color-on-surface-variant);">RANK</div>
+                        <div style="font-size: 1.5rem; font-weight: 900; color: var(--fdr-1); line-height: 1;">#${rank}</div>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+                    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 12px; border-radius: 10px;">
+                        <div style="font-size: 0.6875rem; font-family: var(--font-mono); color: var(--md-sys-color-on-surface-variant); margin-bottom: 4px;">GW POINTS</div>
+                        <div style="font-size: 1.5rem; font-weight: 800; color: var(--md-sys-color-on-surface);">${eventTotal}</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 12px; border-radius: 10px;">
+                        <div style="font-size: 0.6875rem; font-family: var(--font-mono); color: var(--md-sys-color-on-surface-variant); margin-bottom: 4px;">TOTAL POINTS</div>
+                        <div style="font-size: 1.5rem; font-weight: 800; color: var(--fdr-1);">${this.formatNumber(total)}</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 12px; border-radius: 10px;">
+                        <div style="font-size: 0.6875rem; font-family: var(--font-mono); color: var(--md-sys-color-on-surface-variant); margin-bottom: 4px;">RANK CHANGE</div>
+                        <div style="display: flex; align-items: center; gap: 4px; font-size: 1.25rem; font-weight: 800; color: ${diffColor};">
+                            <span class="material-symbols-outlined" style="font-size: 20px;">${diffIcon}</span>
+                            <span>${diffText}</span>
+                        </div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 12px; border-radius: 10px;">
+                        <div style="font-size: 0.6875rem; font-family: var(--font-mono); color: var(--md-sys-color-on-surface-variant); margin-bottom: 4px;">DIFF FROM LEADER</div>
+                        <div style="font-size: 1.25rem; font-weight: 800; color: var(--md-sys-color-on-surface);">${this.formatNumber(diffCount)} pts</div>
+                    </div>
+                </div>
+
+                ${managerId ? `
+                    <button class="btn btn-primary" style="width: 100%; margin-top: 8px; justify-content: center;" onclick="FPL.setActiveManagerFromModal(${managerId})">
+                        <span class="material-symbols-outlined" style="font-size: 18px;">analytics</span>
+                        View Full Dashboard for this Manager
+                    </button>
+                ` : ''}
+            </div>
+        `;
+
+        this.showDialog('manager-detail-dialog');
+    },
+
+    setActiveManagerFromModal(managerId) {
+        this.hideDialog('manager-detail-dialog');
+        if (typeof this.switchActiveManager === 'function') {
+            this.switchActiveManager(managerId);
+        } else {
+            this.state.managerId = String(managerId);
+            localStorage.setItem('fplManagerId', String(managerId));
+            window.location.reload();
+        }
     },
 
     renderLeagueSelector() {
@@ -2082,190 +2158,33 @@ const FPL = {
     },
 
     renderFixtures() {
-        const fixtures = this.state.fixtures;
-        const bootstrap = this.state.bootstrapData;
-        if (!fixtures || !bootstrap) return;
-
-        const lookaheadCount = this.state.fixtureLookahead || 5;
-        const currentGW = bootstrap.events?.find(e => e.is_current)?.id || 1;
-        const startGW = this.state.fixtureStartGW || currentGW;
-        const teams = bootstrap.teams || [];
-        const elements = bootstrap.elements || [];
-
-        // Populate GW selector if empty
-        const gwSelect = document.getElementById('fixture-gw-select');
-        if (gwSelect && gwSelect.options.length === 0) {
-            for (let i = 1; i <= 38; i++) {
-                const opt = document.createElement('option');
-                opt.value = i;
-                opt.textContent = `GW ${i}`;
-                if (i === currentGW) opt.selected = true;
-                gwSelect.appendChild(opt);
-            }
-        }
-
-        // Dynamic Gameweeks header
-        const targetGWs = [];
-        for (let g = startGW; g < Math.min(39, startGW + lookaheadCount); g++) {
-            targetGWs.push(g);
-        }
-
-        // Fixture sorting state
-        const sortGW = this.state.fixtureSortGW || null;
-        const sortAsc = this.state.fixtureSortAsc !== false;
-
-        const headerRow = document.getElementById('fixture-grid-header-row');
-        const fixtureTable = document.querySelector('.fixture-grid-table');
-        if (fixtureTable) fixtureTable.style.setProperty('--fixture-columns', targetGWs.length);
-        if (headerRow) {
-            headerRow.style.background = '#202722';
-            headerRow.innerHTML = `<th style="padding:6px 8px;background:#202722;width:60px;max-width:60px;font-family:var(--font-mono);font-size:10px;color:#dfe4e0;font-weight:700;position:sticky;left:0;z-index:2;border-right:1px solid #34453b;">TEAM</th>` +
-                targetGWs.map(gw => {
-                    const isSorted = sortGW === gw;
-                    const arrow = isSorted ? (sortAsc ? ' ▲' : ' ▼') : '';
-                    const color = isSorted ? '#00FF85' : '#dfe4e0';
-                    return `<th style="padding:4px 6px;text-align:center;font-family:var(--font-mono);font-size:10px;color:${color};font-weight:700;background:#202722;cursor:pointer;user-select:none;transition:color 0.2s;" onclick="FPL.sortFixturesByGW(${gw})" title="Sort by GW${gw} FDR">GW${gw}${arrow}</th>`;
-                }).join('');
-        }
-
-        // Compute team FDR values for sorting
-        const getTeamFDR = (teamId, gw) => {
-            const fx = fixtures.find(f => f.event === gw && (f.team_h === teamId || f.team_a === teamId));
-            if (!fx) return 6; // blanks sort last
-            return fx.team_h === teamId ? (fx.team_h_difficulty || fx.difficulty || 3) : (fx.team_a_difficulty || fx.difficulty || 3);
-        };
-
-        // Sort teams
-        let sortedTeams = [...teams];
-        if (sortGW && targetGWs.includes(sortGW)) {
-            sortedTeams.sort((a, b) => {
-                const fdrA = getTeamFDR(a.id, sortGW);
-                const fdrB = getTeamFDR(b.id, sortGW);
-                return sortAsc ? fdrA - fdrB : fdrB - fdrA;
-            });
-        }
-
-        // Render Table Rows for all 20 teams
-        const tbody = document.getElementById('fixture-grid-table-body');
-        if (tbody) {
-            const fdrColors = {
-                1: { bg: '#00FF85', text: '#0a0f0d' },
-                2: { bg: '#37DB59', text: '#0a0f0d' },
-                3: { bg: '#E1E1E1', text: '#0a0f0d' },
-                4: { bg: '#FFA600', text: '#0a0f0d' },
-                5: { bg: '#FF005A', text: '#dfe4e0' }
-            };
-
-            tbody.innerHTML = sortedTeams.map((team, idx) => {
-                const isEven = idx % 2 === 1;
-                let cellHTMLs = targetGWs.map(gw => {
-                    const fx = fixtures.find(f => f.event === gw && (f.team_h === team.id || f.team_a === team.id));
-                    if (!fx) {
-                        return `<td style="padding:3px;"><div style="background:#313633;border-radius:6px;padding:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;height:40px;opacity:0.5;"><span style="font-size:10px;font-family:var(--font-mono);color:#b9cbb9;font-weight:700;">BLANK</span></div></td>`;
-                    }
-                    const isHome = fx.team_h === team.id;
-                    const oppId = isHome ? fx.team_a : fx.team_h;
-                    const oppTeam = teams.find(t => t.id === oppId);
-                    const oppShort = oppTeam ? oppTeam.short_name : 'TBD';
-                    const diff = isHome ? (fx.team_h_difficulty || fx.difficulty || 3) : (fx.team_a_difficulty || fx.difficulty || 3);
-                    const venueStr = isHome ? 'H' : 'A';
-                    const colStyle = fdrColors[diff] || fdrColors[3];
-                    const isSortedCol = sortGW === gw;
-                    const highlight = isSortedCol ? `box-shadow:inset 0 0 0 1px rgba(0,255,133,0.3);` : '';
-
-                    return `<td style="padding:3px;">
-                        <div style="background:${colStyle.bg};border-radius:6px;padding:4px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;height:40px;${highlight}">
-                            <span style="font-size:10px;font-weight:700;font-family:var(--font-mono);color:${colStyle.text}">${oppShort} (${venueStr})</span>
-                        </div>
-                    </td>`;
-                }).join('');
-
-                const avgFDR = Math.round(targetGWs.reduce((acc, gw) => {
-                    const fx = fixtures.find(f => f.event === gw && (f.team_h === team.id || f.team_a === team.id));
-                    if (!fx) return acc + 3;
-                    return acc + (fx.team_h === team.id ? (fx.team_h_difficulty || 3) : (fx.team_a_difficulty || 3));
-                }, 0) / targetGWs.length);
-
-                const teamAccentColor = fdrColors[avgFDR]?.bg || '#37DB59';
-
-                return `<tr style="border-bottom:1px solid #1A2E28;background:${isEven ? '#181d1a' : '#0f1412'};">
-                    <td style="padding:4px 6px;background:${isEven ? '#181d1a' : '#0f1412'};max-width:60px;overflow:hidden;text-overflow:ellipsis;font-family:var(--font-mono);font-size:10px;font-weight:700;color:#00ff85;position:sticky;left:0;z-index:1;border-right:2px solid rgba(255,255,255,0.08);">
-                        <div style="display:flex;align-items:center;gap:4px;">
-                            <div style="width:3px;height:14px;background:${teamAccentColor};border-radius:999px;flex-shrink:0;"></div>
-                            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${team.short_name}</span>
-                        </div>
-                    </td>
-                    ${cellHTMLs}
-                </tr>`;
-            }).join('');
-        }
-
-        // Sidebar: Form Leaders (Upcoming)
-        const formLeadersContainer = document.getElementById('form-leaders-list');
-        if (formLeadersContainer) {
-            const sortedByForm = [...elements].sort((a, b) => parseFloat(b.form || 0) - parseFloat(a.form || 0)).slice(0, 5);
-            formLeadersContainer.innerHTML = sortedByForm.map(p => {
-                const team = teams.find(t => t.id === p.team);
-                const posNames = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
-                const posStr = posNames[p.element_type] || 'MID';
-
-                return `<div class="flex items-center gap-3 p-3 rounded-lg bg-surface border border-pitch-line hover:border-fdr-1 transition-colors cursor-pointer group" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;background:var(--md-sys-color-surface);border:1px solid var(--pitch-line);cursor:pointer;" onclick="FPL.showPlayerDetail(${p.id})">
-                    <div class="player-photo-shell" style="width:40px;height:40px;border-radius:50%;border:1px solid var(--pitch-line);">
-                        ${this.playerPhotoMarkup(p, `${p.name || p.web_name || 'FPL Player'} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}
-                        <div style="position:absolute;bottom:0;right:0;width:10px;height:10px;background:var(--fdr-1);border-radius:50%;border:1px solid var(--md-sys-color-surface);"></div>
-                    </div>
-                    <div style="flex:1;">
-                        <p style="margin:0;font-weight:700;font-size:14px;color:var(--fdr-1);line-height:1.2;">${p.web_name}</p>
-                        <p style="margin:2px 0 0 0;font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-on-surface-variant);display:flex;align-items:center;gap:4px;">${this.teamBadge(team?.short_name, 12)} ${team?.short_name || 'FPL'} • ${posStr}</p>
-                    </div>
-                    <div style="text-align:right;">
-                        <p style="margin:0;font-family:var(--font-mono);font-size:15px;font-weight:700;color:var(--md-sys-color-primary);">${p.form}</p>
-                        <p style="margin:2px 0 0 0;font-family:var(--font-mono);font-size:10px;color:var(--md-sys-color-on-surface-variant);">Form</p>
-                    </div>
-                </div>`;
-            }).join('');
-        }
+        this.switchFixtureSubView(this.state.currentFixtureSubView || 'form');
     },
 
     switchFixtureSubView(subview) {
-        const views = ['matrix', 'odds', 'goals', 'conceded'];
+        const views = ['form', 'projections'];
         const viewElements = {
-            matrix: document.getElementById('fixture-subview-matrix'),
-            odds: document.getElementById('fixture-subview-odds'),
-            goals: document.getElementById('fixture-subview-goals'),
-            conceded: document.getElementById('fixture-subview-conceded'),
+            form: document.getElementById('fixture-subview-form'),
+            projections: document.getElementById('fixture-subview-projections'),
         };
         const btnElements = {
-            matrix: document.getElementById('fixture-view-btn-matrix'),
-            odds: document.getElementById('fixture-view-btn-odds'),
-            goals: document.getElementById('fixture-view-btn-goals'),
-            conceded: document.getElementById('fixture-view-btn-conceded'),
+            form: document.getElementById('fixture-view-btn-form'),
+            projections: document.getElementById('fixture-view-btn-projections'),
         };
-        const oddsSelector = document.getElementById('fixture-odds-gw-selector');
-        const goalsSelector = document.getElementById('fixture-goals-horizon-selector');
 
         views.forEach(v => {
             if (viewElements[v]) viewElements[v].style.display = 'none';
-            if (btnElements[v]) {
-                btnElements[v].classList.remove('active');
-            }
+            if (btnElements[v]) btnElements[v].classList.remove('active');
         });
-        if (oddsSelector) oddsSelector.style.display = 'none';
-        if (goalsSelector) goalsSelector.style.display = 'none';
 
-        const activeView = views.includes(subview) ? subview : 'matrix';
+        const activeView = views.includes(subview) ? subview : 'form';
         if (viewElements[activeView]) viewElements[activeView].style.display = 'block';
         if (btnElements[activeView]) btnElements[activeView].classList.add('active');
 
-        if (activeView === 'odds') {
-            if (oddsSelector) oddsSelector.style.display = 'flex';
-            this.renderFixtureOdds();
-        } else if (activeView === 'goals') {
-            if (goalsSelector) goalsSelector.style.display = 'flex';
-            this.renderGoalsScoredProjections();
-        } else if (activeView === 'conceded') {
-            if (goalsSelector) goalsSelector.style.display = 'flex';
-            this.renderGoalsConcededProjections();
+        if (activeView === 'form') {
+            this.renderTeamFormLeaders();
+        } else if (activeView === 'projections') {
+            this.renderProjectionsTab();
         }
     },
 
@@ -2514,7 +2433,7 @@ const FPL = {
                     }
                     if (other.length) {
                         html += `<div class="tn-section"><div class="tn-section-label tn-gray">News</div>`;
-                        other.forEach(p => { html += this._tnRow(p, '#8ba396'); });
+                        other.forEach(p => { html += this._tnRow(p, '#ffffff'); });
                         html += `</div>`;
                     }
 
@@ -2711,8 +2630,331 @@ const FPL = {
         };
     },
 
-    renderGoalsScoredProjections: null,
-    renderGoalsConcededProjections: null,
+    async renderTeamFormLeaders() {
+        const container = document.getElementById('fixture-form-leaders-container');
+        if (!container) return;
+
+        container.innerHTML = '<div style="padding:40px;text-align:center;color:var(--md-sys-color-on-surface-variant);"><span class="material-symbols-outlined" style="font-size:36px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Fetching top 4 team performers...</p></div>';
+
+        let data = null;
+        try {
+            data = await this.apiFetch('/api/team-form-leaders');
+        } catch (e) {
+            console.error('Failed to fetch team form leaders:', e);
+        }
+
+        if (!data || !data.teams || data.teams.length === 0) {
+            container.innerHTML = '<div class="empty-state"><span class="material-symbols-outlined">running_with_errors</span><p>Unable to load form leaders data.</p></div>';
+            return;
+        }
+
+        const self = this;
+        const medalColors = ['#FFD700', '#C0C0C0', '#CD7F32', 'var(--md-sys-color-on-surface-variant)'];
+
+        let html = `
+            <div style="margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+                <div>
+                    <h3 style="font-family:var(--font-mono);font-size:18px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0 0 4px 0;display:flex;align-items:center;gap:8px;">
+                        <span class="material-symbols-outlined" style="color:var(--md-sys-color-primary);">military_tech</span>
+                        TOP 4 PERFORMERS BY TEAM
+                    </h3>
+                    <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0;">Top 4 point scorers for each of the 20 Premier League teams.</p>
+                </div>
+                <div style="position:relative;width:100%;max-width:280px;">
+                    <span class="material-symbols-outlined" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--md-sys-color-on-surface-variant);">search</span>
+                    <input type="text" id="form-leader-search" placeholder="Search team or player..." onkeyup="FPL.filterFormLeaders(this.value)" style="width:100%;padding:8px 12px 8px 36px;border-radius:10px;border:1px solid var(--md-sys-color-outline-variant);background:var(--md-sys-color-surface-container);color:var(--md-sys-color-on-surface);font-size:13px;outline:none;">
+                </div>
+            </div>
+
+            <div id="form-leaders-grid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));gap:16px;">
+        `;
+
+        data.teams.forEach(teamObj => {
+            html += `
+                <div class="team-leader-card" data-team="${self.escapeHTML(teamObj.teamName).toLowerCase()}" data-players="${teamObj.players.map(p => self.escapeHTML(p.name).toLowerCase()).join(' ')}" style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;overflow:hidden;transition:transform 0.2s, border-color 0.2s;">
+                    <div style="padding:12px 16px;background:rgba(255,255,255,0.03);border-bottom:1px solid var(--md-sys-color-outline-variant);display:flex;align-items:center;justify-content:space-between;">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            ${self.teamBadge(teamObj.teamName, 24)}
+                            <div>
+                                <span style="font-family:var(--font-mono);font-size:14px;font-weight:800;color:var(--md-sys-color-on-surface);">${self.escapeHTML(teamObj.teamName)}</span>
+                                <span style="font-size:11px;color:var(--md-sys-color-on-surface-variant);margin-left:6px;">(${self.escapeHTML(teamObj.teamFullName)})</span>
+                            </div>
+                        </div>
+                        <span style="font-family:var(--font-mono);font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(0,255,133,0.12);color:var(--md-sys-color-primary);">Top 4</span>
+                    </div>
+                    <div style="padding:8px 12px;display:flex;flex-direction:column;gap:6px;">
+            `;
+
+            teamObj.players.forEach((p, idx) => {
+                const medal = medalColors[idx] || medalColors[3];
+                html += `
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px;border-radius:8px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);">
+                        <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+                            <span style="font-family:var(--font-mono);font-weight:900;font-size:12px;color:${medal};width:18px;text-align:center;">#${p.rank}</span>
+                            <div style="width:34px;height:34px;border-radius:50%;overflow:hidden;flex-shrink:0;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);">
+                                ${self.playerPhotoMarkup(p, `${p.name} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}
+                            </div>
+                            <div style="min-width:0;">
+                                <div style="font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--md-sys-color-on-surface);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${self.escapeHTML(p.name)}</div>
+                                <div style="font-size:10px;color:var(--md-sys-color-on-surface-variant);display:flex;gap:6px;align-items:center;">
+                                    <span style="padding:0 4px;border-radius:3px;background:rgba(255,255,255,0.08);font-weight:700;">${p.pos}</span>
+                                    <span>£${p.cost}m</span>
+                                    <span>Form: ${p.form}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="text-align:right;flex-shrink:0;margin-left:8px;">
+                            <div style="font-family:var(--font-mono);font-weight:900;font-size:14px;color:#00ff85;letter-spacing:0.02em;">${p.totalPoints} <span style="font-size:10px;font-weight:500;color:var(--md-sys-color-on-surface-variant);">pts</span></div>
+                            <div style="font-size:9px;color:var(--md-sys-color-on-surface-variant);">${p.goals}G · ${p.assists}A</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `</div>`;
+        container.innerHTML = html;
+    },
+
+    filterFormLeaders(query) {
+        const q = (query || '').toLowerCase().trim();
+        const cards = document.querySelectorAll('.team-leader-card');
+        cards.forEach(card => {
+            const team = card.getAttribute('data-team') || '';
+            const players = card.getAttribute('data-players') || '';
+            if (!q || team.includes(q) || players.includes(q)) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    },
+
+    async renderProjectionsTab() {
+        const container = document.getElementById('fixture-projections-container');
+        if (!container) return;
+
+        container.innerHTML = '<div style="padding:40px;text-align:center;color:var(--md-sys-color-on-surface-variant);"><span class="material-symbols-outlined" style="font-size:36px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Calculating Dixon-Coles goal & defense projections...</p></div>';
+
+        let goalsData = null;
+        let concededData = null;
+        let oddsData = null;
+
+        try {
+            const currentGW = this.state.bootstrapData?.events?.find(e => e.is_current)?.id || 
+                              this.state.bootstrapData?.events?.find(e => e.is_next)?.id || 1;
+
+            [goalsData, concededData, oddsData] = await Promise.all([
+                this.apiFetch('/api/goals-projections?horizon=6'),
+                this.apiFetch('/api/goals-conceded?horizon=6'),
+                this.apiFetch(this.API.teamProjections(currentGW))
+            ]);
+        } catch (e) {
+            console.error('Projections fetch error:', e);
+        }
+
+        if (!goalsData || !concededData || !goalsData.ranked) {
+            container.innerHTML = '<div class="empty-state"><span class="material-symbols-outlined">event_busy</span><p>Unable to load projections data.</p></div>';
+            return;
+        }
+
+        const self = this;
+        const startGW = goalsData.startGW || goalsData.currentGW || 1;
+        const horizon = goalsData.horizon || 6;
+        const gwList = Array.from({ length: horizon }, (_, i) => startGW + i);
+
+        // Section 1: Goals Scored Table (Matching Image 1)
+        let goalsTableRows = goalsData.ranked.map((t, idx) => {
+            const teamObj = self.state.bootstrapData?.teams?.find(team => team.short_name === t.team || team.name === t.team);
+            const teamShort = t.team || (teamObj ? teamObj.short_name : '???');
+
+            const gwCells = gwList.map(gw => {
+                const gwData = t.gameweeks?.find(g => g.gw === gw);
+                if (!gwData) return '<td style="text-align:center;padding:10px;font-size:11px;color:var(--md-sys-color-outline);">BLANK</td>';
+
+                const xg = gwData.xg || 0;
+                // Shading intensity matching teal/cyan palette (#1ba6da)
+                const alpha = Math.min(0.85, Math.max(0.12, (xg - 0.7) / 1.5));
+                const oppStr = self.escapeHTML(gwData.opponent || 'OPP') + (gwData.isHome ? ' (H)' : ' (A)');
+
+                return `
+                    <td style="background:rgba(27, 166, 218, ${alpha});border:1px solid rgba(255,255,255,0.06);text-align:center;padding:8px 6px;min-width:72px;">
+                        <div style="font-family:var(--font-mono);font-weight:900;font-size:13px;color:#ffffff;line-height:1.1;">${xg.toFixed(2)}</div>
+                        <div style="font-size:9px;font-weight:600;color:rgba(255,255,255,0.85);margin-top:3px;font-family:var(--font-mono);">${oppStr}</div>
+                    </td>
+                `;
+            }).join('');
+
+            return `
+                <tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);">
+                    <td style="text-align:center;font-family:var(--font-mono);font-weight:900;font-size:12px;color:var(--md-sys-color-on-surface-variant);padding:10px 8px;">${idx + 1}</td>
+                    <td style="position:sticky;left:0;z-index:2;background:var(--md-sys-color-surface-container);padding:10px 12px;border-right:1px solid var(--md-sys-color-outline-variant);">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            ${self.teamBadge(teamShort, 20)}
+                            <span style="font-family:var(--font-mono);font-weight:800;font-size:13px;color:var(--md-sys-color-on-surface);">${self.escapeHTML(teamShort)}</span>
+                        </div>
+                    </td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-weight:900;font-size:14px;color:#1ba6da;padding:10px 12px;background:rgba(27, 166, 218, 0.08);">${t.totalXG ? t.totalXG.toFixed(2) : '0.00'}</td>
+                    ${gwCells}
+                </tr>
+            `;
+        }).join('');
+
+        // Section 2: Goals Conceded / Clean Sheets Table (Matching Image 2)
+        let concededTableRows = concededData.ranked.map((t, idx) => {
+            const teamObj = self.state.bootstrapData?.teams?.find(team => team.short_name === t.team || team.name === t.team);
+            const teamShort = t.team || (teamObj ? teamObj.short_name : '???');
+
+            const gwCells = gwList.map(gw => {
+                const gwData = t.gameweeks?.find(g => g.gw === gw);
+                if (!gwData) return '<td style="text-align:center;padding:10px;font-size:11px;color:var(--md-sys-color-outline);">BLANK</td>';
+
+                const csPct = gwData.csPct != null ? gwData.csPct : Math.round(Math.exp(-(gwData.xga || 1.3)) * 100);
+                // Shading intensity matching magenta/pink palette (#e02888)
+                const alpha = Math.min(0.85, Math.max(0.12, csPct / 60));
+                const oppStr = self.escapeHTML(gwData.opponent || 'OPP') + (gwData.isHome ? ' (H)' : ' (A)');
+
+                return `
+                    <td style="background:rgba(224, 40, 136, ${alpha});border:1px solid rgba(255,255,255,0.06);text-align:center;padding:8px 6px;min-width:72px;">
+                        <div style="font-family:var(--font-mono);font-weight:900;font-size:13px;color:#ffffff;line-height:1.1;">${csPct}%</div>
+                        <div style="font-size:9px;font-weight:600;color:rgba(255,255,255,0.85);margin-top:3px;font-family:var(--font-mono);">${oppStr}</div>
+                    </td>
+                `;
+            }).join('');
+
+            return `
+                <tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);">
+                    <td style="text-align:center;font-family:var(--font-mono);font-weight:900;font-size:12px;color:var(--md-sys-color-on-surface-variant);padding:10px 8px;">${idx + 1}</td>
+                    <td style="position:sticky;left:0;z-index:2;background:var(--md-sys-color-surface-container);padding:10px 12px;border-right:1px solid var(--md-sys-color-outline-variant);">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            ${self.teamBadge(teamShort, 20)}
+                            <span style="font-family:var(--font-mono);font-weight:800;font-size:13px;color:var(--md-sys-color-on-surface);">${self.escapeHTML(teamShort)}</span>
+                        </div>
+                    </td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-weight:900;font-size:14px;color:#e02888;padding:10px 12px;background:rgba(224, 40, 136, 0.08);">${t.totalCS ? t.totalCS.toFixed(1) : (t.totalXGA ? t.totalXGA.toFixed(2) : '0.0')}</td>
+                    ${gwCells}
+                </tr>
+            `;
+        }).join('');
+
+        let html = `
+            <div style="display:flex;flex-direction:column;gap:32px;">
+                <!-- Next GW Projection Banner -->
+                <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;padding:20px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
+                        <div>
+                            <h3 style="font-family:var(--font-mono);font-size:16px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0 0 4px 0;display:flex;align-items:center;gap:8px;">
+                                <span class="material-symbols-outlined" style="color:#00ff85;">event</span>
+                                NEXT GAMEWEEK PROJECTION (GW${startGW})
+                            </h3>
+                            <p style="font-size:11px;color:var(--md-sys-color-on-surface-variant);margin:0;">Projections lock for active GW${startGW} until all fixtures are completed.</p>
+                        </div>
+                        <span style="font-family:var(--font-mono);font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;background:rgba(0,255,133,0.12);color:#00ff85;">Live Dixon-Coles Model</span>
+                    </div>
+        `;
+
+        if (oddsData && oddsData.matchProjections && oddsData.matchProjections.length > 0) {
+            const matchCards = oddsData.matchProjections.map(m => {
+                const hXG = m.homeTeam.projectedGoals;
+                const aXG = m.awayTeam.projectedGoals;
+                const hCS = m.homeTeam.cleanSheetPct;
+                const aCS = m.awayTeam.cleanSheetPct;
+
+                return `
+                    <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:12px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                            <div style="display:flex;align-items:center;gap:6px;">
+                                ${self.teamBadge(m.homeTeam.shortName, 18)}
+                                <span style="font-family:var(--font-mono);font-weight:800;font-size:13px;color:var(--md-sys-color-on-surface);">${self.escapeHTML(m.homeTeam.shortName)}</span>
+                            </div>
+                            <div style="display:flex;gap:4px;">
+                                <span style="font-family:var(--font-mono);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(27,166,218,0.15);color:#1ba6da;">${hXG.toFixed(2)} xG</span>
+                                <span style="font-family:var(--font-mono);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(224,40,136,0.15);color:#e02888;">${hCS}% CS</span>
+                            </div>
+                        </div>
+                        <div style="display:flex;align-items:center;justify-content:space-between;">
+                            <div style="display:flex;align-items:center;gap:6px;">
+                                ${self.teamBadge(m.awayTeam.shortName, 18)}
+                                <span style="font-family:var(--font-mono);font-weight:800;font-size:13px;color:var(--md-sys-color-on-surface);">${self.escapeHTML(m.awayTeam.shortName)}</span>
+                            </div>
+                            <div style="display:flex;gap:4px;">
+                                <span style="font-family:var(--font-mono);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(27,166,218,0.15);color:#1ba6da;">${aXG.toFixed(2)} xG</span>
+                                <span style="font-family:var(--font-mono);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(224,40,136,0.15);color:#e02888;">${aCS}% CS</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            html += `<div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));gap:10px;">${matchCards}</div>`;
+        }
+
+        html += `
+                </div>
+
+                <!-- Goals Scored Table Container -->
+                <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;padding:20px;overflow:hidden;">
+                    <div style="margin-bottom:16px;">
+                        <h3 style="font-family:var(--font-mono);font-size:16px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0 0 4px 0;display:flex;align-items:center;gap:8px;">
+                            <span class="material-symbols-outlined" style="color:#1ba6da;">sports_soccer</span>
+                            Which Premier League Teams are expected to score the most in the next six GWs?
+                        </h3>
+                        <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0;">Projected expected goals for each team over the next six gameweeks.</p>
+                    </div>
+
+                    <div class="table-scroll-mobile sticky-first-column" tabindex="0" aria-label="Goals Scored Projections Table">
+                        <table style="width:100%;border-collapse:collapse;white-space:nowrap;">
+                            <thead>
+                                <tr style="background:rgba(255,255,255,0.03);border-bottom:1px solid var(--md-sys-color-outline-variant);">
+                                    <th style="padding:10px 8px;font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-on-surface-variant);font-weight:700;text-align:center;width:40px;">RK</th>
+                                    <th style="position:sticky;left:0;z-index:3;background:var(--md-sys-color-surface-container);padding:10px 12px;font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-on-surface);font-weight:700;text-align:left;border-right:1px solid var(--md-sys-color-outline-variant);width:100px;">TEAM</th>
+                                    <th style="padding:10px 12px;font-family:var(--font-mono);font-size:11px;color:#1ba6da;font-weight:800;text-align:center;background:rgba(27, 166, 218, 0.08);">EXP. GOALS</th>
+                                    ${gwList.map(gw => `<th style="padding:10px 8px;font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-on-surface);font-weight:700;text-align:center;min-width:72px;">GW${gw}</th>`).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${goalsTableRows}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Goals Conceded Table Container -->
+                <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;padding:20px;overflow:hidden;">
+                    <div style="margin-bottom:16px;">
+                        <h3 style="font-family:var(--font-mono);font-size:16px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0 0 4px 0;display:flex;align-items:center;gap:8px;">
+                            <span class="material-symbols-outlined" style="color:#e02888;">shield</span>
+                            Which Premier League Teams are expected to keep the most Clean Sheets?
+                        </h3>
+                        <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0;">Clean Sheet probabilities & expected goals conceded for each team over the next six gameweeks.</p>
+                    </div>
+
+                    <div class="table-scroll-mobile sticky-first-column" tabindex="0" aria-label="Goals Conceded Projections Table">
+                        <table style="width:100%;border-collapse:collapse;white-space:nowrap;">
+                            <thead>
+                                <tr style="background:rgba(255,255,255,0.03);border-bottom:1px solid var(--md-sys-color-outline-variant);">
+                                    <th style="padding:10px 8px;font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-on-surface-variant);font-weight:700;text-align:center;width:40px;">RK</th>
+                                    <th style="position:sticky;left:0;z-index:3;background:var(--md-sys-color-surface-container);padding:10px 12px;font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-on-surface);font-weight:700;text-align:left;border-right:1px solid var(--md-sys-color-outline-variant);width:100px;">TEAM</th>
+                                    <th style="padding:10px 12px;font-family:var(--font-mono);font-size:11px;color:#e02888;font-weight:800;text-align:center;background:rgba(224, 40, 136, 0.08);">EXP. CS</th>
+                                    ${gwList.map(gw => `<th style="padding:10px 8px;font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-on-surface);font-weight:700;text-align:center;min-width:72px;">GW${gw}</th>`).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${concededTableRows}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        container.innerHTML = html;
+    },
 
     renderFixtureDifficulty(gwFixtures) {
         const container = document.getElementById('fixture-difficulty-body');

@@ -1075,7 +1075,8 @@ router.get('/goals-projections', async (req, res) => {
     ]);
 
     const teams = bs.teams || [];
-    const currentGW = bs.events?.find(e => e.is_current)?.id || bs.events?.find(e => e.is_next)?.id || 1;
+    const activeEvent = bs.events?.find(e => e.is_current);
+    const currentGW = (activeEvent && !activeEvent.finished) ? activeEvent.id : (bs.events?.find(e => e.is_next)?.id || activeEvent?.id || 1);
     const startGW = parseInt(req.query.gw) || currentGW;
     const horizon = Math.min(parseInt(req.query.horizon) || 6, 15);
 
@@ -1142,7 +1143,8 @@ router.get('/goals-conceded', async (req, res) => {
     ]);
 
     const teams = bs.teams || [];
-    const currentGW = bs.events?.find(e => e.is_current)?.id || bs.events?.find(e => e.is_next)?.id || 1;
+    const activeEvent = bs.events?.find(e => e.is_current);
+    const currentGW = (activeEvent && !activeEvent.finished) ? activeEvent.id : (bs.events?.find(e => e.is_next)?.id || activeEvent?.id || 1);
     const startGW = parseInt(req.query.gw) || currentGW;
     const horizon = Math.min(parseInt(req.query.horizon) || 6, 15);
 
@@ -1180,13 +1182,13 @@ router.get('/goals-conceded', async (req, res) => {
             team: team.team,
             opponent: gwData.opponent,
             isHome: gwData.isHome,
-            xga: gwData.xga,
             csPct: gwData.csPct,
+            xga: gwData.xga,
             fdr: gwData.fdr,
           });
         }
       });
-      perGW[gw].sort((a, b) => a.xga - b.xga);
+      perGW[gw].sort((a, b) => (b.csPct || 0) - (a.csPct || 0));
     }
 
     res.json({
@@ -1198,8 +1200,61 @@ router.get('/goals-conceded', async (req, res) => {
       modelVersion: 'Dixon-Coles (2024-25 xG data)',
     });
   } catch (e) {
-    logger.error({ err: e }, 'Goals conceded projections error');
-    res.status(500).json({ error: 'Failed to calculate goals conceded projections' });
+    logger.error({ err: e }, 'Goals conceded error');
+    res.status(500).json({ error: 'Failed to calculate goals conceded' });
+  }
+});
+
+// ---- Team Form Leaders (Top 4 performers for each Premier League team) ----
+router.get('/team-form-leaders', async (req, res) => {
+  try {
+    const bs = await getCachedApiData(BOOTSTRAP_URL);
+    const elements = bs.elements || [];
+    const teams = bs.teams || [];
+
+    const getPosStr = type => {
+      if (type === 1) return 'GKP';
+      if (type === 2) return 'DEF';
+      if (type === 3) return 'MID';
+      if (type === 4) return 'FWD';
+      return 'DEF';
+    };
+
+    const teamLeaders = teams.map(t => {
+      const teamPlayers = elements
+        .filter(p => p.team === t.id && p.minutes > 0)
+        .sort((a, b) => b.total_points - a.total_points || parseFloat(b.form || 0) - parseFloat(a.form || 0))
+        .slice(0, 4)
+        .map((p, idx) => ({
+          rank: idx + 1,
+          id: p.id,
+          code: p.code,
+          name: p.web_name,
+          fullName: `${p.first_name} ${p.second_name}`,
+          pos: getPosStr(p.element_type),
+          cost: (p.now_cost / 10).toFixed(1),
+          totalPoints: p.total_points,
+          form: p.form || '0.0',
+          goals: p.goals_scored || 0,
+          assists: p.assists || 0,
+          cleanSheets: p.clean_sheets || 0,
+          xG: p.expected_goals || '0.00',
+          xA: p.expected_assists || '0.00',
+          selectedBy: p.selected_by_percent || '0.0',
+        }));
+
+      return {
+        teamId: t.id,
+        teamName: t.short_name,
+        teamFullName: t.name,
+        players: teamPlayers,
+      };
+    });
+
+    res.json({ teams: teamLeaders });
+  } catch (e) {
+    logger.error({ err: e }, 'Team form leaders error');
+    res.status(500).json({ error: 'Failed to fetch team form leaders' });
   }
 });
 
@@ -1366,6 +1421,7 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       rank: entry.rank || ((page - 1) * 50) + index + 1,
       managerName: entry.player_name || [entry.player_first_name, entry.player_last_name].filter(Boolean).join(' '),
       entryName: entry.entry_name,
+      managerId: entry.entry || null,
       eventTotal: entry.event_total || 0,
       total: entry.total || 0,
       rankDiff: entry.rank ? (entry.last_rank || entry.rank) - entry.rank : 0,

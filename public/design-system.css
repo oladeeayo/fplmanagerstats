@@ -1782,18 +1782,18 @@ body.sidebar-open {
 
     .sticky-rank-player th:nth-child(1),
     .sticky-rank-player td:nth-child(1) {
-        width: 44px;
-        min-width: 44px;
-        max-width: 44px;
+        width: 36px;
+        min-width: 36px;
+        max-width: 36px;
     }
 
     .sticky-rank-player th:nth-child(2),
     .sticky-rank-player td:nth-child(2) {
         position: sticky;
-        left: 44px;
+        left: 36px;
         z-index: 2;
-        min-width: 120px;
-        max-width: 150px;
+        min-width: 80px;
+        max-width: 100px;
         overflow: hidden;
         background: #171c19 !important;
         box-shadow: 4px 0 8px rgba(0, 0, 0, 0.28);
@@ -1929,18 +1929,18 @@ body.sidebar-open {
         position: sticky !important;
         z-index: 2 !important;
         left: 0 !important;
-        width: 44px !important;
-        min-width: 44px !important;
-        max-width: 44px !important;
+        width: 36px !important;
+        min-width: 36px !important;
+        max-width: 36px !important;
     }
     .sticky-rank-player th:nth-child(1) { z-index: 4 !important; }
     .sticky-rank-player th:nth-child(2),
     .sticky-rank-player td:nth-child(2) {
         position: sticky !important;
-        left: 44px !important;
+        left: 36px !important;
         z-index: 2 !important;
-        max-width: 150px !important;
-        min-width: 120px !important;
+        max-width: 95px !important;
+        min-width: 80px !important;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -2610,10 +2610,13 @@ body.sidebar-open {
 :root[data-theme='light'] .tn-empty,
 :root[data-theme='light'] .tn-gray,
 :root[data-theme='light'] .tn-row-pos,
-:root[data-theme='light'] .tn-row-news,
 :root[data-theme='light'] .tn-row-source,
 :root[data-theme='light'] .tn-row-return {
     color: #52525b !important;
+}
+
+:root[data-theme='light'] .tn-row-news {
+    color: #0f172a !important;
 }
 
 /* Darker counterparts of neon dark-mode colors. */
@@ -2652,55 +2655,92 @@ body.sidebar-open {
 :root[data-theme='light'] .aiteam-captain-inline .material-symbols-outlined,
 :root[data-theme='light'] .rank-1 { color: var(--light-gold) !important; }
 
-/* Mobile theme switch: both choices are visible and the active icon slides. */
-@media (max-width: 768px) {
-    .topbar-right .theme-toggle {
-        position: relative;
-        width: 50px !important;
-        height: 30px !important;
-        flex-basis: 50px !important;
-        border-radius: 999px !important;
-        overflow: hidden;
-        isolation: isolate;
-    }
-    .topbar-right .theme-toggle::before {
-        content: '';
-        position: absolute;
-        top: 3px;
-        left: 3px;
-        width: 22px;
-        height: 22px;
-        border-radius: 50%;
-        background: currentColor;
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
-        transform: translateX(0);
-        transition: transform 180ms cubic-bezier(.2,.8,.2,1);
-        z-index: -1;
-    }
-    .topbar-right .theme-toggle.is-dark::before { transform: translateX(20px); }
-    .topbar-right .theme-toggle .material-symbols-outlined {
-        position: absolute;
-        top: 7px;
-        width: 16px;
-        height: 16px;
-        font-size: 16px;
-        line-height: 16px;
-        opacity: .55;
-        transform: none;
-        transition: color 180ms ease, opacity 180ms ease;
-        z-index: 1;
-    }
-    .topbar-right .theme-toggle .theme-sun { left: 6px; color: #ffffff; opacity: 1; }
-    .topbar-right .theme-toggle .theme-moon { right: 6px; color: currentColor; }
-    .topbar-right .theme-toggle.is-dark .theme-sun { color: currentColor; opacity: .55; }
-    .topbar-right .theme-toggle.is-dark .theme-moon { color: #0f1412; opacity: 1; }
-    :root[data-theme='light'] .topbar-right .theme-toggle::before { background: #18181b; }
-    :root[data-theme='light'] .topbar-right .theme-toggle .theme-sun { color: #ffffff; }
-    :root[data-theme='light'] .topbar-right .theme-toggle .theme-moon { color: #71717b; }
+/* Redesigned Theme Toggle Pill Slider */
+.theme-toggle {
+    position: relative !important;
+    width: 52px !important;
+    height: 28px !important;
+    min-width: 52px !important;
+    min-height: 28px !important;
+    flex: 0 0 52px !important;
+    border-radius: 999px !important;
+    background: rgba(255, 255, 255, 0.12) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    cursor: pointer !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    isolation: isolate !important;
+    box-sizing: border-box !important;
 }
 
-@media (max-width: 480px) {
-    .topbar-right .theme-toggle { width: 50px !important; height: 30px !important; }
+:root[data-theme='light'] .theme-toggle {
+    background: rgba(0, 0, 0, 0.08) !important;
+    border-color: rgba(0, 0, 0, 0.15) !important;
+}
+
+.theme-toggle::before {
+    content: '' !important;
+    position: absolute !important;
+    top: 2px !important;
+    left: 2px !important;
+    width: 22px !important;
+    height: 22px !important;
+    border-radius: 50% !important;
+    background: #00ff85 !important;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3) !important;
+    transform: translateX(0) !important;
+    transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s ease !important;
+    z-index: 1 !important;
+}
+
+:root[data-theme='light'] .theme-toggle::before {
+    background: #18181b !important;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2) !important;
+}
+
+.theme-toggle.is-dark::before {
+    transform: translateX(24px) !important;
+}
+
+.theme-toggle .material-symbols-outlined {
+    position: absolute !important;
+    top: 5px !important;
+    font-size: 16px !important;
+    width: 16px !important;
+    height: 16px !important;
+    line-height: 16px !important;
+    transition: color 0.2s ease, opacity 0.2s ease !important;
+    z-index: 2 !important;
+    transform: none !important;
+}
+
+.theme-toggle .theme-sun {
+    left: 5px !important;
+    color: #0a0f0d !important;
+    opacity: 1 !important;
+}
+
+.theme-toggle .theme-moon {
+    right: 5px !important;
+    color: var(--md-sys-color-on-surface-variant) !important;
+    opacity: 0.6 !important;
+}
+
+.theme-toggle.is-dark .theme-sun {
+    color: var(--md-sys-color-on-surface-variant) !important;
+    opacity: 0.6 !important;
+}
+
+.theme-toggle.is-dark .theme-moon {
+    color: #0a0f0d !important;
+    opacity: 1 !important;
+}
+
+:root[data-theme='light'] .theme-toggle .theme-sun {
+    color: #ffffff !important;
 }
 
 .aiteam-starter-badge { display: inline-block; justify-self: start; margin-top: 2px; padding: 1px 5px; border-radius: 7px; font: 700 8px var(--font-mono); letter-spacing: 0.4px; text-transform: uppercase; white-space: nowrap; }
@@ -4477,17 +4517,17 @@ div.collapsed > .sidebar-section-toggle .sidebar-section-chevron { transform: ro
 .tn-section-label { font-family: var(--font-mono); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 6px 0 3px; }
 .tn-red { color: #ff4d4d; }
 .tn-amber { color: #FFA600; }
-.tn-gray { color: #8ba396; }
+.tn-gray { color: #ffffff; }
 
 /* Player row */
 .tn-row { padding: 7px 0; border-bottom: 1px solid #1A2E2820; }
 .tn-row:last-child { border-bottom: none; }
 .tn-row-main { display: flex; align-items: center; gap: 8px; }
-.tn-row-name { font-size: 15px; font-weight: 600; color: #dfe4e0; }
+.tn-row-name { font-size: 15px; font-weight: 700; color: #ffffff; }
 .tn-row-pos { font-family: var(--font-mono); font-size: 11px; color: #8ba396; }
 .tn-row-injury { font-size: 12px; color: #FFA600; background: #FFA60015; padding: 1px 6px; border-radius: 3px; }
 .tn-row-chance { font-family: var(--font-mono); font-size: 12px; font-weight: 600; margin-left: auto; }
-.tn-row-news { font-size: 14px; color: #8ba396; line-height: 1.55; margin-top: 3px; padding-left: 0; }
+.tn-row-news { font-size: 14px; color: #ffffff; line-height: 1.6; margin-top: 4px; padding-left: 0; font-weight: 400; letter-spacing: 0.01em; }
 .tn-row-quote { font-size: 14px; color: #00FF85; line-height: 1.55; margin-top: 5px; padding: 7px 9px; background: #00FF8508; border-left: 2px solid #00FF8540; border-radius: 0 4px 4px 0; font-style: italic; }
 .tn-row-meta { display: flex; align-items: center; gap: 12px; margin-top: 3px; }
 .tn-row-source { font-family: var(--font-mono); font-size: 11px; color: #8ba396; text-decoration: none; display: inline-flex; align-items: center; gap: 3px; }
@@ -5163,15 +5203,13 @@ input[style*="border"] {
 @media (max-width: 768px) {
     .topbar { height: calc(56px + env(safe-area-inset-top, 0px)) !important; padding-inline: 12px !important; }
     .topbar-left { flex: 1 1 auto; min-width: 0; }
-    .topbar-right { flex: 0 0 auto; gap: 6px !important; }
+    .topbar-right { flex: 0 0 auto; gap: 8px !important; }
     .topbar-right .btn-primary { max-width: 112px !important; min-width: 0; padding-inline: 9px !important; }
     .topbar-right .btn-primary .material-symbols-outlined { flex: 0 0 auto; }
-    .topbar-right .theme-toggle { width: 32px; height: 32px; }
 }
 @media (max-width: 480px) {
     .topbar-right .btn-primary { display: none !important; }
     .topbar-title > span:last-child { font-size: 13px !important; }
-    .topbar-right .theme-toggle { width: 36px; height: 36px; }
 }
 
 /* Dark inline foregrounds generated by every legacy route. */
