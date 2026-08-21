@@ -3365,43 +3365,6 @@ const FPL = {
         this.navigateTo(tab);
     },
 
-    initSidebar() {
-        const sidebar = document.getElementById('sidebar');
-        const overlay = document.getElementById('sidebar-overlay');
-        const menuBtn = document.getElementById('mobile-menu-btn');
-        const closeBtn = document.getElementById('sidebar-mobile-close-btn');
-
-        if (!sidebar || !overlay || !menuBtn || menuBtn.dataset.sidebarBound === 'true' || menuBtn.dataset.shellBound === 'true' || menuBtn.dataset.bound === 'true') return;
-        menuBtn.dataset.sidebarBound = 'true';
-
-        menuBtn.addEventListener('click', () => {
-            const isOpen = sidebar.classList.toggle('mobile-open');
-            overlay.classList.toggle('active', isOpen);
-            menuBtn.setAttribute('aria-expanded', String(isOpen));
-        });
-
-        const closeSidebar = () => {
-            sidebar.classList.remove('mobile-open');
-            overlay.classList.remove('active');
-            menuBtn.setAttribute('aria-expanded', 'false');
-        };
-
-        overlay.addEventListener('click', closeSidebar);
-        closeBtn?.addEventListener('click', closeSidebar);
-
-        document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape' && sidebar.classList.contains('mobile-open')) closeSidebar();
-        });
-
-        document.querySelectorAll('.sidebar-nav-item').forEach(item => {
-            item.addEventListener('click', () => {
-                if (window.innerWidth <= 1024) {
-                    closeSidebar();
-                }
-            });
-        });
-    },
-
     initDialogs() {
         document.querySelectorAll('.dialog-overlay').forEach(overlay => {
             if (overlay.dataset.dialogBound === 'true') return;
@@ -6653,7 +6616,7 @@ const FPL = {
                     <div class="player-detail-meta">
                         <span class="player-detail-pos" style="background:${posColor}20;color:${posColor};">${posStr}</span>
                         <span>${this.teamBadge(team?.short_name, 14)} ${team?.short_name || 'FPL'}</span>
-                        <span style="font-family:var(--font-mono);color:var(--md-sys-color-primary);">£${price}m</span>
+                        <span style="font-family:var(--font-mono);color:#00FF85;">£${price}m</span>
                         <span style="font-family:var(--font-mono);">${own.toFixed(1)}% owned</span>
                     </div>
                 </div>
@@ -6667,15 +6630,15 @@ const FPL = {
             <div class="player-detail-section">
                 <div class="player-detail-section-title">Expected Stats</div>
                 <div class="player-detail-xg-breakdown">
-                    <div class="player-detail-xg-item"><div class="val" style="color:${xG >= 5 ? '#00FF85' : '#E0E0E0'}">${xG.toFixed(1)}</div><div class="lbl">xG</div></div>
-                    <div class="player-detail-xg-item"><div class="val" style="color:${xA >= 3 ? '#00FF85' : '#E0E0E0'}">${xA.toFixed(1)}</div><div class="lbl">xA</div></div>
-                    <div class="player-detail-xg-item"><div class="val" style="color:${xGI >= 5 ? '#00FF85' : '#E0E0E0'}">${xGI.toFixed(1)}</div><div class="lbl">xGI</div></div>
+                    <div class="player-detail-xg-item"><div class="val" style="color:${xG >= 5 ? '#00FF85' : '#ffffff'}">${xG.toFixed(1)}</div><div class="lbl">xG</div></div>
+                    <div class="player-detail-xg-item"><div class="val" style="color:${xA >= 3 ? '#00FF85' : '#ffffff'}">${xA.toFixed(1)}</div><div class="lbl">xA</div></div>
+                    <div class="player-detail-xg-item"><div class="val" style="color:${xGI >= 5 ? '#00FF85' : '#ffffff'}">${xGI.toFixed(1)}</div><div class="lbl">xGI</div></div>
                 </div>
-                <div style="display:flex;justify-content:center;gap:24px;margin-top:12px;font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);">
-                    <span>xGI/90: <b style="color:#E0E0E0;">${xGI90.toFixed(2)}</b></span>
-                    <span>DefCon: <b style="color:#E0E0E0;">${defcon.toFixed(1)}</b></span>
-                    <span>Goals: <b style="color:#E0E0E0;">${player.goals_scored || 0}</b></span>
-                    <span>Assists: <b style="color:#E0E0E0;">${player.assists || 0}</b></span>
+                <div style="display:flex;justify-content:center;gap:24px;margin-top:12px;font-size:0.75rem;color:#8ba396;font-family:var(--font-mono);">
+                    <span>xGI/90: <b style="color:#ffffff;">${xGI90.toFixed(2)}</b></span>
+                    <span>DefCon: <b style="color:#ffffff;">${defcon.toFixed(1)}</b></span>
+                    <span>Goals: <b style="color:#ffffff;">${player.goals_scored || 0}</b></span>
+                    <span>Assists: <b style="color:#ffffff;">${player.assists || 0}</b></span>
                 </div>
             </div>
             <div class="player-detail-section">
@@ -6684,9 +6647,9 @@ const FPL = {
                     ${nextFixtures.map(f => `<div class="player-detail-fixture" style="background:${fdrColors[f.diff]}20;color:${fdrColors[f.diff]};border:1px solid ${fdrColors[f.diff]}40;"><div style="font-size:9px;opacity:0.7;">GW${f.gw}</div><div style="font-weight:700;font-size:13px;">${f.opp}</div><div style="font-size:9px;">${f.isHome === null ? '' : f.isHome ? 'H' : 'A'}</div></div>`).join('')}
                 </div>
             </div>
-            <div class="player-detail-section" style="border-top:1px solid var(--md-sys-color-outline-variant);">
-                <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                    <a href="https://fantasy.premierleague.com/entry/${this.state.managerId || ''}/event/${this.state.currentGW || 1}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius-pill);background:var(--md-sys-color-surface-container-high);border:1px solid var(--md-sys-color-outline-variant);color:var(--md-sys-color-on-surface);text-decoration:none;font-size:0.8125rem;font-weight:600;cursor:pointer;transition:all var(--transition-fast);"><span class="material-symbols-outlined" style="font-size:16px;">open_in_new</span> View on FPL</a>
+            <div class="player-detail-section" style="border-top:1px solid #1A2E28;">
+                <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+                    <a href="https://fantasy.premierleague.com/entry/${this.state.managerId || ''}/event/${this.state.currentGW || 1}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius-pill);background:#141916;border:1px solid #1A2E28;color:#ffffff;text-decoration:none;font-size:0.8125rem;font-weight:600;cursor:pointer;transition:all var(--transition-fast);"><span class="material-symbols-outlined" style="font-size:16px;">open_in_new</span> View on FPL</a>
                 </div>
             </div>
         `;
