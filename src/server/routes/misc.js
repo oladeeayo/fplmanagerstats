@@ -2060,7 +2060,7 @@ router.get('/manager-roi/:managerId', heavyEndpointLimiter, async (req, res) => 
   try {
     const bs = await getCachedApiData(BOOTSTRAP_URL);
     const { analyzeManager } = require('../routes/decision');
-    const managerData = await analyzeManager(managerId, bs, 314);
+    const managerData = await analyzeManager(managerId, bs);
     
     const players = managerData.playerStats || [];
     const totalValue = players.reduce((s, p) => s + (p.nowCost || 0), 0) / 10;

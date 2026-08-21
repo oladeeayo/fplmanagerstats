@@ -16,14 +16,14 @@ async function optionalApiGet(url, fallback = null) {
 }
 
 // ---- Core analysis ----
-async function analyzeManager(managerId, playerData, leagueId = 314) {
+async function analyzeManager(managerId, playerData, leagueId = null) {
   const [managerEntryData, historyData, leagueData] = await Promise.all([
     getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/`),
     getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/history/`),
-    getCachedApiData(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/`)
+    leagueId ? optionalApiGet(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/`) : Promise.resolve(null)
   ]);
   const currentGameweek = playerData.events.find(event => event.is_current)?.id || playerData.events.find(event => event.is_next)?.id || 1;
-  const topManagerPoints = leagueData.standings.results[0]?.total || 0;
+  const topManagerPoints = leagueData?.standings?.results?.[0]?.total || 0;
 
   let totalCaptaincyPoints = 0, totalPointsActive = 0, totalPointsLostOnBench = 0, totalCaptaincyAttempts = 0;
   const playerStats = {}, positionPoints = { GKP: {}, DEF: {}, MID: {}, FWD: {} };
@@ -311,7 +311,7 @@ router.get('/analyze-manager/:managerId', heavyEndpointLimiter, async (req, res)
   if (!managerId) return res.status(400).json({ error: 'Invalid manager ID' });
   try {
     const bs = await getCachedApiData(BOOTSTRAP_URL);
-    const result = await analyzeManager(managerId, bs, 314);
+    const result = await analyzeManager(managerId, bs);
     managerCache[managerId] = result;
     res.json(result);
   } catch (e) { logger.error({ err: e }, 'Error analyzing manager'); res.status(500).json({ error: 'Failed to analyze manager' }); }
@@ -323,7 +323,7 @@ router.get('/compare-managers/:id1/:id2', heavyEndpointLimiter, async (req, res)
   if (!id1 || !id2) return res.status(400).json({ error: 'Invalid manager ID' });
   try {
     const bs = await getCachedApiData(BOOTSTRAP_URL);
-    const [m1, m2] = await Promise.all([analyzeManager(id1, bs, 314), analyzeManager(id2, bs, 314)]);
+    const [m1, m2] = await Promise.all([analyzeManager(id1, bs), analyzeManager(id2, bs)]);
     res.json({ manager1: m1, manager2: m2 });
   } catch (e) { res.status(500).json({ error: 'Failed to compare' }); }
 });
