@@ -29,7 +29,7 @@ const decisionRoutes = require('./server/routes/decision');
 const aiTeamRoutes = require('./server/routes/ai-team');
 const ownershipRoutes = require('./server/routes/ownership');
 const miscRoutes = require('./server/routes/misc');
-const { getCachedApiData, BOOTSTRAP_URL } = require('./server/cache');
+const { getCachedApiData, BOOTSTRAP_URL, snapshotManager } = require('./server/cache');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -228,6 +228,7 @@ app.get('*', (req, res, next) => {
 });
 
 initDatabase();
+snapshotManager.initSnapshotManager();
 
 // Initialize opponent model with Understat data (background, non-blocking)
 (async () => {

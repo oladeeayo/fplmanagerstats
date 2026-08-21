@@ -438,4 +438,32 @@ router.get('/connected-managers', async (req, res) => {
   }
 });
 
+// Admin Snapshot Controls
+const { snapshotManager } = require('../cache');
+
+router.get('/snapshot', (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  res.json(snapshotManager.getSnapshotStatus());
+});
+
+router.post('/snapshot/take', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const data = await snapshotManager.takeSnapshot();
+    res.json({ ok: true, status: snapshotManager.getSnapshotStatus() });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to take snapshot', detail: err.message });
+  }
+});
+
+router.post('/snapshot/toggle', (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const mode = req.body?.mode; // 'snapshot' | 'live' | null
+  if (!['snapshot', 'live', null, 'reset'].includes(mode)) {
+    return res.status(400).json({ error: 'Invalid mode. Use "snapshot", "live", or null' });
+  }
+  snapshotManager.setForceMode(mode === 'reset' ? null : mode);
+  res.json({ ok: true, status: snapshotManager.getSnapshotStatus() });
+});
+
 module.exports = router;

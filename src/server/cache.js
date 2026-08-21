@@ -136,7 +136,23 @@ async function getGlobalPlayerHistory(playerId) {
   return data;
 }
 
+const snapshotManager = require('./snapshotManager');
+
 async function getCachedApiData(url, maxAgeMs = 60 * 1000) {
+  const isBootstrapUrl = url === BOOTSTRAP_URL || url.includes('/api/bootstrap-static');
+  const isFixturesUrl = url === FIXTURES_URL || url.includes('/api/fixtures');
+
+  // If site snapshot mode is ACTIVE (from 2 mins before deadline to 20 mins before 1st match), serve snapshot
+  if (snapshotManager.isSnapshotActive()) {
+    const snap = snapshotManager.getSnapshotData();
+    if (isBootstrapUrl && snap?.bootstrap) {
+      return snap.bootstrap;
+    }
+    if (isFixturesUrl && snap?.fixtures) {
+      return snap.fixtures;
+    }
+  }
+
   const cacheKey = `api:${url}`;
   const ttlSeconds = Math.ceil(maxAgeMs / 1000);
   if (redis) {
@@ -148,14 +164,23 @@ async function getCachedApiData(url, maxAgeMs = 60 * 1000) {
   const cached = upstreamCache.get(url);
   if (cached?.data && Date.now() - cached.timestamp < maxAgeMs) return cached.data;
   if (cached?.request) return cached.request;
+
   const request = apiGet(url).then(async ({ data }) => {
     upstreamCache.set(url, { data, timestamp: Date.now() });
     if (redis) {
       try { await redis.setex(cacheKey, ttlSeconds, data); } catch (e) { /* ignore */ }
     }
+    if (isBootstrapUrl) {
+      snapshotManager.saveRollingBackup(data, null);
+    } else if (isFixturesUrl) {
+      snapshotManager.saveRollingBackup(null, data);
+    }
     return data;
   }).catch(error => {
     if (cached?.data) return cached.data;
+    const snap = snapshotManager.getSnapshotData();
+    if (isBootstrapUrl && snap?.bootstrap) return snap.bootstrap;
+    if (isFixturesUrl && snap?.fixtures) return snap.fixtures;
     throw error;
   });
   upstreamCache.set(url, { ...cached, request });
@@ -193,4 +218,5 @@ module.exports = {
   getGlobalPlayerHistory,
   getCachedApiData,
   optionalApiGet,
+  snapshotManager,
 };

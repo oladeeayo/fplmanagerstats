@@ -16,7 +16,16 @@ const router = express.Router();
 
 // ---- Health Check ----
 router.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: Date.now() });
+  res.json({
+    status: 'ok',
+    timestamp: Date.now(),
+    snapshot: snapshotManager.getSnapshotStatus(),
+  });
+});
+
+// ---- Snapshot Status ----
+router.get('/snapshot-status', (req, res) => {
+  res.json(snapshotManager.getSnapshotStatus());
 });
 
 // ---- Manager Lookup (validate ID and return team info) ----
