@@ -3804,12 +3804,79 @@ select option {
 .aiteam-pitch-section {
     margin-bottom: 28px;
 }
-.aiteam-pitch-wrapper { overflow: hidden; border: 1px solid #315443; background: #0b2d1c; border-radius: 10px; }
+.aiteam-pitch-wrapper {
+    overflow: hidden;
+    border: 2px solid #224d35;
+    border-radius: 16px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), inset 0 0 80px rgba(0, 0, 0, 0.4);
+    background: #081d12;
+    position: relative;
+}
 .aiteam-pitch { width: 100%; min-width: 0; }
-.aiteam-pitch .tactics-pitch { min-height: 0; height: clamp(340px, 32vw, 440px); gap: clamp(6px, 1.2vw, 14px); padding: 16px clamp(8px, 2vw, 22px); border: 0; border-radius: 0; overflow: hidden; background-image: url('/pitch-wide.svg'); background-size: 100% 100%; }
-.aiteam-pitch .tactics-pitch-row { width: 100%; min-width: 0; margin-inline: auto; gap: clamp(5px, 1vw, 12px); padding-inline: 2px; }
-.aiteam-pitch .tactics-player-card { flex: 0 1 calc((100% - ((var(--players) - 1) * clamp(5px, 1vw, 12px))) / var(--players)); width: clamp(54px, 7.2vw, 76px); min-width: 0; max-width: calc((100% - ((var(--players) - 1) * clamp(5px, 1vw, 12px))) / var(--players)); min-height: 98px; justify-content: flex-start; padding: 5px 4px; overflow: hidden; background: rgba(7, 24, 13, 0.52); }
-.aiteam-pitch .tactics-player-shirt { position: relative; width: 42px; height: 46px; }
+.aiteam-pitch .tactics-pitch {
+    min-height: 560px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 24px 16px;
+    position: relative;
+    background: 
+        radial-gradient(circle at 50% 50%, transparent 60px, rgba(255, 255, 255, 0.22) 61px, rgba(255, 255, 255, 0.22) 63px, transparent 64px),
+        linear-gradient(to bottom, transparent 49.7%, rgba(255, 255, 255, 0.22) 50%, transparent 50.3%),
+        repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0px, rgba(255, 255, 255, 0.02) 45px, transparent 45px, transparent 90px),
+        radial-gradient(circle at 50% 30%, #175734 0%, #0d3920 60%, #072213 100%);
+    border-radius: 14px;
+    box-sizing: border-box;
+}
+.aiteam-pitch .tactics-pitch-row {
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+    width: 100%;
+    gap: 8px;
+    position: relative;
+    z-index: 2;
+    margin: 4px 0;
+}
+.aiteam-pitch .tactics-player-card,
+.aiteam-pitch-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: clamp(76px, 16vw, 108px);
+    max-width: 108px;
+    padding: 6px 4px;
+    background: rgba(8, 22, 14, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 10px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.5);
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    user-select: none;
+    position: relative;
+}
+
+.aiteam-pitch .tactics-player-card:hover {
+    transform: translateY(-4px) scale(1.04);
+    box-shadow: 0 12px 24px rgba(0, 255, 133, 0.3);
+    border-color: #00FF85 !important;
+}
+.aiteam-pitch .tactics-player-shirt {
+    width: 44px;
+    height: 48px;
+    position: relative;
+    display: grid;
+    place-items: center;
+}
+
+.aiteam-pitch .tactics-player-shirt img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.6));
+}
 
 /* Pitch card internal layout */
 .aiteam-pitch-card { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
@@ -4141,15 +4208,22 @@ select option {
     .aiteam-gw-toggle { width: 100%; }
     .aiteam-gw-toggle-btn { flex: 1; min-height: 44px; font-size: 13px; }
     .aiteam-hero-sub { max-width: 100%; overflow-wrap: anywhere; }
-    .aiteam-pitch .tactics-player-card { flex: 0 1 calc((100% - ((var(--players) - 1) * 3px)) / var(--players)); width: calc((100% - ((var(--players) - 1) * 3px)) / var(--players)); min-width: 0; max-width: calc((100% - ((var(--players) - 1) * 3px)) / var(--players)); min-height: 0; padding: 4px 2px; border-radius: 5px; background: rgba(7, 24, 13, 0.52); }
-    .aiteam-pitch .tactics-player-shirt { width: 28px; height: 31px; }
-    .aiteam-pitch .tactics-pitch { min-height: 0; height: clamp(300px, 86vw, 360px); aspect-ratio: auto; gap: 3px; padding: 10px 4px; background-size: 100% 100%; }
-    .aiteam-pitch .tactics-pitch-row { gap: 3px; padding-inline: 0; }
-    .aiteam-pitch .aiteam-pitch-name { font-size: 8px; min-height: 10px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; display: block; }
-    .aiteam-pitch .aiteam-pitch-cost { font-size: 8px; }
-    .aiteam-pitch .aiteam-pitch-xpts { font-size: 9px; margin: 0; }
-    .aiteam-pitch .aiteam-fixture-opp { font-size: 7px; }
-    .aiteam-pitch .aiteam-fixture-xpts { font-size: 7px; }
+    .aiteam-pitch .tactics-player-card,
+    .aiteam-pitch-card {
+        width: clamp(60px, 19vw, 82px);
+        max-width: 82px;
+        padding: 4px 2px;
+        border-radius: 8px;
+    }
+    .aiteam-pitch .tactics-player-shirt { width: 34px; height: 38px; }
+    .aiteam-pitch .tactics-pitch { min-height: 480px; padding: 16px 8px; }
+    .aiteam-pitch .tactics-pitch-row { gap: 4px; padding-inline: 0; margin: 2px 0; }
+    .aiteam-pitch-name-tag { padding: 2px 4px; margin-top: 2px; }
+    .aiteam-pitch-name { font-size: 9px; }
+    .aiteam-pitch-metrics-tag { font-size: 8px; padding: 1px 3px; gap: 2px; }
+    .aiteam-pitch-fixture-pill { font-size: 8px; padding: 1px 4px; }
+    .aiteam-pitch-cap-badge { width: 16px; height: 16px; font-size: 9px; top: -2px; right: -4px; }
+
 
     /* === AI TEAM TABLES: MOBILE SCROLL + STICKY PLAYER NAME === */
     .aiteam-roster-scroll,

@@ -833,31 +833,39 @@ const FPL = {
             function playerCard(player) {
                 const cap = isCaptain(player);
                 const vice = isVice(player);
-                const badge = cap ? ' (C)' : vice ? ' (V)' : '';
-                const borderStyle = cap ? 'border:2px solid #FFD700;box-shadow:0 0 12px rgba(255,215,0,0.4);' : vice ? 'border:2px solid rgba(255,255,255,0.5);' : 'border:1px solid rgba(255,255,255,0.28);';
+                const capBadge = cap ? '<span class="aiteam-pitch-cap-badge is-cap" title="Captain">C</span>' : vice ? '<span class="aiteam-pitch-cap-badge is-vice" title="Vice-Captain">V</span>' : '';
+                const borderStyle = cap ? 'border:2px solid #FFD700;box-shadow:0 0 14px rgba(255,215,0,0.5);' : vice ? 'border:2px solid rgba(255,255,255,0.7);box-shadow:0 0 10px rgba(255,255,255,0.3);' : 'border:1px solid rgba(255,255,255,0.22);';
                 const xPts = sumPlayerXPts(player, gwView).toFixed(1);
                 const shirt = FPL.playerTeamShirtUrl(player);
                 const shirtImg = shirt ? `<img src="${shirt}" alt="" loading="lazy" decoding="async" onerror="this.closest('.tactics-player-shirt').classList.add('is-missing');this.remove();" style="width:100%;height:100%;object-fit:contain;">` : '';
                 const weekly = player.weekly || [];
                 const fixtures = player.upcomingFixtures || [];
-                const fixtureRows = [];
-                for (let i = 0; i < Math.min(gwView, weekly.length); i++) {
+                const fixturePills = [];
+                for (let i = 0; i < Math.min(1, weekly.length); i++) {
                     const w = weekly[i];
                     const fx = fixtures.find(f => f.gw === w.gameweek) || fixtures[i];
                     if (!fx) continue;
                     const col = fdrColor(fx.fdr);
                     const oppLabel = fx.home ? `${fx.opponent}(H)` : `${fx.opponent}(A)`;
-                    fixtureRows.push(`<div class="aiteam-fixture-row"><span class="aiteam-fixture-opp" style="color:${col};">${oppLabel}</span><span class="aiteam-fixture-xpts">${w.xPts.toFixed(1)}</span></div>`);
+                    fixturePills.push(`<div class="aiteam-pitch-fixture-pill" style="background:${col};"><span class="aiteam-fixture-opp">${oppLabel}</span></div>`);
                 }
                 const runLen = player.consecutiveGoodFixtures || 0;
-                const runBadge = runLen >= 4 ? `<span style="font-size:8px;padding:1px 4px;border-radius:3px;background:rgba(0,255,133,0.15);color:#00FF85;font-weight:700;position:absolute;top:2px;right:2px;">${runLen} RUN</span>` : '';
-                return `<div class="tactics-player-card home aiteam-pitch-card" style="${borderStyle}position:relative;cursor:pointer;" onclick="FPL.showPlayerDetail(${player.id})" title="${player.name}${badge} \u00B7 \u00A3${(player.cost || 0).toFixed(1)}m \u00B7 ${xPts} xPts">
-                    <div class="tactics-player-shirt" style="display:grid;place-items:center;background:transparent;border-radius:4px;">${shirtImg}<span class="aiteam-shirt-fallback" aria-hidden="true">${FPL.playerTeamShort(player)}</span></div>
-                    <div class="tactics-player-copy"><b class="aiteam-pitch-name${cap ? ' is-captain' : ''}">${player.name}${badge}</b></div>
-                    <div class="aiteam-pitch-cost">\u00A3${(player.cost || 0).toFixed(1)}m</div>
-                    <div class="aiteam-pitch-xpts">${xPts} xPts</div>
-                    <div class="aiteam-fixture-block">${fixtureRows.join('')}</div>
+                const runBadge = runLen >= 4 ? `<span class="aiteam-pitch-run-badge">${runLen} RUN</span>` : '';
+                return `<div class="tactics-player-card home aiteam-pitch-card" style="${borderStyle}" onclick="FPL.showPlayerDetail(${player.id})" title="${FPL.escapeHTML(player.name)} · £${(player.cost || 0).toFixed(1)}m · ${xPts} xPts">
                     ${runBadge}
+                    <div class="tactics-player-shirt" style="display:grid;place-items:center;background:transparent;position:relative;">
+                        ${shirtImg}
+                        <span class="aiteam-shirt-fallback" aria-hidden="true">${FPL.playerTeamShort(player)}</span>
+                        ${capBadge}
+                    </div>
+                    <div class="aiteam-pitch-name-tag">
+                        <span class="aiteam-pitch-name${cap ? ' is-captain' : ''}">${FPL.escapeHTML(player.name)}</span>
+                    </div>
+                    <div class="aiteam-pitch-metrics-tag">
+                        <span class="aiteam-pitch-cost">£${(player.cost || 0).toFixed(1)}m</span>
+                        <span class="aiteam-pitch-xpts">${xPts} xPts</span>
+                    </div>
+                    <div class="aiteam-fixture-block">${fixturePills.join('')}</div>
                 </div>`;
             }
             const rows = [];
@@ -871,29 +879,29 @@ const FPL = {
         // --- Bench ---
         const benchEl = document.getElementById('aiteam-bench-section');
         if (benchEl) {
-            let html = '<div class="aiteam-bench-label"><span class="material-symbols-outlined">event_seat</span> BENCH</div><div class="aiteam-bench-players">';
+            let html = '<div class="aiteam-bench-label"><span class="material-symbols-outlined">event_seat</span> BENCH / SUBSTITUTES</div><div class="aiteam-bench-players">';
             lineup.bench.slice(0, 4).forEach((p, i) => {
                 const xPts = sumPlayerXPts(p, gwView).toFixed(1);
                 const shirt = FPL.playerTeamShirtUrl(p);
                 const shirtImg = shirt ? `<img src="${shirt}" alt="" loading="lazy" decoding="async" onerror="this.closest('.aiteam-bench-shirt-img').classList.add('is-missing');this.remove();" style="width:100%;height:100%;object-fit:contain;">` : '';
                 const weekly = p.weekly || [];
                 const fixtures = p.upcomingFixtures || [];
-                const fixtureRows = [];
-                for (let j = 0; j < Math.min(gwView, weekly.length); j++) {
+                const fixturePills = [];
+                for (let j = 0; j < Math.min(1, weekly.length); j++) {
                     const w = weekly[j];
                     const fx = fixtures.find(f => f.gw === w.gameweek) || fixtures[j];
                     if (!fx) continue;
                     const col = fdrColor(fx.fdr);
-                    fixtureRows.push(`<div class="aiteam-fixture-row"><span class="aiteam-fixture-opp" style="color:${col};">${fx.home ? fx.opponent + '(H)' : fx.opponent + '(A)'}</span><span class="aiteam-fixture-xpts">${w.xPts.toFixed(1)}</span></div>`);
+                    fixturePills.push(`<div class="aiteam-pitch-fixture-pill" style="background:${col};"><span class="aiteam-fixture-opp">${fx.home ? fx.opponent + '(H)' : fx.opponent + '(A)'}</span></div>`);
                 }
                 html += `<div class="aiteam-bench-slot${p.position === 'GKP' ? ' is-goalkeeper' : ''}">
-                    <div class="aiteam-bench-order">${i + 1}</div>
+                    <div class="aiteam-bench-order">${i === 0 ? 'GK' : i}</div>
                     <div class="aiteam-bench-shirt-img">${shirtImg}<span class="aiteam-shirt-fallback" aria-hidden="true">${FPL.playerTeamShort(p)}</span></div>
                     <div class="aiteam-bench-info">
-                        <div class="aiteam-bench-heading"><div class="aiteam-bench-name">${p.name}</div><span class="aiteam-bench-position">${p.position}</span></div>
-                        <div class="aiteam-bench-club">${p.teamFull || p.team}</div>
-                        <div class="aiteam-bench-metrics"><span>\u00A3${p.cost?.toFixed(1)}m</span><strong>${xPts} xPts</strong></div>
-                        <div class="aiteam-fixture-block">${fixtureRows.join('')}</div>
+                        <div class="aiteam-bench-heading"><div class="aiteam-bench-name">${FPL.escapeHTML(p.name)}</div><span class="aiteam-bench-position">${p.position}</span></div>
+                        <div class="aiteam-bench-club">${FPL.escapeHTML(p.teamFull || p.team)}</div>
+                        <div class="aiteam-bench-metrics"><span>£${p.cost?.toFixed(1)}m</span><strong>${xPts} xPts</strong></div>
+                        <div class="aiteam-fixture-block">${fixturePills.join('')}</div>
                     </div>
                 </div>`;
             });
@@ -2172,6 +2180,16 @@ const FPL = {
         this.renderFixturesFDRGrid();
     },
 
+    sortFixturesByTeam() {
+        if (this.state.fixtureSortGW === 'team') {
+            this.state.fixtureSortAsc = !this.state.fixtureSortAsc;
+        } else {
+            this.state.fixtureSortGW = 'team';
+            this.state.fixtureSortAsc = true;
+        }
+        this.renderFixturesFDRGrid();
+    },
+
     sortGoalsProjections(key) {
         if (this.state.goalsSortKey === key) {
             this.state.goalsSortAsc = !this.state.goalsSortAsc;
@@ -2179,7 +2197,7 @@ const FPL = {
             this.state.goalsSortKey = key;
             this.state.goalsSortAsc = false;
         }
-        this.renderProjectionsTab();
+        this.renderProjectionsTab(false);
     },
 
     sortConcededProjections(key) {
@@ -2189,7 +2207,7 @@ const FPL = {
             this.state.concededSortKey = key;
             this.state.concededSortAsc = false;
         }
-        this.renderProjectionsTab();
+        this.renderProjectionsTab(false);
     },
 
     renderFixtures() {
@@ -2262,7 +2280,7 @@ const FPL = {
                             <span class="material-symbols-outlined" style="color:#00ff85;">grid_view</span>
                             FIXTURE DIFFICULTY MATRIX (FDR)
                         </h3>
-                        <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0;">Upcoming match difficulties for all 20 Premier League teams. Click GW headers to sort.</p>
+                        <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0;">Upcoming match difficulties for all 20 Premier League teams. Click TEAM to sort by cumulative fixture ease.</p>
                     </div>
                     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
                         <div style="display:flex;align-items:center;gap:6px;">
@@ -2310,7 +2328,13 @@ const FPL = {
         };
 
         let sortedTeams = [...teams];
-        if (sortGW && targetGWs.includes(sortGW)) {
+        if (sortGW === 'team') {
+            sortedTeams.sort((a, b) => {
+                const sumA = targetGWs.reduce((sum, g) => sum + getTeamFDR(a.id, g), 0);
+                const sumB = targetGWs.reduce((sum, g) => sum + getTeamFDR(b.id, g), 0);
+                return sortAsc ? sumA - sumB : sumB - sumA;
+            });
+        } else if (sortGW && targetGWs.includes(sortGW)) {
             sortedTeams.sort((a, b) => {
                 const fdrA = getTeamFDR(a.id, sortGW);
                 const fdrB = getTeamFDR(b.id, sortGW);
@@ -2368,12 +2392,16 @@ const FPL = {
             `;
         }).join('');
 
+        const isTeamSorted = sortGW === 'team';
+        const teamArrow = isTeamSorted ? (sortAsc ? ' ▲' : ' ▼') : '';
+        const teamColor = isTeamSorted ? '#00FF85' : 'var(--md-sys-color-on-surface)';
+
         html += `
             <div class="table-scroll-mobile sticky-first-column" tabindex="0" aria-label="Fixtures FDR Matrix Table">
                 <table style="width:100%;border-collapse:collapse;white-space:nowrap;">
                     <thead>
                         <tr style="background:rgba(255,255,255,0.03);border-bottom:1px solid var(--md-sys-color-outline-variant);">
-                            <th style="position:sticky;left:0;z-index:3;background:var(--md-sys-color-surface-container);padding:10px 12px;font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-on-surface);font-weight:800;text-align:left;border-right:1px solid var(--md-sys-color-outline-variant);width:100px;">TEAM</th>
+                            <th style="position:sticky;left:0;z-index:3;background:var(--md-sys-color-surface-container);padding:10px 12px;font-family:var(--font-mono);font-size:11px;color:${teamColor};font-weight:800;text-align:left;border-right:1px solid var(--md-sys-color-outline-variant);width:100px;cursor:pointer;user-select:none;" onclick="FPL.sortFixturesByTeam()" title="Sort teams by cumulative fixture ease over selected ${lookaheadCount} GWs">TEAM${teamArrow}</th>
                             ${targetGWs.map(gw => {
                                 const isSorted = sortGW === gw;
                                 const arrow = isSorted ? (sortAsc ? ' ▲' : ' ▼') : '';
@@ -2939,28 +2967,34 @@ const FPL = {
         });
     },
 
-    async renderProjectionsTab() {
+    async renderProjectionsTab(forceFetch = false) {
         const container = document.getElementById('fixture-projections-container');
         if (!container) return;
 
-        container.innerHTML = '<div style="padding:40px;text-align:center;color:var(--md-sys-color-on-surface-variant);"><span class="material-symbols-outlined" style="font-size:36px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Calculating Dixon-Coles goal & defense projections...</p></div>';
+        if (forceFetch || !this.state.goalsProjectionsData || !this.state.concededProjectionsData) {
+            container.innerHTML = '<div style="padding:40px;text-align:center;color:var(--md-sys-color-on-surface-variant);"><span class="material-symbols-outlined" style="font-size:36px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Calculating goal & defense projections...</p></div>';
 
-        let goalsData = null;
-        let concededData = null;
-        let oddsData = null;
+            try {
+                const currentGW = this.state.bootstrapData?.events?.find(e => e.is_current)?.id || 
+                                  this.state.bootstrapData?.events?.find(e => e.is_next)?.id || 1;
 
-        try {
-            const currentGW = this.state.bootstrapData?.events?.find(e => e.is_current)?.id || 
-                              this.state.bootstrapData?.events?.find(e => e.is_next)?.id || 1;
+                const [goalsData, concededData, oddsData] = await Promise.all([
+                    this.apiFetch('/api/goals-projections?horizon=6'),
+                    this.apiFetch('/api/goals-conceded?horizon=6'),
+                    this.apiFetch(this.API.teamProjections(currentGW))
+                ]);
 
-            [goalsData, concededData, oddsData] = await Promise.all([
-                this.apiFetch('/api/goals-projections?horizon=6'),
-                this.apiFetch('/api/goals-conceded?horizon=6'),
-                this.apiFetch(this.API.teamProjections(currentGW))
-            ]);
-        } catch (e) {
-            console.error('Projections fetch error:', e);
+                this.state.goalsProjectionsData = goalsData;
+                this.state.concededProjectionsData = concededData;
+                this.state.oddsProjectionsData = oddsData;
+            } catch (e) {
+                console.error('Projections fetch error:', e);
+            }
         }
+
+        const goalsData = this.state.goalsProjectionsData;
+        const concededData = this.state.concededProjectionsData;
+        const oddsData = this.state.oddsProjectionsData;
 
         if (!goalsData || !concededData || !goalsData.ranked) {
             container.innerHTML = '<div class="empty-state"><span class="material-symbols-outlined">event_busy</span><p>Unable to load projections data.</p></div>';
@@ -3108,7 +3142,6 @@ const FPL = {
                             </h3>
                             <p style="font-size:11px;color:var(--md-sys-color-on-surface-variant);margin:0;">Projections lock for active GW${startGW} until all fixtures are completed.</p>
                         </div>
-                        <span style="font-family:var(--font-mono);font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;background:rgba(0,255,133,0.12);color:#00ff85;">Live Dixon-Coles Model</span>
                     </div>
         `;
 
@@ -3433,12 +3466,15 @@ const FPL = {
 
     playerTeamShirtUrl(player) {
         const current = this.resolvePlayer(player);
-        const teamId = current?.team || Number(player?.teamId);
-        const team = this.state.teamMap[teamId];
-        const teamCode = Number(team?.code || current?.team_code);
-        return Number.isFinite(teamCode) && teamCode > 0
-            ? `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${teamCode}-110.webp`
-            : '';
+        const teamId = current?.team || Number(player?.teamId) || Number(player?.team);
+        const team = this.state.teamMap[teamId] || (this.state.bootstrapData?.teams?.find(t => t.id === teamId || t.code === teamId || t.short_name === player?.teamShort || t.short_name === player?.team));
+        const teamCode = Number(team?.code || current?.team_code || player?.team_code);
+        if (!Number.isFinite(teamCode) || teamCode <= 0) return '';
+        const pos = current?.position || player?.position || (player?.element_type === 1 ? 'GKP' : '');
+        if (pos === 'GKP') {
+            return `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${teamCode}_1-110.webp`;
+        }
+        return `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${teamCode}-110.webp`;
     },
 
     pitchShirtMarkup(player, teamShort = '') {
