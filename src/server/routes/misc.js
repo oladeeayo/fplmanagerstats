@@ -58,7 +58,8 @@ router.get('/manager-leagues/:id', async (req, res) => {
       totalEntries: l.rank_count,
       admin: l.admin_entry === id,
     }));
-    res.json({ leagues });
+    const defaultLeague = leagues.find(league => league.type === 'private') || null;
+    res.json({ leagues, defaultLeagueId: defaultLeague?.id || null });
   } catch (error) {
     const status = error.response?.status || 500;
     if (status === 404) return res.status(404).json({ error: 'Manager not found' });
@@ -1323,13 +1324,16 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
   const leagueId = parsePositiveId(req.params.leagueId);
   if (!leagueId) return res.status(400).json({ error: 'A valid leagueId is required' });
   try {
-    const page = Math.min(5, Math.max(1, parseInt(req.query.page) || 1));
+    const page = Math.max(1, parseInt(req.query.page) || 1);
     
-    const data = await getCachedApiData(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/?page_standings=${page}`);
+    const data = await getCachedApiData(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/?page_standings=${page}&page_new_entries=${page}`);
 
     const leagueInfo = data.league || {};
     const standingsData = data.standings || {};
-    const results = standingsData.results || [];
+    const newEntriesData = data.new_entries || {};
+    const hasStandings = Array.isArray(standingsData.results) && standingsData.results.length > 0;
+    const results = hasStandings ? standingsData.results : (newEntriesData.results || []);
+    const pagination = hasStandings ? standingsData : newEntriesData;
     
     let leaderTotal = 0;
     if (page === 1 && results.length > 0) {
@@ -1343,13 +1347,13 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       }
     }
 
-    // If no results from FPL API (season not started or no data yet), return no-data response
+    // Before the first scoring update FPL exposes league members as new_entries.
     if (results.length === 0) {
       return res.json({
         leagueId: parseInt(leagueId) || 314,
         leagueName: leagueInfo.name || `Overall Top 50k`,
         leagueType: 'Public Global',
-        page: 1,
+        page,
         totalPages: 0,
         totalEntries: 0,
         hasMore: false,
@@ -1358,13 +1362,13 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       });
     }
 
-    const managers = results.map((entry) => ({
-      rank: entry.rank,
-      managerName: entry.player_name,
+    const managers = results.map((entry, index) => ({
+      rank: entry.rank || ((page - 1) * 50) + index + 1,
+      managerName: entry.player_name || [entry.player_first_name, entry.player_last_name].filter(Boolean).join(' '),
       entryName: entry.entry_name,
       eventTotal: entry.event_total || 0,
       total: entry.total || 0,
-      rankDiff: (entry.last_rank || entry.rank) - entry.rank,
+      rankDiff: entry.rank ? (entry.last_rank || entry.rank) - entry.rank : 0,
       diffCount: Math.max(0, leaderTotal - (entry.total || 0))
     }));
     const eventScores = managers.map(manager => manager.eventTotal);
@@ -1374,9 +1378,9 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       leagueName: leagueInfo.name || `League ${leagueId}`,
       leagueType: leagueInfo.league_type === 'x' ? 'Classic League' : 'Public Global',
       page,
-      totalPages: standingsData.has_next ? Math.min(5, page + 1) : page,
-      totalEntries: standingsData.has_next ? Math.max(page * 50 + 1, managers.length) : ((page - 1) * 50) + managers.length,
-      hasMore: Boolean(standingsData.has_next),
+      totalPages: pagination.has_next ? page + 1 : page,
+      totalEntries: pagination.has_next ? Math.max(page * 50 + 1, managers.length) : ((page - 1) * 50) + managers.length,
+      hasMore: Boolean(pagination.has_next),
       noData: false,
       leagueAvgGW: eventScores.length ? Math.round(eventScores.reduce((sum, score) => sum + score, 0) / eventScores.length) : 0,
       topScoreGW: eventScores.length ? Math.max(...eventScores) : 0,

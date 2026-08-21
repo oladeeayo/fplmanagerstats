@@ -222,6 +222,22 @@ const FPL = {
             this.state.managerId = managerId;
             localStorage.setItem('fplManagerId', managerId);
 
+            try {
+                const leagueData = await this.apiFetch(this.API.managerLeagues(managerId));
+                const privateLeagues = (leagueData.leagues || []).filter(league => league.type === 'private');
+                this.state.managerLeagues = privateLeagues;
+                const storedLeagueId = localStorage.getItem('fplLeagueId');
+                const defaultLeagueId = storedLeagueId || leagueData.defaultLeagueId;
+                if (defaultLeagueId) {
+                    this.state.leagueId = String(defaultLeagueId);
+                    this.state.selectedLeagueId = Number(defaultLeagueId);
+                    localStorage.setItem('fplLeagueId', String(defaultLeagueId));
+                }
+                this.renderLeagueSelector();
+            } catch (err) {
+                console.error('Error loading manager leagues:', err);
+            }
+
             // Update manager ID display in sidebar
             const display = document.getElementById('manager-id-display');
             if (display) {
@@ -1835,6 +1851,10 @@ const FPL = {
         
         const tbody = document.getElementById('league-standings-body');
         if (!tbody) return;
+        if (!leagueId) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:var(--space-lg);color:var(--md-sys-color-on-surface-variant);">Connect a manager or enter a league ID to view standings.</td></tr>';
+            return;
+        }
 
         try {
             const cacheKey = `league-${leagueId}-${page}`;
@@ -1946,13 +1966,14 @@ const FPL = {
 
     renderStandingsPagination(data) {
         const page = data.page || 1;
-        const totalPages = Math.min(5, data.totalPages || 1);
+        const totalPages = Math.max(1, data.totalPages || 1);
         const startNum = (page - 1) * 50 + 1;
-        const endNum = Math.min(startNum + (data.managers?.length || 0) - 1, 250);
+        const endNum = startNum + (data.managers?.length || 0) - 1;
         
         const countEl = document.getElementById('standings-showing-count');
         if (countEl) {
-            countEl.textContent = `Showing ${startNum}-${endNum} of ${Math.min(250, data.totalEntries || 250)} Managers`;
+            const total = data.hasMore ? `${data.totalEntries}+` : data.totalEntries;
+            countEl.textContent = `Showing ${startNum}-${endNum} of ${total} managers`;
         }
 
         const controlsEl = document.getElementById('standings-pagination-controls');
@@ -1979,14 +2000,34 @@ const FPL = {
     },
 
     changeStandingsPage(p) {
-        if (p < 1 || p > 5) return;
+        const totalPages = Math.max(1, this.state.standingsData?.totalPages || 1);
+        if (p < 1 || p > totalPages) return;
         this.state.standingsPage = p;
         this.renderLeague();
+    },
+
+    renderLeagueSelector() {
+        const select = document.getElementById('league-select');
+        if (!select) return;
+        const leagues = this.state.managerLeagues || [];
+        const selectedId = Number(this.state.selectedLeagueId || this.state.leagueId);
+        if (leagues.length === 0) {
+            select.style.display = 'none';
+            return;
+        }
+        select.innerHTML = leagues.map(league => `<option value="${league.id}">${this.escapeHTML(league.name)} (${league.id})</option>`).join('');
+        if (selectedId && !leagues.some(league => league.id === selectedId)) {
+            select.insertAdjacentHTML('afterbegin', `<option value="${selectedId}">Connected league (${selectedId})</option>`);
+        }
+        select.value = String(selectedId || leagues[0].id);
+        select.style.display = '';
     },
 
     switchLeague(leagueId) {
         if (!leagueId) return;
         this.state.selectedLeagueId = Number(leagueId);
+        this.state.leagueId = String(leagueId);
+        localStorage.setItem('fplLeagueId', String(leagueId));
         this.state.standingsPage = 1;
         const select = document.getElementById('league-select');
         if (select) select.value = String(this.state.selectedLeagueId);
@@ -3984,6 +4025,7 @@ const FPL = {
         localStorage.setItem('fplManagerId', id);
         if (leagueId) {
             this.state.leagueId = String(leagueId);
+            this.state.selectedLeagueId = Number(leagueId);
             localStorage.setItem('fplLeagueId', String(leagueId));
         }
         this.loadManagerData(id).then(() => {
@@ -4005,6 +4047,7 @@ const FPL = {
         localStorage.setItem('fplManagerId', id);
         if (leagueId) {
             this.state.leagueId = String(leagueId);
+            this.state.selectedLeagueId = Number(leagueId);
             localStorage.setItem('fplLeagueId', String(leagueId));
         }
         this.hideDialog('connect-dialog');
