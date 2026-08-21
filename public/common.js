@@ -512,8 +512,8 @@ const FPL = {
     teamBadge(shortName, size) {
         size = size || 24;
         const url = this.getTeamLogo(shortName);
-        if (!url) return '<span style="display:inline-block;width:' + size + 'px;height:' + size + 'px;border-radius:4px;background:#1c211e;border:1px solid #1A2E28;"></span>';
-        return '<img src="' + url + '" style="width:' + size + 'px;height:' + size + 'px;border-radius:4px;object-fit:contain;background:#1c211e;border:1px solid #1A2E28;" onerror="this.style.display=\'none\'">';
+        if (!url) return '<span style="display:inline-block;width:' + size + 'px;height:' + size + 'px;border-radius:4px;background:rgba(24,24,27,0.7);border:1px solid rgba(255,255,255,0.08);"></span>';
+        return '<img src="' + url + '" style="width:' + size + 'px;height:' + size + 'px;border-radius:4px;object-fit:contain;background:rgba(24,24,27,0.7);border:1px solid rgba(255,255,255,0.08);" onerror="this.style.display=\'none\'">';
     },
 
     getPlayerFixture(playerId, gw) {
@@ -3088,7 +3088,7 @@ const FPL = {
                                 <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#00FF85;">${xp}</td>
                                 <td style="text-align:center;font-size:10px;padding:4px 2px;"><div style="display:flex;gap:1px;justify-content:center;">${fx}</div></td>
                                 <td style="text-align:center;font-size:11px;font-weight:600;">${role}</td>
-                                <td style="text-align:center;"><button onclick="FPL.suggestAITeamTransfer(${p.id})" title="Find replacement" style="padding:4px 8px;border:1px solid #294138;border-radius:4px;background:transparent;color:#8ba396;font-size:10px;cursor:pointer;transition:all 0.15s;"><span class="material-symbols-outlined" style="font-size:14px;">swap_horiz</span></button></td>
+                                <td style="text-align:center;"><button onclick="FPL.suggestAITeamTransfer(${p.id})" title="Find replacement" style="padding:4px 8px;border:1px solid rgba(255,255,255,0.08);border-radius:6px;background:transparent;color:#8ba396;font-size:10px;cursor:pointer;transition:all 0.15s;"><span class="material-symbols-outlined" style="font-size:14px;">swap_horiz</span></button></td>
                             </tr>`;
                         }).join('')}</tbody>
                     </table>
@@ -3185,7 +3185,7 @@ const FPL = {
                     ${chipList.map(c => {
                         const name = chipNames[c.chip] || c.chip;
                         const color = chipColors[c.chip] || '#00FF85';
-                        return `<div class="aiteam-chip-card" style="border-color:${color}55;padding:12px;border:1px solid ${color}33;border-radius:6px;background:#141916;">
+                        return `<div class="aiteam-chip-card" style="border-color:${color}55;padding:12px;border:1px solid ${color}33;border-radius:8px;background:var(--glass-bg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);">
                             <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><span class="material-symbols-outlined" style="color:${color};font-size:18px;">${chipIcons[c.chip] || 'auto_awesome'}</span><span style="font-weight:700;color:#fff;font-size:13px;">${name}</span></div>
                             <div style="color:${color};font-weight:700;font-size:14px;">GW ${c.gameweek}</div>
                             <div style="color:#8ba396;font-size:10px;margin-top:4px;">${c.reason || ''}</div>
@@ -3230,10 +3230,10 @@ const FPL = {
                 mostSelectedTbody.innerHTML = data.mostSelected.map((p, idx) => {
                     const barColor = idx === 0 ? '#00FF85' : idx === 1 ? '#00FF85' : idx === 2 ? '#E1E1E1' : idx === 3 ? '#FFA600' : '#FF005A';
                     const clickAction = p.id ? `FPL.showPlayerDetail(${p.id})` : `FPL.openPlayersByPosition('${p.pos}')`;
-                    return `<tr style="border-bottom:1px solid #1A2E28;transition:background 0.2s;cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'" onclick="${clickAction}">
-                        <td style="padding:8px 10px;display:flex;align-items:center;gap:8px;background:#141916;position:relative;">
+                    return `<tr style="border-bottom:1px solid rgba(255,255,255,0.06);transition:background 0.2s;cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'" onclick="${clickAction}">
+                        <td style="padding:8px 10px;display:flex;align-items:center;gap:8px;background:rgba(24,24,27,0.8);position:relative;">
                             <div style="width:3px;height:24px;border-radius:999px;background:${barColor};flex-shrink:0;"></div>
-                            <div class="player-photo-shell" style="width:32px;height:32px;border-radius:50%;border:1px solid #1A2E28;">
+                            <div class="player-photo-shell" style="width:32px;height:32px;border-radius:50%;border:1px solid rgba(255,255,255,0.08);">
                                 ${this.playerPhotoMarkup(p, `${p.name || p.web_name || 'FPL Player'} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}
                             </div>
                             <div style="min-width:0;flex:1;">
@@ -3251,7 +3251,7 @@ const FPL = {
             if (fdrHeaderRow && data.nextGWs) {
                 const dashSortGW = this.state.dashFDRSortGW || null;
                 const dashSortAsc = this.state.dashFDRSortAsc !== false;
-                fdrHeaderRow.innerHTML = `<th style="padding:8px 12px;text-align:left;color:#8ba396;background:#141916;position:sticky;left:0;z-index:2;">Team</th>` +
+                fdrHeaderRow.innerHTML = `<th style="padding:8px 12px;text-align:left;color:#8ba396;background:rgba(24,24,27,0.8);position:sticky;left:0;z-index:2;">Team</th>` +
                     data.nextGWs.map(gw => {
                         const isSorted = dashSortGW === gw;
                         const arrow = isSorted ? (dashSortAsc ? ' ▲' : ' ▼') : '';
@@ -3275,8 +3275,8 @@ const FPL = {
                     });
                 }
                 fdrTbody.innerHTML = grid.map(row => `
-                    <tr style="border-bottom:1px solid #1A2E28;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
-                        <td style="padding:8px 12px;text-align:left;font-weight:700;color:#ffffff;font-size:12px;font-family:var(--font-mono);background:#141916;white-space:nowrap;">${row.team}</td>
+                    <tr style="border-bottom:1px solid rgba(255,255,255,0.06);transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
+                        <td style="padding:8px 12px;text-align:left;font-weight:700;color:#ffffff;font-size:12px;font-family:var(--font-mono);background:rgba(24,24,27,0.8);white-space:nowrap;">${row.team}</td>
                         ${row.fixtures.map((f, i) => {
                             if (Array.isArray(f)) {
                                 return `<td style="padding:4px;"><div style="display:flex;flex-direction:column;gap:2px;">${f.map(item => `<div class="mono" style="font-size:10px;font-weight:700;padding:3px 6px;border-radius:4px;${fdrColors[item.fdr] || fdrColors[3]}">${item.label}</div>`).join('')}</div></td>`;
@@ -3294,7 +3294,7 @@ const FPL = {
             if (transfersInContainer) {
                 transfersInContainer.innerHTML = data.topTransfersIn?.length ? data.topTransfersIn.map(p => `
                     <div style="display:flex;align-items:center;gap:10px;padding:4px 0;">
-                        <div class="player-photo-shell" style="width:32px;height:32px;border-radius:50%;border:1px solid #1A2E28;">
+                        <div class="player-photo-shell" style="width:32px;height:32px;border-radius:50%;border:1px solid rgba(255,255,255,0.08);">
                             ${this.playerPhotoMarkup(p, `${p.name || p.web_name || 'FPL Player'} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}
                         </div>
                         <div style="flex:1;min-width:0;">
@@ -3326,7 +3326,7 @@ const FPL = {
             if (transfersOutContainer) {
                 transfersOutContainer.innerHTML = data.topTransfersOut.length > 0 ? data.topTransfersOut.map((p, idx) => `
                     <div style="display:flex;align-items:center;gap:10px;padding:8px 0;${idx < data.topTransfersOut.length - 1 ? 'border-bottom:1px solid #19261f;' : ''}">
-                        <div style="width:32px;height:32px;border-radius:50%;background:#1c2720;border:1px solid #28392e;display:flex;align-items:center;justify-content:center;font-weight:700;color:#FF005A;font-size:12px;">${idx + 1}</div>
+                        <div style="width:32px;height:32px;border-radius:50%;background:rgba(24,24,27,0.6);border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-weight:700;color:#FF005A;font-size:12px;">${idx + 1}</div>
                         <div style="flex:1;min-width:0;">
                             <div style="font-size:14px;font-weight:700;color:#ffffff;">${p.name}</div>
                             <div style="font-size:11px;color:#8ba396;font-family:var(--font-mono);">${p.team} • ${p.pos} • £${p.price || '?'}m</div>
@@ -3747,9 +3747,9 @@ const FPL = {
             const playersToRender = team;
 
             squadTbody.innerHTML = playersToRender.map(p => `
-                <tr style="border-bottom:1px solid #16251e;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
-                    <td style="padding:4px 6px;background:#141916;max-width:120px;overflow:hidden;display:flex;align-items:center;gap:6px;">
-                        <div class="player-photo-shell" style="width:24px;height:24px;border-radius:50%;border:1px solid #28392e;">${this.playerPhotoMarkup(p, `${p.webName || p.name} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}</div>
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.06);transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                    <td style="padding:4px 6px;background:rgba(24,24,27,0.8);max-width:120px;overflow:hidden;display:flex;align-items:center;gap:6px;">
+                        <div class="player-photo-shell" style="width:24px;height:24px;border-radius:50%;border:1px solid rgba(255,255,255,0.08);">${this.playerPhotoMarkup(p, `${p.webName || p.name} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}</div>
                         <span style="font-weight:700;color:#ffffff;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.webName || p.name}</span>
                     </td>
                     <td style="text-align:center;color:#ffffff;font-family:var(--font-mono);font-size:11px;">${p.totalPoints || p.points || 0}</td>
@@ -4001,7 +4001,7 @@ const FPL = {
             const decimals = per90 ? 2 : 1;
 
             return `
-                <tr style="border-bottom:1px solid #1A2E28;transition:background 0.2s;${isEven ? 'background:rgba(49,54,51,0.15);' : ''}cursor:pointer;" onclick="FPL.showPlayerDetail(${p.id})" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='${isEven ? 'rgba(49,54,51,0.15)' : 'transparent'}'">
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.06);transition:background 0.2s;${isEven ? 'background:rgba(255,255,255,0.02);' : ''}cursor:pointer;" onclick="FPL.showPlayerDetail(${p.id})" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='${isEven ? 'rgba(255,255,255,0.02)' : 'transparent'}'">
                     <td style="padding:4px 6px;background:${isEven ? '#1E1E1E' : '#1A1A1A'};max-width:110px;overflow:hidden;">
                         <div style="display:flex;align-items:center;gap:6px;">
                             <div class="player-photo-shell" style="width:28px;height:28px;border-radius:50%;border:1px solid #333;">
@@ -4339,8 +4339,8 @@ const FPL = {
 
                 const teamAccentColor = fdrColors[avgFDR]?.bg || '#37DB59';
 
-                return `<tr style="border-bottom:1px solid #1A2E28;background:${isEven ? '#181d1a' : '#0f1412'};">
-                    <td style="padding:4px 6px;background:${isEven ? '#181d1a' : '#0f1412'};max-width:60px;overflow:hidden;text-overflow:ellipsis;font-family:var(--font-mono);font-size:10px;font-weight:700;color:#00ff85;position:sticky;left:0;z-index:1;border-right:2px solid rgba(255,255,255,0.08);">
+                return `<tr style="border-bottom:1px solid rgba(255,255,255,0.06);background:${isEven ? 'rgba(24,24,27,0.6)' : 'rgba(24,24,27,0.5)'};">
+                    <td style="padding:4px 6px;background:${isEven ? 'rgba(24,24,27,0.6)' : 'rgba(24,24,27,0.5)'};max-width:60px;overflow:hidden;text-overflow:ellipsis;font-family:var(--font-mono);font-size:10px;font-weight:700;color:#00ff85;position:sticky;left:0;z-index:1;border-right:2px solid rgba(255,255,255,0.08);">
                         <div style="display:flex;align-items:center;gap:4px;">
                             <div style="width:3px;height:14px;background:${teamAccentColor};border-radius:999px;flex-shrink:0;"></div>
                             <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${team.short_name}</span>
@@ -6268,20 +6268,20 @@ const FPL = {
         container.innerHTML = `<div style="display:flex;flex-direction:column;gap:20px;">
             <!-- Season Stats Banner -->
             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:12px;">
-                <div style="background:#141916;border:1px solid #1A2E28;border-radius:10px;padding:16px;text-align:center;">
+                <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:12px;padding:16px;text-align:center;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);">
                     <div style="font-size:0.7rem;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);letter-spacing:0.05em;margin-bottom:4px;">Total Points</div>
                     <div style="font-size:1.5rem;font-weight:700;color:#00FF85;font-family:var(--font-mono);">${totalPts}</div>
                 </div>
-                <div style="background:#141916;border:1px solid #1A2E28;border-radius:10px;padding:16px;text-align:center;">
+                <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:12px;padding:16px;text-align:center;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);">
                     <div style="font-size:0.7rem;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);letter-spacing:0.05em;margin-bottom:4px;">Avg / GW</div>
                     <div style="font-size:1.5rem;font-weight:700;color:#ffffff;font-family:var(--font-mono);">${avgPts}</div>
                 </div>
-                <div style="background:#141916;border:1px solid #1A2E28;border-radius:10px;padding:16px;text-align:center;">
+                <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:12px;padding:16px;text-align:center;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);">
                     <div style="font-size:0.7rem;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);letter-spacing:0.05em;margin-bottom:4px;">Best GW</div>
                     <div style="font-size:1.5rem;font-weight:700;color:#FFA600;font-family:var(--font-mono);">${bestGW}</div>
                     <div style="font-size:0.65rem;color:#6c8577;">GW${bestGWIdx}</div>
                 </div>
-                <div style="background:#141916;border:1px solid #1A2E28;border-radius:10px;padding:16px;text-align:center;">
+                <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:12px;padding:16px;text-align:center;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);">
                     <div style="font-size:0.7rem;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);letter-spacing:0.05em;margin-bottom:4px;">Bench Pts Lost</div>
                     <div style="font-size:1.5rem;font-weight:700;color:#E57373;font-family:var(--font-mono);">${totalBench}</div>
                 </div>
@@ -6294,7 +6294,7 @@ const FPL = {
                     <div class="table-scroll-mobile">
                         <table style="width:100%;border-collapse:collapse;font-size:12px;">
                             <thead>
-                                <tr style="border-bottom:2px solid #1A2E28;background:#1c211e;">
+                                <tr style="border-bottom:2px solid rgba(255,255,255,0.06);background:rgba(24,24,27,0.7);">
                                     <th style="text-align:center;font-family:var(--font-mono);font-size:9px;color:#8ba396;text-transform:uppercase;">GW</th>
                                     <th style="text-align:center;font-family:var(--font-mono);font-size:9px;color:#8ba396;text-transform:uppercase;">Points</th>
                                     <th style="text-align:center;font-family:var(--font-mono);font-size:9px;color:#8ba396;text-transform:uppercase;">Rank</th>
@@ -6308,13 +6308,13 @@ const FPL = {
                                     const bench = benchPts[i] || 0;
                                     const barWidth = bestGW > 0 ? Math.round((pts / bestGW) * 100) : 0;
                                     const ptsColor = pts >= 60 ? '#00FF85' : pts >= 40 ? '#FFA600' : pts >= 20 ? '#ffffff' : '#E57373';
-                                    return `<tr style="border-bottom:1px solid #16251e;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                                    return `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
                                         <td style="text-align:center;font-family:var(--font-mono);font-weight:700;color:#8ba396;font-size:10px;">${i + 1}</td>
                                         <td style="text-align:center;font-family:var(--font-mono);font-weight:700;color:${ptsColor};font-size:12px;">${pts}</td>
                                         <td style="text-align:center;font-family:var(--font-mono);color:#6c8577;font-size:10px;">${rank > 0 ? rank.toLocaleString() : '--'}</td>
                                         <td style="text-align:center;font-family:var(--font-mono);color:${bench > 0 ? '#E57373' : '#444'};font-size:10px;">${bench > 0 ? '-' + bench : '--'}</td>
                                         <td style="text-align:center;width:80px;">
-                                            <div style="height:4px;background:#1A2E28;border-radius:2px;overflow:hidden;">
+                                            <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">
                                                 <div style="height:100%;width:${barWidth}%;background:${ptsColor};border-radius:2px;"></div>
                                             </div>
                                         </td>
@@ -6345,14 +6345,14 @@ const FPL = {
                     <div class="table-scroll-mobile">
                         <table style="width:100%;border-collapse:collapse;font-size:12px;">
                             <thead>
-                                <tr style="border-bottom:2px solid #1A2E28;background:#1c211e;">
+                                <tr style="border-bottom:2px solid rgba(255,255,255,0.06);background:rgba(24,24,27,0.7);">
                                     <th style="text-align:left;font-family:var(--font-mono);font-size:9px;color:#8ba396;text-transform:uppercase;">Season</th>
                                     <th style="text-align:center;font-family:var(--font-mono);font-size:9px;color:#8ba396;text-transform:uppercase;">Points</th>
                                     <th style="text-align:center;font-family:var(--font-mono);font-size:9px;color:#8ba396;text-transform:uppercase;">Rank</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                ${seasonHistory.map(s => `<tr style="border-bottom:1px solid #16251e;">
+                                ${seasonHistory.map(s => `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
                                     <td style="font-weight:600;color:#ffffff;font-size:11px;">${s.season}</td>
                                     <td style="text-align:center;font-family:var(--font-mono);color:#00FF85;font-weight:700;font-size:11px;">${s.points?.toLocaleString() || '--'}</td>
                                     <td style="text-align:center;font-family:var(--font-mono);color:#6c8577;font-size:11px;">${s.rank?.toLocaleString() || '--'}</td>
@@ -6534,7 +6534,7 @@ const FPL = {
                 const posColor = posColors[p.position] || '#8ba396';
 
                 return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:' + bg + ';' + borderL + 'border-radius:6px;margin-bottom:2px;">'
-                    + '<div class="player-photo-shell" style="width:34px;height:34px;border-radius:50%;border:1px solid #1A2E28;">'
+                    + '<div class="player-photo-shell" style="width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,0.08);">'
                     + this.playerPhotoMarkup(p, p.name, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')
                     + '</div>'
                     + '<div style="flex:1;min-width:0;">'
@@ -6553,7 +6553,7 @@ const FPL = {
 
             let html = '';
             teamEntries.forEach(([shortName, team]) => {
-                html += '<tr style="border-bottom:1px solid #1A2E28;vertical-align:top;">';
+                html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.06);vertical-align:top;">';
 
                 // Team cell
                 html += '<td style="padding:16px 14px;min-width:140px;">'
