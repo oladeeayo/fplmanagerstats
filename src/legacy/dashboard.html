@@ -349,7 +349,7 @@
                         <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;min-height:120px;position:relative;">
                             <span class="mono" style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.08em;">MANAGER ID</span>
                             <form id="manager-id-form" style="display:flex;align-items:center;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:6px 8px;margin-top:12px;" onsubmit="event.preventDefault();FPL.connectManagerFromInput()">
-                                <input type="text" id="manager-id-input-field" value="1234567" aria-label="Manager ID" autocomplete="off" inputmode="numeric" style="background:transparent;border:none;outline:none;color:#ffffff;font-family:var(--font-mono);font-size:16px;font-weight:700;width:100%;padding:6px 8px;" oninput="FPL.searchManager('manager-id-input-field','manager-id-results')">
+                                <input type="text" id="manager-id-input-field" placeholder="Enter Manager ID" value="" aria-label="Manager ID" autocomplete="off" inputmode="numeric" style="background:transparent;border:none;outline:none;color:#ffffff;font-family:var(--font-mono);font-size:16px;font-weight:700;width:100%;padding:6px 8px;" oninput="FPL.searchManager('manager-id-input-field','manager-id-results')">
                                 <button type="submit" aria-label="Analyze manager ID" style="background:transparent;border:none;color:var(--md-sys-color-primary);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:4px;">
                                     <span class="material-symbols-outlined" style="font-size:18px;">search</span>
                                 </button>
@@ -361,8 +361,8 @@
                         <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;min-height:120px;">
                             <span class="mono" style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.08em;">OVERALL RANK</span>
                             <div>
-                                <div id="team-overall-rank" style="font-size:32px;font-weight:800;color:#ffffff;line-height:1.1;font-family:var(--font-display);">12,450</div>
-                                <div id="team-rank-change" class="mono" style="font-size:13px;font-weight:700;color:var(--md-sys-color-primary);margin-top:6px;">↑ 4,200</div>
+                                <div id="team-overall-rank" style="font-size:32px;font-weight:800;color:#ffffff;line-height:1.1;font-family:var(--font-display);">--</div>
+                                <div id="team-rank-change" class="mono" style="font-size:13px;font-weight:700;color:var(--md-sys-color-primary);margin-top:6px;">--</div>
                             </div>
                         </div>
 
@@ -370,8 +370,8 @@
                         <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;min-height:120px;">
                             <span class="mono" style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.08em;">TOTAL POINTS</span>
                             <div>
-                                <div id="team-total-points" style="font-size:32px;font-weight:800;color:#ffffff;line-height:1.1;font-family:var(--font-display);">1,842</div>
-                                <div id="team-gw-points-sub" class="mono" style="font-size:13px;font-weight:500;color:var(--md-sys-color-on-surface-variant);margin-top:6px;">GW: 64</div>
+                                <div id="team-total-points" style="font-size:32px;font-weight:800;color:#ffffff;line-height:1.1;font-family:var(--font-display);">--</div>
+                                <div id="team-gw-points-sub" class="mono" style="font-size:13px;font-weight:500;color:var(--md-sys-color-on-surface-variant);margin-top:6px;">GW: --</div>
                             </div>
                         </div>
 
@@ -379,9 +379,9 @@
                         <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;min-height:120px;">
                             <span class="mono" style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.08em;">TEMPLATE SCORE</span>
                             <div>
-                                <div id="team-template-score" style="font-size:32px;font-weight:800;color:#ffffff;line-height:1.1;font-family:var(--font-display);">84%</div>
+                                <div id="team-template-score" style="font-size:32px;font-weight:800;color:#ffffff;line-height:1.1;font-family:var(--font-display);">--%</div>
                                 <div style="height:6px;width:100%;background:rgba(255,255,255,0.06);border-radius:3px;margin-top:10px;overflow:hidden;">
-                                    <div id="team-template-score-bar" style="height:100%;width:84%;background:var(--md-sys-color-primary);border-radius:3px;"></div>
+                                    <div id="team-template-score-bar" style="height:100%;width:0%;background:var(--md-sys-color-primary);border-radius:3px;"></div>
                                 </div>
                             </div>
                         </div>

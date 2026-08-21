@@ -3631,6 +3631,12 @@ const FPL = {
         const info = m?.managerInfo;
         const team = m?.currentTeam;
 
+        // Pre-fill Manager ID input if connected
+        const idInput = document.getElementById('manager-id-input-field');
+        if (idInput && this.state.managerId && !idInput.value) {
+            idInput.value = this.state.managerId;
+        }
+
         // Top Bento Stats - use real data only, show '--' if unavailable
         const rankEl = document.getElementById('team-overall-rank');
         if (rankEl) rankEl.textContent = info?.overallRanking ? this.formatNumber(info.overallRanking) : '--';
