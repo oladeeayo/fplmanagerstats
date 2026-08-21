@@ -140,31 +140,22 @@
                     </button>
                     <div class="sidebar-section-items">
                         <a href="/" class="sidebar-nav-item active" data-tab="general" onclick="event.preventDefault();FPL.navigateTo('general')"><span class="material-symbols-outlined">dashboard</span> Dashboard</a>
-                        <a href="/league" class="sidebar-nav-item" data-tab="league" onclick="event.preventDefault();FPL.navigateTo('league')"><span class="material-symbols-outlined">leaderboard</span> Standings</a>
-                    </div>
-                </div>
-                <div class="sidebar-section-group">
-                    <button type="button" class="sidebar-section-toggle" onclick="this.parentElement.classList.toggle('collapsed')">
-                        <span class="material-symbols-outlined sidebar-section-chevron">expand_more</span>
-                        Analysis
-                    </button>
-                    <div class="sidebar-section-items">
                         <a href="/manager" class="sidebar-nav-item" data-tab="manager" onclick="event.preventDefault();FPL.navigateTo('manager')"><span class="material-symbols-outlined">groups</span> Team Analysis</a>
+                        <a href="/league" class="sidebar-nav-item" data-tab="league" onclick="event.preventDefault();FPL.navigateTo('league')"><span class="material-symbols-outlined">leaderboard</span> Standings</a>
                         <a href="/players" class="sidebar-nav-item" data-tab="players" onclick="event.preventDefault();FPL.navigateTo('players')"><span class="material-symbols-outlined">person_search</span> Player Stats</a>
-                        <a href="/tactics" class="sidebar-nav-item" data-tab="zones" onclick="event.preventDefault();FPL.navigateTo('zones')"><span class="material-symbols-outlined">sports</span> Tactics</a>
-                        <a href="/decision-lab" class="sidebar-nav-item" data-tab="decision" onclick="event.preventDefault();FPL.navigateTo('decision')"><span class="material-symbols-outlined">model_training</span> Decision Lab</a>
                     </div>
                 </div>
                 <div class="sidebar-section-group">
                     <button type="button" class="sidebar-section-toggle" onclick="this.parentElement.classList.toggle('collapsed')">
                         <span class="material-symbols-outlined sidebar-section-chevron">expand_more</span>
-                        Planning
+                        Insights
                     </button>
                     <div class="sidebar-section-items">
-                        <a href="/fixtures" class="sidebar-nav-item" data-tab="fixtures" onclick="event.preventDefault();FPL.navigateTo('fixtures')"><span class="material-symbols-outlined">calendar_month</span> Fixtures</a>
-                        <a href="/team-news" class="sidebar-nav-item" data-tab="teamnews" onclick="event.preventDefault();FPL.navigateTo('teamnews')"><span class="material-symbols-outlined">newspaper</span> Team News</a>
-                        <a href="/captaincy" class="sidebar-nav-item" data-tab="captain" onclick="event.preventDefault();FPL.navigateTo('captain')"><span class="material-symbols-outlined">star</span> Captaincy</a>
+                        <a href="/set-pieces" class="sidebar-nav-item" data-tab="setpieces" onclick="event.preventDefault();FPL.navigateTo('setpieces')"><span class="material-symbols-outlined">sports_motorsports</span> Set Pieces</a>
+                        <a href="/tactics" class="sidebar-nav-item" data-tab="zones" onclick="event.preventDefault();FPL.navigateTo('zones')"><span class="material-symbols-outlined">sports</span> Tactics</a>
                         <a href="/ownership" class="sidebar-nav-item" data-tab="ownership" onclick="event.preventDefault();FPL.navigateTo('ownership')"><span class="material-symbols-outlined">pie_chart</span> Ownership</a>
+                        <a href="/team-news" class="sidebar-nav-item" data-tab="teamnews" onclick="event.preventDefault();FPL.navigateTo('teamnews')"><span class="material-symbols-outlined">newspaper</span> Team News</a>
+                        <a href="/fixtures" class="sidebar-nav-item" data-tab="fixtures" onclick="event.preventDefault();FPL.navigateTo('fixtures')"><span class="material-symbols-outlined">calendar_month</span> Fixtures</a>
                     </div>
                 </div>
                 <div class="sidebar-section-group">
@@ -173,7 +164,8 @@
                         Tools
                     </button>
                     <div class="sidebar-section-items">
-                        <a href="/set-pieces" class="sidebar-nav-item" data-tab="setpieces" onclick="event.preventDefault();FPL.navigateTo('setpieces')"><span class="material-symbols-outlined">sports_motorsports</span> Set Pieces</a>
+                        <a href="/captaincy" class="sidebar-nav-item" data-tab="captain" onclick="event.preventDefault();FPL.navigateTo('captain')"><span class="material-symbols-outlined">star</span> Captaincy</a>
+                        <a href="/decision-lab" class="sidebar-nav-item" data-tab="decision" onclick="event.preventDefault();FPL.navigateTo('decision')"><span class="material-symbols-outlined">model_training</span> Decision Lab</a>
                         <a href="/ai-team" class="sidebar-nav-item" data-tab="aiteam" onclick="event.preventDefault();FPL.navigateTo('aiteam')"><span class="material-symbols-outlined">auto_awesome</span> Smart Team</a>
                         <a href="/team-builder" class="sidebar-nav-item" data-tab="teambuilder" onclick="event.preventDefault();FPL.navigateTo('teambuilder')"><span class="material-symbols-outlined">edit_square</span> Team Builder</a>
                     </div>
@@ -402,56 +394,56 @@
                             <!-- Goalkeepers -->
                             <div style="border-radius:16px;padding:20px;display:flex;align-items:center;gap:16px;">
                                 <div id="pos-gkp-img" style="width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);overflow:hidden;flex-shrink:0;">
-                                    <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="color:#444;font-size:28px;">person</span></div>
+                                    <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="color:var(--md-sys-color-on-surface-variant);font-size:28px;">person</span></div>
                                 </div>
                                 <div>
-                                    <span class="mono" style="font-size:10px;font-weight:700;color:#8ba396;text-transform:uppercase;letter-spacing:0.08em;">GOALKEEPERS</span>
-                                    <div style="font-size:26px;font-weight:800;color:#ffffff;margin-top:2px;display:flex;align-items:baseline;gap:6px;">
-                                        <span id="pos-gkp-pts">--</span> <span style="font-size:16px;color:#00FF85;font-weight:700;">pts</span>
+                                    <span class="mono" style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.08em;">GOALKEEPERS</span>
+                                    <div style="font-size:26px;font-weight:800;color:var(--md-sys-color-on-surface);margin-top:2px;display:flex;align-items:baseline;gap:6px;">
+                                        <span id="pos-gkp-pts">--</span> <span style="font-size:16px;color:var(--md-sys-color-primary);font-weight:700;">pts</span>
                                     </div>
-                                    <div id="pos-gkp-top" style="font-size:12px;color:#8ba396;margin-top:2px;">--</div>
+                                    <div id="pos-gkp-top" style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin-top:2px;">--</div>
                                 </div>
                             </div>
 
                             <!-- Defenders -->
                             <div style="border-radius:16px;padding:20px;display:flex;align-items:center;gap:16px;">
                                 <div id="pos-def-img" style="width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);overflow:hidden;flex-shrink:0;">
-                                    <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="color:#444;font-size:28px;">person</span></div>
+                                    <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="color:var(--md-sys-color-on-surface-variant);font-size:28px;">person</span></div>
                                 </div>
                                 <div>
-                                    <span class="mono" style="font-size:10px;font-weight:700;color:#8ba396;text-transform:uppercase;letter-spacing:0.08em;">DEFENDERS</span>
-                                    <div style="font-size:26px;font-weight:800;color:#ffffff;margin-top:2px;display:flex;align-items:baseline;gap:6px;">
-                                        <span id="pos-def-pts">--</span> <span style="font-size:16px;color:#00FF85;font-weight:700;">pts</span>
+                                    <span class="mono" style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.08em;">DEFENDERS</span>
+                                    <div style="font-size:26px;font-weight:800;color:var(--md-sys-color-on-surface);margin-top:2px;display:flex;align-items:baseline;gap:6px;">
+                                        <span id="pos-def-pts">--</span> <span style="font-size:16px;color:var(--md-sys-color-primary);font-weight:700;">pts</span>
                                     </div>
-                                    <div id="pos-def-top" style="font-size:12px;color:#8ba396;margin-top:2px;">--</div>
+                                    <div id="pos-def-top" style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin-top:2px;">--</div>
                                 </div>
                             </div>
 
                             <!-- Midfielders -->
                             <div style="border-radius:16px;padding:20px;display:flex;align-items:center;gap:16px;">
                                 <div id="pos-mid-img" style="width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);overflow:hidden;flex-shrink:0;">
-                                    <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="color:#444;font-size:28px;">person</span></div>
+                                    <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="color:var(--md-sys-color-on-surface-variant);font-size:28px;">person</span></div>
                                 </div>
                                 <div>
-                                    <span class="mono" style="font-size:10px;font-weight:700;color:#8ba396;text-transform:uppercase;letter-spacing:0.08em;">MIDFIELDERS</span>
-                                    <div style="font-size:26px;font-weight:800;color:#ffffff;margin-top:2px;display:flex;align-items:baseline;gap:6px;">
-                                        <span id="pos-mid-pts">--</span> <span style="font-size:16px;color:#00FF85;font-weight:700;">pts</span>
+                                    <span class="mono" style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.08em;">MIDFIELDERS</span>
+                                    <div style="font-size:26px;font-weight:800;color:var(--md-sys-color-on-surface);margin-top:2px;display:flex;align-items:baseline;gap:6px;">
+                                        <span id="pos-mid-pts">--</span> <span style="font-size:16px;color:var(--md-sys-color-primary);font-weight:700;">pts</span>
                                     </div>
-                                    <div id="pos-mid-top" style="font-size:12px;color:#8ba396;margin-top:2px;">--</div>
+                                    <div id="pos-mid-top" style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin-top:2px;">--</div>
                                 </div>
                             </div>
 
                             <!-- Forwards -->
                             <div style="border-radius:16px;padding:20px;display:flex;align-items:center;gap:16px;">
                                 <div id="pos-fwd-img" style="width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);overflow:hidden;flex-shrink:0;">
-                                    <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="color:#444;font-size:28px;">person</span></div>
+                                    <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="color:var(--md-sys-color-on-surface-variant);font-size:28px;">person</span></div>
                                 </div>
                                 <div>
-                                    <span class="mono" style="font-size:10px;font-weight:700;color:#8ba396;text-transform:uppercase;letter-spacing:0.08em;">FORWARDS</span>
-                                    <div style="font-size:26px;font-weight:800;color:#ffffff;margin-top:2px;display:flex;align-items:baseline;gap:6px;">
-                                        <span id="pos-fwd-pts">--</span> <span style="font-size:16px;color:#00FF85;font-weight:700;">pts</span>
+                                    <span class="mono" style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.08em;">FORWARDS</span>
+                                    <div style="font-size:26px;font-weight:800;color:var(--md-sys-color-on-surface);margin-top:2px;display:flex;align-items:baseline;gap:6px;">
+                                        <span id="pos-fwd-pts">--</span> <span style="font-size:16px;color:var(--md-sys-color-primary);font-weight:700;">pts</span>
                                     </div>
-                                    <div id="pos-fwd-top" style="font-size:12px;color:#8ba396;margin-top:2px;">--</div>
+                                    <div id="pos-fwd-top" style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin-top:2px;">--</div>
                                 </div>
                             </div>
                         </div>
@@ -563,14 +555,14 @@
                         </div>
                         <div style="display:flex;gap:var(--space-md);align-items:center;flex-wrap:wrap;">
                             <!-- Joined Leagues Dropdown -->
-                            <select id="league-select" style="width:200px;display:none;font-family:var(--font-mono);font-size:16px;background-color:#2A2A2A;color:#E0E0E0;border:1px solid #444444;border-radius:8px;padding:8px 32px 8px 12px;appearance:none;background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22%23B0B0B0%22%3E%3Cpath d=%22M7 10l5 5 5-5z%22/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 10px center;" onchange="FPL.switchLeague(this.value)">
+                            <select id="league-select" style="width:200px;display:none;font-family:var(--font-mono);font-size:16px;background-color:rgba(255,255,255,0.04);color:var(--md-sys-color-on-surface);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 32px 8px 12px;appearance:none;background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22%23B0B0B0%22%3E%3Cpath d=%22M7 10l5 5 5-5z%22/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 10px center;" onchange="FPL.switchLeague(this.value)">
                                 <option value="314">Overall Top 50k (314)</option>
                             </select>
 
                             <!-- Custom League ID Search Input -->
                             <div style="position:relative;width:200px;">
-                                <span class="material-symbols-outlined" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#B0B0B0;font-size:18px;">search</span>
-                                <input type="text" id="league-id-input" placeholder="Enter League ID..." style="padding-left:36px;width:100%;font-family:var(--font-mono);font-size:16px;background-color:#2A2A2A;color:#E0E0E0;border:1px solid #444444;border-radius:8px;padding:8px 12px 8px 36px;outline:none;">
+                                <span class="material-symbols-outlined" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--md-sys-color-on-surface-variant);font-size:18px;">search</span>
+                                <input type="text" id="league-id-input" placeholder="Enter League ID..." style="padding-left:36px;width:100%;font-family:var(--font-mono);font-size:16px;background-color:rgba(255,255,255,0.04);color:var(--md-sys-color-on-surface);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 12px 8px 36px;outline:none;">
                             </div>
                             <button class="btn btn-primary" onclick="FPL.loadCustomLeague()" style="white-space:nowrap;font-weight:700;padding:8px 20px;">
                                 Load League
@@ -630,9 +622,9 @@
                         <div class="league-table-wrap sticky-rank-player" tabindex="0" aria-label="League standings table">
                             <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:13px;white-space:nowrap;min-width:700px;">
                                 <thead>
-                                    <tr style="background:rgba(255,255,255,0.03);color:#E0E0E0;font-size:11px;font-family:var(--font-mono);">
-                                        <th style="text-align:left;width:40px;background:#022B1E;position:sticky;left:0;z-index:2;">RANK</th>
-                                        <th style="text-align:left;background:#022B1E;">MANAGER / TEAM</th>
+                                    <tr style="background:rgba(255,255,255,0.03);color:var(--md-sys-color-on-surface);font-size:11px;font-family:var(--font-mono);">
+                                        <th style="text-align:left;width:40px;background:rgba(24,24,27,0.9);position:sticky;left:0;z-index:2;">RANK</th>
+                                        <th style="text-align:left;background:rgba(24,24,27,0.9);">MANAGER / TEAM</th>
                                         <th style="text-align:center;">GW PTS</th>
                                         <th style="text-align:center;">TOTAL PTS</th>
                                         <th style="text-align:center;">RANK DIFF</th>
