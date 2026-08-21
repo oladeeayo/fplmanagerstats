@@ -97,6 +97,7 @@ const FPL = {
         goalsConceded: (gw, horizon) => `/api/goals-conceded?gw=${gw || ''}&horizon=${horizon || 6}`,
         rollingFDR: (gw) => `/api/rolling-fdr?gw=${gw || ''}`,
         managerLookup: (id) => `/api/manager-lookup/${id}`,
+        managerLeagues: (id) => `/api/manager-leagues/${id}`,
     },
 
     async apiFetch(url) {
@@ -5922,6 +5923,7 @@ const FPL = {
     },
 
     _managerSearchTimers: {},
+    _selectedLeagueId: {},
 
     searchManager(inputId, resultsId) {
         const input = document.getElementById(inputId);
@@ -5941,13 +5943,90 @@ const FPL = {
                 const data = await this.apiFetch(this.API.managerLookup(val));
                 const name = data.name || 'Unknown Team';
                 const owner = [data.playerFirstName, data.playerLastName].filter(Boolean).join(' ');
-                resultsEl.innerHTML = `<div style="padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;" onmousedown="FPL.selectManagerResult('${inputId}','${resultsId}',${data.id},'${this.escapeHTML(name).replace(/'/g, "\\'")}')"><span class="material-symbols-outlined" style="font-size:16px;color:#00FF85;">check_circle</span><div><div style="font-size:13px;font-weight:600;color:var(--md-sys-color-on-surface);">${this.escapeHTML(name)}</div><div style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">${this.escapeHTML(owner)} · ID: ${data.id}</div></div></div>`;
+                const nameEsc = this.escapeHTML(name).replace(/'/g, "\\'");
+                const ownerEsc = this.escapeHTML(owner).replace(/'/g, "\\'");
+                resultsEl.innerHTML = `<div style="padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;" onmousedown="FPL.selectManagerAndLoadLeagues('${inputId}','resultsId',${data.id},'${nameEsc}','${ownerEsc}')"><span class="material-symbols-outlined" style="font-size:16px;color:#00FF85;">check_circle</span><div><div style="font-size:13px;font-weight:600;color:var(--md-sys-color-on-surface);">${this.escapeHTML(name)}</div><div style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">${this.escapeHTML(owner)} · ID: ${data.id}</div></div></div>`;
                 resultsEl.style.display = 'block';
             } catch {
                 resultsEl.innerHTML = '<div style="padding:8px 12px;color:var(--md-sys-color-error,#f44336);font-size:12px;">Manager not found</div>';
                 resultsEl.style.display = 'block';
             }
         }, 300);
+    },
+
+    async selectManagerAndLoadLeagues(inputId, resultsId, id, name, owner) {
+        const input = document.getElementById(inputId);
+        const resultsEl = document.getElementById(resultsId);
+        if (input) input.value = id;
+        if (!resultsEl) return;
+        this._selectedLeagueId[inputId] = null;
+        resultsEl.innerHTML = `<div style="padding:8px 12px;display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:16px;color:#00FF85;">check_circle</span><div><div style="font-size:13px;font-weight:600;color:var(--md-sys-color-on-surface);">${this.escapeHTML(name)}</div><div style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">${this.escapeHTML(owner)} · ID: ${id}</div></div></div><div style="padding:4px 12px 8px;color:var(--md-sys-color-on-surface-variant);font-size:11px;">Loading leagues...</div>`;
+        try {
+            const leagueData = await this.apiFetch(this.API.managerLeagues(id));
+            const leagues = leagueData.leagues || [];
+            const privateLeagues = leagues.filter(l => l.type === 'private');
+            const systemLeagues = leagues.filter(l => l.type === 'system');
+            let html = `<div style="padding:8px 12px;display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:16px;color:#00FF85;">check_circle</span><div><div style="font-size:13px;font-weight:600;color:var(--md-sys-color-on-surface);">${this.escapeHTML(name)}</div><div style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">${this.escapeHTML(owner)} · ID: ${id}</div></div></div>`;
+            if (privateLeagues.length > 0) {
+                html += '<div style="padding:6px 12px 4px;font-size:10px;font-weight:600;color:var(--md-sys-color-primary,#00FF85);text-transform:uppercase;letter-spacing:0.08em;">Your Leagues</div>';
+                privateLeagues.forEach(l => {
+                    const rankText = l.rank ? `#${l.rank}` : l.percentileRank ? `Top ${l.percentileRank}%` : '';
+                    html += `<div style="padding:6px 12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--md-sys-color-on-surface);border-radius:4px;margin:0 4px;" onmouseover="this.style.background='rgba(0,255,133,0.1)'" onmouseout="this.style.background='transparent'" onmousedown="FPL.selectLeague('${inputId}','resultsId',${l.id},'${this.escapeHTML(l.name).replace(/'/g, "\\'")}')"><span style="display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:14px;color:var(--md-sys-color-on-surface-variant);">shield</span>${this.escapeHTML(l.name)}${l.admin ? '<span style="font-size:9px;padding:1px 4px;background:rgba(0,255,133,0.15);color:#00FF85;border-radius:4px;">Admin</span>' : ''}</span><span style="font-size:11px;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);">${rankText}</span></div>`;
+                });
+            }
+            if (systemLeagues.length > 0) {
+                html += '<div style="padding:6px 12px 4px;font-size:10px;font-weight:600;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.08em;">System Leagues</div>';
+                systemLeagues.slice(0, 3).forEach(l => {
+                    html += `<div style="padding:6px 12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--md-sys-color-on-surface);border-radius:4px;margin:0 4px;" onmouseover="this.style.background='rgba(0,255,133,0.1)'" onmouseout="this.style.background='transparent'" onmousedown="FPL.selectLeague('${inputId}','resultsId',${l.id},'${this.escapeHTML(l.name).replace(/'/g, "\\'")}')"><span style="display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:14px;color:var(--md-sys-color-on-surface-variant);">public</span>${this.escapeHTML(l.name)}</span><span style="font-size:11px;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);">${l.rank ? '#' + l.rank : ''}</span></div>`;
+                });
+            }
+            html += '<div style="padding:6px 12px 4px;font-size:10px;font-weight:600;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.08em;">Or enter custom league</div>';
+            html += `<div style="padding:6px 12px;display:flex;gap:6px;margin:0 4px;" onmousedown="event.stopPropagation()"><input type="number" id="${inputId}-custom-league" placeholder="League ID" min="1" inputmode="numeric" style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:6px 8px;color:var(--md-sys-color-on-surface);font-size:12px;font-family:var(--font-mono);outline:none;" onfocus="this.style.borderColor='rgba(0,255,133,0.5)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"><button type="button" onclick="FPL.selectCustomLeague('${inputId}','resultsId')" style="background:rgba(0,255,133,0.15);border:1px solid rgba(0,255,133,0.3);color:#00FF85;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:600;cursor:pointer;">Set</button></div>`;
+            resultsEl.innerHTML = html;
+        } catch {
+            resultsEl.innerHTML = `<div style="padding:8px 12px;display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:16px;color:#00FF85;">check_circle</span><div><div style="font-size:13px;font-weight:600;color:var(--md-sys-color-on-surface);">${this.escapeHTML(name)}</div><div style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">${this.escapeHTML(owner)} · ID: ${id}</div></div></div><div style="padding:4px 12px 8px;font-size:11px;color:var(--md-sys-color-on-surface-variant);">Could not load leagues. You can still connect.</div>`;
+        }
+    },
+
+    selectLeague(inputId, resultsId, leagueId, leagueName) {
+        const input = document.getElementById(inputId);
+        const resultsEl = document.getElementById(resultsId);
+        this._selectedLeagueId[inputId] = leagueId;
+        if (resultsEl) {
+            const leagueInput = document.getElementById(inputId + '-custom-league');
+            if (leagueInput) leagueInput.value = '';
+            const items = resultsEl.querySelectorAll('div[onmousedown]');
+            items.forEach(item => {
+                if (item.textContent.includes(leagueName)) {
+                    item.style.background = 'rgba(0,255,133,0.2)';
+                    item.style.border = '1px solid rgba(0,255,133,0.3)';
+                } else {
+                    item.style.background = '';
+                    item.style.border = '';
+                }
+            });
+        }
+        if (input) {
+            const customLeagueInput = document.getElementById(inputId + '-custom-league');
+            if (customLeagueInput) customLeagueInput.value = leagueId;
+        }
+    },
+
+    selectCustomLeague(inputId, resultsId) {
+        const customInput = document.getElementById(inputId + '-custom-league');
+        if (!customInput) return;
+        const val = customInput.value.trim();
+        if (!/^\d+$/.test(val)) return;
+        this._selectedLeagueId[inputId] = Number(val);
+        const resultsEl = document.getElementById(resultsId);
+        if (resultsEl) {
+            const items = resultsEl.querySelectorAll('div[onmousedown]');
+            items.forEach(item => {
+                item.style.background = '';
+                item.style.border = '';
+            });
+            customInput.style.borderColor = 'rgba(0,255,133,0.5)';
+        }
     },
 
     selectManagerResult(inputId, resultsId, id, name) {
@@ -5965,31 +6044,34 @@ const FPL = {
             input?.focus();
             return;
         }
+        const leagueId = this._selectedLeagueId?.['manager-id-input-field'] || null;
         this.state.managerId = id;
         localStorage.setItem('fplManagerId', id);
+        if (leagueId) {
+            this.state.leagueId = String(leagueId);
+            localStorage.setItem('fplLeagueId', String(leagueId));
+        }
         this.loadManagerData(id).then(() => this.renderTeamAnalysis());
     },
 
     connectManager() {
         const input = document.getElementById('connect-manager-id');
         const id = input?.value?.trim();
-        const leagueInput = document.getElementById('connect-league-id');
-        const leagueId = leagueInput?.value?.trim();
         if (!/^\d+$/.test(id || '') || Number(id) < 1) {
             this.showError('Enter a valid Manager ID');
             input?.focus();
             return;
         }
-        if (leagueId && (!/^\d+$/.test(leagueId) || Number(leagueId) < 1)) {
+        const leagueId = this._selectedLeagueId?.['connect-manager-id'] || document.getElementById('connect-league-id')?.value?.trim();
+        if (leagueId && (!/^\d+$/.test(String(leagueId)) || Number(leagueId) < 1)) {
             this.showError('Enter a valid League ID');
-            leagueInput?.focus();
             return;
         }
         this.state.managerId = id;
         localStorage.setItem('fplManagerId', id);
         if (leagueId) {
-            this.state.leagueId = leagueId;
-            localStorage.setItem('fplLeagueId', leagueId);
+            this.state.leagueId = String(leagueId);
+            localStorage.setItem('fplLeagueId', String(leagueId));
         }
         this.hideDialog('connect-dialog');
         this.loadManagerData(id).then(() => this.render());

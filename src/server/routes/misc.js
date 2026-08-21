@@ -42,6 +42,32 @@ router.get('/manager-lookup/:id', async (req, res) => {
   }
 });
 
+// ---- Manager Leagues (list leagues a manager has joined) ----
+router.get('/manager-leagues/:id', async (req, res) => {
+  const id = parsePositiveId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Invalid manager ID' });
+  try {
+    const data = await getCachedApiData(`https://fantasy.premierleague.com/api/entry/${id}/`);
+    const leagues = (data.leagues?.classic || []).map(l => ({
+      id: l.id,
+      name: l.name,
+      rank: l.entry_rank,
+      lastRank: l.entry_last_rank,
+      percentileRank: l.entry_percentile_rank,
+      type: l.league_type === 'x' ? 'private' : 'system',
+      scoring: l.scoring,
+      totalEntries: l.rank_count,
+      admin: l.admin_entry === id,
+    }));
+    res.json({ leagues });
+  } catch (error) {
+    const status = error.response?.status || 500;
+    if (status === 404) return res.status(404).json({ error: 'Manager not found' });
+    logger.error({ err: error }, 'Manager leagues lookup error');
+    res.status(status).json({ error: 'Failed to fetch manager leagues' });
+  }
+});
+
 // ---- Bootstrap Static (proxied from FPL API, 5min cache) ----
 router.get('/bootstrap-static', async (req, res) => {
   try {
