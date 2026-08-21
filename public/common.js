@@ -6163,7 +6163,10 @@ const FPL = {
             this.state.leagueId = String(leagueId);
             localStorage.setItem('fplLeagueId', String(leagueId));
         }
-        this.loadManagerData(id).then(() => this.renderTeamAnalysis());
+        this.loadManagerData(id).then(() => {
+            this.refreshConnectionUI();
+            this.renderTeamAnalysis();
+        });
     },
 
     connectManager() {
@@ -6182,7 +6185,10 @@ const FPL = {
             localStorage.setItem('fplLeagueId', String(leagueId));
         }
         this.hideDialog('connect-dialog');
-        this.loadManagerData(id).then(() => this.render());
+        this.loadManagerData(id).then(() => {
+            this.refreshConnectionUI();
+            this.render();
+        });
     },
 
     openPlayersByPosition(pos) {
@@ -6206,7 +6212,10 @@ const FPL = {
         if (!id) return;
         this.state.managerId = id;
         localStorage.setItem('fplManagerId', id);
-        this.loadManagerData(id).then(() => this.render());
+        this.loadManagerData(id).then(() => {
+            this.refreshConnectionUI();
+            this.render();
+        });
     },
 
     clearData() {
