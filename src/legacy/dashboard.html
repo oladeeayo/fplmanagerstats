@@ -198,7 +198,6 @@
             <header class="topbar">
                 <div class="topbar-left">
                     <button id="mobile-menu-btn" class="mobile-menu-btn" type="button" aria-label="Open navigation menu" aria-expanded="false" aria-controls="sidebar"><span class="material-symbols-outlined" aria-hidden="true">menu</span></button>
-                    <span class="topbar-title"><span class="material-symbols-outlined filled" style="font-size:24px;">sports_soccer</span> FPL Manager Stats</span>
                 </div>
                 <div class="topbar-right">
                     <button class="btn btn-primary btn-sm" onclick="FPL.showDialog('connect-dialog')"><span class="material-symbols-outlined" style="font-size:18px;">link</span> Connect</button>
@@ -215,11 +214,11 @@
                             <p class="dash-meta-text">Last updated: <span id="dash-last-updated">just now</span></p>
                         </div>
                         <div class="dash-stat-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;">
-                            <div class="dash-stat-item" style="text-align:center;padding:8px 4px;border-right:1px solid #1A2E28;">
+                            <div class="dash-stat-item" style="text-align:center;padding:8px 4px;">
                                 <div class="dash-stat-label">AVG</div>
                                 <div class="dash-stat-value" id="dash-gw-avg">--</div>
                             </div>
-                            <div class="dash-stat-item" style="text-align:center;padding:8px 4px;border-right:1px solid #1A2E28;">
+                            <div class="dash-stat-item" style="text-align:center;padding:8px 4px;">
                                 <div class="dash-stat-label">BEST</div>
                                 <div class="dash-stat-value accent" id="dash-highest-score">--</div>
                             </div>
@@ -238,8 +237,8 @@
                     <div class="dash-main-grid" style="display:grid;grid-template-columns:repeat(12, 1fr);gap:24px;">
                         <!-- Left Column (8 cols) -->
                         <div style="grid-column:span 8;display:flex;flex-direction:column;gap:24px;">
-                            <section style="background:#141916;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;">
-                                <div style="padding:12px 16px;border-bottom:1px solid #1A2E28;display:flex;justify-content:space-between;align-items:center;background:rgba(28,33,30,0.5);">
+                            <section style="border-radius:16px;overflow:hidden;">
+                                <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;background:rgba(28,33,30,0.3);">
                                     <h3 style="font-size:15px;font-weight:600;color:#ffffff;margin:0;">Most Selected Players</h3>
                                     <button style="color:#00ff85;font-size:12px;font-weight:700;background:none;border:none;cursor:pointer;" onclick="FPL.navigateTo('players')">View All</button>
                                 </div>
@@ -260,13 +259,13 @@
                             </section>
 
                             <!-- Bottom Left: Fixture Difficulty (Next 5 GWs) -->
-                            <section style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;">
+                            <section style="border-radius:16px;padding:20px;">
                                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
                                     <h3 style="font-size:16px;font-weight:600;color:#ffffff;margin:0;display:flex;align-items:center;gap:8px;">
                                         <span class="material-symbols-outlined" style="color:#00ff85;font-size:20px;">calendar_month</span>
                                         Fixture Difficulty (Next 5 GWs)
                                     </h3>
-                                    <button style="background:#1c211e;border:1px solid #1A2E28;color:#8ba396;font-family:var(--font-mono);font-size:11px;padding:6px 12px;border-radius:4px;cursor:pointer;" onclick="FPL.navigateTo('fixtures')">Sort by FDR</button>
+                                    <button style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#8ba396;font-family:var(--font-mono);font-size:11px;padding:6px 12px;border-radius:8px;cursor:pointer;" onclick="FPL.navigateTo('fixtures')">Sort by FDR</button>
                                 </div>
                                 <div class="table-scroll-mobile sticky-first-column">
                                     <table style="width:100%;border-collapse:separate;border-spacing:0;text-align:center;min-width:500px;">
@@ -295,7 +294,7 @@
                         <!-- Right Column (4 cols) -->
                         <div style="grid-column:span 4;display:flex;flex-direction:column;gap:24px;">
                             <!-- Top Transfers In Card -->
-                            <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;">
+                            <div style="border-radius:16px;padding:20px;">
                                 <h3 style="font-size:16px;font-weight:600;color:#ffffff;margin:0 0 16px 0;display:flex;align-items:center;gap:8px;">
                                     <span class="material-symbols-outlined" style="color:#00ff85;font-size:20px;">trending_up</span>
                                     Top Transfers In
@@ -306,7 +305,7 @@
                             </div>
 
                             <!-- Top Transfers Out Card -->
-                            <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;">
+                            <div style="border-radius:16px;padding:20px;">
                                 <h3 style="font-size:16px;font-weight:600;color:#ffffff;margin:0 0 16px 0;display:flex;align-items:center;gap:8px;">
                                     <span class="material-symbols-outlined" style="color:#FF005A;font-size:20px;">trending_down</span>
                                     Top Transfers Out
@@ -317,7 +316,7 @@
                             </div>
 
                             <!-- Price Changes Card -->
-                            <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;">
+                            <div style="border-radius:16px;padding:20px;">
                                 <h3 style="font-size:16px;font-weight:600;color:#ffffff;margin:0 0 16px 0;display:flex;align-items:center;gap:8px;">
                                     <span class="material-symbols-outlined" style="color:#FFA600;font-size:20px;">payments</span>
                                     Price Changes (Tonight)
@@ -328,7 +327,7 @@
                             </div>
 
                             <!-- Injury & Suspension Alerts Card -->
-                            <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;">
+                            <div style="border-radius:16px;padding:20px;">
                                 <h3 style="font-size:16px;font-weight:600;color:#ffffff;margin:0 0 16px 0;display:flex;align-items:center;gap:8px;">
                                     <span class="material-symbols-outlined" style="color:#FF4D4D;font-size:20px;">healing</span>
                                     Injuries & Suspensions
@@ -404,8 +403,8 @@
                         <h2 style="font-size:18px;font-weight:700;color:#ffffff;margin:0 0 16px 0;font-family:var(--font-display);">Position Summary</h2>
                         <div class="team-bento-4" style="display:grid;grid-template-columns:repeat(4, 1fr);gap:24px;">
                             <!-- Goalkeepers -->
-                            <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;display:flex;align-items:center;gap:16px;">
-                                <div id="pos-gkp-img" style="width:56px;height:56px;border-radius:50%;background:#1c211e;border:1px solid #1A2E28;overflow:hidden;flex-shrink:0;">
+                            <div style="border-radius:16px;padding:20px;display:flex;align-items:center;gap:16px;">
+                                <div id="pos-gkp-img" style="width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);overflow:hidden;flex-shrink:0;">
                                     <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="color:#444;font-size:28px;">person</span></div>
                                 </div>
                                 <div>
@@ -418,8 +417,8 @@
                             </div>
 
                             <!-- Defenders -->
-                            <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;display:flex;align-items:center;gap:16px;">
-                                <div id="pos-def-img" style="width:56px;height:56px;border-radius:50%;background:#1c211e;border:1px solid #1A2E28;overflow:hidden;flex-shrink:0;">
+                            <div style="border-radius:16px;padding:20px;display:flex;align-items:center;gap:16px;">
+                                <div id="pos-def-img" style="width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);overflow:hidden;flex-shrink:0;">
                                     <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="color:#444;font-size:28px;">person</span></div>
                                 </div>
                                 <div>
@@ -432,8 +431,8 @@
                             </div>
 
                             <!-- Midfielders -->
-                            <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;display:flex;align-items:center;gap:16px;">
-                                <div id="pos-mid-img" style="width:56px;height:56px;border-radius:50%;background:#1c211e;border:1px solid #1A2E28;overflow:hidden;flex-shrink:0;">
+                            <div style="border-radius:16px;padding:20px;display:flex;align-items:center;gap:16px;">
+                                <div id="pos-mid-img" style="width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);overflow:hidden;flex-shrink:0;">
                                     <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="color:#444;font-size:28px;">person</span></div>
                                 </div>
                                 <div>
@@ -446,8 +445,8 @@
                             </div>
 
                             <!-- Forwards -->
-                            <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:20px;display:flex;align-items:center;gap:16px;">
-                                <div id="pos-fwd-img" style="width:56px;height:56px;border-radius:50%;background:#1c211e;border:1px solid #1A2E28;overflow:hidden;flex-shrink:0;">
+                            <div style="border-radius:16px;padding:20px;display:flex;align-items:center;gap:16px;">
+                                <div id="pos-fwd-img" style="width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);overflow:hidden;flex-shrink:0;">
                                     <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="color:#444;font-size:28px;">person</span></div>
                                 </div>
                                 <div>
@@ -464,7 +463,7 @@
                     <!-- Middle Charts Grid (Points Per Gameweek & Rank History) -->
                     <div class="team-bento-2" style="display:grid;grid-template-columns:repeat(2, 1fr);gap:24px;margin-bottom:24px;">
                         <!-- Points Per Gameweek -->
-                        <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:24px;display:flex;flex-direction:column;justify-content:space-between;min-height:300px;">
+                        <div style="border-radius:16px;padding:24px;display:flex;flex-direction:column;justify-content:space-between;min-height:300px;">
                             <h3 style="font-size:16px;font-weight:700;color:#ffffff;margin:0 0 20px 0;">Points Per Gameweek</h3>
                             <div id="points-per-gw-chart" style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;height:200px;padding:10px 0;">
                                 <div style="flex:1;background:linear-gradient(to top, #146138, #00FF85);height:40%;border-radius:4px 4px 0 0;"></div>
@@ -476,9 +475,9 @@
                         </div>
 
                         <!-- Rank History -->
-                        <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;padding:24px;display:flex;flex-direction:column;justify-content:space-between;min-height:300px;">
+                        <div style="border-radius:16px;padding:24px;display:flex;flex-direction:column;justify-content:space-between;min-height:300px;">
                             <h3 style="font-size:16px;font-weight:700;color:#ffffff;margin:0 0 20px 0;">Rank History</h3>
-                            <div style="flex:1;display:flex;align-items:center;justify-content:center;border:1px dashed #1E342B;border-radius:8px;background:rgba(20,25,22,0.5);">
+                            <div style="flex:1;display:flex;align-items:center;justify-content:center;border:1px dashed rgba(255,255,255,0.06);border-radius:12px;background:rgba(255,255,255,0.02);">
                                 <span style="font-size:13px;color:#8ba396;font-family:var(--font-mono);">Rank trend visualization</span>
                             </div>
                         </div>
@@ -487,7 +486,7 @@
                     <!-- Squad Performance Table Section -->
                     <div style="margin-bottom:24px;">
                         <h2 style="font-size:18px;font-weight:700;color:#ffffff;margin:0 0 16px 0;font-family:var(--font-display);">Squad Performance</h2>
-                        <div style="background:#141916;border:1px solid #1A2E28;border-radius:12px;overflow:clip;">
+                        <div style="border-radius:16px;overflow:clip;">
                             <div class="table-scroll-mobile sticky-first-column">
                                 <table class="squad-performance-table" style="width:100%;border-collapse:collapse;text-align:left;">
                                     <thead>
@@ -585,7 +584,7 @@
                     <!-- High-Level Stats Bento (3 Cards) -->
                     <div class="league-bento-3" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:24px;margin-bottom:24px;">
                         <!-- League Name & ID -->
-                        <div style="background:rgba(167,207,188,0.06);border:1px solid var(--md-sys-color-outline-variant);border-radius:var(--radius-lg);padding:var(--space-lg);position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;">
+                        <div style="border-radius:16px;padding:var(--space-lg);position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;">
                             <div style="position:absolute;right:-15px;top:-15px;opacity:0.08;pointer-events:none;">
                                 <span class="material-symbols-outlined" style="font-size:120px;">public</span>
                             </div>
@@ -600,7 +599,7 @@
                         </div>
 
                         <!-- Average Points -->
-                        <div style="background:rgba(167,207,188,0.06);border:1px solid var(--md-sys-color-outline-variant);border-radius:var(--radius-lg);padding:var(--space-lg);display:flex;flex-direction:column;justify-content:space-between;">
+                        <div style="border-radius:16px;padding:var(--space-lg);display:flex;flex-direction:column;justify-content:space-between;">
                             <div>
                                 <div style="font-size:0.6875rem;font-weight:700;color:var(--md-sys-color-on-surface-variant);letter-spacing:0.05em;font-family:var(--font-mono);margin-bottom:4px;">LEAGUE AVERAGE (GW)</div>
                                 <div style="display:flex;align-items:baseline;gap:6px;">
@@ -615,7 +614,7 @@
                         </div>
 
                         <!-- Top Score -->
-                        <div style="background:rgba(167,207,188,0.06);border:1px solid var(--md-sys-color-outline-variant);border-radius:var(--radius-lg);padding:var(--space-lg);display:flex;flex-direction:column;justify-content:space-between;">
+                        <div style="border-radius:16px;padding:var(--space-lg);display:flex;flex-direction:column;justify-content:space-between;">
                             <div>
                                 <div style="font-size:0.6875rem;font-weight:700;color:var(--md-sys-color-on-surface-variant);letter-spacing:0.05em;font-family:var(--font-mono);margin-bottom:4px;">TOP SCORE (GW)</div>
                                 <div style="display:flex;align-items:baseline;gap:6px;">
@@ -630,12 +629,12 @@
                     </div>
 
                     <!-- Data Table (Standings) -->
-                    <div style="background:#022B1E;border:1px solid #333333;border-radius:12px;overflow:clip;display:flex;flex-direction:column;">
+                    <div style="border-radius:16px;overflow:clip;display:flex;flex-direction:column;">
                         <div class="league-table-wrap sticky-rank-player" tabindex="0" aria-label="League standings table">
                             <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:13px;white-space:nowrap;min-width:700px;">
                                 <thead>
                                     <tr style="background:rgba(255,255,255,0.03);color:#E0E0E0;font-size:11px;font-family:var(--font-mono);">
-                                        <th style="text-align:left;width:40px;background:#022B1E;position:sticky;left:0;z-index:2;border-right:2px solid rgba(255,255,255,0.1);">RANK</th>
+                                        <th style="text-align:left;width:40px;background:#022B1E;position:sticky;left:0;z-index:2;">RANK</th>
                                         <th style="text-align:left;background:#022B1E;">MANAGER / TEAM</th>
                                         <th style="text-align:center;">GW PTS</th>
                                         <th style="text-align:center;">TOTAL PTS</th>
@@ -650,7 +649,7 @@
                         </div>
 
                         <!-- Table Footer Pagination -->
-                        <div style="padding:var(--space-md);border-top:1px solid var(--md-sys-color-outline-variant);background:var(--md-sys-color-surface-container-low);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:var(--space-md);font-family:var(--font-mono);font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">
+                        <div style="padding:var(--space-md);background:rgba(255,255,255,0.02);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:var(--space-md);font-family:var(--font-mono);font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">
                             <span id="standings-showing-count">Loading managers...</span>
                             <div id="standings-pagination-controls" style="display:flex;gap:6px;align-items:center;">
                                 <!-- Pagination buttons rendered dynamically -->
@@ -665,15 +664,15 @@
                     <div class="player-filter-bar" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;margin-bottom:24px;">
                         <h1 style="font-size:32px;font-weight:700;margin:0;">Global Player Stats</h1>
                         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-                            <div style="display:flex;align-items:center;gap:8px;background:#1E1E1E;border:1px solid #1A2E28;border-radius:8px;padding:6px 12px;">
+                            <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:6px 12px;">
                                 <span class="material-symbols-outlined" style="font-size:18px;color:#B0B0B0;">search</span>
                                 <input type="text" id="player-search" placeholder="Search players..." oninput="FPL.renderPlayers()" style="background:transparent;border:none;outline:none;color:#E0E0E0;font-family:var(--font-mono);font-size:12px;width:140px;" aria-label="Search players by name">
                             </div>
-                            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#8ba396;cursor:pointer;font-family:var(--font-mono);background:#1E1E1E;border:1px solid #1A2E28;border-radius:8px;padding:6px 12px;user-select:none;">
+                            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#8ba396;cursor:pointer;font-family:var(--font-mono);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:6px 12px;user-select:none;">
                                 <input type="checkbox" id="per90-toggle" aria-label="Show per 90 statistics" onchange="FPL.renderPlayers()" style="accent-color:#00FF85;width:14px;height:14px;">
                                 <span style="color:#B0B0B0;">Per 90</span>
                             </label>
-                            <div style="display:flex;align-items:center;gap:8px;background:#1E1E1E;border:1px solid #1A2E28;border-radius:8px;padding:6px 12px;">
+                            <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:6px 12px;">
                                 <span class="material-symbols-outlined" style="font-size:20px;color:#B0B0B0;">sort</span>
                                 <select id="player-sort" aria-label="Sort player statistics" onchange="FPL.sortByPlayerMetric(this.value)" style="background-color:transparent;color:#E0E0E0;border:none;outline:none;font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer;padding-right:16px;">
                                     <option value="pts">Total Points</option>
@@ -685,7 +684,7 @@
                                     <option value="ict">ICT Index</option>
                                 </select>
                             </div>
-                            <div class="player-position-filter" style="display:flex;gap:8px;background:#1E1E1E;border:1px solid #1A2E28;border-radius:8px;padding:4px;">
+                            <div class="player-position-filter" style="display:flex;gap:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:4px;">
                                 <button style="padding:6px 16px;border-radius:4px;font-family:var(--font-mono);font-size:12px;font-weight:700;border:none;cursor:pointer;background:rgba(0,255,133,0.16);color:#00FF85;" onclick="FPL.filterPlayers('all',this)">All</button>
                                 <button style="padding:6px 16px;border-radius:4px;font-family:var(--font-mono);font-size:12px;font-weight:700;border:none;cursor:pointer;background:transparent;color:#B0B0B0;" onclick="FPL.filterPlayers('GKP',this)">GKP</button>
                                 <button style="padding:6px 16px;border-radius:4px;font-family:var(--font-mono);font-size:12px;font-weight:700;border:none;cursor:pointer;background:transparent;color:#B0B0B0;" onclick="FPL.filterPlayers('DEF',this)">DEF</button>
@@ -696,12 +695,12 @@
                     </div>
 
                     <!-- Data Table Container -->
-                    <div style="background:#1E1E1E;border:1px solid #1A2E28;border-radius:12px;overflow:clip;">
+                    <div style="border-radius:16px;overflow:clip;">
                         <div class="players-table-wrap sticky-first-column" tabindex="0" aria-label="Player statistics table">
                             <table class="players-data-table" style="width:100%;border-collapse:separate;border-spacing:0;white-space:nowrap;">
-                                <thead style="background:#333333;font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.03em;">
+                                <thead style="background:rgba(255,255,255,0.03);font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.03em;">
                                     <tr>
-                                        <th style="background:#333333;min-width:110px;position:sticky;left:0;z-index:2;border-right:2px solid rgba(255,255,255,0.1);">Player</th>
+                                        <th style="background:rgba(255,255,255,0.03);min-width:110px;position:sticky;left:0;z-index:2;">Player</th>
                                         <th id="th-pts" style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('pts')">Pts <span id="sort-icon-pts" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;">arrow_downward</span></th>
                                         <th style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('mins')">Mins <span id="sort-icon-mins" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
                                         <th id="th-goals" style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('goals')">Goals <span id="sort-icon-goals" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
@@ -832,18 +831,18 @@
                             <!-- Center Data Grid (Fixtures) -->
                             <div style="flex:1;display:flex;flex-direction:column;gap:24px;min-width:0;">
                                 <!-- Filters & Controls Bar -->
-                                <div class="fixtures-controls" style="background:#202722;border:1px solid #34453b;border-radius:8px;padding:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;color:#dfe4e0;">
+                                <div class="fixtures-controls" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;color:#dfe4e0;">
                                     <div class="fixtures-control-groups" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;min-width:0;">
                                         <div class="fixtures-start-control" style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
                                             <span style="font-family:var(--font-mono);font-size:11px;color:#b9cbb9;font-weight:700;white-space:nowrap;">START GW:</span>
-                                            <select id="fixture-gw-select" onchange="FPL.setFixtureStartGW(this.value)" style="background-color:#1c211e;border:1px solid #1A2E28;border-radius:6px;padding:6px 10px;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#ffffff;cursor:pointer;outline:none;">
+                                            <select id="fixture-gw-select" onchange="FPL.setFixtureStartGW(this.value)" style="background-color:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:6px 10px;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#ffffff;cursor:pointer;outline:none;">
                                             </select>
                                         </div>
                                         <div class="fixtures-lookahead-control" style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
                                             <span style="font-family:var(--font-mono);font-size:11px;color:#b9cbb9;font-weight:700;white-space:nowrap;">LOOKAHEAD:</span>
-                                            <div class="fixtures-lookahead-buttons" style="display:flex;background:#1c211e;border:1px solid #1A2E28;border-radius:6px;overflow:hidden;flex:1;min-width:0;">
+                                            <div class="fixtures-lookahead-buttons" style="display:flex;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;overflow:hidden;flex:1;min-width:0;">
                                                 <button id="lookahead-3" onclick="FPL.setFixtureLookahead(3)" style="padding:6px 8px;font-family:var(--font-mono);font-size:12px;border:none;background:transparent;color:#b9cbb9;cursor:pointer;flex:1;transition:all 0.2s;">3 GW</button>
-                                                <button id="lookahead-5" onclick="FPL.setFixtureLookahead(5)" style="padding:6px 8px;font-family:var(--font-mono);font-size:12px;border:none;background:#00FF85;color:#0a0f0d;cursor:pointer;border-left:1px solid #1A2E28;border-right:1px solid #1A2E28;font-weight:700;flex:1;transition:all 0.2s;">5 GW</button>
+                                                <button id="lookahead-5" onclick="FPL.setFixtureLookahead(5)" style="padding:6px 8px;font-family:var(--font-mono);font-size:12px;border:none;background:#00FF85;color:#0a0f0d;cursor:pointer;font-weight:700;flex:1;transition:all 0.2s;">5 GW</button>
                                                 <button id="lookahead-10" onclick="FPL.setFixtureLookahead(10)" style="padding:6px 8px;font-family:var(--font-mono);font-size:12px;border:none;background:transparent;color:#b9cbb9;cursor:pointer;flex:1;transition:all 0.2s;">10 GW</button>
                                             </div>
                                         </div>
@@ -859,12 +858,12 @@
                                 </div>
 
                                 <!-- Fixture Grid Container -->
-                                <div style="background:#1c211e;border:1px solid #1A2E28;border-radius:12px;overflow:clip;">
+                                <div style="border-radius:16px;overflow:clip;">
                                     <div class="table-scroll-mobile sticky-first-column fixture-table-wrap" tabindex="0" aria-label="Fixture data table">
                                         <table class="fixture-grid-table" style="width:100%;border-collapse:separate;border-spacing:0;white-space:nowrap;">
                                             <thead>
-                                                <tr id="fixture-grid-header-row" style="background:#202722;">
-                                                    <th style="background:#202722;width:60px;max-width:60px;font-family:var(--font-mono);font-size:11px;color:#dfe4e0;font-weight:700;position:sticky;left:0;z-index:2;border-right:1px solid #34453b;">TEAM</th>
+                                                <tr id="fixture-grid-header-row" style="background:rgba(255,255,255,0.03);">
+                                                    <th style="background:rgba(255,255,255,0.03);width:60px;max-width:60px;font-family:var(--font-mono);font-size:11px;color:#dfe4e0;font-weight:700;position:sticky;left:0;z-index:2;">TEAM</th>
                                                     <!-- Dynamic GW Header Columns -->
                                                 </tr>
                                             </thead>
@@ -881,16 +880,16 @@
 
                             <!-- Right Sidebar: Form Leaders (Upcoming) -->
                             <aside style="width:320px;flex-shrink:0;display:flex;flex-direction:column;gap:24px;">
-                                <div style="background:#1c211e;border:1px solid #1A2E28;border-radius:12px;overflow:hidden;">
-                                    <div style="background:#a7cfbc;padding:14px 16px;border-bottom:1px solid #1A2E28;display:flex;align-items:center;gap:8px;">
+                                <div style="border-radius:16px;overflow:hidden;">
+                                    <div style="background:rgba(167,207,188,0.08);padding:14px 16px;display:flex;align-items:center;gap:8px;">
                                         <span class="material-symbols-outlined" style="font-size:18px;color:#0a0f0d;">trending_up</span>
                                         <h3 style="font-family:var(--font-mono);font-size:13px;margin:0;color:#0a0f0d;">FORM LEADERS (UPCOMING)</h3>
                                     </div>
                                     <div id="form-leaders-list" style="padding:16px;display:flex;flex-direction:column;gap:12px;max-height:400px;overflow-y:auto;">
                                         <!-- Dynamic Player Form Leader Cards -->
                                     </div>
-                                    <div style="padding:16px;border-top:1px solid #1A2E28;background:rgba(15,20,18,0.5);">
-                                        <button style="width:100%;padding:10px;border-radius:6px;border:1px solid #1A2E28;background:transparent;color:#b9cbb9;font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer;" onclick="FPL.navigateTo('players')">
+                                    <div style="padding:16px;">
+                                        <button style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);background:transparent;color:#b9cbb9;font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer;" onclick="FPL.navigateTo('players')">
                                             View Full Transfer Market
                                         </button>
                                     </div>
@@ -1010,7 +1009,7 @@
                     <!-- Bento Grid Highlights -->
                     <div class="ownership-bento-grid" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:16px;margin-bottom:24px;">
                         <!-- Card 1: Transferred In -->
-                        <div class="own-bento-card" style="background:#1E1E1E;border:1px solid #2A3A2E;border-radius:14px;position:relative;overflow:hidden;">
+                        <div class="own-bento-card" style="border-radius:16px;position:relative;overflow:hidden;">
                             <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#00FF85,#00CC6A);"></div>
                             <div style="padding:18px 20px;">
                                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
@@ -1024,7 +1023,7 @@
                         </div>
 
                         <!-- Card 2: Transferred Out -->
-                        <div class="own-bento-card" style="background:#1E1E1E;border:1px solid #3A2028;border-radius:14px;position:relative;overflow:hidden;">
+                        <div class="own-bento-card" style="border-radius:16px;position:relative;overflow:hidden;">
                             <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#FF005A,#E21C3D);"></div>
                             <div style="padding:18px 20px;">
                                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
@@ -1038,7 +1037,7 @@
                         </div>
 
                         <!-- Card 3: Biggest Movers -->
-                        <div class="own-bento-card" style="background:#1E1E1E;border:1px solid #3A3020;border-radius:14px;position:relative;overflow:hidden;">
+                        <div class="own-bento-card" style="border-radius:16px;position:relative;overflow:hidden;">
                             <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#FFA600,#F0613D);"></div>
                             <div style="padding:18px 20px;">
                                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
@@ -1053,12 +1052,12 @@
                     </div>
 
                     <!-- Main Table Section -->
-                    <div style="background:#1E1E1E;border:1px solid #333333;border-radius:12px;overflow:clip;">
+                    <div style="border-radius:16px;overflow:clip;">
                         <!-- Toolbar -->
-                        <div class="ownership-toolbar" style="padding:16px 24px;border-bottom:1px solid #333333;">
+                        <div class="ownership-toolbar" style="padding:16px 24px;">
                             <div class="ownership-toolbar-heading" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
                                 <h2 style="font-family:var(--font-display);font-size:18px;font-weight:700;margin:0;">Player Ownership Analysis</h2>
-                                <div class="ownership-position-filter" style="display:inline-flex;gap:4px;padding:3px;background:rgba(255,255,255,0.06);border-radius:8px;border:1px solid rgba(255,255,255,0.1);">
+                                <div class="ownership-position-filter" style="display:inline-flex;gap:4px;padding:3px;background:rgba(255,255,255,0.06);border-radius:10px;border:1px solid rgba(255,255,255,0.08);">
                                     <button class="own-pos-btn active" onclick="FPL.filterOwnershipPos('all', this)">All</button>
                                     <button class="own-pos-btn" onclick="FPL.filterOwnershipPos('GKP', this)">GKP</button>
                                     <button class="own-pos-btn" onclick="FPL.filterOwnershipPos('DEF', this)">DEF</button>
@@ -1067,15 +1066,15 @@
                                 </div>
                             </div>
                             <div class="ownership-search-row" style="display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap;">
-                                <input type="text" id="own-search" placeholder="Search player..." style="flex:1;min-width:180px;max-width:280px;height:36px;font-size:13px;background-color:#2A2A2A;color:#E0E0E0;border:1px solid #444444;border-radius:8px;padding:4px 12px;outline:none;font-family:var(--font-mono);" oninput="FPL.renderOwnershipTable()">
-                                <select id="own-sort" style="width:180px;height:36px;font-size:13px;background-color:#2A2A2A;color:#E0E0E0;border:1px solid #444444;border-radius:8px;padding:4px 32px 4px 12px;appearance:none;background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22%23B0B0B0%22%3E%3Cpath d=%22M7 10l5 5 5-5z%22/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 10px center;font-family:var(--font-mono);" onchange="FPL.renderOwnershipTable()">
+                                <input type="text" id="own-search" placeholder="Search player..." style="flex:1;min-width:180px;max-width:280px;height:36px;font-size:13px;background-color:rgba(255,255,255,0.04);color:#E0E0E0;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:4px 12px;outline:none;font-family:var(--font-mono);" oninput="FPL.renderOwnershipTable()">
+                                <select id="own-sort" style="width:180px;height:36px;font-size:13px;background-color:rgba(255,255,255,0.04);color:#E0E0E0;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:4px 32px 4px 12px;appearance:none;background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22%23B0B0B0%22%3E%3Cpath d=%22M7 10l5 5 5-5z%22/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 10px center;font-family:var(--font-mono);" onchange="FPL.renderOwnershipTable()">
                                     <option value="ownership">Sort by: Own %</option>
                                     <option value="delta24h">Sort by: 24h Δ</option>
                                     <option value="delta3d">Sort by: 3d Δ</option>
                                     <option value="delta7d">Sort by: 7d Δ</option>
                                     <option value="cost">Sort by: Price</option>
                                 </select>
-                                <button onclick="FPL.renderOwnership()" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid #444444;background:#2A2A2A;color:#B0B0B0;cursor:pointer;"><span class="material-symbols-outlined" style="font-size:20px;">refresh</span></button>
+                                <button onclick="FPL.renderOwnership()" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:10px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);color:#B0B0B0;cursor:pointer;"><span class="material-symbols-outlined" style="font-size:20px;">refresh</span></button>
                             </div>
                         </div>
 
@@ -1083,8 +1082,8 @@
                         <div class="table-scroll-mobile sticky-rank-player" tabindex="0" aria-label="Ownership trends table">
                             <table class="ownership-data-table" style="width:100%;border-collapse:separate;border-spacing:0;font-size:12px;white-space:nowrap;">
                                 <thead>
-                                    <tr style="background:#2A2A2A;color:#B0B0B0;font-size:11px;">
-                                        <th style="text-align:center;width:40px;background:#2A2A2A;position:sticky;left:0;z-index:2;border-right:2px solid rgba(255,255,255,0.1);">#</th>
+                                    <tr style="background:rgba(255,255,255,0.03);color:#B0B0B0;font-size:11px;">
+                                        <th style="text-align:center;width:40px;background:rgba(255,255,255,0.03);position:sticky;left:0;z-index:2;">#</th>
                                         <th style="text-align:left;cursor:pointer;" onclick="FPL.toggleOwnershipSort('name')">Player / Team <span id="own-sort-icon-name" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
                                         <th style="padding:8px 12px;text-align:center;cursor:pointer;" onclick="FPL.toggleOwnershipSort('cost')">Price <span id="own-sort-icon-cost" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
                                         <th style="padding:8px 12px;text-align:center;cursor:pointer;" onclick="FPL.toggleOwnershipSort('ownership')">Own % <span id="own-sort-icon-ownership" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
@@ -1109,12 +1108,12 @@
                         <h1 style="font-size:28px;font-weight:700;color:#ffffff;margin:0;font-family:var(--font-display);">Set Piece Takers</h1>
                         <p style="font-size:13px;color:#8ba396;margin-top:6px;">Penalty takers, free kick specialists, and corner takers for every Premier League team.</p>
                     </div>
-                    <div id="setpieces-table-container" style="background:#141916;border:1px solid #1A2E28;border-radius:12px;overflow:clip;">
+                    <div id="setpieces-table-container" style="border-radius:16px;overflow:clip;">
                         <div class="table-scroll-mobile sticky-first-column" tabindex="0" aria-label="Set pieces table">
                             <table class="setpieces-data-table" style="width:100%;border-collapse:separate;border-spacing:0;min-width:920px;">
                                 <thead>
-                                    <tr style="background:#1c211e;font-size:10px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);letter-spacing:0.03em;">
-                                        <th style="padding:10px 12px;text-align:left;background:#1c211e;position:sticky;left:0;z-index:2;border-right:2px solid rgba(255,255,255,0.1);">Team</th>
+                                    <tr style="background:rgba(255,255,255,0.03);font-size:10px;color:#8ba396;text-transform:uppercase;font-family:var(--font-mono);letter-spacing:0.03em;">
+                                        <th style="padding:10px 12px;text-align:left;background:rgba(255,255,255,0.03);position:sticky;left:0;z-index:2;">Team</th>
                                         <th style="padding:10px 12px;text-align:left;">Penalties <span style="color:#5a7a66;text-transform:none;font-weight:400;">(G)</span></th>
                                         <th style="padding:10px 12px;text-align:left;">Free-Kicks <span style="color:#5a7a66;text-transform:none;font-weight:400;">(G/A)</span></th>
                                         <th style="padding:10px 12px;text-align:left;">Corners <span style="color:#5a7a66;text-transform:none;font-weight:400;">(A)</span></th>

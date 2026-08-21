@@ -5009,3 +5009,228 @@ div.collapsed > .sidebar-section-toggle .sidebar-section-chevron { transform: ro
         background-size: contain;
     }
 }
+
+/* ==================== SLEEK GLASS OVERRIDES ==================== */
+/* Overrides for inline-styled elements in dashboard.html */
+
+/* All section/card containers: force glass border */
+section[style*="border"],
+section[style*="border: 1px solid"] {
+    border-color: var(--glass-border) !important;
+    border-radius: 16px !important;
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(var(--glass-blur)) !important;
+    -webkit-backdrop-filter: blur(var(--glass-blur)) !important;
+    box-shadow: var(--glass-shadow) !important;
+}
+
+/* Card divs with inline border */
+div[style*="border:1px solid #1A2E28"],
+div[style*="border: 1px solid #1A2E28"],
+div[style*="border:1px solid #333"],
+div[style*="border: 1px solid #333"],
+div[style*="border:1px solid #34453b"],
+div[style*="border: 1px solid #34453b"],
+div[style*="border:1px solid #2A3A2E"],
+div[style*="border:1px solid #3A2028"],
+div[style*="border:1px solid #3A3020"],
+div[style*="border:1px solid var(--md-sys-color-outline-variant)"],
+div[style*="border: 1px solid var(--md-sys-color-outline-variant)"] {
+    border-color: var(--glass-border) !important;
+    border-radius: 16px !important;
+}
+
+/* Remove all border-right column dividers */
+div[style*="border-right:1px solid"],
+div[style*="border-right: 1px solid"],
+td[style*="border-right"] {
+    border-right: none !important;
+}
+
+/* Remove all border-bottom from section headers/toolbars */
+div[style*="border-bottom:1px solid"],
+div[style*="border-bottom: 1px solid"] {
+    border-bottom: none !important;
+}
+
+/* Remove all border-top from footers */
+div[style*="border-top:1px solid"],
+div[style*="border-top: 1px solid"] {
+    border-top: none !important;
+}
+
+/* Remove sticky column borders on th */
+th[style*="border-right"] {
+    border-right: none !important;
+}
+
+/* Dashboard stat banner - full glass */
+.dash-stat-banner {
+    border: 1px solid var(--glass-border) !important;
+    border-radius: 16px !important;
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(var(--glass-blur)) !important;
+    -webkit-backdrop-filter: blur(var(--glass-blur)) !important;
+    box-shadow: var(--glass-shadow) !important;
+}
+
+/* Stat items - no column lines */
+.dash-stat-item {
+    border-right: none !important;
+    border-bottom: none !important;
+}
+
+/* All card/panel sections get glass background */
+section[style*="background:#141916"],
+section[style*="background: #141916"],
+div[style*="background:#141916"],
+div[style*="background: #141916"],
+div[style*="background:#171c19"],
+div[style*="background: #171c19"] {
+    background: var(--glass-bg) !important;
+    border-color: var(--glass-border) !important;
+}
+
+/* Dropdown/select/input wrappers */
+div[style*="border-radius:8px"],
+div[style*="border-radius: 8px"],
+div[style*="border-radius:6px"],
+div[style*="border-radius: 6px"] {
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Bento cards - glass treatment */
+.own-bento-card {
+    background: var(--glass-bg) !important;
+    border-color: var(--glass-border) !important;
+    backdrop-filter: blur(var(--glass-blur)) !important;
+    -webkit-backdrop-filter: blur(var(--glass-blur)) !important;
+    box-shadow: var(--glass-shadow) !important;
+}
+
+/* League bento cards */
+div[style*="border:1px solid var(--md-sys-color-outline-variant)"] {
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(var(--glass-blur)) !important;
+    -webkit-backdrop-filter: blur(var(--glass-blur)) !important;
+    box-shadow: var(--glass-shadow) !important;
+}
+
+/* Buttons with inline borders */
+button[style*="border:1px solid"],
+button[style*="border: 1px solid"] {
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    border-radius: 10px !important;
+}
+
+/* Player image circles */
+div[style*="border:1px solid #1A2E28;border-radius:50%"] {
+    border-color: var(--glass-border) !important;
+}
+
+/* Fixtures controls */
+.fixtures-controls {
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    border-radius: 10px !important;
+    background: rgba(255, 255, 255, 0.03) !important;
+}
+
+/* Fixtures lookahead buttons */
+.fixtures-lookahead-buttons {
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    border-radius: 10px !important;
+}
+
+/* Player position filters */
+.player-position-filter,
+.ownership-position-filter {
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    border-radius: 10px !important;
+    background: rgba(255, 255, 255, 0.03) !important;
+}
+
+/* Ownership toolbar */
+.ownership-toolbar {
+    border-bottom: none !important;
+}
+
+/* Selection filters */
+.sort-btn,
+button[style*="border:1px solid #1A2E28;border-radius:4px"] {
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    border-radius: 8px !important;
+    background: rgba(255, 255, 255, 0.03) !important;
+}
+
+/* Form leaders card footer */
+div[style*="border-top:1px solid #1A2E28"] {
+    border-top: none !important;
+}
+
+/* Connect manager dropdown */
+#connect-manager-results,
+#manager-id-results {
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    border-radius: 12px !important;
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+}
+
+/* Select elements - sleek */
+select[style*="border"] {
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-radius: 10px !important;
+    color: var(--md-sys-color-on-surface) !important;
+}
+
+/* Input elements - sleek */
+input[style*="border"] {
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-radius: 10px !important;
+    color: var(--md-sys-color-on-surface) !important;
+}
+
+/* Dash page title and subtitle spacing */
+.dash-page-title {
+    margin-bottom: 4px;
+}
+
+.dash-page-subtitle {
+    margin-bottom: 16px;
+}
+
+/* Clean grid spacing */
+.dash-main-grid {
+    gap: 16px;
+}
+
+/* Captain bento grid */
+.captain-bento-grid {
+    gap: 12px;
+}
+
+/* Better mobile spacing */
+@media (max-width: 768px) {
+    .dash-stat-banner {
+        margin-bottom: 12px !important;
+    }
+
+    section[style*="border"],
+    div[style*="border:1px solid"] {
+        border-radius: 12px !important;
+    }
+
+    .own-bento-card {
+        border-radius: 12px !important;
+    }
+
+    .fixtures-controls,
+    .fixtures-lookahead-buttons,
+    .player-position-filter,
+    .ownership-position-filter {
+        border-radius: 8px !important;
+    }
+}
