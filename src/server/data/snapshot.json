@@ -1,0 +1,27 @@
+{
+  "gwId": 1,
+  "timestamp": 1786791600000,
+  "snapshotStartTime": "2026-08-15T10:58:00.000Z",
+  "snapshotEndTime": "2026-08-15T12:10:00.000Z",
+  "bootstrap": {
+    "events": [
+      {
+        "id": 1,
+        "name": "Gameweek 1",
+        "deadline_time": "2026-08-15T11:00:00Z",
+        "is_current": true,
+        "is_next": false,
+        "finished": false
+      }
+    ]
+  },
+  "fixtures": [
+    {
+      "id": 101,
+      "event": 1,
+      "kickoff_time": "2026-08-15T12:30:00Z",
+      "team_h": 1,
+      "team_a": 2
+    }
+  ]
+}
