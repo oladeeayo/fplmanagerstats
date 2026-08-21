@@ -580,6 +580,12 @@ const FPL = {
         }
     },
 
+    async fetchTeamNews() {
+        const data = await this.apiFetch('/api/team-news');
+        if (!data || !Array.isArray(data.teams)) throw new Error('Team news returned an invalid response.');
+        return data;
+    },
+
     toggleTheme() {
         const nextTheme = this.state.theme === 'light' ? 'dark' : 'light';
         this.state.theme = nextTheme;
@@ -2454,8 +2460,7 @@ const FPL = {
         container.innerHTML = `<div style="padding:40px;text-align:center;color:#8ba396;"><span class="material-symbols-outlined" style="font-size:32px;animation:spin 1s linear infinite;">sync</span></div>`;
 
         try {
-            const resp = await fetch('/api/team-news');
-            const data = await resp.json();
+            const data = await this.fetchTeamNews();
             const teams = data.teams || [];
             const currentGW = data.currentGW || '';
 
@@ -2529,7 +2534,7 @@ const FPL = {
             html += `</div>`;
             container.innerHTML = html;
         } catch (err) {
-            container.innerHTML = `<div class="tn-empty"><span class="material-symbols-outlined">error</span><p>Failed to load team news.</p></div>`;
+            container.innerHTML = `<div class="tn-empty"><span class="material-symbols-outlined">error</span><p>${this.escapeHTML(err.message || 'Failed to load team news.')}</p><button type="button" class="btn btn-secondary" onclick="FPL.renderTeamNews()"><span class="material-symbols-outlined">refresh</span> Try again</button></div>`;
         }
     },
 

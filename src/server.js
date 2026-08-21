@@ -29,6 +29,7 @@ const decisionRoutes = require('./server/routes/decision');
 const aiTeamRoutes = require('./server/routes/ai-team');
 const ownershipRoutes = require('./server/routes/ownership');
 const miscRoutes = require('./server/routes/misc');
+const { getCachedApiData, BOOTSTRAP_URL } = require('./server/cache');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -86,18 +87,18 @@ app.use('/api', miscRoutes);
 app.use('/api/admin', adminRoutes);
 
 // Team News — FPL bootstrap API + FFS injury scrape with manager quotes
+let lastTeamNewsResponse = null;
+
 app.get('/api/team-news', async (req, res) => {
-  const axios = require('axios');
   const { scrapeFFSInjuries } = require('./server/ffsScraper');
 
   try {
     // Fetch both sources in parallel
-    const [fplResp, ffsData] = await Promise.all([
-      axios.get('https://fantasy.premierleague.com/api/bootstrap-static/', { timeout: 10000 }),
+    const [data, ffsData] = await Promise.all([
+      getCachedApiData(BOOTSTRAP_URL, 5 * 60 * 1000),
       scrapeFFSInjuries().catch(() => []),
     ]);
 
-    const data = fplResp.data;
     const teams = data.teams || [];
     const elements = data.elements || [];
     const events = data.events || [];
@@ -203,9 +204,13 @@ app.get('/api/team-news', async (req, res) => {
     });
 
     const sorted = Object.values(teamNews).sort((a, b) => a.team.name.localeCompare(b.team.name));
-    res.json({ currentGW, teams: sorted, ffsCount: (ffsData || []).length });
+    lastTeamNewsResponse = { currentGW, teams: sorted, ffsCount: (ffsData || []).length };
+    res.json(lastTeamNewsResponse);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch team news' });
+    if (lastTeamNewsResponse) {
+      return res.json({ ...lastTeamNewsResponse, stale: true });
+    }
+    res.status(502).json({ error: 'Team news is temporarily unavailable. Please try again.' });
   }
 });
 
