@@ -2078,6 +2078,12 @@ const FPL = {
 
     // ==================== RENDER: LEAGUE STANDINGS ====================
     async renderLeague() {
+        const managerId = this.state.managerId || localStorage.getItem('fplManagerId');
+        if (managerId && (!this.state.managerLeagues || !this.state.managerLeagues.length)) {
+            await this.loadManagerLeagues(managerId);
+        } else {
+            this.renderLeagueSelector();
+        }
         const leagueId = this.state.selectedLeagueId || this.state.leagueId;
         const page = this.state.standingsPage || 1;
         
@@ -3231,21 +3237,42 @@ const FPL = {
         }
     },
 
+    async loadManagerLeagues(managerId) {
+        const id = managerId || this.state.managerId || localStorage.getItem('fplManagerId');
+        if (!id) return;
+        try {
+            const data = await this.apiFetch(this.API.managerLeagues(id));
+            if (data && data.leagues) {
+                this.state.managerLeagues = data.leagues;
+                this.renderLeagueSelector();
+            }
+        } catch (err) {
+            console.warn('Could not load manager leagues:', err);
+        }
+    },
+
     renderLeagueSelector() {
         const select = document.getElementById('league-select');
         if (!select) return;
         const leagues = this.state.managerLeagues || [];
         const selectedId = Number(this.state.selectedLeagueId || this.state.leagueId);
-        if (leagues.length === 0) {
+        if (!leagues || leagues.length === 0) {
             select.style.display = 'none';
             return;
         }
-        select.innerHTML = leagues.map(league => `<option value="${league.id}">${this.escapeHTML(league.name)} (${league.id})</option>`).join('');
-        if (selectedId && !leagues.some(league => league.id === selectedId)) {
-            select.insertAdjacentHTML('afterbegin', `<option value="${selectedId}">Connected league (${selectedId})</option>`);
+        let html = leagues.map(l => {
+            const isSel = (Number(l.id) === selectedId) ? 'selected' : '';
+            const typeStr = l.type === 'private' ? 'Private League' : 'Global League';
+            return `<option value="${l.id}" ${isSel}>🏆 ${this.escapeHTML(l.name)} (${typeStr})</option>`;
+        }).join('');
+
+        if (selectedId && !leagues.some(l => Number(l.id) === selectedId)) {
+            html = `<option value="${selectedId}" selected>Connected League (${selectedId})</option>` + html;
         }
-        select.value = String(selectedId || leagues[0].id);
-        select.style.display = '';
+
+        select.innerHTML = html;
+        select.value = String(selectedId);
+        select.style.display = 'inline-block';
     },
 
     switchLeague(leagueId) {
@@ -5572,6 +5599,8 @@ const FPL = {
         try {
             const leagueData = await this.apiFetch(this.API.managerLeagues(id));
             const leagues = leagueData.leagues || [];
+            this.state.managerLeagues = leagues;
+            this.renderLeagueSelector();
             const privateLeagues = leagues.filter(l => l.type === 'private');
             const systemLeagues = leagues.filter(l => l.type === 'system');
             let html = `<div style="padding:8px 12px;display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:16px;color:#00FF85;">check_circle</span><div><div style="font-size:13px;font-weight:600;color:var(--md-sys-color-on-surface);">${name}</div><div style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">${owner} · ID: ${id}</div></div></div>`;
