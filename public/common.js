@@ -5400,7 +5400,7 @@ const FPL = {
                 <div class="card-header"><h3>About</h3></div>
                 <div class="card-body">
                     <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
-                        <span class="material-symbols-outlined" style="font-size:32px;color:#00FF85;">sports_soccer</span>
+                        <img src="/pwa-icon-192.png?v=7" alt="FPL Manager Analytics" style="width:36px;height:36px;object-fit:contain;flex-shrink:0;" />
                         <div>
                             <div style="font-weight:700;color:var(--md-sys-color-on-surface);font-size:16px;">FPL Manager Analytics</div>
                             <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">v1.0.0</div>

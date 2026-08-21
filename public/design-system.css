@@ -282,6 +282,7 @@ h4, .h4 { font-size: 1rem; }
 }
 
 .topbar-title .material-symbols-outlined { font-size: 24px; color: var(--md-sys-color-primary); }
+.topbar-title img { width: 24px; height: 24px; object-fit: contain; flex-shrink: 0; display: inline-block; vertical-align: middle; }
 
 /* Buttons */
 .btn {
