@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
-  <rect width="192" height="192" rx="32" fill="#0D0D0D"/>
-  <circle cx="96" cy="88" r="40" fill="none" stroke="#00FF85" stroke-width="4"/>
-  <path d="M96 48 L96 128 M56 88 L136 88 M64 60 L128 116 M128 60 L64 116" fill="none" stroke="#00FF85" stroke-width="2" opacity="0.4"/>
-  <circle cx="96" cy="88" r="6" fill="#00FF85"/>
-  <text x="96" y="156" text-anchor="middle" font-family="sans-serif" font-weight="700" font-size="18" fill="#00FF85">FPL</text>
-</svg>

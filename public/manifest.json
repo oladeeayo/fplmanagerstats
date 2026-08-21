@@ -45,11 +45,6 @@
             "sizes": "512x512",
             "type": "image/png",
             "purpose": "maskable"
-        },
-        {
-            "src": "fpl-icon.svg",
-            "sizes": "any",
-            "type": "image/svg+xml"
         }
     ],
     "shortcuts": [
