@@ -92,7 +92,7 @@ export function InstallPrompt() {
     } else if (navigator.share) {
       try {
         await navigator.share({
-          title: 'FPL Manager Stats',
+          title: 'FPL Manager Analytics',
           text: 'Track. Analyse. Dominate.',
           url: window.location.href,
         });
@@ -145,10 +145,10 @@ export function InstallPrompt() {
         <div className="install-prompt-handle" />
 
         <div className="install-prompt-icon">
-          <img src="/icon-192.png" alt="FPL Manager Stats" width={72} height={72} />
+          <img src="/pwa-icon-192.png" alt="FPL Manager Analytics" width={72} height={72} />
         </div>
 
-        <h2 id="install-prompt-title" className="install-prompt-title">Install FPL Manager Stats</h2>
+        <h2 id="install-prompt-title" className="install-prompt-title">Install FPL Manager Analytics</h2>
         <p className="install-prompt-tagline">Track. Analyse. Dominate.</p>
 
         {isIOSDevice ? (

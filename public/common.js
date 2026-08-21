@@ -2426,7 +2426,7 @@ const FPL = {
 
         ctx.fillStyle = '#00FF85';
         ctx.font = `bold ${11 * scale}px "Fira Code", monospace`;
-        ctx.fillText(`TOP ${managers.length} STANDINGS • FPL MANAGER STATS`, 25 * scale, 56 * scale);
+        ctx.fillText(`TOP ${managers.length} STANDINGS • FPL MANAGER ANALYTICS`, 25 * scale, 56 * scale);
 
         let startY = headerHeight;
         ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
@@ -2530,7 +2530,7 @@ const FPL = {
 
         ctx.fillStyle = '#8ba396';
         ctx.font = `10px "Fira Code", monospace`;
-        ctx.fillText('• FPL MANAGER STATS ANALYTICS', (tableWidth / 2) + (100 * scale), footerY);
+        ctx.fillText('• FPL MANAGER ANALYTICS', (tableWidth / 2) + (100 * scale), footerY);
 
         const link = document.createElement('a');
         link.download = `league-${standingsData.leagueId}-standings-top${managers.length}.png`;
@@ -5401,7 +5401,7 @@ const FPL = {
                     <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
                         <span class="material-symbols-outlined" style="font-size:32px;color:#00FF85;">sports_soccer</span>
                         <div>
-                            <div style="font-weight:700;color:var(--md-sys-color-on-surface);font-size:16px;">FPL Manager Stats</div>
+                            <div style="font-weight:700;color:var(--md-sys-color-on-surface);font-size:16px;">FPL Manager Analytics</div>
                             <div style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);">v1.0.0</div>
                         </div>
                     </div>

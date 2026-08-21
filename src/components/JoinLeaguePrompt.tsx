@@ -61,7 +61,7 @@ export function JoinLeaguePrompt() {
         <h2 id="league-prompt-title" className="install-prompt-title">Join Our FPL League</h2>
         <p className="install-prompt-tagline">League {LEAGUE_ID}</p>
         <p className="install-prompt-desc">
-          Put the Smart Team to the test against the FPL Manager Stats community. FPL will open so you can confirm your entry.
+          Put the Smart Team to the test against the FPL Manager Analytics community. FPL will open so you can confirm your entry.
         </p>
         <div className="install-prompt-actions">
           <button className="install-prompt-btn install-prompt-btn-secondary" type="button" onClick={complete}>

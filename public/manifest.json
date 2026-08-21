@@ -1,7 +1,7 @@
 {
-    "name": "FPL Manager Stats",
-    "short_name": "FPL Stats",
-    "description": "Advanced analytics and insights for Fantasy Premier League managers",
+    "name": "FPL Manager Analytics",
+    "short_name": "FPL Analytics",
+    "description": "AI-powered decision support, transfer planning, expected points, and mini-league analytics for Fantasy Premier League managers",
     "start_url": "/",
     "scope": "/",
     "display": "standalone",

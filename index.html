@@ -3,55 +3,71 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>FPL Manager Stats | Decision Lab, Transfer Planner & FPL Analytics</title>
-    <meta name="description" content="Fantasy Premier League decision support with hit-adjusted transfer plans, lineup analysis, captaincy projections, chip strategies, and live manager analytics." />
-    <meta name="keywords" content="Fantasy Premier League analytics, FPL transfer planner, FPL captain picks, FPL squad analysis, FPL expected points xPts, FPL differential finder, FPL manager stats" />
-    <meta name="author" content="FPL Manager Stats" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>FPL Manager Analytics | AI Squad Optimizer, Transfer Planner & FPL Stats</title>
+    <meta name="description" content="FPL Manager Analytics is the ultimate Fantasy Premier League decision-support platform. Access hit-adjusted transfer plans, expected points (xPts), AI squad optimizer, captaincy projections, mini-league template analysis, and live manager stats." />
+    <meta name="keywords" content="FPL Manager Analytics, Fantasy Premier League AI, FPL decision lab, FPL squad optimizer, FPL transfer planner, FPL captain picks, FPL expected points xPts, FPL mini-league template, FPL fixture difficulty rating, FPL differential finder" />
+    <meta name="author" content="FPL Manager Analytics" />
     <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
-    <meta name="theme-color" content="#f6f8f6" />
+    <meta name="theme-color" content="#0a0f0d" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="FPL Manager Stats" />
+    <meta name="apple-mobile-web-app-title" content="FPL Analytics" />
     <link rel="canonical" href="https://fplmanager.xyz/" />
 
-    <!-- Open Graph / Social Media Sharing (WhatsApp, X, Facebook, LinkedIn, iMessage) -->
+    <!-- Open Graph / Social Media Sharing -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://fplmanager.xyz/" />
-    <meta property="og:title" content="FPL Manager Stats | Decision Lab & Analytics" />
-    <meta property="og:description" content="Make better FPL decisions with hit-adjusted transfer recommendations, lineup analysis, captaincy projections, and live manager analytics." />
+    <meta property="og:title" content="FPL Manager Analytics | AI Squad Optimizer & FPL Tools" />
+    <meta property="og:description" content="Optimize your Fantasy Premier League team with hit-adjusted transfer plans, expected points (xPts), AI squad recommendations, captaincy projections, and live manager stats." />
     <meta property="og:image" content="https://fplmanager.xyz/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:type" content="image/png" />
-    <meta property="og:image:alt" content="FPL Manager Stats decision-support dashboard" />
-    <meta property="og:site_name" content="FPL Manager Stats" />
+    <meta property="og:image:alt" content="FPL Manager Analytics decision-support dashboard" />
+    <meta property="og:site_name" content="FPL Manager Analytics" />
 
     <!-- Twitter Card metadata -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="FPL Manager Stats | Decision Lab & Analytics" />
-    <meta name="twitter:description" content="Make better FPL decisions with hit-adjusted transfer recommendations, lineup analysis, and captaincy projections." />
+    <meta name="twitter:title" content="FPL Manager Analytics | AI Squad Optimizer & FPL Tools" />
+    <meta name="twitter:description" content="Optimize your Fantasy Premier League team with hit-adjusted transfer plans, expected points (xPts), AI squad recommendations, and captaincy projections." />
     <meta name="twitter:image" content="https://fplmanager.xyz/og-image.png" />
-    <meta name="twitter:image:alt" content="FPL Manager Stats Logo & Dashboard Preview" />
+    <meta name="twitter:image:alt" content="FPL Manager Analytics Logo & Dashboard Preview" />
 
     <!-- App Icons & PWA Manifest -->
-    <link rel="icon" type="image/svg+xml" href="/fpl-icon.svg?v=3" />
-    <link rel="apple-touch-icon" sizes="192x192" href="/pwa-icon-192.png?v=3" />
+    <link rel="icon" type="image/svg+xml" href="/fpl-icon.svg?v=4" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/pwa-icon-192.png?v=4" />
     <link rel="manifest" href="/manifest.json" />
-    <link rel="stylesheet" href="/design-system.css?v=22" />
+    <link rel="stylesheet" href="/design-system.css?v=23" />
 
-    <!-- Structured Data for Google Search & AI Search Chatbot Discovery (Perplexity, ChatGPT, Gemini, Claude) -->
+    <!-- Structured Data for Google Search & AI Search Engine Discovery (Perplexity, ChatGPT, Gemini, Claude) -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@graph": [
           {
+            "@type": "WebSite",
+            "@id": "https://fplmanager.xyz/#website",
+            "url": "https://fplmanager.xyz/",
+            "name": "FPL Manager Analytics",
+            "alternateName": ["FPL Analytics", "FPL Manager Stats", "FPL Manager XYZ"],
+            "description": "Premier Fantasy Premier League (FPL) analytics platform featuring expected points modeling, AI squad optimization, hit-adjusted transfer planning, and mini-league analytics.",
+            "publisher": {
+              "@type": "Organization",
+              "name": "FPL Manager Analytics",
+              "url": "https://fplmanager.xyz/",
+              "logo": "https://fplmanager.xyz/fpl-icon.svg"
+            }
+          },
+          {
             "@type": "WebApplication",
             "@id": "https://fplmanager.xyz/#webapp",
-            "name": "FPL Manager Stats",
+            "name": "FPL Manager Analytics",
             "url": "https://fplmanager.xyz/",
             "applicationCategory": "SportsApplication",
-            "operatingSystem": "Web Browser",
-            "description": "Fantasy Premier League (FPL) decision-support platform featuring expected points modeling, hit-adjusted transfer planning, lineup analysis, and live manager analytics.",
+            "operatingSystem": "Web Browser, iOS, Android",
+            "description": "Fantasy Premier League decision-support suite featuring expected points (xPts) algorithms, AI squad generator, hit-adjusted transfer planner, fixture projections, and league template analyzer.",
             "browserRequirements": "Requires JavaScript. Requires HTML5.",
             "offers": {
               "@type": "Offer",
@@ -59,12 +75,12 @@
               "priceCurrency": "GBP"
             },
             "featureList": [
-              "Connected Squad Decision Analysis",
-              "Smart Team Projection Engine",
-              "Hit-Adjusted Transfer Plan Optimizer",
+              "Decision Lab Hit-Adjusted Transfer Plan Optimizer",
+              "AI Squad Optimizer within £100m Budget",
               "Multi-Gameweek Horizon Expected Points Projections",
-              "Captaincy & Vice-Captaincy Optimizer",
-              "Chip Strategy Scheduler (Wildcard, Free Hit, Bench Boost, Triple Captain)"
+              "Captaincy & Vice-Captaincy AI Recommender",
+              "Mini-League Standings xGW-Pts & 15-Player Template Squad",
+              "Fixture Difficulty Matrix & Goal Projections"
             ]
           },
           {
@@ -73,18 +89,34 @@
             "mainEntity": [
               {
                 "@type": "Question",
-                "name": "How can Decision Lab improve my FPL team?",
+                "name": "What is FPL Manager Analytics?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Decision Lab analyzes a connected FPL squad and compares transfer, lineup, captaincy, and chip choices using expected points, fixture difficulty, availability, and hit-adjusted gains."
+                  "text": "FPL Manager Analytics (fplmanager.xyz) is a Fantasy Premier League decision-support engine. It provides AI squad optimization, hit-adjusted transfer plans, expected points projections (xPts), captaincy ratings, and mini-league template squad analytics."
                 }
               },
               {
                 "@type": "Question",
-                "name": "How does FPL Manager Stats optimize transfers and squad selection?",
+                "name": "How does FPL Manager Analytics calculate expected points (xPts)?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "FPL Manager Stats utilizes an expected points (xPts) algorithm integrated with fixture difficulty rating (FDR), player form, set-piece priority, and hit-adjusted net gain analysis across multi-gameweek planning horizons."
+                  "text": "FPL Manager Analytics calculates expected points using Opta-driven expected goals (xG), expected assists (xA), fixture difficulty ratings (FDR), player form, set-piece roles, team clean sheet odds, and availability status."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How does the AI Squad Optimizer work?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "The AI Squad Optimizer constructs an optimal 15-player squad within the £100m budget that maximizes expected points over custom gameweek horizons while adhering to official FPL team limits and positional constraints."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What is the Mini-League Template Squad and xGW-Pts?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "The Mini-League Template Squad identifies the 15 most owned players among top managers in your league. xGW-Pts projects expected gameweek points for each manager based on their active starting lineup and chip usage (Triple Captain, Bench Boost)."
                 }
               }
             ]
