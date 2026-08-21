@@ -2378,6 +2378,15 @@ const FPL = {
             return;
         }
 
+        const incStandings = document.getElementById('export-sec-standings')?.checked ?? true;
+        const incTemplate = document.getElementById('export-sec-template')?.checked ?? false;
+        const incCaptaincy = document.getElementById('export-sec-captaincy')?.checked ?? false;
+
+        if (!incStandings && !incTemplate && !incCaptaincy) {
+            alert('Please select at least one section to include in the PNG export.');
+            return;
+        }
+
         const incRank = document.getElementById('export-col-rank')?.checked ?? true;
         const incTeam = document.getElementById('export-col-team')?.checked ?? true;
         const incGW = document.getElementById('export-col-gwpts')?.checked ?? true;
@@ -2388,157 +2397,304 @@ const FPL = {
 
         const maxCount = parseInt(document.getElementById('export-managers-count')?.value || 50);
         const managers = standingsData.managers.slice(0, maxCount);
+        const template = standingsData.leagueTemplate || [];
+        const captaincy = standingsData.captaincyCount || [];
 
         const scale = 2;
-        const rowHeight = 36 * scale;
-        const headerHeight = 90 * scale;
-        const footerHeight = 60 * scale;
+        const rowHeight = 34 * scale;
+        const headerHeight = 100 * scale;
+        const footerHeight = 70 * scale;
 
         const cols = [];
         if (incRank) cols.push({ id: 'rank', label: 'RANK', width: 65 * scale, align: 'left' });
-        if (incTeam) cols.push({ id: 'team', label: 'TEAM & MANAGER', width: 220 * scale, align: 'left' });
+        if (incTeam) cols.push({ id: 'team', label: 'TEAM & MANAGER', width: 240 * scale, align: 'left' });
         if (incGW) cols.push({ id: 'gw', label: 'GW PTS', width: 85 * scale, align: 'center' });
         if (incXGW) cols.push({ id: 'xgw', label: 'xGW-PTS', width: 95 * scale, align: 'center' });
         if (incTotal) cols.push({ id: 'total', label: 'TOTAL PTS', width: 105 * scale, align: 'center' });
-        if (incCap) cols.push({ id: 'captain', label: 'GW CAPTAIN', width: 130 * scale, align: 'left' });
+        if (incCap) cols.push({ id: 'captain', label: 'GW CAPTAIN', width: 140 * scale, align: 'left' });
         if (incDiff) cols.push({ id: 'diff', label: 'RANK DIFF', width: 90 * scale, align: 'center' });
 
-        const tableWidth = cols.reduce((sum, c) => sum + c.width, 0) + (40 * scale);
-        const tableHeight = headerHeight + (managers.length * rowHeight) + footerHeight;
+        const tableContentWidth = cols.reduce((sum, c) => sum + c.width, 0);
+        const tableWidth = Math.max(760 * scale, tableContentWidth + (40 * scale));
 
-        const canvas = document.createElement('canvas');
-        canvas.width = tableWidth;
-        canvas.height = tableHeight;
-        const ctx = canvas.getContext('2d');
+        let currentCanvasY = headerHeight;
 
-        const bgGrad = ctx.createLinearGradient(0, 0, 0, tableHeight);
-        bgGrad.addColorStop(0, '#09120c');
-        bgGrad.addColorStop(1, '#0f1f16');
-        ctx.fillStyle = bgGrad;
-        ctx.fillRect(0, 0, tableWidth, tableHeight);
+        // Calculate total canvas height dynamically
+        let standingsSectionHeight = 0;
+        if (incStandings) {
+            standingsSectionHeight = (30 * scale) + (managers.length * rowHeight) + (20 * scale);
+            currentCanvasY += standingsSectionHeight;
+        }
 
-        ctx.strokeStyle = 'rgba(0, 255, 133, 0.3)';
-        ctx.lineWidth = 2 * scale;
-        ctx.strokeRect(10 * scale, 10 * scale, tableWidth - (20 * scale), tableHeight - (20 * scale));
+        let templateSectionHeight = 0;
+        if (incTemplate && template.length > 0) {
+            const templateRows = Math.ceil(template.length / 5);
+            templateSectionHeight = (40 * scale) + (templateRows * (55 * scale)) + (20 * scale);
+            currentCanvasY += templateSectionHeight;
+        }
 
-        ctx.fillStyle = '#ffffff';
-        ctx.font = `bold ${16 * scale}px "Outfit", sans-serif`;
-        ctx.fillText(standingsData.leagueName || 'League Standings', 25 * scale, 36 * scale);
+        let captaincySectionHeight = 0;
+        if (incCaptaincy && captaincy.length > 0) {
+            const capRows = Math.ceil(captaincy.length / 3);
+            captaincySectionHeight = (40 * scale) + (capRows * (45 * scale)) + (20 * scale);
+            currentCanvasY += captaincySectionHeight;
+        }
 
-        ctx.fillStyle = '#00FF85';
-        ctx.font = `bold ${11 * scale}px "Fira Code", monospace`;
-        ctx.fillText(`TOP ${managers.length} STANDINGS • FPL MANAGER ANALYTICS`, 25 * scale, 56 * scale);
+        const tableHeight = currentCanvasY + footerHeight;
 
-        let startY = headerHeight;
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
-        ctx.fillRect(20 * scale, startY - (18 * scale), tableWidth - (40 * scale), 24 * scale);
+        const generatePNG = (watermarkImg) => {
+            const canvas = document.createElement('canvas');
+            canvas.width = tableWidth;
+            canvas.height = tableHeight;
+            const ctx = canvas.getContext('2d');
 
-        ctx.fillStyle = '#8ba396';
-        ctx.font = `bold ${10 * scale}px "Fira Code", monospace`;
+            // High legibility light background
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, tableWidth, tableHeight);
 
-        let currentX = 25 * scale;
-        cols.forEach(col => {
-            if (col.align === 'center') {
-                ctx.textAlign = 'center';
-                ctx.fillText(col.label, currentX + (col.width / 2), startY - (4 * scale));
-            } else {
-                ctx.textAlign = 'left';
-                ctx.fillText(col.label, currentX, startY - (4 * scale));
-            }
-            currentX += col.width;
-        });
+            // Outer border
+            ctx.strokeStyle = '#047857';
+            ctx.lineWidth = 3 * scale;
+            ctx.strokeRect(10 * scale, 10 * scale, tableWidth - (20 * scale), tableHeight - (20 * scale));
 
-        managers.forEach((m, idx) => {
-            const y = startY + (idx * rowHeight);
-            
-            if (idx % 2 === 1) {
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
-                ctx.fillRect(20 * scale, y, tableWidth - (40 * scale), rowHeight);
-            }
+            // Top Banner Header
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(10 * scale, 10 * scale, tableWidth - (20 * scale), 70 * scale);
 
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-            ctx.lineWidth = 1 * scale;
-            ctx.beginPath();
-            ctx.moveTo(20 * scale, y + rowHeight);
-            ctx.lineTo(tableWidth - (20 * scale), y + rowHeight);
-            ctx.stroke();
+            // Mini-League Name Header
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `bold ${18 * scale}px "Outfit", system-ui, sans-serif`;
+            const leagueNameText = `LEAGUE: ${standingsData.leagueName || ('League ' + standingsData.leagueId)}`;
+            ctx.fillText(leagueNameText, 25 * scale, 42 * scale);
 
-            let x = 25 * scale;
-            cols.forEach(col => {
-                ctx.font = `11px "Outfit", sans-serif`;
-                if (col.id === 'rank') {
-                    ctx.textAlign = 'left';
-                    ctx.fillStyle = '#00FF85';
-                    ctx.font = `bold ${12 * scale}px "Fira Code", monospace`;
-                    ctx.fillText(`${m.rank}`, x, y + (22 * scale));
-                } else if (col.id === 'team') {
-                    ctx.textAlign = 'left';
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = `bold ${11 * scale}px "Outfit", sans-serif`;
-                    const titleText = `${m.entryName} (${m.managerName})`;
-                    const truncated = titleText.length > 26 ? titleText.substring(0, 24) + '...' : titleText;
-                    ctx.fillText(truncated, x, y + (22 * scale));
-                } else if (col.id === 'gw') {
-                    ctx.textAlign = 'center';
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = `bold ${11 * scale}px "Fira Code", monospace`;
-                    ctx.fillText(`${m.eventTotal}`, x + (col.width / 2), y + (22 * scale));
-                } else if (col.id === 'xgw') {
-                    ctx.textAlign = 'center';
-                    ctx.fillStyle = '#00FF85';
-                    ctx.font = `bold ${11 * scale}px "Fira Code", monospace`;
-                    const xval = m.xGWPts != null ? Number(m.xGWPts).toFixed(1) : '--';
-                    ctx.fillText(`${xval}`, x + (col.width / 2), y + (22 * scale));
-                } else if (col.id === 'total') {
-                    ctx.textAlign = 'center';
-                    ctx.fillStyle = '#00FF85';
-                    ctx.font = `bold ${12 * scale}px "Fira Code", monospace`;
-                    ctx.fillText(`${m.total}`, x + (col.width / 2), y + (22 * scale));
-                } else if (col.id === 'captain') {
-                    ctx.textAlign = 'left';
-                    ctx.fillStyle = '#d0d8d3';
-                    ctx.font = `11px "Outfit", sans-serif`;
-                    ctx.fillText(`${m.captainName || '--'}`, x, y + (22 * scale));
-                } else if (col.id === 'diff') {
-                    ctx.textAlign = 'center';
-                    ctx.font = `bold ${11 * scale}px "Fira Code", monospace`;
-                    if (m.rankDiff > 0) {
-                        ctx.fillStyle = '#00FF85';
-                        ctx.fillText(`+${m.rankDiff}`, x + (col.width / 2), y + (22 * scale));
-                    } else if (m.rankDiff < 0) {
-                        ctx.fillStyle = '#ff5252';
-                        ctx.fillText(`${m.rankDiff}`, x + (col.width / 2), y + (22 * scale));
+            // Subtitle
+            ctx.fillStyle = '#34d399';
+            ctx.font = `bold ${11 * scale}px "Fira Code", monospace`;
+            ctx.fillText(`TOP ${managers.length} MANAGERS • FPL MANAGER ANALYTICS REPORT`, 25 * scale, 64 * scale);
+
+            let renderY = headerHeight;
+
+            // 1. STANDINGS TABLE SECTION
+            if (incStandings) {
+                // Table Header Row
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(20 * scale, renderY - (22 * scale), tableWidth - (40 * scale), 26 * scale);
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = `bold ${10 * scale}px "Fira Code", monospace`;
+
+                let currentX = 25 * scale;
+                cols.forEach(col => {
+                    if (col.align === 'center') {
+                        ctx.textAlign = 'center';
+                        ctx.fillText(col.label, currentX + (col.width / 2), renderY - (6 * scale));
                     } else {
-                        ctx.fillStyle = '#8ba396';
-                        ctx.fillText(`0`, x + (col.width / 2), y + (22 * scale));
+                        ctx.textAlign = 'left';
+                        ctx.fillText(col.label, currentX, renderY - (6 * scale));
                     }
-                }
-                x += col.width;
-            });
-        });
+                    currentX += col.width;
+                });
 
-        const footerY = tableHeight - (24 * scale);
-        ctx.textAlign = 'center';
-        
-        ctx.fillStyle = '#00FF85';
-        ctx.beginPath();
-        ctx.arc((tableWidth / 2) - (80 * scale), footerY - (4 * scale), 4 * scale, 0, Math.PI * 2);
-        ctx.fill();
+                managers.forEach((m, idx) => {
+                    const y = renderY + (idx * rowHeight);
 
-        ctx.fillStyle = '#ffffff';
-        ctx.font = `bold ${12 * scale}px "Fira Code", monospace`;
-        ctx.fillText('fplmanager.xyz', tableWidth / 2, footerY);
+                    // Alternating clean rows
+                    ctx.fillStyle = idx % 2 === 1 ? '#f8faf9' : '#ffffff';
+                    ctx.fillRect(20 * scale, y, tableWidth - (40 * scale), rowHeight);
 
-        ctx.fillStyle = '#8ba396';
-        ctx.font = `10px "Fira Code", monospace`;
-        ctx.fillText('• FPL MANAGER ANALYTICS', (tableWidth / 2) + (100 * scale), footerY);
+                    // Grid line
+                    ctx.strokeStyle = '#e2e8f0';
+                    ctx.lineWidth = 1 * scale;
+                    ctx.beginPath();
+                    ctx.moveTo(20 * scale, y + rowHeight);
+                    ctx.lineTo(tableWidth - (20 * scale), y + rowHeight);
+                    ctx.stroke();
 
-        const link = document.createElement('a');
-        link.download = `league-${standingsData.leagueId}-standings-top${managers.length}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
+                    let x = 25 * scale;
+                    cols.forEach(col => {
+                        if (col.id === 'rank') {
+                            ctx.textAlign = 'left';
+                            ctx.fillStyle = '#047857';
+                            ctx.font = `bold ${12 * scale}px "Fira Code", monospace`;
+                            ctx.fillText(`${m.rank}`, x, y + (22 * scale));
+                        } else if (col.id === 'team') {
+                            ctx.textAlign = 'left';
+                            ctx.fillStyle = '#0f172a';
+                            ctx.font = `bold ${11 * scale}px "Outfit", sans-serif`;
+                            const titleText = `${m.entryName} (${m.managerName})`;
+                            const truncated = titleText.length > 28 ? titleText.substring(0, 26) + '...' : titleText;
+                            ctx.fillText(truncated, x, y + (22 * scale));
+                        } else if (col.id === 'gw') {
+                            ctx.textAlign = 'center';
+                            ctx.fillStyle = '#0f172a';
+                            ctx.font = `bold ${11 * scale}px "Fira Code", monospace`;
+                            ctx.fillText(`${m.eventTotal}`, x + (col.width / 2), y + (22 * scale));
+                        } else if (col.id === 'xgw') {
+                            ctx.textAlign = 'center';
+                            ctx.fillStyle = '#059669';
+                            ctx.font = `bold ${11 * scale}px "Fira Code", monospace`;
+                            const xval = m.xGWPts != null ? Number(m.xGWPts).toFixed(1) : '--';
+                            ctx.fillText(`${xval}`, x + (col.width / 2), y + (22 * scale));
+                        } else if (col.id === 'total') {
+                            ctx.textAlign = 'center';
+                            ctx.fillStyle = '#047857';
+                            ctx.font = `bold ${12 * scale}px "Fira Code", monospace`;
+                            ctx.fillText(`${m.total}`, x + (col.width / 2), y + (22 * scale));
+                        } else if (col.id === 'captain') {
+                            ctx.textAlign = 'left';
+                            ctx.fillStyle = '#334155';
+                            ctx.font = `11px "Outfit", sans-serif`;
+                            ctx.fillText(`${m.captainName || '--'}`, x, y + (22 * scale));
+                        } else if (col.id === 'diff') {
+                            ctx.textAlign = 'center';
+                            ctx.font = `bold ${11 * scale}px "Fira Code", monospace`;
+                            if (m.rankDiff > 0) {
+                                ctx.fillStyle = '#16a34a';
+                                ctx.fillText(`+${m.rankDiff}`, x + (col.width / 2), y + (22 * scale));
+                            } else if (m.rankDiff < 0) {
+                                ctx.fillStyle = '#dc2626';
+                                ctx.fillText(`${m.rankDiff}`, x + (col.width / 2), y + (22 * scale));
+                            } else {
+                                ctx.fillStyle = '#64748b';
+                                ctx.fillText(`0`, x + (col.width / 2), y + (22 * scale));
+                            }
+                        }
+                        x += col.width;
+                    });
+                });
 
-        this.hideDialog('export-league-dialog');
+                renderY += standingsSectionHeight;
+            }
+
+            // 2. LEAGUE TEMPLATE SECTION
+            if (incTemplate && template.length > 0) {
+                ctx.fillStyle = '#0f172a';
+                ctx.font = `bold ${12 * scale}px "Fira Code", monospace`;
+                ctx.textAlign = 'left';
+                ctx.fillText('LEAGUE TEMPLATE SQUAD (MOST PICKED PLAYERS)', 25 * scale, renderY + (16 * scale));
+
+                ctx.strokeStyle = '#e2e8f0';
+                ctx.beginPath();
+                ctx.moveTo(20 * scale, renderY + (24 * scale));
+                ctx.lineTo(tableWidth - (20 * scale), renderY + (24 * scale));
+                ctx.stroke();
+
+                let tY = renderY + (35 * scale);
+                let tX = 25 * scale;
+                const cardW = (tableWidth - (70 * scale)) / 5;
+                const cardH = 48 * scale;
+
+                template.forEach((p, idx) => {
+                    ctx.fillStyle = '#f8faf9';
+                    ctx.strokeStyle = '#cbd5e1';
+                    ctx.lineWidth = 1 * scale;
+                    ctx.fillRect(tX, tY, cardW, cardH);
+                    ctx.strokeRect(tX, tY, cardW, cardH);
+
+                    ctx.fillStyle = '#0f172a';
+                    ctx.font = `bold ${10 * scale}px "Outfit", sans-serif`;
+                    ctx.textAlign = 'left';
+                    const nameTxt = p.name ? (p.name.length > 14 ? p.name.substring(0, 12) + '..' : p.name) : 'Player';
+                    ctx.fillText(nameTxt, tX + (8 * scale), tY + (18 * scale));
+
+                    ctx.fillStyle = '#64748b';
+                    ctx.font = `9px "Outfit", sans-serif`;
+                    ctx.fillText(`${p.team || ''} • ${p.pos || ''}`, tX + (8 * scale), tY + (32 * scale));
+
+                    ctx.fillStyle = '#047857';
+                    ctx.font = `bold ${10 * scale}px "Fira Code", monospace`;
+                    ctx.textAlign = 'right';
+                    ctx.fillText(`${p.ownershipPct || 0}%`, tX + cardW - (8 * scale), tY + (18 * scale));
+
+                    tX += cardW + (8 * scale);
+                    if ((idx + 1) % 5 === 0) {
+                        tX = 25 * scale;
+                        tY += cardH + (8 * scale);
+                    }
+                });
+
+                renderY += templateSectionHeight;
+            }
+
+            // 3. CAPTAINCY BREAKDOWN SECTION
+            if (incCaptaincy && captaincy.length > 0) {
+                ctx.fillStyle = '#0f172a';
+                ctx.font = `bold ${12 * scale}px "Fira Code", monospace`;
+                ctx.textAlign = 'left';
+                ctx.fillText('GW CAPTAIN PICK BREAKDOWN', 25 * scale, renderY + (16 * scale));
+
+                ctx.strokeStyle = '#e2e8f0';
+                ctx.beginPath();
+                ctx.moveTo(20 * scale, renderY + (24 * scale));
+                ctx.lineTo(tableWidth - (20 * scale), renderY + (24 * scale));
+                ctx.stroke();
+
+                let cY = renderY + (35 * scale);
+                let cX = 25 * scale;
+                const cardW = (tableWidth - (50 * scale)) / 3;
+                const cardH = 38 * scale;
+
+                captaincy.forEach((c, idx) => {
+                    ctx.fillStyle = '#f8faf9';
+                    ctx.strokeStyle = '#047857';
+                    ctx.lineWidth = 1 * scale;
+                    ctx.fillRect(cX, cY, cardW, cardH);
+                    ctx.strokeRect(cX, cY, cardW, cardH);
+
+                    ctx.fillStyle = '#0f172a';
+                    ctx.font = `bold ${10 * scale}px "Outfit", sans-serif`;
+                    ctx.textAlign = 'left';
+                    ctx.fillText(`${c.name} (${c.team})`, cX + (8 * scale), cY + (16 * scale));
+
+                    ctx.fillStyle = '#047857';
+                    ctx.font = `bold ${10 * scale}px "Fira Code", monospace`;
+                    ctx.textAlign = 'right';
+                    ctx.fillText(`${c.count} mgrs (${c.pct}%)`, cX + cardW - (8 * scale), cY + (16 * scale));
+
+                    cX += cardW + (8 * scale);
+                    if ((idx + 1) % 3 === 0) {
+                        cX = 25 * scale;
+                        cY += cardH + (8 * scale);
+                    }
+                });
+
+                renderY += captaincySectionHeight;
+            }
+
+            // FOOTER & SITE WATERMARK
+            const footerY = tableHeight - (28 * scale);
+            ctx.textAlign = 'center';
+
+            // Draw watermark logo icon if loaded
+            if (watermarkImg) {
+                const iconSize = 22 * scale;
+                const logoX = (tableWidth / 2) - (85 * scale);
+                const logoY = footerY - (16 * scale);
+                ctx.drawImage(watermarkImg, logoX, logoY, iconSize, iconSize);
+            }
+
+            ctx.fillStyle = '#0f172a';
+            ctx.font = `bold ${12 * scale}px "Fira Code", monospace`;
+            ctx.fillText('fplmanager.xyz', tableWidth / 2, footerY);
+
+            ctx.fillStyle = '#64748b';
+            ctx.font = `10px "Fira Code", monospace`;
+            ctx.fillText('• FPL MANAGER ANALYTICS', (tableWidth / 2) + (100 * scale), footerY);
+
+            const link = document.createElement('a');
+            link.download = `league-${standingsData.leagueId}-analytics-report.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+
+            this.hideDialog('export-league-dialog');
+        };
+
+        // Preload official site icon for watermark
+        const wmImg = new Image();
+        wmImg.crossOrigin = 'anonymous';
+        wmImg.onload = () => generatePNG(wmImg);
+        wmImg.onerror = () => generatePNG(null);
+        wmImg.src = '/pwa-icon-192.png?v=7';
     },
 
     showManagerDetail(managerId, managerName, teamName, rank, eventTotal, total, rankDiff, diffCount) {
@@ -5376,7 +5532,7 @@ const FPL = {
 
             <!-- Data Management Card -->
             <div class="card">
-                <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">storage</span> Data Management</h3></div>
+                <div class="card-header"><h3>Data Management</h3></div>
                 <div class="card-body">
                     <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--md-sys-color-outline-variant);">
                         <div>

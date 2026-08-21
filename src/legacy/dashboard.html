@@ -1238,20 +1238,25 @@
 
     <!-- Export League Standings Modal -->
     <div id="export-league-dialog" class="dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="export-league-dialog-title" aria-hidden="true">
-        <div class="dialog dialog-wide" style="max-width:540px;background:#0d1410;border:1px solid rgba(0,255,133,0.3);border-radius:18px;box-shadow:0 24px 60px rgba(0,0,0,0.85);overflow:hidden;">
+        <div class="dialog dialog-wide" style="max-width:560px;background:#0d1410;border:1px solid rgba(0,255,133,0.3);border-radius:18px;box-shadow:0 24px 60px rgba(0,0,0,0.85);overflow:hidden;">
             <div class="dialog-header" style="border-bottom:1px solid rgba(255,255,255,0.08);padding:16px 20px;background:#101a14;">
-                <div style="display:flex;align-items:center;gap:10px;">
-                    <span class="material-symbols-outlined" style="color:#00FF85;font-size:24px;">image</span>
-                    <div>
-                        <h3 id="export-league-dialog-title" style="font-family:var(--font-display);font-size:18px;font-weight:700;margin:0;color:#ffffff;">Export Standings Image</h3>
-                        <p style="margin:2px 0 0;font-size:12px;color:#8ba396;">Generate an HDR PNG image table with site watermark</p>
-                    </div>
+                <div>
+                    <h3 id="export-league-dialog-title" style="font-family:var(--font-display);font-size:18px;font-weight:700;margin:0;color:#ffffff;">Export High-Resolution PNG Report</h3>
+                    <p style="margin:2px 0 0;font-size:12px;color:#8ba396;">Generate a high-legibility light theme graphic with site watermark</p>
                 </div>
                 <button class="btn btn-ghost btn-icon" type="button" aria-label="Close dialog" onclick="FPL.hideDialog('export-league-dialog')"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
             </div>
             <div class="dialog-body" style="padding:20px;background:#0d1410;color:var(--md-sys-color-on-surface);">
                 <div style="margin-bottom:16px;">
-                    <label style="font-weight:700;font-size:13px;display:block;margin-bottom:8px;color:var(--md-sys-color-on-surface);">Select columns to include in PNG:</label>
+                    <label style="font-weight:700;font-size:13px;display:block;margin-bottom:8px;color:#00FF85;">Sections to Include in Export:</label>
+                    <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:13px;">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="export-sec-standings" checked> Standings Table</label>
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="export-sec-template" checked> League Template (Most Picked)</label>
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="export-sec-captaincy" checked> Captaincy Count</label>
+                    </div>
+                </div>
+                <div style="margin-bottom:16px;">
+                    <label style="font-weight:700;font-size:13px;display:block;margin-bottom:8px;color:var(--md-sys-color-on-surface);">Standings Table Columns:</label>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;">
                         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="export-col-rank" checked> Rank</label>
                         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="export-col-team" checked> Team & Manager</label>
@@ -1268,11 +1273,11 @@
                         <option value="10">Top 10 Managers</option>
                         <option value="25">Top 25 Managers</option>
                         <option value="50" selected>Top 50 Managers</option>
+                        <option value="100">Top 100 Managers</option>
                     </select>
                 </div>
                 <div style="padding:12px;background:rgba(0,255,133,0.06);border:1px solid rgba(0,255,133,0.2);border-radius:8px;font-size:12px;color:#00FF85;display:flex;align-items:center;gap:8px;">
-                    <span class="material-symbols-outlined" style="font-size:18px;">verified</span>
-                    <span>Image includes site watermark (<strong style="color:#fff;">fplmanager.xyz</strong>) and HDR contrast rendering.</span>
+                    <span>Clean light theme export with clear League Name header and official site icon watermark (<strong style="color:#fff;">fplmanager.xyz</strong>).</span>
                 </div>
             </div>
             <div class="dialog-footer" style="border-top:1px solid rgba(255,255,255,0.08);padding:14px 20px;background:#101a14;display:flex;justify-content:flex-end;gap:12px;">
