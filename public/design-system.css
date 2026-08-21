@@ -3616,6 +3616,19 @@ select option {
     object-fit: cover;
 }
 
+.connect-team-prompt-icon {
+    display: grid;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 16px;
+    place-items: center;
+    border: 1px solid rgba(0,255,133,0.35);
+    border-radius: 16px;
+    background: rgba(0,255,133,0.1);
+    color: var(--fpl-accent);
+}
+.connect-team-prompt-icon .material-symbols-outlined { font-size: 30px; }
+
 .install-prompt-title {
     font-family: var(--font-display);
     font-size: 1.25rem;
@@ -3982,11 +3995,16 @@ select option {
     .aiteam-gw-pill.active { border-color: #00ff85; background: rgba(0,255,133,.13); color: #00ff85; }
 
     /* --- Transfer Suggestions --- */
-    .aiteam-transfer-suggest { background: #141916; border: 1px solid #1A2E28; border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
-    .aiteam-transfer-suggest-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #1A2E28; background: rgba(255,255,255,0.02); }
+    .aiteam-transfer-section { margin-bottom: 32px; }
+    .aiteam-transfer-section-heading { margin-bottom: 14px; }
+    .aiteam-transfer-section-heading h2 { display: flex; align-items: center; gap: 8px; margin: 0; color: #fff; font: 700 18px var(--font-display); }
+    .aiteam-transfer-section-heading h2 .material-symbols-outlined { color: var(--fpl-accent); font-size: 20px; }
+    .aiteam-transfer-section-heading p { margin: 4px 0 0; color: #9ab2a5; font-size: 11px; }
+    .aiteam-transfer-suggest { background: #111814; border: 1px solid #294138; border-radius: 10px; margin-bottom: 12px; overflow: hidden; }
+    .aiteam-transfer-suggest-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #294138; background: #18231d; }
     .aiteam-transfer-suggest-header h3 { margin: 0; font-size: 14px; color: #fff; display: flex; align-items: center; gap: 6px; }
     .aiteam-transfer-suggest-header .reason { font-size: 11px; color: var(--fpl-text-muted); font-weight: 400; }
-    .aiteam-transfer-option { display: grid; grid-template-columns: 1fr auto 1fr auto; gap: 12px; align-items: center; padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.04); transition: background var(--transition-fast); }
+    .aiteam-transfer-option { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); transition: background var(--transition-fast); }
     .aiteam-transfer-option:last-child { border-bottom: 0; }
     .aiteam-transfer-option:hover { background: rgba(255,255,255,0.02); }
     .aiteam-transfer-player { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -3999,6 +4017,7 @@ select option {
     .aiteam-transfer-gain.negative { color: #ff4d4d; }
     .aiteam-transfer-apply { padding: 6px 12px; border: 1px solid rgba(0,255,133,.4); border-radius: 4px; background: rgba(0,255,133,.1); color: #00FF85; font: 600 10px var(--font-body); cursor: pointer; transition: all var(--transition-fast); white-space: nowrap; }
     .aiteam-transfer-apply:hover { background: rgba(0,255,133,.2); }
+    .aiteam-transfer-suggest-footer { display: flex; align-items: center; justify-content: flex-end; gap: 14px; padding: 10px 16px; color: #9ab2a5; font-size: 10px; }
     .aiteam-empty-state { text-align: center; padding: 40px 20px; color: var(--fpl-text-muted); }
     .aiteam-empty-state .material-symbols-outlined { font-size: 40px; opacity: 0.4; display: block; margin-bottom: 8px; }
 
@@ -4193,6 +4212,14 @@ select option {
     .aiteam-summary { flex-direction: column; }
     .aiteam-summary .aiteam-card { padding: 10px 12px; }
     .aiteam-transfer-option { grid-template-columns: 1fr; gap: 8px; }
+    .aiteam-transfer-section-heading { text-align: center; }
+    .aiteam-transfer-section-heading h2 { justify-content: center; text-align: center; }
+    .aiteam-transfer-section-heading h2 .material-symbols-outlined { display: none; }
+    .aiteam-transfer-suggest-header { align-items: flex-start; flex-direction: column; }
+    .aiteam-transfer-suggest-header h3 { flex-wrap: wrap; }
+    .aiteam-transfer-option > .material-symbols-outlined { transform: rotate(90deg); justify-self: center; }
+    .aiteam-transfer-suggest-footer { align-items: stretch; flex-direction: column; text-align: center; }
+    .aiteam-transfer-suggest-footer .aiteam-transfer-apply { min-height: 44px; }
     .aiteam-tab { padding: 8px 10px; font-size: 11px; }
     .aiteam-tab .material-symbols-outlined { font-size: 14px; }
     .aiteam-gw-selector { gap: 3px; }

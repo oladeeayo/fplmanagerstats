@@ -36,6 +36,34 @@ function isValidAITeamPayload(payload) {
     && bench.every(player => ids.includes(Number(player.id)));
 }
 
+async function getGW1LockState() {
+  const bootstrap = await getCachedApiData(BOOTSTRAP_URL);
+  const gw1 = (bootstrap.events || []).find(event => event.id === 1);
+  const deadline = gw1?.deadline_time ? new Date(gw1.deadline_time) : null;
+  return { deadline, shouldLock: Boolean(deadline && new Date() >= deadline) };
+}
+
+function savedPayloadFromRow(row, saved = true) {
+  return {
+    saved,
+    isLocked: row.is_locked,
+    lockedAt: row.locked_at,
+    formation: row.formation,
+    teamCost: Number(row.team_cost),
+    teamXpts: Number(row.team_xpts),
+    strategy: row.strategy,
+    budget: Number(row.budget),
+    horizon: row.horizon,
+    squad: row.squad,
+    lineup: row.lineup,
+    transfers: row.transfers || { plan: [] },
+    chips: row.chips || { schedule: [] },
+    meta: { schemaVersion: '2.0', modelVersion: AI_TEAM_MODEL_VERSION, generatedAt: row.updated_at, strategy: row.strategy, budget: Number(row.budget), horizon: row.horizon, gameweeks: row.lineup?.starters?.[0]?.weekly?.map(week => week.gameweek) || [], isAutoLocked: row.is_locked, quality: row.lineup?.quality || null, managerId: SMART_TEAM_MANAGER_ID },
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 // GET saved AI team + transfer plan + chip schedule
 router.get('/', async (req, res) => {
   if (!sql) return res.json({ saved: false, persistenceAvailable: false });
@@ -44,6 +72,12 @@ router.get('/', async (req, res) => {
     const rows = await sql`SELECT * FROM ai_team WHERE session_id = ${storageKey} ORDER BY updated_at DESC LIMIT 1`;
     if (!rows.length) return res.json({ saved: false });
     const row = rows[0];
+    const lockState = await getGW1LockState();
+    if (!row.is_locked && lockState.shouldLock) {
+      await sql`UPDATE ai_team SET is_locked = TRUE, locked_at = COALESCE(locked_at, NOW()), updated_at = NOW() WHERE id = ${row.id}`;
+      row.is_locked = true;
+      row.locked_at = row.locked_at || new Date();
+    }
     const payload = {
       saved: true,
       isLocked: row.is_locked,
@@ -84,6 +118,31 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Save a user-selected Smart Team before the GW1 deadline.
+router.put('/', async (req, res) => {
+  if (!sql) return res.status(503).json({ error: 'Smart Team persistence is unavailable' });
+  const payload = req.body || {};
+  if (!isValidAITeamPayload(payload)) return res.status(400).json({ error: 'Smart Team payload is invalid' });
+  try {
+    const lockState = await getGW1LockState();
+    const rows = await sql`SELECT * FROM ai_team WHERE session_id = ${SMART_TEAM_STORAGE_KEY} LIMIT 1`;
+    if ((rows.length && rows[0].is_locked) || lockState.shouldLock) {
+      if (rows.length && !rows[0].is_locked && lockState.shouldLock) {
+        await sql`UPDATE ai_team SET is_locked = TRUE, locked_at = COALESCE(locked_at, NOW()), updated_at = NOW() WHERE id = ${rows[0].id}`;
+      }
+      return res.status(409).json({ error: 'The GW1 deadline has passed. The locked Smart Team is now being used.', locked: true });
+    }
+    const savedRows = await sql`INSERT INTO ai_team (session_id, squad, lineup, formation, team_cost, team_xpts, strategy, budget, horizon, is_locked, locked_at, transfers, chips)
+      VALUES (${SMART_TEAM_STORAGE_KEY}, ${JSON.stringify(payload.squad)}, ${JSON.stringify(payload.lineup)}, ${payload.formation || '4-4-2'}, ${Number(payload.teamCost) || 0}, ${Number(payload.teamXpts) || 0}, ${payload.strategy || 'balanced'}, ${Number(payload.budget) || 100}, ${Number(payload.horizon) || 8}, FALSE, NULL, ${JSON.stringify(payload.transfers || { plan: [] })}, ${JSON.stringify(payload.chips || { schedule: [] })})
+      ON CONFLICT (session_id) DO UPDATE SET squad = EXCLUDED.squad, lineup = EXCLUDED.lineup, formation = EXCLUDED.formation, team_cost = EXCLUDED.team_cost, team_xpts = EXCLUDED.team_xpts, strategy = EXCLUDED.strategy, budget = EXCLUDED.budget, horizon = EXCLUDED.horizon, transfers = EXCLUDED.transfers, chips = EXCLUDED.chips, updated_at = NOW()
+      RETURNING *`;
+    res.json(savedPayloadFromRow(savedRows[0]));
+  } catch (error) {
+    logger.error({ err: error }, 'AI Team save error');
+    res.status(500).json({ error: 'Failed to save AI Team' });
+  }
+});
+
 // ---- Core Smart Team optimizer ----
 router.post('/', heavyEndpointLimiter, async (req, res) => {
   const budget = 100;
@@ -92,7 +151,7 @@ router.post('/', heavyEndpointLimiter, async (req, res) => {
   const storageKey = SMART_TEAM_STORAGE_KEY;
 
   try {
-    if (sql && !req.body?.rebuild) {
+    if (sql) {
       const rows = await sql`SELECT * FROM ai_team WHERE session_id = ${storageKey} AND is_locked = TRUE ORDER BY updated_at DESC LIMIT 1`;
       if (rows.length && rows[0].lineup?.quality?.optimizerVersion === 8 && rows[0].transfers?.plansByStrategy) {
         const row = rows[0];
@@ -116,6 +175,12 @@ router.post('/', heavyEndpointLimiter, async (req, res) => {
     const teamsById = new Map(teams.map(t => [t.id, t]));
     const currentGW = events.find(e => e.is_current)?.id || null;
     const nextGW = events.find(e => e.is_next)?.id || currentGW || 1;
+    const gw1Event = events.find(event => event.id === 1);
+    const gw1DeadlineAt = gw1Event?.deadline_time ? new Date(gw1Event.deadline_time) : null;
+    if (sql && gw1DeadlineAt && new Date() >= gw1DeadlineAt) {
+      const savedRows = await sql`UPDATE ai_team SET is_locked = TRUE, locked_at = COALESCE(locked_at, NOW()), updated_at = NOW() WHERE session_id = ${storageKey} RETURNING *`;
+      if (savedRows.length) return res.json(savedPayloadFromRow(savedRows[0]));
+    }
 
     // Build full player projections across the horizon
     const projectionData = buildPlayerProjections({ bootstrap, fixtures, startGW: nextGW, horizon });
@@ -463,8 +528,7 @@ router.post('/', heavyEndpointLimiter, async (req, res) => {
     // ---- AUTO-LOCK BEFORE GW1 ----
     const gw1 = events.find(event => event.id === 1);
     const gw1Deadline = gw1?.deadline_time ? new Date(gw1.deadline_time) : null;
-    const lockWindow = gw1Deadline ? new Date(gw1Deadline.getTime() - 60 * 60 * 1000) : null;
-    const shouldAutoLock = nextGW === 1 && lockWindow && new Date() >= lockWindow;
+    const shouldAutoLock = nextGW === 1 && gw1Deadline && new Date() >= gw1Deadline;
     const qualityAudit = {
       legalSquad: isLegalSquad(selected),
       budgetCompliant: selected.reduce((sum, player) => sum + costTenths(player), 0) <= 1000,

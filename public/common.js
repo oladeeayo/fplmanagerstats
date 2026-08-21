@@ -110,6 +110,19 @@ const FPL = {
         }
     },
 
+    async apiPut(url, body) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
+        try {
+            const res = await window.fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: controller.signal });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+            return data;
+        } finally {
+            clearTimeout(timeout);
+        }
+    },
+
     async init() {
         // The application shell is usable while base data hydrates in the background.
         this.hideLoading();
@@ -741,31 +754,44 @@ const FPL = {
         this.showDialog('player-detail-dialog');
     },
 
-    async applyAITeamSwap(outId, inId) {
+    async applyAITeamTransfers(moves) {
         const data = this.state.aiTeamData;
         const bootstrap = this.state.bootstrapData;
-        if (!data || !bootstrap) return;
-        const inPlayer = bootstrap.elements.find(p => p.id === inId);
-        if (!inPlayer) return;
-        const team = bootstrap.teams.find(t => t.id === inPlayer.team);
+        if (!data || !bootstrap || !Array.isArray(moves) || (moves.length !== 1 && moves.length !== 2)) return;
         const posMap = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
-        const outIdx = data.squad.findIndex(p => p.id === outId);
-        if (outIdx < 0) return;
-        const oldPlayer = data.squad[outIdx];
-        const newPlayer = {
-            id: inPlayer.id, name: inPlayer.web_name, team: inPlayer.team, teamFull: team?.name || team?.short_name || '?',
-            position: posMap[inPlayer.element_type] || 'MID', cost: inPlayer.now_cost / 10,
-            form: parseFloat(inPlayer.form || 0), totalXpts: parseFloat(inPlayer.total_points || 0) * 0.5 + parseFloat(inPlayer.form || 0) * 3,
-            weekly: oldPlayer.weekly || [], upcomingFixtures: oldPlayer.upcomingFixtures || [], status: inPlayer.status || 'a', news: inPlayer.news || ''
-        };
-        data.squad[outIdx] = newPlayer;
-        const lineStarters = data.lineup.starters.findIndex(p => p.id === outId);
-        const lineBench = data.lineup.bench.findIndex(p => p.id === outId);
-        if (lineStarters >= 0) data.lineup.starters[lineStarters] = newPlayer;
-        else if (lineBench >= 0) data.lineup.bench[lineBench] = newPlayer;
-        data.teamCost = data.teamCost - oldPlayer.cost + newPlayer.cost;
-        this.hideDialog('player-detail-dialog');
-        this.paintAITeam(data);
+        const nextData = JSON.parse(JSON.stringify(data));
+        const seen = new Set();
+        for (const move of moves) {
+            if (!move || seen.has(move.outId) || seen.has(move.inId)) throw new Error('A transfer move contains a duplicate player.');
+            seen.add(move.outId); seen.add(move.inId);
+            const inPlayer = bootstrap.elements.find(p => p.id === move.inId);
+            const outIdx = nextData.squad.findIndex(p => p.id === move.outId);
+            if (!inPlayer || outIdx < 0) throw new Error('That transfer is no longer available.');
+            const oldPlayer = nextData.squad[outIdx];
+            const team = bootstrap.teams.find(t => t.id === inPlayer.team);
+            const newPlayer = { id: inPlayer.id, name: inPlayer.web_name, team: inPlayer.team, teamId: inPlayer.team, teamFull: team?.name || team?.short_name || '?', position: posMap[inPlayer.element_type] || 'MID', cost: inPlayer.now_cost / 10, form: parseFloat(inPlayer.form || 0), totalXpts: parseFloat(inPlayer.total_points || 0) * 0.5 + parseFloat(inPlayer.form || 0) * 3, weekly: oldPlayer.weekly || [], upcomingFixtures: oldPlayer.upcomingFixtures || [], status: inPlayer.status || 'a', news: inPlayer.news || '' };
+            nextData.squad[outIdx] = newPlayer;
+            ['starters', 'bench'].forEach(key => {
+                const index = nextData.lineup[key].findIndex(p => p.id === move.outId);
+                if (index >= 0) nextData.lineup[key][index] = newPlayer;
+            });
+            if (nextData.lineup.captain?.id === move.outId) nextData.lineup.captain = newPlayer;
+            if (nextData.lineup.viceCaptain?.id === move.outId) nextData.lineup.viceCaptain = newPlayer;
+            nextData.teamCost = nextData.teamCost - oldPlayer.cost + newPlayer.cost;
+        }
+        try {
+            const saved = await this.apiPut(this.API.aiTeam, nextData);
+            this.state.aiTeamData = this.normalizeAITeamData(saved) || nextData;
+            this.hideDialog('player-detail-dialog');
+            this.hideDialog('sub-underlay-dialog');
+            this.paintAITeam(this.state.aiTeamData);
+        } catch (error) {
+            this.showError(error.message || 'The Smart Team could not be saved.');
+        }
+    },
+
+    async applyAITeamSwap(outId, inId) {
+        return this.applyAITeamTransfers([{ outId, inId }]);
     },
 
     paintAITeam(data) {
@@ -974,29 +1000,21 @@ const FPL = {
             const selectedStrategy = document.getElementById('aiteam-strategy')?.value || 'balanced';
             const suggestions = (transfers?.plansByStrategy?.[selectedStrategy] || transfers?.plan || [])
                 .filter(plan => plan.transfers?.length)
-                .flatMap(plan => plan.transfers.map(move => ({ ...move, gw: plan.gw, planHit: plan.hit || 0 })))
-                .filter(move => move.gain > 0)
+                .map(plan => ({ ...plan, gain: plan.transfers.reduce((sum, move) => sum + (move.gain || 0), 0) }))
+                .filter(plan => plan.gain > 0)
                 .sort((a, b) => b.gain - a.gain);
             if (suggestions.length) {
                 transferEl.innerHTML = `
-                    <div style="margin-bottom:16px;">
-                        <div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:4px;">Transfer Suggestions</div>
-                        <div style="font-size:11px;color:#8ba396;">Planned from the original GW1 squad using legal starting-XI gain across the remaining horizon.</div>
-                    </div>
                     ${suggestions.slice(0, 5).map(s => {
+                        const primary = s.transfers[0];
+                        const moveArgs = s.transfers.map(move => `{outId:${move.out.id},inId:${move.in.id}}`).join(',');
                         return `<div class="aiteam-transfer-suggest">
                             <div class="aiteam-transfer-suggest-header">
-                                <h3>GW${s.gw}: ${s.out.name} <span class="reason">${s.out.position} \u00B7 ${s.out.teamFull || s.out.team}</span></h3>
-                                <span style="font:600 11px var(--font-mono);color:#00FF85;">+${s.gain.toFixed(1)} XI xPts${s.planHit ? ` \u00B7 -${s.planHit} hit` : ''}</span>
+                                <h3>GW${s.gw}: ${s.transfers.length > 1 ? `${s.transfers.length} transfers` : primary.out.name} <span class="reason">${s.transfers.length > 1 ? 'paired plan' : `${primary.out.position} \u00B7 ${primary.out.teamFull || primary.out.team}`}</span></h3>
+                                <span style="font:600 11px var(--font-mono);color:#00FF85;">+${s.gain.toFixed(1)} XI xPts${s.hit ? ` \u00B7 -${s.hit} hit` : ''}</span>
                             </div>
-                            <div class="aiteam-transfer-option">
-                                <div class="aiteam-transfer-player out">
-                                    <div><div class="aiteam-transfer-player-name">${s.out.name}</div><div class="aiteam-transfer-player-meta">\u00A3${s.out.cost?.toFixed(1)}m \u00B7 outgoing</div></div>
-                                </div>
-                                <span class="material-symbols-outlined" style="color:#8ba396;font-size:18px;">arrow_forward</span>
-                                <div class="aiteam-transfer-player in"><div><div class="aiteam-transfer-player-name">${s.in.name}</div><div class="aiteam-transfer-player-meta">\u00A3${s.in.cost?.toFixed(1)}m \u00B7 ${s.nextGain >= 0 ? '+' : ''}${s.nextGain.toFixed(1)} next GW</div></div></div>
-                                <button class="aiteam-transfer-apply" onclick="FPL.suggestAITeamTransfer(${s.out.id})">Review</button>
-                            </div>
+                            ${s.transfers.map(move => `<div class="aiteam-transfer-option"><div class="aiteam-transfer-player out"><div><div class="aiteam-transfer-player-name">${move.out.name}</div><div class="aiteam-transfer-player-meta">\u00A3${move.out.cost?.toFixed(1)}m \u00B7 outgoing</div></div></div><span class="material-symbols-outlined" style="color:#8ba396;font-size:18px;">arrow_forward</span><div class="aiteam-transfer-player in"><div><div class="aiteam-transfer-player-name">${move.in.name}</div><div class="aiteam-transfer-player-meta">\u00A3${move.in.cost?.toFixed(1)}m \u00B7 ${move.nextGain >= 0 ? '+' : ''}${move.nextGain.toFixed(1)} next GW</div></div></div></div>`).join('')}
+                            <div class="aiteam-transfer-suggest-footer"><span>${isLocked ? 'Suggestion based on the locked GW1 squad' : s.transfers.length > 1 ? 'Apply both moves together' : 'Apply this recommendation'}</span>${isLocked ? '' : `<button class="aiteam-transfer-apply" onclick="FPL.applyAITeamTransfers([${moveArgs}])">${s.transfers.length > 1 ? 'Apply plan' : 'Apply transfer'}</button>`}</div>
                         </div>`;
                     }).join('')}`;
             } else {
@@ -1243,13 +1261,11 @@ const FPL = {
     },
 
     applySingleSub(outId, inId) {
-        this.hideDialog('sub-underlay-dialog');
-        this.suggestAITeamTransfer(outId);
+        return this.applyAITeamTransfers([{ outId, inId }]);
     },
 
     applySubCombo(out1Id, in1Id, out2Id, in2Id) {
-        this.hideDialog('sub-underlay-dialog');
-        this.suggestAITeamTransfer(out1Id);
+        return this.applyAITeamTransfers([{ outId: out1Id, inId: in1Id }, { outId: out2Id, inId: in2Id }]);
     },
 
     // ==================== RENDER: DASHBOARD (GENERAL) ====================
@@ -2697,6 +2713,433 @@ const FPL = {
         wmImg.src = '/pwa-icon-192.png?v=7';
     },
 
+
+    async downloadLeagueGraphicPNG() {
+        const standingsData = this.state.standingsData;
+        if (!standingsData) {
+            alert('No league standings data available to export.');
+            return;
+        }
+
+        const leagueName = standingsData.leagueName || (`League ${standingsData.leagueId || ''}`);
+        const currentGW = this.state.bootstrapData?.events?.find(e => e.is_current || e.is_next)?.id || 1;
+        const captaincy = standingsData.captaincyCount || [];
+        const template = standingsData.leagueTemplate || [];
+        const todayDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+
+        const scale = 2;
+        const width = 1400;
+        const height = 950;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width * scale;
+        canvas.height = height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(scale, scale);
+
+        const teamBadgeImgs = {};
+        const teamList = this.state.bootstrapData?.teams || [];
+
+        const loadImage = (src) => new Promise(resolve => {
+            if (!src) return resolve(null);
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => resolve(img);
+            img.onerror = () => resolve(null);
+            img.src = src;
+        });
+
+        const topCaptains = captaincy.slice(0, 15);
+        await Promise.all(topCaptains.map(async item => {
+            const teamObj = teamList.find(t => t.short_name === item.team || t.name === item.team);
+            const code = teamObj ? teamObj.code : (item.code || null);
+            if (code && !teamBadgeImgs[item.team]) {
+                const badgeUrl = `https://resources.premierleague.com/premierleague/badges/70/t${code}.png`;
+                teamBadgeImgs[item.team] = await loadImage(badgeUrl);
+            }
+        }));
+
+        const PL_TEAMS = {
+            'ARS': { name: 'Arsenal', code: 3, main: '#db0007', sleeve: '#ffffff' },
+            'AVL': { name: 'Aston Villa', code: 7, main: '#670e36', sleeve: '#95bfe6' },
+            'BOU': { name: 'Bournemouth', code: 91, main: '#da291c', sleeve: '#000000' },
+            'BHA': { name: 'Brighton', code: 36, main: '#0057b8', sleeve: '#ffffff' },
+            'BRE': { name: 'Brentford', code: 94, main: '#e30613', sleeve: '#ffffff' },
+            'CHE': { name: 'Chelsea', code: 8, main: '#034694', sleeve: '#034694' },
+            'CRY': { name: 'Crystal Palace', code: 31, main: '#1b458f', sleeve: '#c41230' },
+            'EVE': { name: 'Everton', code: 11, main: '#00369c', sleeve: '#00369c' },
+            'FUL': { name: 'Fulham', code: 54, main: '#ffffff', sleeve: '#000000' },
+            'IPSW': { name: 'Ipswich', code: 40, main: '#003399', sleeve: '#ffffff' },
+            'LEI': { name: 'Leicester', code: 13, main: '#0053a0', sleeve: '#0053a0' },
+            'LIV': { name: 'Liverpool', code: 14, main: '#c8102e', sleeve: '#c8102e' },
+            'MCI': { name: 'Man City', code: 43, main: '#6cabdd', sleeve: '#6cabdd' },
+            'MUN': { name: 'Man Utd', code: 1, main: '#da020e', sleeve: '#da020e' },
+            'NEW': { name: 'Newcastle', code: 4, main: '#241f20', sleeve: '#ffffff' },
+            'NFO': { name: 'Nott\'m Forest', code: 17, main: '#dd0000', sleeve: '#dd0000' },
+            'SOU': { name: 'Southampton', code: 20, main: '#d10022', sleeve: '#ffffff' },
+            'TOT': { name: 'Spurs', code: 6, main: '#ffffff', sleeve: '#132257' },
+            'WHU': { name: 'West Ham', code: 21, main: '#7a263a', sleeve: '#5b8ab5' },
+            'WOL': { name: 'Wolves', code: 39, main: '#fdb913', sleeve: '#231f20' }
+        };
+
+        const createJerseyDataUri = (teamShort, isGkp = false) => {
+            const t = PL_TEAMS[teamShort] || { main: '#ef4444', sleeve: '#1e3a8a' };
+            const mainColor = isGkp ? '#f59e0b' : t.main;
+            const sleeveColor = isGkp ? '#d97706' : t.sleeve;
+            const strokeColor = isGkp ? '#78350f' : (mainColor === '#ffffff' ? '#000000' : '#ffffff');
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="54" viewBox="0 0 100 90">
+                <path d="M 30 12 L 10 26 L 22 44 L 32 35 L 32 82 L 68 82 L 68 35 L 78 44 L 90 26 L 70 12 C 60 22 40 22 30 12 Z" fill="${mainColor}" stroke="${strokeColor}" stroke-width="2.5" stroke-linejoin="round"/>
+                <path d="M 30 12 L 10 26 L 22 44 L 32 35 Z" fill="${sleeveColor}" />
+                <path d="M 70 12 L 90 26 L 78 44 L 68 35 Z" fill="${sleeveColor}" />
+                <path d="M 30 12 C 40 22 60 22 70 12 Z" fill="${strokeColor}" />
+            </svg>`;
+            return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+        };
+
+        const jerseyImgs = {};
+        const getJerseyImg = async (teamShort, isGkp) => {
+            const key = `${teamShort}_${isGkp ? 'gkp' : 'field'}`;
+            if (!jerseyImgs[key]) {
+                jerseyImgs[key] = await loadImage(createJerseyDataUri(teamShort, isGkp));
+            }
+            return jerseyImgs[key];
+        };
+
+        const gkps = template.filter(p => p.posType === 1);
+        const defs = template.filter(p => p.posType === 2);
+        const mids = template.filter(p => p.posType === 3);
+        const fwds = template.filter(p => p.posType === 4);
+
+        const starterGkp = gkps.slice(0, 1);
+        const benchGkp = gkps.slice(1, 2);
+
+        const starterDef = defs.slice(0, 4);
+        const benchDef = defs.slice(4, 5);
+
+        const starterMid = mids.slice(0, 4);
+        const benchMid = mids.slice(4, 5);
+
+        const starterFwd = fwds.slice(0, 2);
+        const benchFwd = fwds.slice(2, 3);
+
+        const benchPlayers = [...benchGkp, ...benchDef, ...benchMid, ...benchFwd];
+        const topCaptainName = topCaptains.length > 0 ? topCaptains[0].name : '';
+
+        const allPitchPlayers = [...starterGkp, ...starterDef, ...starterMid, ...starterFwd, ...benchPlayers];
+        await Promise.all(allPitchPlayers.map(p => getJerseyImg(p.team, p.posType === 1)));
+
+        const drawRoundedRect = (x, y, w, h, r) => {
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.lineTo(x + w - r, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+            ctx.lineTo(x + w, y + h - r);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            ctx.lineTo(x + r, y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+            ctx.lineTo(x, y + r);
+            ctx.quadraticCurveTo(x, y, x + r, y);
+            ctx.closePath();
+        };
+
+        ctx.fillStyle = '#080d16';
+        ctx.fillRect(0, 0, width, height);
+
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+        bgGrad.addColorStop(0, '#0d1726');
+        bgGrad.addColorStop(1, '#060911');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.strokeStyle = '#ff6b00';
+        ctx.lineWidth = 3.5;
+        const bracketMargin = 22;
+        const bracketLen = 36;
+
+        ctx.beginPath();
+        ctx.moveTo(bracketMargin, bracketMargin + bracketLen);
+        ctx.lineTo(bracketMargin, bracketMargin);
+        ctx.lineTo(bracketMargin + bracketLen, bracketMargin);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(width - bracketMargin - bracketLen, bracketMargin);
+        ctx.lineTo(width - bracketMargin, bracketMargin);
+        ctx.lineTo(width - bracketMargin, bracketMargin + bracketLen);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(bracketMargin, height - bracketMargin - bracketLen);
+        ctx.lineTo(bracketMargin, height - bracketMargin);
+        ctx.lineTo(bracketMargin + bracketLen, height - bracketMargin);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(width - bracketMargin - bracketLen, height - bracketMargin);
+        ctx.lineTo(width - bracketMargin, height - bracketMargin);
+        ctx.lineTo(width - bracketMargin, height - bracketMargin - bracketLen);
+        ctx.stroke();
+
+        ctx.font = '800 28px "Outfit", system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('League Captains & Most Owned Squad ', 45, 52);
+
+        const titleWidth = ctx.measureText('League Captains & Most Owned Squad ').width;
+        ctx.fillStyle = '#ff6b00';
+        ctx.fillText(`GW${currentGW}`, 45 + titleWidth, 52);
+
+        ctx.font = '500 12px "Fira Code", monospace';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText(`Live manager picks & template XI from FPL Manager Stats | ${this.escapeHTML(leagueName)} | Updated: ${todayDate}`, 45, 78);
+
+        const logoX = width - 180;
+        const logoY = 36;
+        const logoW = 135;
+        const logoH = 42;
+        drawRoundedRect(logoX, logoY, logoW, logoH, 8);
+        ctx.fillStyle = '#090e17';
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.font = '800 16px "Fira Code", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('fplmanager', logoX + (logoW / 2), logoY + (logoH / 2));
+
+        const col1X = 45;
+        const col1Y = 105;
+        const col1W = 530;
+        const col1H = 780;
+
+        drawRoundedRect(col1X, col1Y, col1W, col1H, 14);
+        ctx.fillStyle = '#0b1424';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        drawRoundedRect(col1X, col1Y, col1W, 42, 14);
+        ctx.fillStyle = '#101d33';
+        ctx.fill();
+
+        ctx.font = '800 12px "Fira Code", monospace';
+        ctx.fillStyle = '#38bdf8';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('CAPTAINS & NUMBER OF MANAGERS', col1X + 16, col1Y + 21);
+
+        ctx.font = '800 11px "Fira Code", monospace';
+        ctx.fillStyle = '#94a3b8';
+        ctx.textAlign = 'right';
+        ctx.fillText('CAPTAINED', col1X + col1W - 20, col1Y + 21);
+
+        const rowH = 47;
+        const renderCaptains = topCaptains.slice(0, 15);
+        renderCaptains.forEach((item, idx) => {
+            const rY = col1Y + 44 + (idx * rowH);
+
+            ctx.fillStyle = idx % 2 === 1 ? 'rgba(255, 255, 255, 0.02)' : 'transparent';
+            ctx.fillRect(col1X + 1, rY, col1W - 2, rowH);
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(col1X + 16, rY + rowH);
+            ctx.lineTo(col1X + col1W - 16, rY + rowH);
+            ctx.stroke();
+
+            ctx.font = '800 13px "Fira Code", monospace';
+            ctx.fillStyle = '#64748b';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`${idx + 1}`, col1X + 16, rY + (rowH / 2));
+
+            const badgeImg = teamBadgeImgs[item.team];
+            const badgeX = col1X + 42;
+            const badgeY = rY + (rowH / 2) - 12;
+            if (badgeImg) {
+                ctx.drawImage(badgeImg, badgeX, badgeY, 24, 24);
+            } else {
+                ctx.fillStyle = '#38bdf8';
+                ctx.beginPath();
+                ctx.arc(badgeX + 12, badgeY + 12, 11, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.font = '800 9px sans-serif';
+                ctx.fillStyle = '#000000';
+                ctx.textAlign = 'center';
+                ctx.fillText((item.team || '').substring(0, 3), badgeX + 12, badgeY + 12);
+            }
+
+            ctx.font = '700 14px "Outfit", system-ui, sans-serif';
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            const pName = item.name || 'Player';
+            ctx.fillText(pName, col1X + 76, rY + (rowH / 2));
+
+            ctx.font = '500 11px "Outfit", sans-serif';
+            ctx.fillStyle = '#64748b';
+            const fixStr = item.team || '';
+            ctx.fillText(fixStr, col1X + 270, rY + (rowH / 2));
+
+            const pillW = 130;
+            const pillH = 28;
+            const pillX = col1X + col1W - pillW - 16;
+            const pillY = rY + (rowH / 2) - (pillH / 2);
+            drawRoundedRect(pillX, pillY, pillW, pillH, 6);
+            ctx.fillStyle = 'rgba(14, 165, 233, 0.15)';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(14, 165, 233, 0.35)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            ctx.font = '800 12px "Fira Code", monospace';
+            ctx.fillStyle = '#38bdf8';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const countTxt = item.pct != null ? `${item.count} (${item.pct}%)` : `${item.count} mgrs`;
+            ctx.fillText(countTxt, pillX + (pillW / 2), pillY + (pillH / 2));
+        });
+
+        const col2X = 600;
+        const col2Y = 105;
+        const col2W = 755;
+        const col2H = 780;
+
+        drawRoundedRect(col2X, col2Y, col2W, col2H, 16);
+        ctx.fillStyle = '#0c1524';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.lineWidth = 1.5;
+
+        const pPad = 16;
+        ctx.strokeRect(col2X + pPad, col2Y + pPad, col2W - (pPad * 2), col2H - (pPad * 2));
+
+        const pBoxW = 400;
+        const pBoxH = 135;
+        const pBoxX = col2X + (col2W / 2) - (pBoxW / 2);
+        ctx.strokeRect(pBoxX, col2Y + pPad, pBoxW, pBoxH);
+
+        const gBoxW = 180;
+        const gBoxH = 45;
+        ctx.strokeRect(col2X + (col2W / 2) - (gBoxW / 2), col2Y + pPad, gBoxW, gBoxH);
+
+        ctx.beginPath();
+        ctx.arc(col2X + (col2W / 2), col2Y + pPad + pBoxH, 50, 0.1 * Math.PI, 0.9 * Math.PI);
+        ctx.stroke();
+
+        const midY = col2Y + 415;
+        ctx.beginPath();
+        ctx.moveTo(col2X + pPad, midY);
+        ctx.lineTo(col2X + col2W - pPad, midY);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(col2X + (col2W / 2), midY, 75, 0, Math.PI * 2);
+        ctx.stroke();
+
+        const drawPitchPlayer = (player, x, y, isGkp = false) => {
+            const teamShort = player.team || '';
+            const key = `${teamShort}_${isGkp ? 'gkp' : 'field'}`;
+            const jImg = jerseyImgs[key];
+
+            if (jImg) {
+                ctx.drawImage(jImg, x - 22, y - 10, 44, 40);
+            }
+
+            const cardW = 106;
+            const cardH = 42;
+            const cardX = x - (cardW / 2);
+            const cardY = y + 30;
+
+            const isTopCap = (player.name === topCaptainName);
+
+            drawRoundedRect(cardX, cardY, cardW, cardH, 5);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+            ctx.strokeStyle = isTopCap ? '#f59e0b' : '#cbd5e1';
+            ctx.lineWidth = isTopCap ? 2 : 1;
+            ctx.stroke();
+
+            ctx.font = '800 10px "Outfit", system-ui, sans-serif';
+            ctx.fillStyle = '#0f172a';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            let nameStr = (player.name || 'Player').toUpperCase();
+            if (nameStr.length > 12) nameStr = nameStr.substring(0, 10) + '..';
+            if (isTopCap) nameStr += ' (C)';
+            ctx.fillText(nameStr, x, cardY + 5);
+
+            ctx.font = '500 9px "Outfit", system-ui, sans-serif';
+            ctx.fillStyle = '#64748b';
+            ctx.fillText(player.team || '', x, cardY + 18);
+
+            ctx.font = '800 10px "Fira Code", monospace';
+            ctx.fillStyle = '#047857';
+            const countStr = player.count != null ? `${player.count} (${player.ownershipPct || 0}%)` : `${player.ownershipPct || 0}%`;
+            ctx.fillText(countStr, x, cardY + 29);
+        };
+
+        const drawPlayerRow = (players, y, isGkp = false) => {
+            if (!players || players.length === 0) return;
+            const count = players.length;
+            const step = col2W / (count + 1);
+            players.forEach((p, i) => {
+                const px = col2X + step * (i + 1);
+                drawPitchPlayer(p, px, y, isGkp);
+            });
+        };
+
+        drawPlayerRow(starterGkp, col2Y + 40, true);
+        drawPlayerRow(starterDef, col2Y + 145, false);
+        drawPlayerRow(starterMid, col2Y + 265, false);
+        drawPlayerRow(starterFwd, col2Y + 385, false);
+
+        const benchX = col2X + 18;
+        const benchY = col2Y + 630;
+        const benchW = col2W - 36;
+        const benchH = 132;
+
+        drawRoundedRect(benchX, benchY, benchW, benchH, 12);
+        ctx.fillStyle = 'rgba(8, 14, 24, 0.92)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.font = '800 10px "Fira Code", monospace';
+        ctx.fillStyle = '#94a3b8';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText('BENCH SQUAD (MOST OWNED SUBSTITUTES)', benchX + (benchW / 2), benchY + 8);
+
+        const bStep = benchW / (benchPlayers.length + 1);
+        benchPlayers.forEach((p, i) => {
+            const bx = benchX + bStep * (i + 1);
+            drawPitchPlayer(p, bx, benchY + 38, p.posType === 1);
+        });
+
+        const footerY = height - 20;
+        ctx.font = '500 12px "Fira Code", monospace';
+        ctx.fillStyle = '#94a3b8';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('View and edit mini-league stats & get detailed breakdown for your team at fplmanagerstats.com', width / 2, footerY);
+
+        const link = document.createElement('a');
+        link.download = `league-${standingsData.leagueId || 'stats'}-captains-template-gw${currentGW}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    },
     showManagerDetail(managerId, managerName, teamName, rank, eventTotal, total, rankDiff, diffCount) {
         const bodyEl = document.getElementById('manager-detail-body');
         if (!bodyEl) return;
