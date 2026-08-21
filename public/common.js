@@ -3076,7 +3076,7 @@ const FPL = {
         // LEFT COLUMN: Top Captains Table
         const col1X = 45;
         const col1Y = 105;
-        const col1W = 490;
+        const col1W = 510;
         const col1H = 780;
 
         drawRoundedRect(col1X, col1Y, col1W, col1H, 14);
@@ -3128,55 +3128,55 @@ const FPL = {
             // Team Badge
             const badgeImg = teamBadgeImgs[item.team];
             const badgeX = col1X + 42;
-            const badgeY = rY + (rowH / 2) - 12;
+            const badgeY = rY + (rowH / 2) - 13;
             if (badgeImg) {
-                ctx.drawImage(badgeImg, badgeX, badgeY, 24, 24);
+                ctx.drawImage(badgeImg, badgeX, badgeY, 26, 26);
             } else {
                 ctx.fillStyle = '#38bdf8';
                 ctx.beginPath();
-                ctx.arc(badgeX + 12, badgeY + 12, 11, 0, Math.PI * 2);
+                ctx.arc(badgeX + 13, badgeY + 13, 12, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.font = '800 9px sans-serif';
                 ctx.fillStyle = '#000000';
                 ctx.textAlign = 'center';
-                ctx.fillText((item.team || '').substring(0, 3), badgeX + 12, badgeY + 12);
+                ctx.fillText((item.team || '').substring(0, 3), badgeX + 13, badgeY + 13);
             }
 
-            // Player Name (Positioned immediately after badge)
-            ctx.font = '700 15px "Outfit", system-ui, sans-serif';
+            // Player Name (Enlarged 17px Outfit font)
+            ctx.font = '800 17px "Outfit", system-ui, sans-serif';
             ctx.fillStyle = '#ffffff';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
             const pName = item.name || 'Player';
-            ctx.fillText(pName, col1X + 76, rY + (rowH / 2));
+            ctx.fillText(pName, col1X + 78, rY + (rowH / 2));
 
-            // Dynamic Color Shaded Pill Box (Large, Prominent Pill Block)
+            // Full Height Square Block for Stat
             const itemVal = item.pct ?? item.count ?? 0;
             const ratio = topVal > 0 ? Math.max(0.06, Math.min(1, itemVal / topVal)) : 0.06;
             
-            const pillW = 145;
-            const pillH = 32;
-            const pillX = col1X + col1W - pillW - 12;
-            const pillY = rY + (rowH / 2) - (pillH / 2);
+            const pillW = 150;
+            const pillH = rowH - 2;
+            const pillX = col1X + col1W - pillW - 1;
+            const pillY = rY + 1;
             
-            drawRoundedRect(pillX, pillY, pillW, pillH, 6);
+            drawRoundedRect(pillX, pillY, pillW, pillH, 4);
             
             if (ratio > 0.6) {
-                ctx.fillStyle = `rgba(2, 132, 199, ${(0.65 + ratio * 0.35).toFixed(2)})`;
-                ctx.strokeStyle = `rgba(56, 189, 248, ${(0.8 + ratio * 0.2).toFixed(2)})`;
+                ctx.fillStyle = `rgba(2, 132, 199, ${(0.75 + ratio * 0.25).toFixed(2)})`;
+                ctx.strokeStyle = `rgba(56, 189, 248, ${(0.85 + ratio * 0.15).toFixed(2)})`;
             } else if (ratio > 0.2) {
-                ctx.fillStyle = `rgba(3, 105, 161, ${(0.55 + ratio * 0.35).toFixed(2)})`;
-                ctx.strokeStyle = `rgba(56, 189, 248, ${(0.5 + ratio * 0.3).toFixed(2)})`;
+                ctx.fillStyle = `rgba(3, 105, 161, ${(0.65 + ratio * 0.30).toFixed(2)})`;
+                ctx.strokeStyle = `rgba(56, 189, 248, ${(0.6 + ratio * 0.3).toFixed(2)})`;
             } else {
-                ctx.fillStyle = `rgba(14, 116, 144, ${(0.45 + ratio * 0.30).toFixed(2)})`;
-                ctx.strokeStyle = `rgba(56, 189, 248, ${(0.3 + ratio * 0.2).toFixed(2)})`;
+                ctx.fillStyle = `rgba(14, 116, 144, ${(0.55 + ratio * 0.25).toFixed(2)})`;
+                ctx.strokeStyle = `rgba(56, 189, 248, ${(0.4 + ratio * 0.2).toFixed(2)})`;
             }
             
             ctx.fill();
             ctx.lineWidth = 1;
             ctx.stroke();
 
-            ctx.font = '800 13px "Fira Code", monospace';
+            ctx.font = '800 15px "Fira Code", monospace';
             ctx.fillStyle = '#ffffff';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -3187,9 +3187,9 @@ const FPL = {
         });
 
         // RIGHT COLUMN: Pitch & Tactical Formation
-        const col2X = 565;
+        const col2X = 575;
         const col2Y = 105;
-        const col2W = 790;
+        const col2W = 780;
         const col2H = 780;
 
         drawRoundedRect(col2X, col2Y, col2W, col2H, 16);
