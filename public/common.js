@@ -2819,11 +2819,17 @@ const FPL = {
         const currentGW = this.state.bootstrapData?.events?.find(e => e.is_current || e.is_next)?.id || 1;
         const captaincy = standingsData.captaincyCount || [];
         const template = standingsData.leagueTemplate || [];
+        const totalManagers = standingsData.totalManagers || standingsData.standings?.length || 0;
         const todayDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 
         const scale = 2;
         const width = 1400;
         const height = 950;
+
+        const teamBadgeImgs = {};
+        const playerHeadImgs = {};
+        const elementsList = this.state.bootstrapData?.elements || [];
+        const teamList = this.state.bootstrapData?.teams || [];
 
         const canvas = document.createElement('canvas');
         canvas.width = width * scale;
@@ -3179,9 +3185,9 @@ const FPL = {
             ctx.fillStyle = ratio > 0.6 ? '#ffffff' : '#38bdf8';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            const countTxt = (item.count != null && item.pct != null)
-                ? `${item.count} (${item.pct}%)`
-                : (item.pct != null ? `${item.pct}%` : `${item.count || 0} mgrs`);
+            const mCount = item.count ?? (item.pct != null && totalManagers ? Math.round((item.pct / 100) * totalManagers) : null);
+            const pPct = item.pct ?? 0;
+            const countTxt = mCount != null ? `${mCount} (${pPct}%)` : `${pPct}%`;
             ctx.fillText(countTxt, pillX + (pillW / 2), pillY + (pillH / 2));
         });
 
@@ -3268,9 +3274,9 @@ const FPL = {
 
             ctx.font = '800 10.5px "Fira Code", monospace';
             ctx.fillStyle = '#047857';
-            const statStr = (player.count != null && player.ownershipPct != null)
-                ? `${player.count} (${player.ownershipPct}%)`
-                : (player.ownershipPct != null ? `${player.ownershipPct}%` : `${player.count || 0} mgrs`);
+            const mCount = player.count ?? (player.ownershipPct != null && totalManagers ? Math.round((player.ownershipPct / 100) * totalManagers) : null);
+            const pPct = player.ownershipPct ?? player.pct ?? 0;
+            const statStr = mCount != null ? `${mCount} (${pPct}%)` : `${pPct}%`;
             ctx.fillText(statStr, x, cardY + 30);
         };
 
