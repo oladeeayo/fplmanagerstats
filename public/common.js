@@ -2330,8 +2330,8 @@ const FPL = {
         container.innerHTML = captaincy.map((item) => {
             const photoUrl = item.code ? `https://resources.premierleague.com/premierleague/photos/players/110x140/p${item.code}.png` : '';
             return `<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:12px;">
-                <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.08);overflow:hidden;flex-shrink:0;border:1px solid var(--fdr-1);">
-                    <img src="${photoUrl}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2236%22 height=%2236%22 viewBox=%220 0 24 24%22 fill=%22%23777%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E'" style="width:100%;height:100%;object-fit:cover;object-position:top;" alt="${item.name}">
+                <div style="width:36px;height:42px;border-radius:4px;background:rgba(255,255,255,0.08);overflow:hidden;flex-shrink:0;">
+                    <img src="${photoUrl}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2236%22 height=%2242%22 viewBox=%220 0 24 24%22 fill=%22%23777%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E'" style="width:100%;height:100%;object-fit:cover;object-position:top;" alt="${item.name}">
                 </div>
                 <div style="flex:1;min-width:0;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
@@ -2744,6 +2744,8 @@ const FPL = {
         ctx.scale(scale, scale);
 
         const teamBadgeImgs = {};
+        const playerHeadImgs = {};
+        const elementsList = this.state.bootstrapData?.elements || [];
         const teamList = this.state.bootstrapData?.teams || [];
 
         const loadImage = (src) => new Promise(resolve => {
@@ -2756,6 +2758,8 @@ const FPL = {
         });
 
         const topCaptains = captaincy.slice(0, 15);
+        
+        // 1. Preload team badges for left column
         await Promise.all(topCaptains.map(async item => {
             const teamObj = teamList.find(t => t.short_name === item.team || t.name === item.team);
             const code = teamObj ? teamObj.code : (item.code || null);
@@ -2765,74 +2769,79 @@ const FPL = {
             }
         }));
 
-        const PL_TEAMS = {
-            'ARS': { name: 'Arsenal', code: 3, main: '#db0007', sleeve: '#ffffff' },
-            'AVL': { name: 'Aston Villa', code: 7, main: '#670e36', sleeve: '#95bfe6' },
-            'BOU': { name: 'Bournemouth', code: 91, main: '#da291c', sleeve: '#000000' },
-            'BHA': { name: 'Brighton', code: 36, main: '#0057b8', sleeve: '#ffffff' },
-            'BRE': { name: 'Brentford', code: 94, main: '#e30613', sleeve: '#ffffff' },
-            'CHE': { name: 'Chelsea', code: 8, main: '#034694', sleeve: '#034694' },
-            'CRY': { name: 'Crystal Palace', code: 31, main: '#1b458f', sleeve: '#c41230' },
-            'EVE': { name: 'Everton', code: 11, main: '#00369c', sleeve: '#00369c' },
-            'FUL': { name: 'Fulham', code: 54, main: '#ffffff', sleeve: '#000000' },
-            'IPSW': { name: 'Ipswich', code: 40, main: '#003399', sleeve: '#ffffff' },
-            'LEI': { name: 'Leicester', code: 13, main: '#0053a0', sleeve: '#0053a0' },
-            'LIV': { name: 'Liverpool', code: 14, main: '#c8102e', sleeve: '#c8102e' },
-            'MCI': { name: 'Man City', code: 43, main: '#6cabdd', sleeve: '#6cabdd' },
-            'MUN': { name: 'Man Utd', code: 1, main: '#da020e', sleeve: '#da020e' },
-            'NEW': { name: 'Newcastle', code: 4, main: '#241f20', sleeve: '#ffffff' },
-            'NFO': { name: 'Nott\'m Forest', code: 17, main: '#dd0000', sleeve: '#dd0000' },
-            'SOU': { name: 'Southampton', code: 20, main: '#d10022', sleeve: '#ffffff' },
-            'TOT': { name: 'Spurs', code: 6, main: '#ffffff', sleeve: '#132257' },
-            'WHU': { name: 'West Ham', code: 21, main: '#7a263a', sleeve: '#5b8ab5' },
-            'WOL': { name: 'Wolves', code: 39, main: '#fdb913', sleeve: '#231f20' }
-        };
+        // 2. Preload player headshots (FotMob -> PL Official photo -> fallback)
+        const allPitchPlayers = [...topCaptains, ...template];
+        await Promise.all(allPitchPlayers.map(async p => {
+            const matchedElem = elementsList.find(e => e.id === p.id || e.web_name === p.web_name || e.web_name === p.name || (e.first_name + ' ' + e.second_name) === p.name);
+            const code = p.code || matchedElem?.code || null;
+            const fotmobId = p.fotmobId || (code ? this.state.fotmobPlayerIds?.[String(code)] : null);
 
-        const createJerseyDataUri = (teamShort, isGkp = false) => {
-            const t = PL_TEAMS[teamShort] || { main: '#3b82f6', sleeve: '#1e3a8a' };
-            const mainColor = isGkp ? '#f59e0b' : t.main;
-            const sleeveColor = isGkp ? '#d97706' : t.sleeve;
-            const strokeColor = isGkp ? '#78350f' : (mainColor === '#ffffff' ? '#000000' : '#ffffff');
-            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="54" viewBox="0 0 100 90">
-                <path d="M 30 12 L 10 26 L 22 44 L 32 35 L 32 82 L 68 82 L 68 35 L 78 44 L 90 26 L 70 12 C 60 22 40 22 30 12 Z" fill="${mainColor}" stroke="${strokeColor}" stroke-width="2.5" stroke-linejoin="round"/>
-                <path d="M 30 12 L 10 26 L 22 44 L 32 35 Z" fill="${sleeveColor}" />
-                <path d="M 70 12 L 90 26 L 78 44 L 68 35 Z" fill="${sleeveColor}" />
-                <path d="M 30 12 C 40 22 60 22 70 12 Z" fill="${strokeColor}" />
-            </svg>`;
-            return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
-        };
-
-        const jerseyImgs = {};
-        const getJerseyImg = async (teamShort, isGkp) => {
-            const key = `${teamShort}_${isGkp ? 'gkp' : 'field'}`;
-            if (!jerseyImgs[key]) {
-                jerseyImgs[key] = await loadImage(createJerseyDataUri(teamShort, isGkp));
+            const playerKey = p.id || code || p.name;
+            if (!playerHeadImgs[playerKey]) {
+                let img = null;
+                if (fotmobId) {
+                    img = await loadImage(`https://images.fotmob.com/image_resources/playerimages/${fotmobId}.png`);
+                }
+                if (!img && code) {
+                    img = await loadImage(`https://resources.premierleague.com/premierleague/photos/players/110x140/p${code}.png`);
+                }
+                playerHeadImgs[playerKey] = img;
             }
-            return jerseyImgs[key];
+        }));
+
+        // 3. Dynamic Formation Selection based on Ownership %
+        const getPosType = (p) => {
+            if (p.posType) return p.posType;
+            if (p.element_type) return p.element_type;
+            if (p.pos === 'GKP' || p.pos === 'GK') return 1;
+            if (p.pos === 'DEF') return 2;
+            if (p.pos === 'MID') return 3;
+            if (p.pos === 'FWD') return 4;
+            return 3;
         };
 
-        const gkps = template.filter(p => p.posType === 1);
-        const defs = template.filter(p => p.posType === 2);
-        const mids = template.filter(p => p.posType === 3);
-        const fwds = template.filter(p => p.posType === 4);
+        const getPct = (p) => Number(p.ownershipPct ?? p.pct ?? p.count ?? 0);
+
+        const gkps = template.filter(p => getPosType(p) === 1).sort((a, b) => getPct(b) - getPct(a));
+        const defs = template.filter(p => getPosType(p) === 2).sort((a, b) => getPct(b) - getPct(a));
+        const mids = template.filter(p => getPosType(p) === 3).sort((a, b) => getPct(b) - getPct(a));
+        const fwds = template.filter(p => getPosType(p) === 4).sort((a, b) => getPct(b) - getPct(a));
 
         const starterGkp = gkps.slice(0, 1);
-        const benchGkp = gkps.slice(1, 2);
+        const benchGkp = gkps.slice(1);
 
-        const starterDef = defs.slice(0, 4);
-        const benchDef = defs.slice(4, 5);
+        // Candidate valid FPL formations: [nD, nM, nF]
+        const candidateFormations = [
+            [3, 5, 2], [3, 4, 3], [4, 4, 2], [4, 3, 3],
+            [4, 5, 1], [5, 3, 2], [5, 4, 1], [5, 2, 3]
+        ];
 
-        const starterMid = mids.slice(0, 4);
-        const benchMid = mids.slice(4, 5);
+        let bestFormation = [4, 4, 2];
+        let maxTotalPct = -1;
 
-        const starterFwd = fwds.slice(0, 2);
-        const benchFwd = fwds.slice(2, 3);
+        candidateFormations.forEach(([nD, nM, nF]) => {
+            if (defs.length >= nD && mids.length >= nM && fwds.length >= nF) {
+                const sumD = defs.slice(0, nD).reduce((sum, p) => sum + getPct(p), 0);
+                const sumM = mids.slice(0, nM).reduce((sum, p) => sum + getPct(p), 0);
+                const sumF = fwds.slice(0, nF).reduce((sum, p) => sum + getPct(p), 0);
+                const total = sumD + sumM + sumF;
+                if (total > maxTotalPct) {
+                    maxTotalPct = total;
+                    bestFormation = [nD, nM, nF];
+                }
+            }
+        });
 
+        const [numDef, numMid, numFwd] = bestFormation;
+        const starterDef = defs.slice(0, numDef);
+        const starterMid = mids.slice(0, numMid);
+        const starterFwd = fwds.slice(0, numFwd);
+
+        const benchDef = defs.slice(numDef);
+        const benchMid = mids.slice(numMid);
+        const benchFwd = fwds.slice(numFwd);
         const benchPlayers = [...benchGkp, ...benchDef, ...benchMid, ...benchFwd];
         const topCaptainName = topCaptains.length > 0 ? topCaptains[0].name : '';
-
-        const allPitchPlayers = [...starterGkp, ...starterDef, ...starterMid, ...starterFwd, ...benchPlayers];
-        await Promise.all(allPitchPlayers.map(p => getJerseyImg(p.team, p.posType === 1)));
 
         const drawRoundedRect = (x, y, w, h, r) => {
             ctx.beginPath();
@@ -2848,6 +2857,46 @@ const FPL = {
             ctx.closePath();
         };
 
+        const drawPlayerHead = (headImg, x, y, radius, isTopCap = false) => {
+            ctx.save();
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetY = 4;
+
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(x, y, radius - 1, 0, Math.PI * 2);
+            ctx.clip();
+
+            if (headImg) {
+                ctx.drawImage(headImg, x - radius, y - radius, radius * 2, radius * 2);
+            } else {
+                ctx.fillStyle = '#334155';
+                ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+                ctx.fillStyle = '#94a3b8';
+                ctx.beginPath();
+                ctx.arc(x, y - radius * 0.2, radius * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(x, y + radius * 0.7, radius * 0.65, Math.PI, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+
+            ctx.save();
+            ctx.strokeStyle = isTopCap ? '#f59e0b' : '#ffffff';
+            ctx.lineWidth = isTopCap ? 3 : 2;
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        };
+
+        // Canvas Background & Theme
         ctx.fillStyle = '#080d16';
         ctx.fillRect(0, 0, width, height);
 
@@ -2857,6 +2906,7 @@ const FPL = {
         ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, width, height);
 
+        // Orange Accent Corner Brackets
         ctx.strokeStyle = '#ff6b00';
         ctx.lineWidth = 3.5;
         const bracketMargin = 22;
@@ -2886,20 +2936,22 @@ const FPL = {
         ctx.lineTo(width - bracketMargin, height - bracketMargin - bracketLen);
         ctx.stroke();
 
+        // Header Title
         ctx.font = '800 28px "Outfit", system-ui, sans-serif';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = '#ffffff';
-        ctx.fillText('League Captains & Most Owned Squad ', 45, 52);
+        ctx.fillText('Projected pts & Solio picks ', 45, 52);
 
-        const titleWidth = ctx.measureText('League Captains & Most Owned Squad ').width;
+        const titleWidth = ctx.measureText('Projected pts & Solio picks ').width;
         ctx.fillStyle = '#ff6b00';
         ctx.fillText(`GW${currentGW}`, 45 + titleWidth, 52);
 
         ctx.font = '500 12px "Fira Code", monospace';
         ctx.fillStyle = '#94a3b8';
-        ctx.fillText(`Live manager picks & template XI from FPL Manager Analytics | ${this.escapeHTML(leagueName)} | Updated: ${todayDate}`, 45, 78);
+        ctx.fillText(`Live projections & template XI from FPL Manager Analytics | ${this.escapeHTML(leagueName)} | Updated: ${todayDate}`, 45, 78);
 
+        // Header Site Badge
         const logoX = width - 190;
         const logoY = 36;
         const logoW = 145;
@@ -2917,6 +2969,7 @@ const FPL = {
         ctx.fillStyle = '#ffffff';
         ctx.fillText('fplmanager', logoX + (logoW / 2), logoY + (logoH / 2));
 
+        // LEFT COLUMN: Top Captains Table
         const col1X = 45;
         const col1Y = 105;
         const col1W = 530;
@@ -2959,12 +3012,14 @@ const FPL = {
             ctx.lineTo(col1X + col1W - 16, rY + rowH);
             ctx.stroke();
 
+            // Rank #
             ctx.font = '800 13px "Fira Code", monospace';
             ctx.fillStyle = '#64748b';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
             ctx.fillText(`${idx + 1}`, col1X + 16, rY + (rowH / 2));
 
+            // Team Badge
             const badgeImg = teamBadgeImgs[item.team];
             const badgeX = col1X + 42;
             const badgeY = rY + (rowH / 2) - 12;
@@ -2981,6 +3036,7 @@ const FPL = {
                 ctx.fillText((item.team || '').substring(0, 3), badgeX + 12, badgeY + 12);
             }
 
+            // Player Name
             ctx.font = '700 14px "Outfit", system-ui, sans-serif';
             ctx.fillStyle = '#ffffff';
             ctx.textAlign = 'left';
@@ -2988,11 +3044,13 @@ const FPL = {
             const pName = item.name || 'Player';
             ctx.fillText(pName, col1X + 76, rY + (rowH / 2));
 
+            // Team Short
             ctx.font = '500 11px "Outfit", sans-serif';
             ctx.fillStyle = '#64748b';
             const fixStr = item.team || '';
             ctx.fillText(fixStr, col1X + 270, rY + (rowH / 2));
 
+            // Points / Count Pill Badge
             const pillW = 130;
             const pillH = 28;
             const pillX = col1X + col1W - pillW - 16;
@@ -3014,6 +3072,7 @@ const FPL = {
             ctx.fillText(countTxt, pillX + (pillW / 2), pillY + (pillH / 2));
         });
 
+        // RIGHT COLUMN: Pitch & Tactical Formation
         const col2X = 600;
         const col2Y = 105;
         const col2W = 755;
@@ -3026,6 +3085,7 @@ const FPL = {
         ctx.lineWidth = 1;
         ctx.stroke();
 
+        // Pitch Markings
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
         ctx.lineWidth = 1.5;
 
@@ -3055,23 +3115,25 @@ const FPL = {
         ctx.arc(col2X + (col2W / 2), midY, 75, 0, Math.PI * 2);
         ctx.stroke();
 
-        const drawPitchPlayer = (player, x, y, isGkp = false) => {
-            const teamShort = player.team || '';
-            const key = `${teamShort}_${isGkp ? 'gkp' : 'field'}`;
-            const jImg = jerseyImgs[key];
+        // Draw Pitch Player Node with FotMob Headshot & Tag Card
+        const drawPitchPlayer = (player, x, y) => {
+            const matchedElem = elementsList.find(e => e.id === player.id || e.web_name === player.web_name || e.web_name === player.name);
+            const code = player.code || matchedElem?.code || null;
+            const playerKey = player.id || code || player.name;
+            const hImg = playerHeadImgs[playerKey];
 
-            if (jImg) {
-                ctx.drawImage(jImg, x - 22, y - 10, 44, 40);
-            }
+            const isTopCap = (player.name === topCaptainName || player.web_name === topCaptainName);
 
-            const cardW = 106;
+            // 1. Draw Headshot Photo
+            drawPlayerHead(hImg, x, y, 26, isTopCap);
+
+            // 2. Draw Player Tag Card below Headshot
+            const cardW = 108;
             const cardH = 42;
             const cardX = x - (cardW / 2);
             const cardY = y + 30;
 
-            const isTopCap = (player.name === topCaptainName);
-
-            drawRoundedRect(cardX, cardY, cardW, cardH, 5);
+            drawRoundedRect(cardX, cardY, cardW, cardH, 6);
             ctx.fillStyle = '#ffffff';
             ctx.fill();
             ctx.strokeStyle = isTopCap ? '#f59e0b' : '#cbd5e1';
@@ -3082,38 +3144,40 @@ const FPL = {
             ctx.fillStyle = '#0f172a';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
-            let nameStr = (player.name || 'Player').toUpperCase();
+            let nameStr = (player.web_name || player.name || 'Player').toUpperCase();
             if (nameStr.length > 12) nameStr = nameStr.substring(0, 10) + '..';
             if (isTopCap) nameStr += ' (C)';
             ctx.fillText(nameStr, x, cardY + 5);
 
             ctx.font = '500 9px "Outfit", system-ui, sans-serif';
             ctx.fillStyle = '#64748b';
-            ctx.fillText(player.team || '', x, cardY + 18);
+            ctx.fillText(player.teamShort || player.team || '', x, cardY + 18);
 
             ctx.font = '800 10px "Fira Code", monospace';
             ctx.fillStyle = '#047857';
             const statStr = (player.eventPoints != null || player.points != null)
                 ? `${player.eventPoints ?? player.points} pts`
-                : (player.count != null ? `${player.count} (${player.ownershipPct || 0}%)` : `${player.ownershipPct || 0}%`);
+                : (player.ownershipPct != null ? `${player.ownershipPct}%` : `${player.count || 0} mgrs`);
             ctx.fillText(statStr, x, cardY + 29);
         };
 
-        const drawPlayerRow = (players, y, isGkp = false) => {
+        const drawPlayerRow = (players, y) => {
             if (!players || players.length === 0) return;
             const count = players.length;
             const step = col2W / (count + 1);
             players.forEach((p, i) => {
                 const px = col2X + step * (i + 1);
-                drawPitchPlayer(p, px, y, isGkp);
+                drawPitchPlayer(p, px, y);
             });
         };
 
-        drawPlayerRow(starterGkp, col2Y + 40, true);
-        drawPlayerRow(starterDef, col2Y + 145, false);
-        drawPlayerRow(starterMid, col2Y + 265, false);
-        drawPlayerRow(starterFwd, col2Y + 385, false);
+        // Render Pitch Lines (GK, DEF, MID, FWD)
+        drawPlayerRow(starterGkp, col2Y + 42);
+        drawPlayerRow(starterDef, col2Y + 155);
+        drawPlayerRow(starterMid, col2Y + 280);
+        drawPlayerRow(starterFwd, col2Y + 405);
 
+        // Bench Area
         const benchX = col2X + 18;
         const benchY = col2Y + 630;
         const benchW = col2W - 36;
@@ -3135,9 +3199,10 @@ const FPL = {
         const bStep = benchW / (benchPlayers.length + 1);
         benchPlayers.forEach((p, i) => {
             const bx = benchX + bStep * (i + 1);
-            drawPitchPlayer(p, bx, benchY + 38, p.posType === 1);
+            drawPitchPlayer(p, bx, benchY + 38);
         });
 
+        // Canvas Footer
         const footerY = height - 20;
         ctx.font = '500 12px "Fira Code", monospace';
         ctx.fillStyle = '#94a3b8';

@@ -2,7 +2,7 @@ const express = require('express');
 const { buildCaptaincyModel, buildPlayerProjections } = require('../../captaincyModel');
 const { DETAILED_POSITIONS, ZONE_MAP, ZONE_LABELS, ATTACKING_ZONES, DEFENSIVE_ZONES, MIDFIELD_ZONES, ALL_ZONES } = require('../../playerPositions');
 const { sql } = require('../db');
-const { getCachedApiData, BOOTSTRAP_URL, FIXTURES_URL, BOOTSTRAP_CACHE_TTL, redis } = require('../cache');
+const { getCachedApiData, BOOTSTRAP_URL, FIXTURES_URL, BOOTSTRAP_CACHE_TTL, redis, snapshotManager } = require('../cache');
 const { POSITION_MAP, parsePositiveId } = require('../helpers');
 const { heavyEndpointLimiter } = require('../middleware');
 const logger = require('../logger');
@@ -16,11 +16,17 @@ const router = express.Router();
 
 // ---- Health Check ----
 router.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: Date.now(),
-    snapshot: snapshotManager.getSnapshotStatus(),
-  });
+  try {
+    const snapStatus = snapshotManager ? snapshotManager.getSnapshotStatus() : null;
+    res.json({
+      status: 'ok',
+      timestamp: Date.now(),
+      snapshot: snapStatus,
+    });
+  } catch (err) {
+    logger.error({ err: err.message, stack: err.stack }, 'Health route error');
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ---- Snapshot Status ----
