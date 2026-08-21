@@ -5415,3 +5415,127 @@ input[style*="border"] {
         box-shadow: 4px 0 8px rgba(0, 0, 0, 0.08) !important;
     }
 }
+
+/* ==========================================================================
+   MOBILE UX MODERNIZATION & GLOBAL INVISIBLE SCROLLBAR SYSTEM
+   ========================================================================== */
+
+/* 1. Universal Invisible Scrollbars across all views */
+html, body, *, *::before, *::after {
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+}
+*::-webkit-scrollbar, ::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
+}
+
+/* 2. Glass Opacity & Responsive Pitch Styling */
+.aiteam-pitch .tactics-player-card,
+.aiteam-pitch-card {
+    background: rgba(8, 22, 14, 0.45) !important;
+    backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+.aiteam-pitch .tactics-player-card:hover,
+.aiteam-pitch-card:hover {
+    background: rgba(8, 22, 14, 0.65) !important;
+    border-color: rgba(0, 255, 133, 0.5) !important;
+}
+
+/* 3. Full-width Equal Proportion Tab Bars on Mobile */
+.fixtures-nav-strip,
+.aiteam-tabs,
+.decision-subnav {
+    display: flex !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+.fixtures-nav-strip button,
+.aiteam-tab,
+.decision-subnav button {
+    flex: 1 !important;
+    text-align: center !important;
+    justify-content: center !important;
+    min-height: 44px !important;
+    white-space: nowrap !important;
+}
+
+/* 4. Fixture Projections & Leaderboards Grid */
+.fixture-projections-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+}
+.fixture-leaderboards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+/* 5. Mobile Adjustments (@media max-width: 600px) */
+@media (max-width: 600px) {
+    .fixture-projections-grid {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+    .fixture-leaderboards-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+    .solio-match-card {
+        padding: 12px !important;
+    }
+    
+    /* Pitch Mobile Layout — Clean, Full View */
+    .aiteam-pitch .tactics-pitch {
+        min-height: auto !important;
+        padding: 16px 4px !important;
+    }
+    .aiteam-pitch .tactics-pitch-row {
+        gap: 2px !important;
+        justify-content: space-evenly !important;
+        margin: 2px 0 !important;
+    }
+    .aiteam-pitch .tactics-player-card,
+    .aiteam-pitch-card {
+        width: calc(20% - 2px) !important;
+        min-width: 54px !important;
+        max-width: 76px !important;
+        padding: 4px 1px !important;
+        border-radius: 6px !important;
+    }
+    .aiteam-pitch-name {
+        font-size: 9px !important;
+        line-height: 1.1 !important;
+    }
+    .aiteam-pitch-metrics-tag {
+        font-size: 8px !important;
+        padding: 1px 2px !important;
+        gap: 2px !important;
+    }
+    .aiteam-pitch-fixture-pill {
+        font-size: 8px !important;
+        padding: 1px 3px !important;
+    }
+    
+    /* Mobile Sub Underlay Dialog Modal */
+    #sub-underlay-dialog {
+        width: 95vw !important;
+        max-width: 560px !important;
+        max-height: 90vh !important;
+        margin: auto !important;
+        padding: 16px 12px !important;
+        border-radius: 16px !important;
+        background: #0a140f !important;
+        border: 1px solid rgba(0, 255, 133, 0.3) !important;
+    }
+    .sub-combo-box > div[style*="grid-template-columns"] {
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+    }
+}

@@ -770,15 +770,19 @@
                 <!-- FIXTURES -->
                 <div id="content-fixtures" class="tab-content">
                     <!-- Traditional Site Tab Navigation Strip -->
-                    <div class="fixtures-nav-strip" style="display:flex;justify-content:center;gap:4px;border-bottom:1px solid var(--md-sys-color-outline-variant);margin-bottom:24px;overflow-x:auto;">
-                        <button id="fixture-view-btn-form" onclick="FPL.switchFixtureSubView('form')" class="fixture-tab-item active" style="display:inline-flex;align-items:center;gap:8px;padding:12px 20px;background:rgba(0,255,133,0.06);border:none;border-bottom:3px solid #00FF85;color:#00FF85;font-family:var(--font-mono);font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.2s;">
+                    <div class="fixtures-nav-strip" style="display:flex;justify-content:center;width:100%;gap:4px;border-bottom:1px solid var(--md-sys-color-outline-variant);margin-bottom:12px;overflow-x:auto;">
+                        <button id="fixture-view-btn-form" onclick="FPL.switchFixtureSubView('form')" class="fixture-tab-item active" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:12px 12px;background:rgba(0,255,133,0.06);border:none;border-bottom:3px solid #00FF85;color:#00FF85;font-family:var(--font-mono);font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.2s;">
                             <span class="material-symbols-outlined" style="font-size:20px;">calendar_month</span>
-                            Fixtures & Form Leaders
+                            Fixtures
                         </button>
-                        <button id="fixture-view-btn-projections" onclick="FPL.switchFixtureSubView('projections')" class="fixture-tab-item" style="display:inline-flex;align-items:center;gap:8px;padding:12px 20px;background:transparent;border:none;border-bottom:3px solid transparent;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;opacity:0.75;transition:all 0.2s;">
+                        <button id="fixture-view-btn-projections" onclick="FPL.switchFixtureSubView('projections')" class="fixture-tab-item" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:12px 12px;background:transparent;border:none;border-bottom:3px solid transparent;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;opacity:0.75;transition:all 0.2s;">
                             <span class="material-symbols-outlined" style="font-size:20px;">analytics</span>
-                            Goal Score & Conceded Projection
+                            Goal Projection
                         </button>
+                    </div>
+
+                    <div id="fixture-subview-desc" style="text-align:center;padding:4px 12px 16px;font-size:12px;color:var(--md-sys-color-on-surface-variant);line-height:1.4;">
+                        <span id="fixture-subview-desc-text">View upcoming fixture difficulty matrix (FDR) and team form leaders.</span>
                     </div>
 
                     <!-- SUBVIEW 1: Fixtures FDR Matrix & Form Leaders -->
@@ -1042,16 +1046,14 @@
                             <!-- Summary Bar -->
                             <div class="aiteam-summary" id="aiteam-summary"></div>
 
-                            <!-- Tab Bar -->
+                            <!-- 2 Tabs: Smart Team (Pitch + Squad + Chips) & GW Breakdown -->
                             <div class="aiteam-tab-bar" id="aiteam-tab-bar">
-                                <button class="aiteam-tab active" data-view="pitch" onclick="FPL.setAITeamView('pitch')"><span class="material-symbols-outlined">sports</span> Pitch</button>
-                                <button class="aiteam-tab" data-view="squad" onclick="FPL.setAITeamView('squad')"><span class="material-symbols-outlined">groups</span> Squad</button>
-                                <button class="aiteam-tab" data-view="transfers" onclick="FPL.setAITeamView('transfers')"><span class="material-symbols-outlined">swap_horiz</span> Transfers</button>
-                                <button class="aiteam-tab" data-view="breakdown" onclick="FPL.setAITeamView('breakdown')"><span class="material-symbols-outlined">table_chart</span> Breakdown</button>
+                                <button class="aiteam-tab active" data-view="smartteam" onclick="FPL.setAITeamView('smartteam')"><span class="material-symbols-outlined">sports_soccer</span> Smart Team</button>
+                                <button class="aiteam-tab" data-view="breakdown" onclick="FPL.setAITeamView('breakdown')"><span class="material-symbols-outlined">table_chart</span> GW Breakdown</button>
                             </div>
 
-                            <!-- Pitch View -->
-                            <div class="aiteam-view active" data-view="pitch">
+                            <!-- Tab 1: Smart Team View (Pitch First -> Merged Squad -> Chip Consideration Footer) -->
+                            <div class="aiteam-view active" data-view="smartteam">
                                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
                                     <div style="display:flex;align-items:center;gap:8px;">
                                         <span id="aiteam-formation-label" class="aiteam-formation-badge"></span>
@@ -1059,24 +1061,39 @@
                                     </div>
                                     <div class="aiteam-gw-selector" id="aiteam-gw-toggle"></div>
                                 </div>
-                                <div class="aiteam-pitch-wrapper">
-                                    <div class="aiteam-pitch" id="aiteam-pitch"></div>
+
+                                <!-- Pitch & Bench -->
+                                <div class="aiteam-pitch-section" style="margin-bottom:28px;">
+                                    <div class="aiteam-pitch-wrapper">
+                                        <div class="aiteam-pitch" id="aiteam-pitch"></div>
+                                    </div>
+                                    <div class="aiteam-bench" id="aiteam-bench-section"></div>
                                 </div>
-                                <div class="aiteam-bench" id="aiteam-bench-section"></div>
+
+                                <!-- Merged Squad Roster -->
+                                <div class="aiteam-squad-section" style="margin-bottom:32px;">
+                                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                                        <h2 style="font-family:var(--font-display);font-size:18px;font-weight:700;margin:0;color:#ffffff;display:flex;align-items:center;gap:8px;">
+                                            <span class="material-symbols-outlined" style="color:#00FF85;">groups</span>
+                                            Full Squad Roster & Performance
+                                        </h2>
+                                    </div>
+                                    <div id="aiteam-squad-table-wrap"></div>
+                                </div>
+
+                                <!-- Chip Consideration Footer -->
+                                <div class="aiteam-chips-footer-section" style="margin-top:32px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.08);">
+                                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                                        <div>
+                                            <div style="font-size:11px;font-weight:800;color:#00FF85;letter-spacing:0.08em;font-family:var(--font-mono);text-transform:uppercase;">STRATEGY & CHIPS</div>
+                                            <h2 style="font-family:var(--font-display);font-size:20px;font-weight:800;margin:4px 0 0;color:#ffffff;">Chip Consideration & Optimal GW Timing</h2>
+                                        </div>
+                                    </div>
+                                    <div id="aiteam-chips-section"></div>
+                                </div>
                             </div>
 
-                            <!-- Squad View -->
-                            <div class="aiteam-view" data-view="squad">
-                                <div id="aiteam-squad-table-wrap"></div>
-                            </div>
-
-                            <!-- Transfers View -->
-                            <div class="aiteam-view" data-view="transfers">
-                                <div id="aiteam-transfer-suggestions"></div>
-                                <div id="aiteam-chips-section"></div>
-                            </div>
-
-                            <!-- Breakdown View -->
+                            <!-- Tab 2: Breakdown View -->
                             <div class="aiteam-view" data-view="breakdown">
                                 <div id="aiteam-gw-breakdown"></div>
                             </div>
@@ -1164,6 +1181,26 @@
             </div>
             <div class="dialog-body" id="manager-detail-body" style="padding:0;"></div>
             <div class="dialog-footer"><button class="btn btn-outline" onclick="FPL.hideDialog('manager-detail-dialog')">Close</button></div>
+        </div>
+    </div>
+
+    <!-- Smart Team Sub Replacement Underoverlay Dialog -->
+    <div id="sub-underlay-dialog" class="dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="sub-underlay-dialog-title" aria-hidden="true">
+        <div class="dialog dialog-wide" style="max-width:720px;background:#09140c;border:1px solid #224d35;border-radius:18px;box-shadow:0 24px 60px rgba(0,0,0,0.85);overflow:hidden;">
+            <div class="dialog-header" style="border-bottom:1px solid rgba(255,255,255,0.08);padding:16px 20px;background:#0d1c12;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <span class="material-symbols-outlined" style="color:#00FF85;font-size:24px;">published_with_changes</span>
+                    <div>
+                        <h3 id="sub-underlay-dialog-title" style="font-family:var(--font-display);font-size:18px;font-weight:700;margin:0;color:#ffffff;">Player Replacement & Sub Options</h3>
+                        <p style="margin:2px 0 0;font-size:12px;color:#8ba396;">Suggested transfers within budget & 2-player swap upgrades</p>
+                    </div>
+                </div>
+                <button class="btn btn-ghost btn-icon" type="button" aria-label="Close dialog" onclick="FPL.hideDialog('sub-underlay-dialog')"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+            </div>
+            <div class="dialog-body" id="sub-underlay-body" style="padding:20px;max-height:75vh;overflow-y:auto;background:#09140c;"></div>
+            <div class="dialog-footer" style="border-top:1px solid rgba(255,255,255,0.08);padding:12px 20px;background:#0d1c12;">
+                <button class="btn btn-outline" onclick="FPL.hideDialog('sub-underlay-dialog')">Close</button>
+            </div>
         </div>
     </div>
 

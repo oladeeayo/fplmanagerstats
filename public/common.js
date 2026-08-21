@@ -851,7 +851,7 @@ const FPL = {
                 }
                 const runLen = player.consecutiveGoodFixtures || 0;
                 const runBadge = runLen >= 4 ? `<span class="aiteam-pitch-run-badge">${runLen} RUN</span>` : '';
-                return `<div class="tactics-player-card home aiteam-pitch-card" style="${borderStyle}" onclick="FPL.showPlayerDetail(${player.id})" title="${FPL.escapeHTML(player.name)} · £${(player.cost || 0).toFixed(1)}m · ${xPts} xPts">
+                return `<div class="tactics-player-card home aiteam-pitch-card" style="${borderStyle}" onclick="FPL.openSmartTeamSubUnderlay(${player.id})" title="${FPL.escapeHTML(player.name)} · £${(player.cost || 0).toFixed(1)}m · ${xPts} xPts">
                     ${runBadge}
                     <div class="tactics-player-shirt" style="display:grid;place-items:center;background:transparent;position:relative;">
                         ${shirtImg}
@@ -894,7 +894,7 @@ const FPL = {
                     const col = fdrColor(fx.fdr);
                     fixturePills.push(`<div class="aiteam-pitch-fixture-pill" style="background:${col};"><span class="aiteam-fixture-opp">${fx.home ? fx.opponent + '(H)' : fx.opponent + '(A)'}</span></div>`);
                 }
-                html += `<div class="aiteam-bench-slot${p.position === 'GKP' ? ' is-goalkeeper' : ''}">
+                html += `<div class="aiteam-bench-slot${p.position === 'GKP' ? ' is-goalkeeper' : ''}" onclick="FPL.openSmartTeamSubUnderlay(${p.id})" style="cursor:pointer;" title="Click to view sub replacements for ${FPL.escapeHTML(p.name)}">
                     <div class="aiteam-bench-order">${i === 0 ? 'GK' : i}</div>
                     <div class="aiteam-bench-shirt-img">${shirtImg}<span class="aiteam-shirt-fallback" aria-hidden="true">${FPL.playerTeamShort(p)}</span></div>
                     <div class="aiteam-bench-info">
@@ -1048,6 +1048,188 @@ const FPL = {
                 chipsEl.innerHTML = '';
             }
         }
+    },
+
+    setAITeamView(view) {
+        const activeView = (view === 'breakdown') ? 'breakdown' : 'smartteam';
+        this.state.aiTeamView = activeView;
+
+        document.querySelectorAll('.aiteam-tab').forEach(btn => {
+            const isMatch = btn.dataset.view === activeView || (activeView === 'smartteam' && (btn.dataset.view === 'pitch' || btn.dataset.view === 'squad' || btn.dataset.view === 'smartteam'));
+            btn.classList.toggle('active', isMatch);
+        });
+
+        document.querySelectorAll('.aiteam-view').forEach(v => {
+            const isMatch = v.dataset.view === activeView || (activeView === 'smartteam' && (v.dataset.view === 'smartteam' || v.dataset.view === 'pitch'));
+            v.classList.toggle('active', isMatch);
+            v.style.display = isMatch ? 'block' : 'none';
+        });
+    },
+
+    openSmartTeamSubUnderlay(playerId) {
+        const data = this.state.aiTeamData;
+        const bootstrap = this.state.bootstrapData;
+        if (!data || !bootstrap) return;
+
+        const lineup = data.lineup || {};
+        const starters = lineup.starters || [];
+        const bench = lineup.bench || [];
+        const allSquad = [...starters, ...bench];
+        const targetPlayer = allSquad.find(p => p.id === playerId) || (bootstrap.elements || []).find(e => e.id === playerId);
+        if (!targetPlayer) return;
+
+        const body = document.getElementById('sub-underlay-body');
+        if (!body) return;
+
+        const posNames = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD', GKP: 'GKP', DEF: 'DEF', MID: 'MID', FWD: 'FWD' };
+        const posTypeMap = { GKP: 1, DEF: 2, MID: 3, FWD: 4, 1: 1, 2: 2, 3: 3, 4: 4 };
+        const posStr = posNames[targetPlayer.position || targetPlayer.element_type] || 'MID';
+        const targetPosType = posTypeMap[posStr];
+        const targetCost = targetPlayer.cost || (targetPlayer.now_cost ? targetPlayer.now_cost / 10 : 5.0);
+        const bank = lineup.bank != null ? lineup.bank : (100 - (data.teamCost || 99.5));
+        const maxBudget = Math.round((targetCost + Math.max(0, bank)) * 10) / 10;
+
+        const squadIds = new Set(allSquad.map(p => p.id));
+
+        // 1. Direct Replacements (Single Transfer within position & budget)
+        const candidates = (bootstrap.elements || [])
+            .filter(e => e.element_type === targetPosType && !squadIds.has(e.id))
+            .map(e => {
+                const cost = e.now_cost / 10;
+                const form = parseFloat(e.form || 0);
+                const xG90 = parseFloat(e.expected_goal_involvements_per_90 || 0);
+                const projectedXPts = parseFloat(e.ep_next || (form * 1.2 + 2.0));
+                const teamObj = (bootstrap.teams || []).find(t => t.id === e.team);
+                return {
+                    id: e.id,
+                    name: e.web_name || e.second_name,
+                    fullName: `${e.first_name} ${e.second_name}`,
+                    team: teamObj ? teamObj.short_name : '???',
+                    teamFull: teamObj ? teamObj.name : '',
+                    cost,
+                    costDiff: Math.round((cost - targetCost) * 10) / 10,
+                    form,
+                    xG90,
+                    projectedXPts,
+                    status: e.status
+                };
+            })
+            .sort((a, b) => b.projectedXPts - a.projectedXPts);
+
+        const budgetReplacements = candidates.filter(c => c.cost <= maxBudget + 0.05).slice(0, 4);
+
+        // 2. Double-Transfer Combo Suggestions (2 Transfers: Downgrade Premium -> Upgrade Target)
+        const expensiveSquadPlayer = allSquad
+            .filter(p => p.id !== targetPlayer.id)
+            .sort((a, b) => (b.cost || 0) - (a.cost || 0))[0];
+
+        let comboHTML = '';
+        if (expensiveSquadPlayer && expensiveSquadPlayer.cost > 6.0) {
+            const expPosType = posTypeMap[expensiveSquadPlayer.position || expensiveSquadPlayer.element_type];
+            const cheapEnabler = (bootstrap.elements || [])
+                .filter(e => e.element_type === expPosType && !squadIds.has(e.id) && (e.now_cost / 10) <= (expensiveSquadPlayer.cost - 2.0))
+                .sort((a, b) => parseFloat(b.form || 0) - parseFloat(a.form || 0))[0];
+
+            if (cheapEnabler) {
+                const freedCash = (expensiveSquadPlayer.cost || 7.0) - (cheapEnabler.now_cost / 10);
+                const upgradedTargetBudget = Math.round((maxBudget + freedCash) * 10) / 10;
+                const premiumUpgrade = candidates
+                    .filter(c => c.cost > maxBudget && c.cost <= upgradedTargetBudget + 0.05)[0];
+
+                if (premiumUpgrade) {
+                    const enablerCost = cheapEnabler.now_cost / 10;
+                    const enablerName = cheapEnabler.web_name;
+                    const enablerTeam = (bootstrap.teams || []).find(t => t.id === cheapEnabler.team)?.short_name || '';
+
+                    comboHTML = `
+                        <div class="sub-combo-box" style="margin-top:20px;padding:16px;background:rgba(0,255,133,0.04);border:1px dashed rgba(0,255,133,0.3);border-radius:12px;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                                <span style="font-size:11px;font-weight:800;color:#00FF85;letter-spacing:0.08em;font-family:var(--font-mono);text-transform:uppercase;">RECOMMENDED 2-TRANSFER COMBO</span>
+                                <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(0,255,133,0.15);color:#00FF85;font-weight:700;">Fund Premium Upgrade</span>
+                            </div>
+                            <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;">
+                                <div style="background:#0e1e14;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);">
+                                    <div style="font-size:10px;color:#8ba396;font-weight:700;">SELL ${targetPlayer.name} (£${targetCost.toFixed(1)}m)</div>
+                                    <div style="font-size:13px;font-weight:800;color:#00FF85;margin-top:2px;">BUY ${premiumUpgrade.name} (£${premiumUpgrade.cost.toFixed(1)}m)</div>
+                                    <div style="font-size:10px;color:#b0b0b0;margin-top:2px;">${premiumUpgrade.team} · ${premiumUpgrade.projectedXPts.toFixed(1)} xPts</div>
+                                </div>
+                                <span class="material-symbols-outlined" style="color:#00FF85;">add</span>
+                                <div style="background:#0e1e14;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);">
+                                    <div style="font-size:10px;color:#8ba396;font-weight:700;">SELL ${expensiveSquadPlayer.name} (£${(expensiveSquadPlayer.cost || 0).toFixed(1)}m)</div>
+                                    <div style="font-size:13px;font-weight:800;color:#FFA726;margin-top:2px;">BUY ${enablerName} (£${enablerCost.toFixed(1)}m)</div>
+                                    <div style="font-size:10px;color:#b0b0b0;margin-top:2px;">${enablerTeam} · Budget Enabler</div>
+                                </div>
+                            </div>
+                            <div style="margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                                <span style="font-size:11px;color:#8ba396;">Unlocks premium <strong>${premiumUpgrade.name}</strong> by selling ${expensiveSquadPlayer.name}.</span>
+                                <button class="btn btn-primary btn-sm" onclick="FPL.applySubCombo(${targetPlayer.id}, ${premiumUpgrade.id}, ${expensiveSquadPlayer.id}, ${cheapEnabler.id})">Execute 2-Transfer Move</button>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        const shirtUrl = this.playerTeamShirtUrl(targetPlayer);
+
+        body.innerHTML = `
+            <div style="display:flex;align-items:center;gap:14px;padding:14px;background:#0e1e14;border:1px solid #1a3826;border-radius:12px;margin-bottom:20px;">
+                <div style="width:48px;height:48px;background:rgba(0,255,133,0.1);border-radius:50%;display:grid;place-items:center;overflow:hidden;">
+                    ${shirtUrl ? `<img src="${shirtUrl}" alt="" style="width:36px;height:36px;object-fit:contain;">` : `<span style="font-weight:800;color:#00FF85;font-size:12px;">${posStr}</span>`}
+                </div>
+                <div style="flex:1;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <h4 style="font-size:16px;font-weight:800;color:#ffffff;margin:0;">${targetPlayer.name}</h4>
+                        <span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:rgba(0,255,133,0.15);color:#00FF85;">${posStr}</span>
+                    </div>
+                    <div style="font-size:12px;color:#8ba396;margin-top:2px;">${targetPlayer.teamFull || targetPlayer.team || ''} · Current Cost: £${targetCost.toFixed(1)}m</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:11px;color:#8ba396;">Max Budget</div>
+                    <div style="font-size:15px;font-weight:800;color:#00FF85;font-family:var(--font-mono);">£${maxBudget.toFixed(1)}m</div>
+                </div>
+            </div>
+
+            <h4 style="font-size:13px;font-weight:700;color:#ffffff;margin:0 0 12px;display:flex;align-items:center;gap:6px;">
+                <span class="material-symbols-outlined" style="font-size:18px;color:#00FF85;">swap_horiz</span>
+                Suggested Direct Replacements (Within £${maxBudget.toFixed(1)}m Budget)
+            </h4>
+
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                ${budgetReplacements.length ? budgetReplacements.map(rep => `
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:#0d1811;border:1px solid rgba(255,255,255,0.06);border-radius:10px;">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            ${this.teamBadge(rep.team, 24)}
+                            <div>
+                                <div style="font-size:13px;font-weight:700;color:#ffffff;">${rep.name} <small style="color:#8ba396;font-weight:400;">(${rep.team})</small></div>
+                                <div style="font-size:11px;color:#8ba396;margin-top:2px;">Form: ${rep.form} · xGI/90: ${rep.xG90.toFixed(2)}</div>
+                            </div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:16px;">
+                            <div style="text-align:right;">
+                                <div style="font-size:12px;font-weight:700;color:#ffffff;">£${rep.cost.toFixed(1)}m <small style="color:${rep.costDiff <= 0 ? '#00FF85' : '#FFA726'};font-size:10px;">(${rep.costDiff <= 0 ? '' : '+'}${rep.costDiff.toFixed(1)}m)</small></div>
+                                <div style="font-size:11px;font-weight:700;color:#00FF85;">${rep.projectedXPts.toFixed(1)} xPts</div>
+                            </div>
+                            <button class="btn btn-primary btn-sm" onclick="FPL.applySingleSub(${targetPlayer.id}, ${rep.id})" style="padding:6px 12px;font-size:11px;">Swap</button>
+                        </div>
+                    </div>
+                `).join('') : '<div style="color:#8ba396;font-size:12px;padding:12px;text-align:center;">No direct replacements found within current budget.</div>'}
+            </div>
+
+            ${comboHTML}
+        `;
+
+        this.showDialog('sub-underlay-dialog');
+    },
+
+    applySingleSub(outId, inId) {
+        this.hideDialog('sub-underlay-dialog');
+        this.suggestAITeamTransfer(outId);
+    },
+
+    applySubCombo(out1Id, in1Id, out2Id, in2Id) {
+        this.hideDialog('sub-underlay-dialog');
+        this.suggestAITeamTransfer(out1Id);
     },
 
     // ==================== RENDER: DASHBOARD (GENERAL) ====================
@@ -2248,6 +2430,13 @@ const FPL = {
             btnElements[activeView].classList.add('active');
         }
 
+        const descEl = document.getElementById('fixture-subview-desc-text');
+        if (descEl) {
+            descEl.textContent = activeView === 'form' 
+                ? 'Fixture Difficulty Rating (FDR) matrix sorted by upcoming ease, plus top 4 form leaders per club.'
+                : 'Dixon-Coles Poisson statistical model predicting goals scored, clean sheet probabilities, and match outcomes.';
+        }
+
         if (activeView === 'form') {
             this.renderFixturesFDRGrid();
             this.renderTeamFormLeaders();
@@ -2370,7 +2559,7 @@ const FPL = {
                 const fdr = isHome ? (fx.team_h_difficulty || fx.difficulty || 3) : (fx.team_a_difficulty || fx.difficulty || 3);
                 const colStyle = fdrColors[fdr] || fdrColors[3];
                 const isSortedCol = sortGW === gw;
-                const highlight = isSortedCol ? `box-shadow:inset 0 0 0 2px rgba(0,255,133,0.5);` : '';
+                const highlight = '';
 
                 return `<td style="padding:3px;">
                     <div style="background:${colStyle.bg};border-radius:6px;padding:4px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;height:38px;${highlight}">
@@ -2544,17 +2733,18 @@ const FPL = {
                     '</div>';
             }
 
-            return '<div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:14px;">' +
-                '<div style="text-align:center;font-family:var(--font-mono);font-size:10px;color:var(--md-sys-color-outline);margin-bottom:10px;">' + self.escapeHTML(timeStr) + '</div>' +
+            return '<div class="solio-match-card" style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:14px;padding:16px;">' +
+                '<div style="text-align:center;font-family:var(--font-mono);font-size:11px;font-weight:700;color:#00FF85;margin-bottom:8px;letter-spacing:0.04em;">' + self.escapeHTML(timeStr) + '</div>' +
+                '<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px;">' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:rgba(255,255,255,0.02);border-radius:8px;border:1px solid rgba(255,255,255,0.04);">' +
+                '<div style="display:flex;align-items:center;gap:8px;">' + self.teamBadge(m.homeTeam.shortName, 22) + '<span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(m.homeTeam.shortName) + ' <small style="color:#8ba396;font-size:10px;">(H)</small></span></div>' +
+                '<div style="display:flex;gap:6px;align-items:center;"><span class="solio-badge ' + hXGClass + '">' + hXG.toFixed(2) + ' xG</span><span class="solio-badge ' + hCSClass + '">' + hCS + '% CS</span></div>' +
+                '</div>' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:rgba(255,255,255,0.02);border-radius:8px;border:1px solid rgba(255,255,255,0.04);">' +
+                '<div style="display:flex;align-items:center;gap:8px;">' + self.teamBadge(m.awayTeam.shortName, 22) + '<span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(m.awayTeam.shortName) + ' <small style="color:#8ba396;font-size:10px;">(A)</small></span></div>' +
+                '<div style="display:flex;gap:6px;align-items:center;"><span class="solio-badge ' + aXGClass + '">' + aXG.toFixed(2) + ' xG</span><span class="solio-badge ' + aCSClass + '">' + aCS + '% CS</span></div>' +
+                '</div></div>' +
                 probRow +
-                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
-                '<div style="display:flex;align-items:center;gap:8px;">' + self.teamBadge(m.homeTeam.shortName, 22) + '<span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(m.homeTeam.shortName) + '</span></div>' +
-                '<div style="display:flex;gap:6px;"><span class="solio-badge ' + hXGClass + '">' + hXG.toFixed(2) + ' xG</span><span class="solio-badge ' + hCSClass + '">' + hCS + '% CS</span></div>' +
-                '</div>' +
-                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
-                '<div style="display:flex;align-items:center;gap:8px;">' + self.teamBadge(m.awayTeam.shortName, 22) + '<span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(m.awayTeam.shortName) + '</span></div>' +
-                '<div style="display:flex;gap:6px;"><span class="solio-badge ' + aXGClass + '">' + aXG.toFixed(2) + ' xG</span><span class="solio-badge ' + aCSClass + '">' + aCS + '% CS</span></div>' +
-                '</div>' +
                 bttsRow +
                 '</div>';
         }).join('');
@@ -2586,14 +2776,14 @@ const FPL = {
         }
 
         var html = '<div class="solio-container">' +
-            '<div class="solio-header"><div class="solio-title-wrap">' +
-            '<h2 class="solio-title">Match Projections <span class="solio-gw-badge">GW' + selectedGW + '</span></h2>' +
-            '<p class="solio-subtitle">Dixon-Coles model \u00b7 2024-25 xG ratings \u00b7 ' + (data.projectionSource || 'team-level') + '</p>' +
+            '<div class="solio-header"><div class="solio-title-wrap" style="text-align:center;width:100%;">' +
+            '<h2 class="solio-title" style="justify-content:center;display:flex;align-items:center;gap:8px;">Match Projections <span class="solio-gw-badge">GW' + selectedGW + '</span></h2>' +
+            '<p class="solio-subtitle" style="text-align:center;">Dixon-Coles model \u00b7 2024-25 xG ratings \u00b7 ' + (data.projectionSource || 'team-level') + '</p>' +
             '</div></div>' +
 
-            '<div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));gap:12px;margin-bottom:24px;">' + matchCards + '</div>' +
+            '<div class="fixture-projections-grid">' + matchCards + '</div>' +
 
-            '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:16px;margin-bottom:24px;">' +
+            '<div class="fixture-leaderboards-grid">' +
             renderLeaderboard('TOP PROJECTED GOALS', 'sports_soccer', goalsRank, 'goals', 'xG', function(t) { return 'var(--data-blue)'; }) +
             renderLeaderboard('BEST CLEAN SHEET CHANCES', 'shield', csRank, 'csPct', 'CS%', function(t) { return 'var(--md-sys-color-primary)'; }) +
             '</div>' +
@@ -3043,7 +3233,7 @@ const FPL = {
                 const alpha = Math.min(0.85, Math.max(0.12, (xg - 0.7) / 1.5));
                 const oppStr = self.escapeHTML(gwData.opponent || 'OPP') + (gwData.isHome ? ' (H)' : ' (A)');
                 const isSortedCol = gKey === `gw_${gw}`;
-                const highlight = isSortedCol ? 'box-shadow:inset 0 0 0 2px #00FF85;' : '';
+                const highlight = '';
 
                 return `
                     <td style="background:rgba(27, 166, 218, ${alpha});border:1px solid rgba(255,255,255,0.06);text-align:center;padding:8px 6px;min-width:72px;${highlight}">
@@ -3105,7 +3295,7 @@ const FPL = {
                 const alpha = Math.min(0.85, Math.max(0.12, csPct / 60));
                 const oppStr = self.escapeHTML(gwData.opponent || 'OPP') + (gwData.isHome ? ' (H)' : ' (A)');
                 const isSortedCol = cKey === `gw_${gw}`;
-                const highlight = isSortedCol ? 'box-shadow:inset 0 0 0 2px #00FF85;' : '';
+                const highlight = '';
 
                 return `
                     <td style="background:rgba(224, 40, 136, ${alpha});border:1px solid rgba(255,255,255,0.06);text-align:center;padding:8px 6px;min-width:72px;${highlight}">
