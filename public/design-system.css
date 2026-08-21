@@ -4315,8 +4315,8 @@ div.collapsed > .sidebar-section-toggle .sidebar-section-chevron { transform: ro
 .player-detail-stat-label { font-size: 0.6875rem; color: #8ba396; text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--font-mono); }
 .player-detail-stat-value { font-family: var(--font-mono); font-size: 1.25rem; font-weight: 700; color: var(--md-sys-color-primary); margin-top: 2px; }
 .player-detail-section { padding: var(--space-md) var(--space-lg); border-top: 1px solid #1A2E28; }
-.player-detail-section-title { font-size: 0.75rem; font-weight: 700; color: #8ba396; text-transform: uppercase; letter-spacing: 0.08em; font-family: var(--font-mono); margin-bottom: var(--space-sm); }
-.player-detail-fixtures { display: flex; gap: var(--space-sm); overflow-x: auto; padding-bottom: var(--space-xs); }
+.player-detail-section-title { font-size: 0.75rem; font-weight: 700; color: #8ba396; text-transform: uppercase; letter-spacing: 0.08em; font-family: var(--font-mono); margin-bottom: var(--space-sm); text-align: center; }
+.player-detail-fixtures { display: flex; justify-content: center; align-items: center; gap: var(--space-sm); overflow-x: auto; padding-bottom: var(--space-xs); }
 .player-detail-fixture { flex-shrink: 0; padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); text-align: center; font-size: 0.75rem; font-family: var(--font-mono); min-width: 60px; }
 .player-detail-xg-breakdown { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-md); }
 .player-detail-xg-item { text-align: center; }

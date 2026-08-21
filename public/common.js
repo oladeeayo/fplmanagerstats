@@ -894,15 +894,23 @@ const FPL = {
                     const col = fdrColor(fx.fdr);
                     fixturePills.push(`<div class="aiteam-pitch-fixture-pill" style="background:${col};"><span class="aiteam-fixture-opp">${fx.home ? fx.opponent + '(H)' : fx.opponent + '(A)'}</span></div>`);
                 }
-                html += `<div class="aiteam-bench-slot${p.position === 'GKP' ? ' is-goalkeeper' : ''}" onclick="FPL.openSmartTeamSubUnderlay(${p.id})" style="cursor:pointer;" title="Click to view sub replacements for ${FPL.escapeHTML(p.name)}">
-                    <div class="aiteam-bench-order">${i === 0 ? 'GK' : i}</div>
-                    <div class="aiteam-bench-shirt-img">${shirtImg}<span class="aiteam-shirt-fallback" aria-hidden="true">${FPL.playerTeamShort(p)}</span></div>
-                    <div class="aiteam-bench-info">
-                        <div class="aiteam-bench-heading"><div class="aiteam-bench-name">${FPL.escapeHTML(p.name)}</div><span class="aiteam-bench-position">${p.position}</span></div>
-                        <div class="aiteam-bench-club">${FPL.escapeHTML(p.teamFull || p.team)}</div>
-                        <div class="aiteam-bench-metrics"><span>£${p.cost?.toFixed(1)}m</span><strong>${xPts} xPts</strong></div>
-                        <div class="aiteam-fixture-block">${fixturePills.join('')}</div>
+                html += `<div class="aiteam-bench-card" onclick="FPL.openSmartTeamSubUnderlay(${p.id})" style="cursor:pointer;" title="Click to view sub replacements for ${FPL.escapeHTML(p.name)}">
+                    <div class="aiteam-bench-top-row">
+                        <span class="aiteam-bench-order-badge">${i === 0 ? 'GK' : i}</span>
+                        <span class="aiteam-bench-pos-badge">${p.position}</span>
                     </div>
+                    <div class="aiteam-pitch-shirt-wrap" style="display:grid;place-items:center;height:40px;margin:2px 0;">
+                        ${shirtImg}
+                        <span class="aiteam-shirt-fallback" aria-hidden="true">${FPL.playerTeamShort(p)}</span>
+                    </div>
+                    <div class="aiteam-pitch-name-tag">
+                        <span class="aiteam-pitch-name">${FPL.escapeHTML(p.name)}</span>
+                    </div>
+                    <div class="aiteam-pitch-metrics-tag">
+                        <span class="aiteam-pitch-cost">£${p.cost?.toFixed(1)}m</span>
+                        <span class="aiteam-pitch-xpts">${xPts} xPts</span>
+                    </div>
+                    <div class="aiteam-fixture-block">${fixturePills.join('')}</div>
                 </div>`;
             });
             html += '</div>';
@@ -929,9 +937,13 @@ const FPL = {
                     <span style="font-size:13px;font-weight:600;color:#fff;">15-Player Roster</span>
                     <span style="display:flex;gap:8px;">${legend}</span>
                 </div>
-                <div class="table-scroll-mobile" tabindex="0" aria-label="AI Team squad table">
-                    <table class="aiteam-table" style="min-width:700px;">
-                        <thead><tr><th style="width:36px;">#</th><th class="aiteam-player-cell">Player</th><th>Pos</th><th>\u00A3</th><th>xPts</th><th>Fixtures</th><th>Role</th><th style="width:70px;">Action</th></tr></thead>
+                <div class="table-scroll-mobile sticky-first-column" tabindex="0" aria-label="AI Team squad table">
+                    <table class="aiteam-table" style="min-width:700px;border-collapse:separate;border-spacing:0;">
+                        <thead><tr>
+                            <th style="position:sticky;left:0;z-index:4;background:#141916;width:36px;border-right:1px solid rgba(255,255,255,0.08);">#</th>
+                            <th class="aiteam-player-cell" style="position:sticky;left:36px;z-index:4;background:#141916;border-right:1px solid rgba(255,255,255,0.08);">Player</th>
+                            <th>Pos</th><th>£</th><th>xPts</th><th>Fixtures</th><th>Role</th><th style="width:70px;">Action</th>
+                        </tr></thead>
                         <tbody>${all.map((p, i) => {
                             const s = statusIcons[p.status] || statusIcons.a;
                             const xp = sumPlayerXPts(p, gwView).toFixed(1);
@@ -941,10 +953,10 @@ const FPL = {
                                 return `<span style="display:inline-block;width:20px;height:16px;line-height:16px;text-align:center;font-size:7px;font-weight:700;border-radius:2px;background:${c}22;color:${c};" title="GW${f.gw}: ${f.home?'':'@'}${f.opponent}">${f.opponent}</span>`;
                             }).join('');
                             return `<tr>
-                                <td class="aiteam-rank-cell">${i + 1}</td>
-                                <td class="aiteam-player-cell"><div class="aiteam-table-player">${this.teamBadge(p.team, 20)}<div><span class="aiteam-table-player-name" style="font-size:12px;">${p.name}</span><div class="aiteam-table-player-club">${p.teamFull || p.team}</div></div></div></td>
+                                <td class="aiteam-rank-cell" style="position:sticky;left:0;z-index:2;background:#0e1411;border-right:1px solid rgba(255,255,255,0.08);">${i + 1}</td>
+                                <td class="aiteam-player-cell" style="position:sticky;left:36px;z-index:2;background:#0e1411;border-right:1px solid rgba(255,255,255,0.08);"><div class="aiteam-table-player">${this.teamBadge(p.team, 20)}<div><span class="aiteam-table-player-name" style="font-size:12px;">${p.name}</span><div class="aiteam-table-player-club">${p.teamFull || p.team}</div></div></div></td>
                                 <td style="text-align:center;"><span style="padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;background:${posColors[p.position]}22;color:${posColors[p.position]};">${p.position}</span></td>
-                                <td style="text-align:center;font-family:var(--font-mono);font-size:11px;color:#B0B0B0;">\u00A3${p.cost?.toFixed(1)}m</td>
+                                <td style="text-align:center;font-family:var(--font-mono);font-size:11px;color:#B0B0B0;">£${p.cost?.toFixed(1)}m</td>
                                 <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#00FF85;">${xp}</td>
                                 <td style="text-align:center;font-size:10px;padding:4px 2px;"><div style="display:flex;gap:1px;justify-content:center;">${fx}</div></td>
                                 <td style="text-align:center;font-size:11px;font-weight:600;">${role}</td>
@@ -998,13 +1010,20 @@ const FPL = {
             const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
             const allP = [...lineup.starters, ...lineup.bench];
             gwBreakdown.innerHTML = `
-                <div class="table-scroll-mobile" tabindex="0" aria-label="GW breakdown table">
-                    <table class="aiteam-table" style="min-width:max-content;">
-                        <thead><tr><th class="aiteam-player-cell">Player</th>${gws.map(g => `<th>GW${g}</th>`).join('')}<th style="min-width:60px;">Total</th></tr></thead>
+                <div class="table-scroll-mobile sticky-first-column" tabindex="0" aria-label="GW breakdown table">
+                    <table class="aiteam-table" style="min-width:max-content;border-collapse:separate;border-spacing:0;">
+                        <thead><tr>
+                            <th class="aiteam-player-cell" style="position:sticky;left:0;z-index:4;background:#141916;border-right:1px solid rgba(255,255,255,0.08);">Player</th>
+                            ${gws.map(g => `<th>GW${g}</th>`).join('')}
+                            <th style="min-width:60px;">Total</th>
+                        </tr></thead>
                         <tbody>${allP.map((p, i) => {
                             const isB = i >= lineup.starters.length;
-                            return `<tr class="${isB ? 'is-bench' : ''}" style="${isB ? 'background:rgba(255,255,255,0.02);' : ''}">
-                                <td class="aiteam-player-cell"><div class="aiteam-gw-player"><span class="aiteam-gw-position" style="color:${posColors[p.position]};">${p.position}</span><span class="aiteam-gw-player-copy"><strong>${p.name}</strong><small>${p.teamFull || p.team}${isB ? ' \u00B7 Bench' : ''}</small></span></div></td>
+                            const bg = isB ? '#121815' : '#0e1411';
+                            return `<tr class="${isB ? 'is-bench' : ''}">
+                                <td class="aiteam-player-cell" style="position:sticky;left:0;z-index:2;background:${bg};border-right:1px solid rgba(255,255,255,0.08);">
+                                    <div class="aiteam-gw-player"><span class="aiteam-gw-position" style="color:${posColors[p.position]};">${p.position}</span><span class="aiteam-gw-player-copy"><strong>${p.name}</strong><small>${p.teamFull || p.team}${isB ? ' \u00B7 Bench' : ''}</small></span></div>
+                                </td>
                                 ${gws.map(g => {
                                     const w = p.weekly.find(week => week.gameweek === g) || { xPts: 0 };
                                     const fx = p.upcomingFixtures?.find(f => f.gw === g);
@@ -2465,8 +2484,7 @@ const FPL = {
             <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;padding:20px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;margin-bottom:16px;">
                     <div>
-                        <h3 style="font-family:var(--font-mono);font-size:18px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0 0 4px 0;display:flex;align-items:center;gap:8px;">
-                            <span class="material-symbols-outlined" style="color:#00ff85;">grid_view</span>
+                        <h3 style="font-family:var(--font-mono);font-size:18px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0 0 4px 0;">
                             FIXTURE DIFFICULTY MATRIX (FDR)
                         </h3>
                         <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0;">Upcoming match difficulties for all 20 Premier League teams. Click TEAM to sort by cumulative fixture ease.</p>
@@ -2544,8 +2562,8 @@ const FPL = {
             const cellHTMLs = targetGWs.map(gw => {
                 const fx = fixtures.find(f => f.event === gw && (f.team_h === team.id || f.team_a === team.id));
                 if (!fx) {
-                    return `<td style="padding:3px;">
-                        <div style="background:#2b3630;border-radius:6px;padding:4px;display:flex;align-items:center;justify-content:center;height:38px;opacity:0.6;">
+                    return `<td style="padding:2px;">
+                        <div style="background:#2b3630;border-radius:6px;padding:2px 4px;display:flex;align-items:center;justify-content:center;height:34px;opacity:0.6;">
                             <span style="font-size:10px;font-weight:700;font-family:var(--font-mono);color:#8ba396">BLANK</span>
                         </div>
                     </td>`;
@@ -2558,22 +2576,20 @@ const FPL = {
                 const venueStr = isHome ? 'H' : 'A';
                 const fdr = isHome ? (fx.team_h_difficulty || fx.difficulty || 3) : (fx.team_a_difficulty || fx.difficulty || 3);
                 const colStyle = fdrColors[fdr] || fdrColors[3];
-                const isSortedCol = sortGW === gw;
-                const highlight = '';
 
-                return `<td style="padding:3px;">
-                    <div style="background:${colStyle.bg};border-radius:6px;padding:4px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;height:38px;${highlight}">
-                        <span style="font-size:11px;font-weight:800;font-family:var(--font-mono);color:${colStyle.text}">${oppShort} (${venueStr})</span>
+                return `<td style="padding:2px;">
+                    <div style="background:${colStyle.bg};border-radius:6px;padding:2px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;height:34px;">
+                        <span style="font-size:10px;font-weight:800;font-family:var(--font-mono);color:${colStyle.text}">${oppShort} (${venueStr})</span>
                     </div>
                 </td>`;
             }).join('');
 
             return `
                 <tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);">
-                    <td style="position:sticky;left:0;z-index:2;background:var(--md-sys-color-surface-container);padding:8px 12px;border-right:1px solid var(--md-sys-color-outline-variant);">
-                        <div style="display:flex;align-items:center;gap:8px;">
-                            ${this.teamBadge(team.short_name, 20)}
-                            <span style="font-family:var(--font-mono);font-weight:800;font-size:13px;color:var(--md-sys-color-on-surface);">${this.escapeHTML(team.short_name)}</span>
+                    <td style="position:sticky;left:0;z-index:2;background:var(--md-sys-color-surface-container);padding:6px 8px;border-right:1px solid var(--md-sys-color-outline-variant);">
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            ${this.teamBadge(team.short_name, 18)}
+                            <span style="font-family:var(--font-mono);font-weight:800;font-size:12px;color:var(--md-sys-color-on-surface);">${this.escapeHTML(team.short_name)}</span>
                         </div>
                     </td>
                     ${cellHTMLs}
@@ -2710,42 +2726,34 @@ const FPL = {
             var hWin = m.homeTeam.winPct;
             var aWin = m.awayTeam.winPct;
             var draw = m.homeTeam.drawPct;
-            var hFDR = m.homeTeam.fdr;
-            var aFDR = m.awayTeam.fdr;
             var timeStr = self.formatSolioKickoff(m.kickoff);
             var hXGClass = hXG >= 1.8 ? 'solio-goals-high' : hXG >= 1.3 ? 'solio-goals-mid' : 'solio-goals-low';
             var aXGClass = aXG >= 1.8 ? 'solio-goals-high' : aXG >= 1.3 ? 'solio-goals-mid' : 'solio-goals-low';
             var hCSClass = hCS >= 35 ? 'solio-cs-high' : hCS >= 22 ? 'solio-cs-mid' : 'solio-cs-low';
             var aCSClass = aCS >= 35 ? 'solio-cs-high' : aCS >= 22 ? 'solio-cs-mid' : 'solio-cs-low';
 
-            var probRow = '<div style="display:flex;justify-content:center;gap:12px;margin:8px 0;font-family:var(--font-mono);font-size:10px;">' +
-                '<span style="color:var(--md-sys-color-primary);">H ' + hWin.toFixed(0) + '%</span>' +
-                '<span style="color:var(--md-sys-color-on-surface-variant);">D ' + draw.toFixed(0) + '%</span>' +
-                '<span style="color:var(--fdr-5);">A ' + aWin.toFixed(0) + '%</span>' +
-                '</div>';
+            var bttsPill = m.probabilities ? '<span style="font-size:9px;color:#8ba396;margin-left:auto;">BTTS ' + (m.probabilities.btts || 0) + '%</span>' : '';
 
-            var bttsRow = '';
-            if (m.probabilities) {
-                bttsRow = '<div style="display:flex;justify-content:center;gap:8px;margin-top:4px;font-family:var(--font-mono);font-size:9px;color:var(--md-sys-color-on-surface-variant);">' +
-                    '<span>BTTS ' + (m.probabilities.btts || 0) + '%</span>' +
-                    '<span>O1.5 ' + (m.probabilities.over15 || 0) + '%</span>' +
-                    '<span>O2.5 ' + (m.probabilities.over25 || 0) + '%</span>' +
-                    '</div>';
-            }
-
-            return '<div class="solio-match-card" style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:14px;padding:16px;">' +
-                '<div style="text-align:center;font-family:var(--font-mono);font-size:11px;font-weight:700;color:#00FF85;margin-bottom:8px;letter-spacing:0.04em;">' + self.escapeHTML(timeStr) + '</div>' +
-                '<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px;">' +
-                '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:rgba(255,255,255,0.02);border-radius:8px;border:1px solid rgba(255,255,255,0.04);">' +
-                '<div style="display:flex;align-items:center;gap:8px;">' + self.teamBadge(m.homeTeam.shortName, 22) + '<span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(m.homeTeam.shortName) + ' <small style="color:#8ba396;font-size:10px;">(H)</small></span></div>' +
-                '<div style="display:flex;gap:6px;align-items:center;"><span class="solio-badge ' + hXGClass + '">' + hXG.toFixed(2) + ' xG</span><span class="solio-badge ' + hCSClass + '">' + hCS + '% CS</span></div>' +
+            return '<div class="solio-match-card" style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:12px 14px;">' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.06);">' +
+                    '<span style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:#00FF85;">' + self.escapeHTML(timeStr) + '</span>' +
+                    '<div style="display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:10px;">' +
+                        '<span style="color:var(--md-sys-color-primary);font-weight:700;">H ' + hWin.toFixed(0) + '%</span>' +
+                        '<span style="color:var(--md-sys-color-on-surface-variant);">D ' + draw.toFixed(0) + '%</span>' +
+                        '<span style="color:var(--fdr-5);font-weight:700;">A ' + aWin.toFixed(0) + '%</span>' +
+                        bttsPill +
+                    '</div>' +
                 '</div>' +
-                '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:rgba(255,255,255,0.02);border-radius:8px;border:1px solid rgba(255,255,255,0.04);">' +
-                '<div style="display:flex;align-items:center;gap:8px;">' + self.teamBadge(m.awayTeam.shortName, 22) + '<span style="font-family:var(--font-mono);font-weight:800;font-size:14px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(m.awayTeam.shortName) + ' <small style="color:#8ba396;font-size:10px;">(A)</small></span></div>' +
-                '<div style="display:flex;gap:6px;align-items:center;"><span class="solio-badge ' + aXGClass + '">' + aXG.toFixed(2) + ' xG</span><span class="solio-badge ' + aCSClass + '">' + aCS + '% CS</span></div>' +
-                '</div></div>' +
-                probRow +
-                bttsRow +
+                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+                    '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;background:rgba(255,255,255,0.02);border-radius:8px;border:1px solid rgba(255,255,255,0.04);">' +
+                        '<div style="display:flex;align-items:center;gap:6px;">' + self.teamBadge(m.homeTeam.shortName, 18) + '<span style="font-family:var(--font-mono);font-weight:800;font-size:12px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(m.homeTeam.shortName) + ' <small style="color:#8ba396;font-size:9px;">(H)</small></span></div>' +
+                        '<div style="display:flex;gap:4px;align-items:center;"><span class="solio-badge ' + hXGClass + '" style="font-size:9px;padding:2px 5px;">' + hXG.toFixed(2) + '</span><span class="solio-badge ' + hCSClass + '" style="font-size:9px;padding:2px 5px;">' + hCS + '% CS</span></div>' +
+                    '</div>' +
+                    '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;background:rgba(255,255,255,0.02);border-radius:8px;border:1px solid rgba(255,255,255,0.04);">' +
+                        '<div style="display:flex;align-items:center;gap:6px;">' + self.teamBadge(m.awayTeam.shortName, 18) + '<span style="font-family:var(--font-mono);font-weight:800;font-size:12px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(m.awayTeam.shortName) + ' <small style="color:#8ba396;font-size:9px;">(A)</small></span></div>' +
+                        '<div style="display:flex;gap:4px;align-items:center;"><span class="solio-badge ' + aXGClass + '" style="font-size:9px;padding:2px 5px;">' + aXG.toFixed(2) + '</span><span class="solio-badge ' + aCSClass + '" style="font-size:9px;padding:2px 5px;">' + aCS + '% CS</span></div>' +
+                    '</div>' +
+                '</div>' +
                 '</div>';
         }).join('');
 
@@ -2756,7 +2764,6 @@ const FPL = {
             if (!items || items.length === 0) return '';
             return '<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:16px 0;">' +
                 '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:0 16px;">' +
-                '<span class="material-symbols-outlined" style="color:var(--md-sys-color-primary);font-size:20px;">' + icon + '</span>' +
                 '<span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--md-sys-color-on-surface-variant);">' + title + '</span>' +
                 '</div><div style="display:flex;flex-direction:column;gap:6px;">' +
                 items.slice(0, 10).map(function(t, idx) {
@@ -3076,8 +3083,7 @@ const FPL = {
         let html = `
             <div style="margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
                 <div>
-                    <h3 style="font-family:var(--font-mono);font-size:18px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0 0 4px 0;display:flex;align-items:center;gap:8px;">
-                        <span class="material-symbols-outlined" style="color:var(--md-sys-color-primary);">military_tech</span>
+                    <h3 style="font-family:var(--font-mono);font-size:18px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0 0 4px 0;">
                         TOP 4 PERFORMERS BY TEAM
                     </h3>
                     <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0;">Top 4 point scorers for each of the 20 Premier League teams.</p>
@@ -3104,13 +3110,14 @@ const FPL = {
                         </div>
                         <span style="font-family:var(--font-mono);font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(0,255,133,0.12);color:var(--md-sys-color-primary);">Top 4</span>
                     </div>
-                    <div style="padding:8px 12px;display:flex;flex-direction:column;gap:6px;">
+                    <div style="padding:0;display:flex;flex-direction:column;">
             `;
 
             teamObj.players.forEach((p, idx) => {
                 const medal = medalColors[idx] || medalColors[3];
+                const isLast = idx === teamObj.players.length - 1;
                 html += `
-                    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px;border-radius:8px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);">
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;${isLast ? '' : 'border-bottom:1px solid rgba(255,255,255,0.05);'}">
                         <div style="display:flex;align-items:center;gap:10px;min-width:0;">
                             <span style="font-family:var(--font-mono);font-weight:900;font-size:12px;color:${medal};width:18px;text-align:center;">#${p.rank}</span>
                             <div style="width:34px;height:34px;border-radius:50%;overflow:hidden;flex-shrink:0;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);">

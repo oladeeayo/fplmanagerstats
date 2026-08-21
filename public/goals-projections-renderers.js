@@ -50,7 +50,7 @@ async function renderGoalsScoredProjections() {
 
         '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;margin-bottom:24px;">' +
         '<div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:16px;">' +
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span class="material-symbols-outlined" style="color:var(--md-sys-color-primary);font-size:20px;">sports_soccer</span><span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--md-sys-color-on-surface-variant);">TOP ATTACKING TEAMS</span></div>' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--md-sys-color-on-surface-variant);">TOP ATTACKING TEAMS</span></div>' +
         topTeams.slice(0, 5).map(function(t, idx) {
             var medal = idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : '#CD7F32';
             return '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--md-sys-color-surface-container-high);border-radius:6px;border:1px solid var(--md-sys-color-outline-variant);margin-bottom:4px;">' +
@@ -59,7 +59,7 @@ async function renderGoalsScoredProjections() {
         }).join('') +
         '</div>' +
         '<div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:16px;">' +
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span class="material-symbols-outlined" style="color:var(--fdr-5);font-size:20px;">trending_down</span><span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--md-sys-color-on-surface-variant);">WEAKEST ATTACKS</span></div>' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--md-sys-color-on-surface-variant);">WEAKEST ATTACKS</span></div>' +
         bottomTeams.slice(0, 5).map(function(t, idx) {
             return '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--md-sys-color-surface-container-high);border-radius:6px;border:1px solid var(--md-sys-color-outline-variant);margin-bottom:4px;">' +
                 '<div style="display:flex;align-items:center;gap:8px;"><span style="font-family:var(--font-mono);font-weight:900;font-size:12px;color:var(--fdr-5);">#' + (20 - idx) + '</span>' + self.teamBadge(t.team, 16) + '<span style="font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(t.team) + '</span></div>' +
@@ -68,7 +68,7 @@ async function renderGoalsScoredProjections() {
         '</div></div>' +
 
         '<div style="background:var(--md-sys-color-surface-container-low);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;overflow:hidden;margin-bottom:24px;">' +
-        '<div style="background:var(--md-sys-color-secondary);padding:14px 16px;border-bottom:1px solid var(--md-sys-color-outline-variant);display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:18px;color:var(--md-sys-color-on-secondary);">sports_soccer</span><h3 style="font-family:var(--font-mono);font-size:13px;margin:0;color:var(--md-sys-color-on-secondary);">ALL TEAMS — EXPECTED GOALS (' + horizon + ' GWs)</h3></div>' +
+        '<div style="background:var(--md-sys-color-secondary);padding:14px 16px;border-bottom:1px solid var(--md-sys-color-outline-variant);display:flex;align-items:center;gap:8px;"><h3 style="font-family:var(--font-mono);font-size:13px;margin:0;color:var(--md-sys-color-on-secondary);">ALL TEAMS — EXPECTED GOALS (' + horizon + ' GWs)</h3></div>' +
         '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:12px;"><thead><tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);background:var(--md-sys-color-surface-container-high);">' +
         '<th style="padding:8px 12px;text-align:left;color:var(--md-sys-color-on-surface);font-weight:700;">#</th>' +
         '<th style="padding:8px 12px;text-align:left;color:var(--md-sys-color-on-surface);font-weight:700;">Team</th>' +
@@ -154,7 +154,7 @@ async function renderGoalsConcededProjections() {
 
         '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;margin-bottom:24px;">' +
         '<div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:16px;">' +
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span class="material-symbols-outlined" style="color:var(--md-sys-color-primary);font-size:20px;">shield</span><span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--md-sys-color-on-surface-variant);">BEST DEFENCES</span></div>' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--md-sys-color-on-surface-variant);">BEST DEFENCES</span></div>' +
         bestDefences.slice(0, 5).map(function(t, idx) {
             var medal = idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : '#CD7F32';
             return '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--md-sys-color-surface-container-high);border-radius:6px;border:1px solid var(--md-sys-color-outline-variant);margin-bottom:4px;">' +
@@ -163,7 +163,7 @@ async function renderGoalsConcededProjections() {
         }).join('') +
         '</div>' +
         '<div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:16px;">' +
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span class="material-symbols-outlined" style="color:var(--fdr-5);font-size:20px;">warning</span><span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--md-sys-color-on-surface-variant);">WORST DEFENCES</span></div>' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--md-sys-color-on-surface-variant);">WORST DEFENCES</span></div>' +
         worstDefences.slice(0, 5).map(function(t, idx) {
             return '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--md-sys-color-surface-container-high);border-radius:6px;border:1px solid var(--md-sys-color-outline-variant);margin-bottom:4px;">' +
                 '<div style="display:flex;align-items:center;gap:8px;"><span style="font-family:var(--font-mono);font-weight:900;font-size:12px;color:var(--fdr-5);">#' + (20 - idx) + '</span>' + self.teamBadge(t.team, 16) + '<span style="font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(t.team) + '</span></div>' +
@@ -172,7 +172,7 @@ async function renderGoalsConcededProjections() {
         '</div></div>' +
 
         '<div style="background:var(--md-sys-color-surface-container-low);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;overflow:hidden;margin-bottom:24px;">' +
-        '<div style="background:var(--md-sys-color-secondary);padding:14px 16px;border-bottom:1px solid var(--md-sys-color-outline-variant);display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:18px;color:var(--md-sys-color-on-secondary);">shield</span><h3 style="font-family:var(--font-mono);font-size:13px;margin:0;color:var(--md-sys-color-on-secondary);">ALL TEAMS — EXPECTED GOALS CONCEDED (' + horizon + ' GWs)</h3></div>' +
+        '<div style="background:var(--md-sys-color-secondary);padding:14px 16px;border-bottom:1px solid var(--md-sys-color-outline-variant);display:flex;align-items:center;gap:8px;"><h3 style="font-family:var(--font-mono);font-size:13px;margin:0;color:var(--md-sys-color-on-secondary);">ALL TEAMS — EXPECTED GOALS CONCEDED (' + horizon + ' GWs)</h3></div>' +
         '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:12px;"><thead><tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);background:var(--md-sys-color-surface-container-high);">' +
         '<th style="padding:8px 12px;text-align:left;color:var(--md-sys-color-on-surface);font-weight:700;">#</th>' +
         '<th style="padding:8px 12px;text-align:left;color:var(--md-sys-color-on-surface);font-weight:700;">Team</th>' +
