@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FPLProvider } from '../context/FPLContext';
 import { InstallPrompt } from '../components/InstallPrompt';
+import { JoinLeaguePrompt } from '../components/JoinLeaguePrompt';
 import { LegacyDashboard } from '../components/LegacyDashboard';
 import { TabSkeleton } from '../components/TabSkeleton';
 import { appRoutes, isAppTab, tabFromPath, type AppTab } from './routes';
@@ -111,7 +112,7 @@ function AppInner() {
     <>
       {tabLoading && <TabSkeleton />}
       <LegacyDashboard activeTab={activeTab} />
-      <InstallPrompt />
+      {activeTab === 'aiteam' ? <JoinLeaguePrompt /> : <InstallPrompt />}
     </>
   );
 }

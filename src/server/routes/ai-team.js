@@ -9,6 +9,8 @@ const { sql } = require('../db');
 const router = express.Router();
 
 const AI_TEAM_MODEL_VERSION = 'AI Team Engine 7.0';
+const SMART_TEAM_MANAGER_ID = 7698060;
+const SMART_TEAM_SESSION_ID = `manager-${SMART_TEAM_MANAGER_ID}`;
 const AI_TEAM_POSITION_LIMITS = { GKP: 2, DEF: 5, MID: 5, FWD: 3 };
 
 function isValidAITeamPayload(payload) {
@@ -36,7 +38,7 @@ function isValidAITeamPayload(payload) {
 // GET saved AI team + transfer plan + chip schedule
 router.get('/', async (req, res) => {
   if (!sql) return res.json({ saved: false, persistenceAvailable: false });
-  const sessionId = req.fplSessionId;
+      const sessionId = SMART_TEAM_SESSION_ID;
   try {
     const rows = await sql`SELECT * FROM ai_team WHERE session_id = ${sessionId} ORDER BY updated_at DESC LIMIT 1`;
     if (!rows.length) return res.json({ saved: false });
@@ -65,6 +67,7 @@ router.get('/', async (req, res) => {
         gameweeks: row.lineup?.starters?.[0]?.weekly?.map(week => week.gameweek) || [],
         isAutoLocked: row.is_locked,
         quality: row.lineup?.quality || null,
+        managerId: SMART_TEAM_MANAGER_ID,
       },
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -85,7 +88,7 @@ router.post('/', heavyEndpointLimiter, async (req, res) => {
   const budget = 100;
   const horizon = Math.max(3, Math.min(8, Number(req.body?.horizon) || 8));
   const strategy = ['balanced', 'protect', 'chase'].includes(req.body?.strategy) ? req.body.strategy : 'balanced';
-  const sessionId = req.fplSessionId;
+       const sessionId = SMART_TEAM_SESSION_ID;
 
   try {
     if (sql && !req.body?.rebuild) {
@@ -97,7 +100,7 @@ router.post('/', heavyEndpointLimiter, async (req, res) => {
           teamCost: Number(row.team_cost), teamXpts: Number(row.team_xpts), strategy: row.strategy,
           budget: Number(row.budget), horizon: row.horizon, squad: row.squad, lineup: row.lineup,
           transfers: row.transfers || { plan: [] }, chips: row.chips || { schedule: [] },
-          meta: { schemaVersion: '2.0', modelVersion: AI_TEAM_MODEL_VERSION, generatedAt: row.updated_at, strategy: row.strategy, budget: Number(row.budget), horizon: row.horizon, isAutoLocked: true, quality: row.lineup?.quality || null },
+          meta: { schemaVersion: '2.0', modelVersion: AI_TEAM_MODEL_VERSION, generatedAt: row.updated_at, strategy: row.strategy, budget: Number(row.budget), horizon: row.horizon, isAutoLocked: true, quality: row.lineup?.quality || null, managerId: SMART_TEAM_MANAGER_ID },
         });
       }
     }
@@ -470,6 +473,7 @@ router.post('/', heavyEndpointLimiter, async (req, res) => {
         isAutoLocked: Boolean(shouldAutoLock),
         lockScheduledFor: nextGW === 1 ? gw1?.deadline_time || null : null,
         quality: qualityAudit,
+        managerId: SMART_TEAM_MANAGER_ID,
       },
       formation,
       teamCost: Math.round(teamCost * 10) / 10,

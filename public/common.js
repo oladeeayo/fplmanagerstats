@@ -1,4 +1,7 @@
 // FPL Manager Stats - Common JavaScript Utilities
+const SMART_TEAM_MANAGER_ID = '7698060';
+const COMMUNITY_LEAGUE_ID = '1686849';
+
 const FPL = {
     state: {
         managerData: null,
@@ -23,8 +26,8 @@ const FPL = {
         isLoading: false,
         error: null,
         activeTab: 'general',
-        managerId: localStorage.getItem('fplManagerId') || null,
-        leagueId: localStorage.getItem('fplLeagueId') || null,
+        managerId: localStorage.getItem('fplManagerId') || SMART_TEAM_MANAGER_ID,
+        leagueId: localStorage.getItem('fplLeagueId') || COMMUNITY_LEAGUE_ID,
         theme: document.documentElement.dataset.theme === 'light' ? 'light' : 'dark',
         aiTeamGWView: 1
     },
