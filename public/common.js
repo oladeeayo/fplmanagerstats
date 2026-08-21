@@ -3087,8 +3087,9 @@ const FPL = {
         ctx.fillStyle = '#101d33';
         ctx.fill();
 
-        const statBoxW = 105;
-        const statBoxX = col1X + col1W - statBoxW;
+        const statBoxW = 100;
+        const statBoxH = 40;
+        const statBoxX = col1X + col1W - statBoxW - 10;
 
         ctx.font = '800 12px "Fira Code", monospace';
         ctx.fillStyle = '#38bdf8';
@@ -3150,24 +3151,36 @@ const FPL = {
             const pName = item.name || 'Player';
             ctx.fillText(pName, col1X + 74, rY + (rowH / 2));
 
-            // Solid Full-Height Right Column Stat Box with Color Gradient Shading
+            // Stat Box with 15px Vertical Gap Spacing & Deeper-to-Lighter Color Shading
             const itemVal = item.pct ?? item.count ?? 0;
             const ratio = topVal > 0 ? Math.max(0.05, Math.min(1, itemVal / topVal)) : 0.05;
 
-            // Background color fading from bright blue (#0284c7) down to deep navy (#0c304d)
-            const bgAlpha = (0.35 + ratio * 0.65).toFixed(2);
-            ctx.fillStyle = `rgba(2, 132, 199, ${bgAlpha})`;
-            ctx.fillRect(statBoxX, rY, statBoxW - 1, rowH);
+            const curStatBoxY = rY + (rowH / 2) - (statBoxH / 2);
+            drawRoundedRect(statBoxX, curStatBoxY, statBoxW, statBoxH, 6);
 
-            // Left border divider for stat column
-            ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
+            if (ratio > 0.6) {
+                // Top ranks: Deep, rich vibrant blue
+                ctx.fillStyle = '#0284c7';
+                ctx.strokeStyle = '#38bdf8';
+            } else if (ratio > 0.3) {
+                // Mid ranks: Medium blue
+                ctx.fillStyle = '#0369a1';
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
+            } else if (ratio > 0.1) {
+                // Low ranks: Lighter cyan/teal
+                ctx.fillStyle = '#0e7490';
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+            } else {
+                // Bottom ranks: Light subtle tint
+                ctx.fillStyle = 'rgba(14, 116, 144, 0.45)';
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
+            }
+
+            ctx.fill();
             ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(statBoxX, rY);
-            ctx.lineTo(statBoxX, rY + rowH);
             ctx.stroke();
 
-            // Text inside stat block
+            // Text inside stat box
             const mCount = item.count ?? (item.pct != null && totalManagers ? Math.round((item.pct / 100) * totalManagers) : null);
             const pPct = item.pct ?? 0;
 
@@ -3175,11 +3188,11 @@ const FPL = {
             ctx.fillStyle = '#ffffff';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(`${mCount ?? '--'}`, statBoxX + (statBoxW / 2), rY + 20);
+            ctx.fillText(`${mCount ?? '--'}`, statBoxX + (statBoxW / 2), curStatBoxY + 15);
 
             ctx.font = '700 10px "Fira Code", monospace';
-            ctx.fillStyle = ratio > 0.5 ? '#e0f2fe' : '#7dd3fc';
-            ctx.fillText(`${pPct}%`, statBoxX + (statBoxW / 2), rY + 36);
+            ctx.fillStyle = ratio > 0.6 ? '#e0f2fe' : '#7dd3fc';
+            ctx.fillText(`${pPct}%`, statBoxX + (statBoxW / 2), curStatBoxY + 29);
         });
 
         // RIGHT COLUMN: Pitch & Tactical Formation
