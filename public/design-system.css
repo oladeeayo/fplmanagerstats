@@ -1756,10 +1756,11 @@ body.sidebar-open {
         height: env(safe-area-inset-top, 0px);
         background: rgba(10, 15, 13, 0.92);
     }
-    .topbar-left { gap: 12px; }
-    .topbar-title { font-size: 0.9375rem; }
-    .topbar-title .material-symbols-outlined { font-size: 22px; }
-    .topbar-right .btn { min-height: 36px; padding: 0 12px; font-size: 12px; }
+    .topbar-left { gap: 8px; min-width: 0; }
+    .topbar-title { font-size: 0.875rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+    .topbar-title .material-symbols-outlined { font-size: 20px; }
+    .topbar-right { min-width: 0; flex-shrink: 1; }
+    .topbar-right .btn { min-height: 34px; padding: 0 10px; font-size: 12px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     /* Content area — push down for fixed topbar */
     .layout-content { min-width: 0; padding: 14px; padding-top: 72px; padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
