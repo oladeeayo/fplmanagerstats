@@ -3073,7 +3073,7 @@ const FPL = {
         // LEFT COLUMN: Top Captains Table
         const col1X = 45;
         const col1Y = 105;
-        const col1W = 340;
+        const col1W = 350;
         const col1H = 880;
 
         drawRoundedRect(col1X, col1Y, col1W, col1H, 14);
@@ -3087,9 +3087,8 @@ const FPL = {
         ctx.fillStyle = '#101d33';
         ctx.fill();
 
-        const pillW = 65;
-        const pillH = 42;
-        const pillX = col1X + 250;
+        const statBoxW = 105;
+        const statBoxX = col1X + col1W - statBoxW;
 
         ctx.font = '800 12px "Fira Code", monospace';
         ctx.fillStyle = '#38bdf8';
@@ -3100,7 +3099,7 @@ const FPL = {
         ctx.font = '800 11px "Fira Code", monospace';
         ctx.fillStyle = '#94a3b8';
         ctx.textAlign = 'center';
-        ctx.fillText('Capped', pillX + (pillW / 2), col1Y + 21);
+        ctx.fillText('CAPPED', statBoxX + (statBoxW / 2), col1Y + 21);
 
         const rowH = 55;
         const renderCaptains = topCaptains.slice(0, 15);
@@ -3151,38 +3150,36 @@ const FPL = {
             const pName = item.name || 'Player';
             ctx.fillText(pName, col1X + 74, rY + (rowH / 2));
 
-            // Keep the captain count in a flat square so the player name has room to breathe.
-            const curPillY = rY + (rowH / 2) - (pillH / 2);
+            // Solid Full-Height Right Column Stat Box with Color Gradient Shading
             const itemVal = item.pct ?? item.count ?? 0;
-            const ratio = topVal > 0 ? Math.max(0.06, Math.min(1, itemVal / topVal)) : 0.06;
+            const ratio = topVal > 0 ? Math.max(0.05, Math.min(1, itemVal / topVal)) : 0.05;
 
-            drawRoundedRect(pillX, curPillY, pillW, pillH, 6);
+            // Background color fading from bright blue (#0284c7) down to deep navy (#0c304d)
+            const bgAlpha = (0.35 + ratio * 0.65).toFixed(2);
+            ctx.fillStyle = `rgba(2, 132, 199, ${bgAlpha})`;
+            ctx.fillRect(statBoxX, rY, statBoxW - 1, rowH);
 
-            if (ratio > 0.6) {
-                ctx.fillStyle = `rgba(2, 132, 199, ${(0.80 + ratio * 0.20).toFixed(2)})`;
-                ctx.strokeStyle = '#38bdf8';
-            } else if (ratio > 0.2) {
-                ctx.fillStyle = `rgba(3, 105, 161, ${(0.65 + ratio * 0.25).toFixed(2)})`;
-                ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
-            } else {
-                ctx.fillStyle = `rgba(14, 116, 144, ${(0.50 + ratio * 0.20).toFixed(2)})`;
-                ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
-            }
-
-            ctx.fill();
+            // Left border divider for stat column
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
             ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(statBoxX, rY);
+            ctx.lineTo(statBoxX, rY + rowH);
             ctx.stroke();
 
-            ctx.font = '800 13px "Fira Code", monospace';
+            // Text inside stat block
+            const mCount = item.count ?? (item.pct != null && totalManagers ? Math.round((item.pct / 100) * totalManagers) : null);
+            const pPct = item.pct ?? 0;
+
+            ctx.font = '800 14px "Fira Code", monospace';
             ctx.fillStyle = '#ffffff';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            const mCount = item.count ?? (item.pct != null && totalManagers ? Math.round((item.pct / 100) * totalManagers) : null);
-            const pPct = item.pct ?? 0;
-            ctx.fillText(`${mCount ?? '--'}`, pillX + (pillW / 2), curPillY + 16);
+            ctx.fillText(`${mCount ?? '--'}`, statBoxX + (statBoxW / 2), rY + 20);
+
             ctx.font = '700 10px "Fira Code", monospace';
-            ctx.fillStyle = ratio > 0.6 ? '#e0f2fe' : '#38bdf8';
-            ctx.fillText(`${pPct}%`, pillX + (pillW / 2), curPillY + 30);
+            ctx.fillStyle = ratio > 0.5 ? '#e0f2fe' : '#7dd3fc';
+            ctx.fillText(`${pPct}%`, statBoxX + (statBoxW / 2), rY + 36);
         });
 
         // RIGHT COLUMN: Pitch & Tactical Formation
