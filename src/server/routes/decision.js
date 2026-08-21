@@ -36,8 +36,8 @@ async function analyzeManager(managerId, playerData, leagueId = null) {
   let highestRank = Infinity, highestRankGW = 0, lowestRank = 0, lowestRankGW = 0;
 
   const currentTeam = [];
-  const currentPicksData = await getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${currentGameweek}/picks/`);
-  const currentPicks = currentPicksData.picks;
+  const currentPicksData = await optionalApiGet(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${currentGameweek}/picks/`);
+  const currentPicks = currentPicksData?.picks || [];
 
   for (const pick of currentPicks) {
     const player = playerData.elements.find(p => p.id === pick.element);
@@ -226,11 +226,11 @@ async function analyzeManager(managerId, playerData, leagueId = null) {
     if (!r.reasons.length) r.reasons.push('Underperforming relative to cost');
   });
 
-  const seasonHistory = (historyData.past || []).map((s, i) => ({
+  const seasonHistory = (historyData?.past || []).map((s, i) => ({
     season: s.season_name || `${2020+i}/${2021+i}`, rank: s.rank, points: s.total_points
   }));
 
-  const chips = historyData.chips || [];
+  const chips = historyData?.chips || [];
 
   return {
     managerInfo: {
@@ -240,9 +240,9 @@ async function analyzeManager(managerId, playerData, leagueId = null) {
       overallRankRaw: managerEntryData.summary_overall_rank || 0,
       managerPoints: managerEntryData.summary_overall_points,
       chipsUsed: chips.map(c => c.name), chipsCount: chips.length,
-      lastSeasonRank: historyData.past.length > 0 ? historyData.past[historyData.past.length - 1].rank.toLocaleString() : "Didn't Play",
-      lastSeasonRankRaw: historyData.past.length > 0 ? historyData.past[historyData.past.length - 1].rank : null,
-      seasonBeforeLastRank: historyData.past.length > 1 ? historyData.past[historyData.past.length - 2].rank.toLocaleString() : "Didn't Play",
+      lastSeasonRank: (historyData?.past || []).length > 0 ? historyData.past[historyData.past.length - 1].rank.toLocaleString() : "Didn't Play",
+      lastSeasonRankRaw: (historyData?.past || []).length > 0 ? historyData.past[historyData.past.length - 1].rank : null,
+      seasonBeforeLastRank: (historyData?.past || []).length > 1 ? historyData.past[historyData.past.length - 2].rank.toLocaleString() : "Didn't Play",
       pointDifference: topManagerPoints - managerEntryData.summary_overall_points,
       totalPointsLostOnBench, totalCaptaincyPoints,
       captaincyEfficiency: totalCaptaincyAttempts > 0 ? Math.round((totalCaptaincyPoints / totalCaptaincyAttempts) * 10) / 10 : 0,
@@ -314,7 +314,13 @@ router.get('/analyze-manager/:managerId', heavyEndpointLimiter, async (req, res)
     const result = await analyzeManager(managerId, bs);
     managerCache[managerId] = result;
     res.json(result);
-  } catch (e) { logger.error({ err: e }, 'Error analyzing manager'); res.status(500).json({ error: 'Failed to analyze manager' }); }
+  } catch (e) {
+    const status = e.response?.status || 500;
+    logger.error({ err: e, managerId, status }, 'Error analyzing manager');
+    if (status === 404) return res.status(404).json({ error: 'Manager not found' });
+    if (status === 429) return res.status(429).json({ error: 'FPL API rate limited. Try again shortly.' });
+    res.status(500).json({ error: 'Failed to analyze manager', detail: e.message });
+  }
 });
 
 router.get('/compare-managers/:id1/:id2', heavyEndpointLimiter, async (req, res) => {
