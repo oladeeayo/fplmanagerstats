@@ -235,7 +235,7 @@ const FPL = {
             // Update topbar connect button to show connected state
             const topbarBtn = document.querySelector('.topbar-right .btn-primary');
             if (topbarBtn) {
-                topbarBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px;color:#00FF85;">check_circle</span> Connected`;
+                topbarBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px;color:#00FF85;">check_circle</span> ${this.escapeHTML(data.managerInfo?.teamName || 'Connected')}`;
                 topbarBtn.onclick = () => this.showDialog('connect-dialog');
                 topbarBtn.style.background = 'rgba(0,255,133,0.12)';
                 topbarBtn.style.border = '1px solid rgba(0,255,133,0.3)';
