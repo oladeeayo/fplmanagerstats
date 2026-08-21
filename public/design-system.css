@@ -4947,3 +4947,10 @@ input[style*="border"] {
         border-radius: 8px !important;
     }
 }
+
+/* Authoritative mobile topbar clearance: bar height + safe area + 24px gap. */
+@media (max-width: 768px) {
+    .layout-content {
+        padding-top: calc(80px + env(safe-area-inset-top, 0px)) !important;
+    }
+}
