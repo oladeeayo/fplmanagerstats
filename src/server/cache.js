@@ -1,5 +1,6 @@
 const axios = require('axios');
 const logger = require('./logger');
+const snapshotManager = require('./snapshotManager');
 
 // Upstash Redis (optional — falls back to in-memory Map if not configured)
 let redis = null;
@@ -135,8 +136,6 @@ async function getGlobalPlayerHistory(playerId) {
   }
   return data;
 }
-
-const snapshotManager = require('./snapshotManager');
 
 async function getCachedApiData(url, maxAgeMs = 60 * 1000) {
   const isBootstrapUrl = url === BOOTSTRAP_URL || url.includes('/api/bootstrap-static');

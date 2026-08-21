@@ -233,18 +233,39 @@ function getSnapshotData() {
  * Returns current snapshot status and schedule metadata.
  */
 function getSnapshotStatus() {
-  return {
-    isSnapshotActive: isSnapshotActive(),
-    mode: isSnapshotActive() ? 'snapshot' : 'live',
-    forceMode,
-    currentGW: currentSchedule?.gwId || snapshotData?.gwId || null,
-    deadlineTime: currentSchedule?.deadlineTime || null,
-    snapshotStartTime: currentSchedule?.snapshotStartTime || null,
-    firstMatchTime: currentSchedule?.firstMatchTime || null,
-    snapshotEndTime: currentSchedule?.snapshotEndTime || null,
-    lastSnapshotTimestamp: snapshotData?.timestamp ? new Date(snapshotData.timestamp).toISOString() : null,
-    hasSnapshotData: Boolean(snapshotData && snapshotData.bootstrap && snapshotData.fixtures),
-  };
+  try {
+    let lastSnapshotTimestamp = null;
+    if (snapshotData?.timestamp && !isNaN(new Date(snapshotData.timestamp).getTime())) {
+      lastSnapshotTimestamp = new Date(snapshotData.timestamp).toISOString();
+    }
+
+    return {
+      isSnapshotActive: isSnapshotActive(),
+      mode: isSnapshotActive() ? 'snapshot' : 'live',
+      forceMode,
+      currentGW: currentSchedule?.gwId || snapshotData?.gwId || null,
+      deadlineTime: currentSchedule?.deadlineTime || null,
+      snapshotStartTime: currentSchedule?.snapshotStartTime || null,
+      firstMatchTime: currentSchedule?.firstMatchTime || null,
+      snapshotEndTime: currentSchedule?.snapshotEndTime || null,
+      lastSnapshotTimestamp,
+      hasSnapshotData: Boolean(snapshotData && snapshotData.bootstrap && snapshotData.fixtures),
+    };
+  } catch (err) {
+    logger.error({ err: err.message }, 'Error building snapshot status');
+    return {
+      isSnapshotActive: false,
+      mode: 'live',
+      forceMode,
+      currentGW: null,
+      deadlineTime: null,
+      snapshotStartTime: null,
+      firstMatchTime: null,
+      snapshotEndTime: null,
+      lastSnapshotTimestamp: null,
+      hasSnapshotData: false,
+    };
+  }
 }
 
 /**
