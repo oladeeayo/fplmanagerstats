@@ -97,7 +97,7 @@
         #error-toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: var(--md-sys-color-error); color: #000; padding: var(--space-sm) var(--space-lg); border-radius: var(--radius-pill); font-size: 0.875rem; font-weight: 600; z-index: 10000; transition: all var(--transition-normal); }
         #error-toast.hidden { opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(20px); }
         .sidebar-nav-item { display: flex; align-items: center; gap: var(--space-md); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); color: var(--md-sys-color-on-surface-variant); text-decoration: none; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: all var(--transition-fast); position: relative; }
-        .sidebar-nav-item:hover { background: var(--md-sys-color-surface-container); color: var(--md-sys-color-on-surface); }
+        .sidebar-nav-item:hover, .sidebar-nav-item:active { background: var(--md-sys-color-surface-container); color: var(--md-sys-color-on-surface); text-decoration: none; }
         .sidebar-nav-item.active { background: var(--fpl-accent-dim); color: var(--md-sys-color-primary); font-weight: 600; }
         .sidebar-nav-item .material-symbols-outlined { font-size: 20px; }
         .sidebar-nav-button { width: 100%; border: 0; background: transparent; font-family: inherit; text-align: left; }
@@ -348,48 +348,48 @@
                 <div id="content-manager" class="tab-content">
                     <!-- Page Header -->
                     <div style="margin-bottom:24px;">
-                        <h1 style="font-size:28px;font-weight:700;color:#ffffff;margin:0;font-family:var(--font-display);">Manager Analysis</h1>
+                        <h1 style="font-size:28px;font-weight:700;color:var(--md-sys-color-on-surface);margin:0;font-family:var(--font-display);">Manager Analysis</h1>
                     </div>
 
-                    <!-- Top Row: 4 Mint/Sage Bento Cards -->
+                    <!-- Top Row: 4 Glass Bento Cards -->
                         <div class="team-bento-4" style="display:grid;grid-template-columns:repeat(4, 1fr);gap:16px;margin-bottom:24px;">
                         <!-- Card 1: Manager ID Search -->
-                        <div style="background:#9ecfb7;border-radius:12px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;min-height:120px;position:relative;">
-                            <span class="mono" style="font-size:10px;font-weight:700;color:#2c4436;text-transform:uppercase;letter-spacing:0.08em;">MANAGER ID</span>
-                            <form id="manager-id-form" style="display:flex;align-items:center;background:#141f18;border-radius:8px;padding:6px 8px;margin-top:12px;" onsubmit="event.preventDefault();FPL.connectManagerFromInput()">
+                        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;min-height:120px;position:relative;">
+                            <span class="mono" style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.08em;">MANAGER ID</span>
+                            <form id="manager-id-form" style="display:flex;align-items:center;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:6px 8px;margin-top:12px;" onsubmit="event.preventDefault();FPL.connectManagerFromInput()">
                                 <input type="text" id="manager-id-input-field" value="1234567" aria-label="Manager ID" autocomplete="off" inputmode="numeric" style="background:transparent;border:none;outline:none;color:#ffffff;font-family:var(--font-mono);font-size:16px;font-weight:700;width:100%;padding:6px 8px;" oninput="FPL.searchManager('manager-id-input-field','manager-id-results')">
-                                <button type="submit" aria-label="Analyze manager ID" style="background:transparent;border:none;color:#00FF85;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:4px;">
+                                <button type="submit" aria-label="Analyze manager ID" style="background:transparent;border:none;color:var(--md-sys-color-primary);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:4px;">
                                     <span class="material-symbols-outlined" style="font-size:18px;">search</span>
                                 </button>
                             </form>
-                            <div id="manager-id-results" style="display:none;position:absolute;left:20px;right:20px;background:#1a2e22;border:1px solid #2c4436;border-radius:8px;margin-top:4px;z-index:100;max-height:400px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.4);"></div>
+                            <div id="manager-id-results" style="display:none;position:absolute;left:20px;right:20px;background:rgba(24,24,27,0.95);border:1px solid rgba(255,255,255,0.08);border-radius:8px;margin-top:4px;z-index:100;max-height:400px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.4);"></div>
                         </div>
 
                         <!-- Card 2: Overall Rank -->
-                        <div style="background:#9ecfb7;border-radius:12px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;min-height:120px;">
-                            <span class="mono" style="font-size:10px;font-weight:700;color:#2c4436;text-transform:uppercase;letter-spacing:0.08em;">OVERALL RANK</span>
+                        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;min-height:120px;">
+                            <span class="mono" style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.08em;">OVERALL RANK</span>
                             <div>
-                                <div id="team-overall-rank" style="font-size:32px;font-weight:800;color:#0c1a12;line-height:1.1;font-family:var(--font-display);">12,450</div>
-                                <div id="team-rank-change" class="mono" style="font-size:13px;font-weight:700;color:#007a38;margin-top:6px;">↑ 4,200</div>
+                                <div id="team-overall-rank" style="font-size:32px;font-weight:800;color:#ffffff;line-height:1.1;font-family:var(--font-display);">12,450</div>
+                                <div id="team-rank-change" class="mono" style="font-size:13px;font-weight:700;color:var(--md-sys-color-primary);margin-top:6px;">↑ 4,200</div>
                             </div>
                         </div>
 
                         <!-- Card 3: Total Points -->
-                        <div style="background:#9ecfb7;border-radius:12px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;min-height:120px;">
-                            <span class="mono" style="font-size:10px;font-weight:700;color:#2c4436;text-transform:uppercase;letter-spacing:0.08em;">TOTAL POINTS</span>
+                        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;min-height:120px;">
+                            <span class="mono" style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.08em;">TOTAL POINTS</span>
                             <div>
-                                <div id="team-total-points" style="font-size:32px;font-weight:800;color:#0c1a12;line-height:1.1;font-family:var(--font-display);">1,842</div>
-                                <div id="team-gw-points-sub" class="mono" style="font-size:13px;font-weight:500;color:#2c4436;margin-top:6px;">GW: 64</div>
+                                <div id="team-total-points" style="font-size:32px;font-weight:800;color:#ffffff;line-height:1.1;font-family:var(--font-display);">1,842</div>
+                                <div id="team-gw-points-sub" class="mono" style="font-size:13px;font-weight:500;color:var(--md-sys-color-on-surface-variant);margin-top:6px;">GW: 64</div>
                             </div>
                         </div>
 
                         <!-- Card 4: Template Score -->
-                        <div style="background:#9ecfb7;border-radius:12px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;min-height:120px;">
-                            <span class="mono" style="font-size:10px;font-weight:700;color:#2c4436;text-transform:uppercase;letter-spacing:0.08em;">TEMPLATE SCORE</span>
+                        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;min-height:120px;">
+                            <span class="mono" style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.08em;">TEMPLATE SCORE</span>
                             <div>
-                                <div id="team-template-score" style="font-size:32px;font-weight:800;color:#0c1a12;line-height:1.1;font-family:var(--font-display);">84%</div>
-                                <div style="height:6px;width:100%;background:#141f18;border-radius:3px;margin-top:10px;overflow:hidden;">
-                                    <div id="team-template-score-bar" style="height:100%;width:84%;background:#00FF85;border-radius:3px;"></div>
+                                <div id="team-template-score" style="font-size:32px;font-weight:800;color:#ffffff;line-height:1.1;font-family:var(--font-display);">84%</div>
+                                <div style="height:6px;width:100%;background:rgba(255,255,255,0.06);border-radius:3px;margin-top:10px;overflow:hidden;">
+                                    <div id="team-template-score-bar" style="height:100%;width:84%;background:var(--md-sys-color-primary);border-radius:3px;"></div>
                                 </div>
                             </div>
                         </div>
@@ -397,7 +397,7 @@
 
                     <!-- Position Summary Section -->
                     <div style="margin-bottom:24px;">
-                        <h2 style="font-size:18px;font-weight:700;color:#ffffff;margin:0 0 16px 0;font-family:var(--font-display);">Position Summary</h2>
+                        <h2 style="font-size:18px;font-weight:700;color:var(--md-sys-color-on-surface);margin:0 0 16px 0;font-family:var(--font-display);">Position Summary</h2>
                         <div class="team-bento-4" style="display:grid;grid-template-columns:repeat(4, 1fr);gap:24px;">
                             <!-- Goalkeepers -->
                             <div style="border-radius:16px;padding:20px;display:flex;align-items:center;gap:16px;">
@@ -461,33 +461,33 @@
                     <div class="team-bento-2" style="display:grid;grid-template-columns:repeat(2, 1fr);gap:24px;margin-bottom:24px;">
                         <!-- Points Per Gameweek -->
                         <div style="border-radius:16px;padding:24px;display:flex;flex-direction:column;justify-content:space-between;min-height:300px;">
-                            <h3 style="font-size:16px;font-weight:700;color:#ffffff;margin:0 0 20px 0;">Points Per Gameweek</h3>
+                            <h3 style="font-size:16px;font-weight:700;color:var(--md-sys-color-on-surface);margin:0 0 20px 0;">Points Per Gameweek</h3>
                             <div id="points-per-gw-chart" style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;height:200px;padding:10px 0;">
-                                <div style="flex:1;background:linear-gradient(to top, #146138, #00FF85);height:40%;border-radius:4px 4px 0 0;"></div>
-                                <div style="flex:1;background:linear-gradient(to top, #146138, #00FF85);height:65%;border-radius:4px 4px 0 0;"></div>
-                                <div style="flex:1;background:linear-gradient(to top, #146138, #00FF85);height:50%;border-radius:4px 4px 0 0;"></div>
-                                <div style="flex:1;background:linear-gradient(to top, #146138, #00FF85);height:95%;border-radius:4px 4px 0 0;"></div>
-                                <div style="flex:1;background:linear-gradient(to top, #146138, #00FF85);height:80%;border-radius:4px 4px 0 0;"></div>
+                                <div style="flex:1;background:linear-gradient(to top, rgba(0,255,133,0.2), var(--md-sys-color-primary));height:40%;border-radius:4px 4px 0 0;"></div>
+                                <div style="flex:1;background:linear-gradient(to top, rgba(0,255,133,0.2), var(--md-sys-color-primary));height:65%;border-radius:4px 4px 0 0;"></div>
+                                <div style="flex:1;background:linear-gradient(to top, rgba(0,255,133,0.2), var(--md-sys-color-primary));height:50%;border-radius:4px 4px 0 0;"></div>
+                                <div style="flex:1;background:linear-gradient(to top, rgba(0,255,133,0.2), var(--md-sys-color-primary));height:95%;border-radius:4px 4px 0 0;"></div>
+                                <div style="flex:1;background:linear-gradient(to top, rgba(0,255,133,0.2), var(--md-sys-color-primary));height:80%;border-radius:4px 4px 0 0;"></div>
                             </div>
                         </div>
 
                         <!-- Rank History -->
                         <div style="border-radius:16px;padding:24px;display:flex;flex-direction:column;justify-content:space-between;min-height:300px;">
-                            <h3 style="font-size:16px;font-weight:700;color:#ffffff;margin:0 0 20px 0;">Rank History</h3>
+                            <h3 style="font-size:16px;font-weight:700;color:var(--md-sys-color-on-surface);margin:0 0 20px 0;">Rank History</h3>
                             <div style="flex:1;display:flex;align-items:center;justify-content:center;border:1px dashed rgba(255,255,255,0.06);border-radius:12px;background:rgba(255,255,255,0.02);">
-                                <span style="font-size:13px;color:#8ba396;font-family:var(--font-mono);">Rank trend visualization</span>
+                                <span style="font-size:13px;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);">Rank trend visualization</span>
                             </div>
                         </div>
                     </div>
 
                     <!-- Squad Performance Table Section -->
                     <div style="margin-bottom:24px;">
-                        <h2 style="font-size:18px;font-weight:700;color:#ffffff;margin:0 0 16px 0;font-family:var(--font-display);">Squad Performance</h2>
+                        <h2 style="font-size:18px;font-weight:700;color:var(--md-sys-color-on-surface);margin:0 0 16px 0;font-family:var(--font-display);">Squad Performance</h2>
                         <div style="border-radius:16px;overflow:clip;">
                             <div class="table-scroll-mobile sticky-first-column">
                                 <table class="squad-performance-table" style="width:100%;border-collapse:collapse;text-align:left;">
                                     <thead>
-                                        <tr style="background:#1c211e;font-family:var(--font-mono);font-size:11px;color:#8ba396;text-transform:uppercase;">
+                                        <tr style="background:rgba(255,255,255,0.03);font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;">
                                             <th style="padding:12px 20px;">PLAYER</th>
                                             <th style="padding:12px 16px;text-align:center;">POINTS</th>
                                             <th style="padding:12px 16px;text-align:center;">GW APPS</th>
@@ -507,9 +507,9 @@
 
                     <!-- Underperforming Players Section -->
                     <div>
-                        <h2 style="font-size:18px;font-weight:700;color:#ffffff;margin:0 0 16px 0;font-family:var(--font-display);">Underperforming Players</h2>
+                        <h2 style="font-size:18px;font-weight:700;color:var(--md-sys-color-on-surface);margin:0 0 16px 0;font-family:var(--font-display);">Underperforming Players</h2>
                         <div id="underperforming-container" class="team-bento-2" style="display:grid;grid-template-columns:repeat(2, 1fr);gap:24px;">
-                            <div style="grid-column:span 2;text-align:center;padding:32px;color:#8ba396;font-size:13px;">Connect your FPL ID to see underperforming player analysis</div>
+                            <div style="grid-column:span 2;text-align:center;padding:32px;color:var(--md-sys-color-on-surface-variant);font-size:13px;">Connect your FPL ID to see underperforming player analysis</div>
                         </div>
                     </div>
                 </div>
@@ -879,8 +879,8 @@
                             <aside style="width:320px;flex-shrink:0;display:flex;flex-direction:column;gap:24px;">
                                 <div style="border-radius:16px;overflow:hidden;">
                                     <div style="background:rgba(167,207,188,0.08);padding:14px 16px;display:flex;align-items:center;gap:8px;">
-                                        <span class="material-symbols-outlined" style="font-size:18px;color:#0a0f0d;">trending_up</span>
-                                        <h3 style="font-family:var(--font-mono);font-size:13px;margin:0;color:#0a0f0d;">FORM LEADERS (UPCOMING)</h3>
+                                        <span class="material-symbols-outlined" style="font-size:18px;color:#00ff85;">trending_up</span>
+                                        <h3 style="font-family:var(--font-mono);font-size:13px;margin:0;color:#ffffff;">FORM LEADERS (UPCOMING)</h3>
                                     </div>
                                     <div id="form-leaders-list" style="padding:16px;display:flex;flex-direction:column;gap:12px;max-height:400px;overflow-y:auto;">
                                         <!-- Dynamic Player Form Leader Cards -->
