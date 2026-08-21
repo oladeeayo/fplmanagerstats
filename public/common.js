@@ -2513,17 +2513,17 @@ const FPL = {
         const captaincy = standingsData.captaincyCount || [];
 
         const scale = 2;
-        const rowHeight = 34 * scale;
+        const rowHeight = 42 * scale;
         const headerHeight = 100 * scale;
         const footerHeight = 70 * scale;
 
         const cols = [];
         if (incRank) cols.push({ id: 'rank', label: 'RANK', width: 65 * scale, align: 'left' });
-        if (incTeam) cols.push({ id: 'team', label: 'TEAM & MANAGER', width: 240 * scale, align: 'left' });
+        if (incTeam) cols.push({ id: 'team', label: 'TEAM & MANAGER', width: 290 * scale, align: 'left' });
         if (incGW) cols.push({ id: 'gw', label: 'GW PTS', width: 85 * scale, align: 'center' });
         if (incXGW) cols.push({ id: 'xgw', label: 'xGW-PTS', width: 95 * scale, align: 'center' });
         if (incTotal) cols.push({ id: 'total', label: 'TOTAL PTS', width: 105 * scale, align: 'center' });
-        if (incCap) cols.push({ id: 'captain', label: 'GW CAPTAIN', width: 140 * scale, align: 'left' });
+        if (incCap) cols.push({ id: 'captain', label: 'GW CAPTAIN', width: 180 * scale, align: 'left' });
         if (incDiff) cols.push({ id: 'diff', label: 'RANK DIFF', width: 90 * scale, align: 'center' });
 
         const tableContentWidth = cols.reduce((sum, c) => sum + c.width, 0);
@@ -2595,7 +2595,7 @@ const FPL = {
                 ctx.fillStyle = '#ffffff';
                 ctx.font = `bold ${10 * scale}px "Fira Code", monospace`;
 
-                let currentX = 25 * scale;
+                let currentX = 35 * scale;
                 cols.forEach(col => {
                     if (col.align === 'center') {
                         ctx.textAlign = 'center';
@@ -2622,53 +2622,53 @@ const FPL = {
                     ctx.lineTo(tableWidth - (20 * scale), y + rowHeight);
                     ctx.stroke();
 
-                    let x = 25 * scale;
+                    let x = 35 * scale;
                     cols.forEach(col => {
                         if (col.id === 'rank') {
                             ctx.textAlign = 'left';
                             ctx.fillStyle = '#047857';
                             ctx.font = `bold ${12 * scale}px "Fira Code", monospace`;
-                            ctx.fillText(`${m.rank}`, x, y + (22 * scale));
+                            ctx.fillText(`${m.rank}`, x, y + (27 * scale));
                         } else if (col.id === 'team') {
                             ctx.textAlign = 'left';
                             ctx.fillStyle = '#0f172a';
                             ctx.font = `bold ${11 * scale}px "Outfit", sans-serif`;
                             const titleText = `${m.entryName} (${m.managerName})`;
                             const truncated = titleText.length > 28 ? titleText.substring(0, 26) + '...' : titleText;
-                            ctx.fillText(truncated, x, y + (22 * scale));
+                            ctx.fillText(truncated, x, y + (27 * scale));
                         } else if (col.id === 'gw') {
                             ctx.textAlign = 'center';
                             ctx.fillStyle = '#0f172a';
                             ctx.font = `bold ${11 * scale}px "Fira Code", monospace`;
-                            ctx.fillText(`${m.eventTotal}`, x + (col.width / 2), y + (22 * scale));
+                            ctx.fillText(`${m.eventTotal}`, x + (col.width / 2), y + (27 * scale));
                         } else if (col.id === 'xgw') {
                             ctx.textAlign = 'center';
                             ctx.fillStyle = '#059669';
                             ctx.font = `bold ${11 * scale}px "Fira Code", monospace`;
                             const xval = m.xGWPts != null ? Number(m.xGWPts).toFixed(1) : '--';
-                            ctx.fillText(`${xval}`, x + (col.width / 2), y + (22 * scale));
+                            ctx.fillText(`${xval}`, x + (col.width / 2), y + (27 * scale));
                         } else if (col.id === 'total') {
                             ctx.textAlign = 'center';
                             ctx.fillStyle = '#047857';
                             ctx.font = `bold ${12 * scale}px "Fira Code", monospace`;
-                            ctx.fillText(`${m.total}`, x + (col.width / 2), y + (22 * scale));
+                            ctx.fillText(`${m.total}`, x + (col.width / 2), y + (27 * scale));
                         } else if (col.id === 'captain') {
                             ctx.textAlign = 'left';
                             ctx.fillStyle = '#334155';
                             ctx.font = `11px "Outfit", sans-serif`;
-                            ctx.fillText(`${m.captainName || '--'}`, x, y + (22 * scale));
+                            ctx.fillText(`${m.captainName || '--'}`, x, y + (27 * scale));
                         } else if (col.id === 'diff') {
                             ctx.textAlign = 'center';
                             ctx.font = `bold ${11 * scale}px "Fira Code", monospace`;
                             if (m.rankDiff > 0) {
                                 ctx.fillStyle = '#16a34a';
-                                ctx.fillText(`+${m.rankDiff}`, x + (col.width / 2), y + (22 * scale));
+                                ctx.fillText(`+${m.rankDiff}`, x + (col.width / 2), y + (27 * scale));
                             } else if (m.rankDiff < 0) {
                                 ctx.fillStyle = '#dc2626';
-                                ctx.fillText(`${m.rankDiff}`, x + (col.width / 2), y + (22 * scale));
+                                ctx.fillText(`${m.rankDiff}`, x + (col.width / 2), y + (27 * scale));
                             } else {
                                 ctx.fillStyle = '#64748b';
-                                ctx.fillText(`0`, x + (col.width / 2), y + (22 * scale));
+                                ctx.fillText(`0`, x + (col.width / 2), y + (27 * scale));
                             }
                         }
                         x += col.width;
@@ -2825,7 +2825,7 @@ const FPL = {
 
         const scale = 2;
         const width = 1400;
-        const height = 950;
+        const height = 1050;
 
         const teamBadgeImgs = {};
         const playerHeadImgs = {};
@@ -3074,7 +3074,7 @@ const FPL = {
         const col1X = 45;
         const col1Y = 105;
         const col1W = 510;
-        const col1H = 780;
+        const col1H = 880;
 
         drawRoundedRect(col1X, col1Y, col1W, col1H, 14);
         ctx.fillStyle = '#0b1424';
@@ -3087,23 +3087,22 @@ const FPL = {
         ctx.fillStyle = '#101d33';
         ctx.fill();
 
-        const pillW = 48;
-        const pillX = col1X + col1W - pillW - 14;
+        const pillSize = 55;
+        const pillX = col1X + col1W - pillSize - 14;
 
         ctx.font = '800 12px "Fira Code", monospace';
         ctx.fillStyle = '#38bdf8';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        ctx.fillText('CAPTAINS & NUMBER OF MANAGERS', col1X + 16, col1Y + 21);
+        ctx.fillText('Player', col1X + 16, col1Y + 21);
 
         ctx.font = '800 11px "Fira Code", monospace';
         ctx.fillStyle = '#94a3b8';
         ctx.textAlign = 'center';
-        ctx.fillText('COUNT', pillX + (pillW / 2), col1Y + 21);
+        ctx.fillText('Capped', pillX + (pillSize / 2), col1Y + 21);
 
-        const rowH = 47;
+        const rowH = 55;
         const renderCaptains = topCaptains.slice(0, 15);
-        const topVal = renderCaptains[0]?.pct ?? renderCaptains[0]?.count ?? 1;
 
         renderCaptains.forEach((item, idx) => {
             const rY = col1Y + 44 + (idx * rowH);
@@ -3150,29 +3149,14 @@ const FPL = {
             const pName = item.name || 'Player';
             ctx.fillText(pName, col1X + 78, rY + (rowH / 2));
 
-            // Keep the captain count compact so the player name has room to breathe.
-            const itemVal = item.pct ?? item.count ?? 0;
-            const ratio = topVal > 0 ? Math.max(0.06, Math.min(1, itemVal / topVal)) : 0.06;
-            
-            const pillH = 40;
-            const curPillY = rY + (rowH / 2) - (pillH / 2);
-            
-            drawRoundedRect(pillX, curPillY, pillW, pillH, 8);
-            
-            if (ratio > 0.6) {
-                ctx.fillStyle = `rgba(2, 132, 199, ${(0.75 + ratio * 0.25).toFixed(2)})`;
-                ctx.strokeStyle = `rgba(56, 189, 248, ${(0.85 + ratio * 0.15).toFixed(2)})`;
-            } else if (ratio > 0.2) {
-                ctx.fillStyle = `rgba(3, 105, 161, ${(0.65 + ratio * 0.30).toFixed(2)})`;
-                ctx.strokeStyle = `rgba(56, 189, 248, ${(0.6 + ratio * 0.3).toFixed(2)})`;
-            } else {
-                ctx.fillStyle = `rgba(14, 116, 144, ${(0.55 + ratio * 0.25).toFixed(2)})`;
-                ctx.strokeStyle = `rgba(56, 189, 248, ${(0.4 + ratio * 0.2).toFixed(2)})`;
-            }
-            
-            ctx.fill();
+            // Keep the captain count in a flat square so the player name has room to breathe.
+            const curPillY = rY + (rowH / 2) - (pillSize / 2);
+
+            ctx.fillStyle = '#0e7490';
+            ctx.strokeStyle = '#38bdf8';
             ctx.lineWidth = 1;
-            ctx.stroke();
+            ctx.fillRect(pillX, curPillY, pillSize, pillSize);
+            ctx.strokeRect(pillX, curPillY, pillSize, pillSize);
 
             ctx.font = '800 13px "Fira Code", monospace';
             ctx.fillStyle = '#ffffff';
@@ -3180,9 +3164,9 @@ const FPL = {
             ctx.textBaseline = 'middle';
             const mCount = item.count ?? (item.pct != null && totalManagers ? Math.round((item.pct / 100) * totalManagers) : null);
             const pPct = item.pct ?? 0;
-            ctx.fillText(`${mCount ?? '--'}`, pillX + (pillW / 2), curPillY + 15);
+            ctx.fillText(`${mCount ?? '--'}`, pillX + (pillSize / 2), curPillY + 22);
             ctx.font = '700 9px "Fira Code", monospace';
-            ctx.fillText(`${pPct}%`, pillX + (pillW / 2), curPillY + 29);
+            ctx.fillText(`${pPct}%`, pillX + (pillSize / 2), curPillY + 38);
         });
 
         // RIGHT COLUMN: Pitch & Tactical Formation
