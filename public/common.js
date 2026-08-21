@@ -5397,7 +5397,7 @@ const FPL = {
 
             <!-- About Card -->
             <div class="card">
-                <div class="card-header"><h3><span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-primary);">info</span> About</h3></div>
+                <div class="card-header"><h3>About</h3></div>
                 <div class="card-body">
                     <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
                         <span class="material-symbols-outlined" style="font-size:32px;color:#00FF85;">sports_soccer</span>

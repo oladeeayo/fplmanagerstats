@@ -4198,7 +4198,30 @@ select option {
     .aiteam-gw-pill { padding: 4px 8px; font-size: 10px; }
     .aiteam-section-header { align-items: stretch; flex-direction: column; text-align: center; }
     .aiteam-section-header h2 { text-align: center; }
-    .aiteam-pitch-tools { display: grid; width: 100%; gap: 10px; }
+    .card-header,
+    .table-header,
+    .dash-card-header,
+    .section-header,
+    .aiteam-squad-section > div,
+    .aiteam-chips-footer-section > div {
+        text-align: center !important;
+        justify-content: center !important;
+    }
+    .card-header h1, .card-header h2, .card-header h3,
+    .table-header h1, .table-header h2, .table-header h3,
+    .dash-card-header h1, .dash-card-header h2, .dash-card-header h3,
+    .section-header h1, .section-header h2, .section-header h3 {
+        text-align: center !important;
+        margin-inline: auto !important;
+    }
+    .card-header h2 .material-symbols-outlined,
+    .card-header h3 .material-symbols-outlined,
+    .table-header h2 .material-symbols-outlined,
+    .table-header h3 .material-symbols-outlined,
+    .dash-card-header h2 .material-symbols-outlined,
+    .dash-card-header h3 .material-symbols-outlined {
+        display: none !important;
+    }
     .aiteam-captain-pick { justify-items: center; text-align: center; }
     .aiteam-chips-grid { grid-template-columns: 1fr; }
     .aiteam-bench { padding: 10px 6px 12px; background: #0a140d; border-top: 1px solid rgba(255, 255, 255, 0.15); }
