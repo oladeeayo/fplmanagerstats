@@ -1,5 +1,4 @@
 // FPL Manager Stats - Common JavaScript Utilities
-const SMART_TEAM_MANAGER_ID = '7698060';
 const COMMUNITY_LEAGUE_ID = '1686849';
 
 const FPL = {
@@ -26,7 +25,7 @@ const FPL = {
         isLoading: false,
         error: null,
         activeTab: 'general',
-        managerId: localStorage.getItem('fplManagerId') || SMART_TEAM_MANAGER_ID,
+        managerId: localStorage.getItem('fplManagerId') || null,
         leagueId: localStorage.getItem('fplLeagueId') || COMMUNITY_LEAGUE_ID,
         theme: document.documentElement.dataset.theme === 'light' ? 'light' : 'dark',
         aiTeamGWView: 1
@@ -629,9 +628,8 @@ const FPL = {
                 }
             }
             if (!data) {
-                const horizon = Number(document.getElementById('aiteam-horizon')?.value) || 5;
                 const strategy = document.getElementById('aiteam-strategy')?.value || 'balanced';
-                data = await this.apiPost(this.API.aiTeam, { horizon, strategy, rebuild: force });
+                data = await this.apiPost(this.API.aiTeam, { strategy });
                 data = this.normalizeAITeamData(data);
             }
             if (!data) throw new Error('The AI returned an incomplete squad. Rebuild again after the latest FPL data loads.');
@@ -832,7 +830,7 @@ const FPL = {
                 const runLen = player.consecutiveGoodFixtures || 0;
                 const runBadge = runLen >= 4 ? `<span style="font-size:8px;padding:1px 4px;border-radius:3px;background:rgba(0,255,133,0.15);color:#00FF85;font-weight:700;position:absolute;top:2px;right:2px;">${runLen} RUN</span>` : '';
                 return `<div class="tactics-player-card home aiteam-pitch-card" style="${borderStyle}position:relative;cursor:pointer;" onclick="FPL.showPlayerDetail(${player.id})" title="${player.name}${badge} \u00B7 \u00A3${(player.cost || 0).toFixed(1)}m \u00B7 ${xPts} xPts">
-                    <div class="tactics-player-shirt" style="display:grid;place-items:center;background:rgba(0,0,0,0.15);border-radius:4px;">${shirtImg}<span class="aiteam-shirt-fallback" aria-hidden="true">${FPL.playerTeamShort(player)}</span></div>
+                    <div class="tactics-player-shirt" style="display:grid;place-items:center;background:transparent;border-radius:4px;">${shirtImg}<span class="aiteam-shirt-fallback" aria-hidden="true">${FPL.playerTeamShort(player)}</span></div>
                     <div class="tactics-player-copy"><b class="aiteam-pitch-name${cap ? ' is-captain' : ''}">${player.name}${badge}</b></div>
                     <div class="aiteam-pitch-cost">\u00A3${(player.cost || 0).toFixed(1)}m</div>
                     <div class="aiteam-pitch-xpts">${xPts} xPts</div>
@@ -930,7 +928,8 @@ const FPL = {
         // --- Transfer Suggestions ---
         const transferEl = document.getElementById('aiteam-transfer-suggestions');
         if (transferEl) {
-            const suggestions = (transfers?.plan || [])
+            const selectedStrategy = document.getElementById('aiteam-strategy')?.value || 'balanced';
+            const suggestions = (transfers?.plansByStrategy?.[selectedStrategy] || transfers?.plan || [])
                 .filter(plan => plan.transfers?.length)
                 .flatMap(plan => plan.transfers.map(move => ({ ...move, gw: plan.gw, planHit: plan.hit || 0 })))
                 .filter(move => move.gain > 0)
@@ -4678,17 +4677,6 @@ const FPL = {
         const trigger = document.getElementById('bottom-nav-overflow-btn');
         if (menu) menu.classList.remove('open');
         if (trigger) trigger.setAttribute('aria-expanded', 'false');
-    },
-
-    // ==================== AI TEAM MODEL UPDATE ====================
-    async confirmAITeamRebuild() {
-        const result = await this.confirmDialog({
-            title: 'Update the AI model?',
-            message: 'Re-run squad selection against the latest FPL availability, fixtures and projections. No reset step is required.',
-            confirmLabel: 'Update model',
-            cancelLabel: 'Cancel'
-        });
-        if (result) this.loadAITeam(true);
     },
 
     // ==================== RESIZABLE PANELS ====================

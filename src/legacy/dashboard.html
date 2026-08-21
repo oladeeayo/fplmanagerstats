@@ -1127,19 +1127,11 @@
                                 <p class="aiteam-hero-sub" style="margin:4px 0 0;font-size:12px;">An autonomous GW1 squad with legal, model-led transfer planning.</p>
                             </div>
                             <div style="display:flex;align-items:center;gap:10px;">
-                                <select id="aiteam-horizon" style="background:#141916;border:1px solid #1A2E28;border-radius:6px;padding:6px 10px;color:#fff;font:600 11px var(--font-mono);min-height:34px;" aria-label="Projection horizon">
-                                    <option value="5" selected>5 GWs</option>
-                                    <option value="8">8 GWs</option>
-                                    <option value="3">3 GWs</option>
-                                </select>
-                                <select id="aiteam-strategy" style="background:#141916;border:1px solid #1A2E28;border-radius:6px;padding:6px 10px;color:#fff;font:600 11px var(--font-mono);min-height:34px;" aria-label="Strategy">
+                                <select id="aiteam-strategy" onchange="FPL.paintAITeam(FPL.state.aiTeamData)" style="background:#141916;border:1px solid #1A2E28;border-radius:6px;padding:6px 10px;color:#fff;font:600 11px var(--font-mono);min-height:34px;" aria-label="Transfer suggestion strategy">
                                     <option value="balanced" selected>Balanced</option>
                                     <option value="protect">Protect</option>
                                     <option value="chase">Chase</option>
                                 </select>
-                                <button class="aiteam-refresh-btn" type="button" onclick="FPL.confirmAITeamRebuild()" style="min-height:34px;padding:0 12px;font-size:11px;">
-                                    <span class="material-symbols-outlined" style="font-size:16px;">sync</span> Update model
-                                </button>
                             </div>
                         </div>
 
@@ -1274,7 +1266,7 @@
         </div>
     </div>
 
-    <script src="common.js?v=24"></script>
+    <script src="common.js?v=26"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams(window.location.search);

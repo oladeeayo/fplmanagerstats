@@ -22,7 +22,7 @@ document.documentElement.classList.toggle('dark', initialTheme === 'dark');
 mountApp();
 
 const legacyScript = document.createElement('script');
-legacyScript.src = '/common.js?v=24';
+legacyScript.src = '/common.js?v=26';
 legacyScript.defer = true;
 legacyScript.addEventListener('load', () => {
   const goalsRenderers = document.createElement('script');

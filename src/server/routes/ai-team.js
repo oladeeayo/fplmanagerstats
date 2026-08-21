@@ -8,9 +8,9 @@ const { sql } = require('../db');
 
 const router = express.Router();
 
-const AI_TEAM_MODEL_VERSION = 'AI Team Engine 7.0';
+const AI_TEAM_MODEL_VERSION = 'AI Team Engine 8.0';
 const SMART_TEAM_MANAGER_ID = 7698060;
-const SMART_TEAM_SESSION_ID = `manager-${SMART_TEAM_MANAGER_ID}`;
+const SMART_TEAM_STORAGE_KEY = `autonomous-smart-team-${SMART_TEAM_MANAGER_ID}`;
 const AI_TEAM_POSITION_LIMITS = { GKP: 2, DEF: 5, MID: 5, FWD: 3 };
 
 function isValidAITeamPayload(payload) {
@@ -30,7 +30,8 @@ function isValidAITeamPayload(payload) {
     && Object.values(clubs).every(count => count <= 3)
     && costTenths <= 1000
     && payload?.lineup?.quality?.reserveGoalkeeperEconomical === true
-    && payload?.lineup?.quality?.optimizerVersion === 7
+    && payload?.lineup?.quality?.optimizerVersion === 8
+    && ['balanced', 'protect', 'chase'].every(strategy => Array.isArray(payload?.transfers?.plansByStrategy?.[strategy]))
     && starters.every(player => ids.includes(Number(player.id)))
     && bench.every(player => ids.includes(Number(player.id)));
 }
@@ -38,9 +39,9 @@ function isValidAITeamPayload(payload) {
 // GET saved AI team + transfer plan + chip schedule
 router.get('/', async (req, res) => {
   if (!sql) return res.json({ saved: false, persistenceAvailable: false });
-      const sessionId = SMART_TEAM_SESSION_ID;
+  const storageKey = SMART_TEAM_STORAGE_KEY;
   try {
-    const rows = await sql`SELECT * FROM ai_team WHERE session_id = ${sessionId} ORDER BY updated_at DESC LIMIT 1`;
+    const rows = await sql`SELECT * FROM ai_team WHERE session_id = ${storageKey} ORDER BY updated_at DESC LIMIT 1`;
     if (!rows.length) return res.json({ saved: false });
     const row = rows[0];
     const payload = {
@@ -73,7 +74,7 @@ router.get('/', async (req, res) => {
       updatedAt: row.updated_at,
     };
     if (!isValidAITeamPayload(payload)) {
-      await sql`DELETE FROM ai_team WHERE session_id = ${sessionId}`;
+      await sql`DELETE FROM ai_team WHERE session_id = ${storageKey}`;
       return res.json({ saved: false, stale: true });
     }
     res.json(payload);
@@ -86,14 +87,14 @@ router.get('/', async (req, res) => {
 // ---- Core Smart Team optimizer ----
 router.post('/', heavyEndpointLimiter, async (req, res) => {
   const budget = 100;
-  const horizon = Math.max(3, Math.min(8, Number(req.body?.horizon) || 8));
-  const strategy = ['balanced', 'protect', 'chase'].includes(req.body?.strategy) ? req.body.strategy : 'balanced';
-       const sessionId = SMART_TEAM_SESSION_ID;
+  const horizon = 8;
+  const strategy = 'balanced';
+  const storageKey = SMART_TEAM_STORAGE_KEY;
 
   try {
     if (sql && !req.body?.rebuild) {
-      const rows = await sql`SELECT * FROM ai_team WHERE session_id = ${sessionId} AND is_locked = TRUE ORDER BY updated_at DESC LIMIT 1`;
-      if (rows.length) {
+      const rows = await sql`SELECT * FROM ai_team WHERE session_id = ${storageKey} AND is_locked = TRUE ORDER BY updated_at DESC LIMIT 1`;
+      if (rows.length && rows[0].lineup?.quality?.optimizerVersion === 8 && rows[0].transfers?.plansByStrategy) {
         const row = rows[0];
         return res.json({
           saved: true, isLocked: true, lockedAt: row.locked_at, formation: row.formation,
@@ -262,12 +263,14 @@ router.post('/', heavyEndpointLimiter, async (req, res) => {
       const benchDepth = projectionData.gameweeks.reduce((total, gameweek, index) => {
         const scoreWeek = player => Number(player.weekly?.[index]?.xPts) || 0;
         const xi = selectOptimalLineup(players, scoreWeek);
-        const starterIds = new Set(xi.starters.map(player => player.id));
-        const benchCover = xi.bench
-          .filter(player => player.position !== 'GKP' && (player.weekly?.[index]?.xMins || 0) >= 45)
-          .sort((a, b) => scoreWeek(b) - scoreWeek(a))[0];
-        return total + (benchCover ? scoreWeek(benchCover) : 0) * (0.9 ** index);
-      }, 0) * 0.08;
+        const outfieldCover = xi.bench.filter(player => player.position !== 'GKP');
+        const playableCover = outfieldCover.filter(player => (player.weekly?.[index]?.xMins || 0) >= 55);
+        const reserveKeeper = xi.bench.find(player => player.position === 'GKP');
+        const coverScore = playableCover.reduce((sum, player) => sum + scoreWeek(player), 0)
+          + (reserveKeeper && (reserveKeeper.weekly?.[index]?.xMins || 0) >= 55 ? scoreWeek(reserveKeeper) * 0.25 : 0);
+        const missingCoverPenalty = Math.max(0, 3 - playableCover.length) * 2.5;
+        return total + (coverScore - missingCoverPenalty) * (0.9 ** index);
+      }, 0) * 0.18;
       const riskPenalty = players.reduce((sum, player) => sum + Math.max(0, 75 - (player.availability || 0)) * 0.02, 0);
       // Prefer squads built from first-choice starters; penalize unknown/rotation-heavy picks.
       const starterPenalty = players.reduce((sum, player) => sum + Math.max(0, 55 - (Number(player.starterScore) || 0)) * 0.04, 0);
@@ -277,7 +280,7 @@ router.post('/', heavyEndpointLimiter, async (req, res) => {
     // Bounded beam search keeps alternative budget structures alive, then scores complete squads by their best XI.
     const slots = ['FWD', 'MID', 'DEF', 'GKP', 'MID', 'DEF', 'FWD', 'MID', 'DEF', 'GKP', 'MID', 'DEF', 'FWD', 'MID', 'DEF'];
     const pools = Object.keys(POSITION_LIMITS).reduce((result, position) => {
-      const ranked = availablePlayers.filter(player => player.position === position).sort((a, b) => adjustedScore(b, strategy) - adjustedScore(a, strategy));
+      const ranked = availablePlayers.filter(player => player.position === position).sort((a, b) => adjustedScore(b, 'balanced') - adjustedScore(a, 'balanced'));
       const economical = [...ranked].sort((a, b) => costTenths(a) - costTenths(b)).slice(0, 8);
       result[position] = [...ranked.slice(0, 34), ...economical].filter((player, index, list) => list.findIndex(item => item.id === player.id) === index);
       return result;
@@ -300,7 +303,7 @@ router.post('/', heavyEndpointLimiter, async (req, res) => {
           next.push({
             players,
             spent,
-            score: state.score + adjustedScore(player, strategy),
+            score: state.score + adjustedScore(player, 'balanced'),
             teamCounts: { ...state.teamCounts, [player.teamId]: (state.teamCounts[player.teamId] || 0) + 1 },
           });
         }
@@ -345,12 +348,12 @@ router.post('/', heavyEndpointLimiter, async (req, res) => {
 
     // ---- AUTONOMOUS TRANSFER PLAN ----
     // Plan transfers for each GW in the horizon
-    const transferPlan = [];
-    let currentSquad = [...selected];
-    let freeTransfers = 1;
-
-    let bankTenths = 1000 - selected.reduce((sum, player) => sum + costTenths(player), 0);
-    for (const gw of projectionData.gameweeks) {
+    function buildTransferPlan(planStrategy) {
+      const transferPlan = [];
+      let currentSquad = [...selected];
+      let freeTransfers = 1;
+      let bankTenths = 1000 - selected.reduce((sum, player) => sum + costTenths(player), 0);
+      for (const gw of projectionData.gameweeks) {
       const transfersMade = [];
       const maxTransfers = freeTransfers + 1;
       while (transfersMade.length < maxTransfers) {
@@ -385,12 +388,15 @@ router.post('/', heavyEndpointLimiter, async (req, res) => {
               if (!isLegalSquad(proposedSquad)) return null;
               const nextGain = (p.weekly?.find(w => w.gameweek === gw)?.xPts || 0) - (outgoing.weekly?.find(w => w.gameweek === gw)?.xPts || 0);
               const horizonGain = scoreSquadFromGW(proposedSquad) - currentScore;
-              return { out: outgoing, in: p, gain: Math.round(horizonGain * 10) / 10, nextGain: Math.round(nextGain * 10) / 10 };
+              const reliability = ((p.availability || 0) - (outgoing.availability || 0)) * 0.015;
+              const differential = (Math.min(Number(outgoing.ownership) || 0, 80) - Math.min(Number(p.ownership) || 0, 80)) * 0.012;
+              const preference = planStrategy === 'protect' ? reliability : planStrategy === 'chase' ? differential : 0;
+              return { out: outgoing, in: p, gain: Math.round(horizonGain * 10) / 10, nextGain: Math.round(nextGain * 10) / 10, rankingGain: horizonGain + preference };
             })
             .filter(Boolean)
             .filter(move => move.gain > 0)
-            .sort((a, b) => b.gain - a.gain || b.nextGain - a.nextGain)[0];
-          if (incoming && (!bestTransfer || incoming.gain > bestTransfer.gain)) bestTransfer = incoming;
+            .sort((a, b) => b.rankingGain - a.rankingGain || b.gain - a.gain || b.nextGain - a.nextGain)[0];
+          if (incoming && (!bestTransfer || incoming.rankingGain > bestTransfer.rankingGain)) bestTransfer = incoming;
         }
 
         const hit = transfersMade.length >= freeTransfers ? 4 : 0;
@@ -409,14 +415,22 @@ router.post('/', heavyEndpointLimiter, async (req, res) => {
         freeTransfers = Math.min(freeTransfers + 1, 5);
         transferPlan.push({ gw, transfers: [], transfer: null, hit: 0, freeTransfers, rolled: true });
       }
+      }
+      return transferPlan;
     }
+    const plansByStrategy = {
+      balanced: buildTransferPlan('balanced'),
+      protect: buildTransferPlan('protect'),
+      chase: buildTransferPlan('chase'),
+    };
+    const transferPlan = plansByStrategy.balanced;
 
     // ---- AUTONOMOUS CHIP SCHEDULE ----
     const chipSchedule = [];
     // Analyze each GW for chip opportunities
     const chipCandidates = [];
     for (const gw of projectionData.gameweeks) {
-      const gwSquad = currentSquad;
+      const gwSquad = selected;
       const benchXPts = bench.reduce((s, p) => {
         const w = p.weekly?.find(week => week.gameweek === gw);
         return s + (w?.xPts || 0);
@@ -457,8 +471,8 @@ router.post('/', heavyEndpointLimiter, async (req, res) => {
       lineupComplete: starters.length === 11 && bench.length === 4,
       reserveGoalkeeperEconomical: hasEconomicalReserveGoalkeeper(selected, reserveGoalkeeperCeilingTenths),
       reserveGoalkeeperCeiling: reserveGoalkeeperCeilingTenths / 10,
-       optimizerVersion: 7,
-       optimizer: 'bounded beam search with weighted weekly best-XI and bench-cover objective',
+        optimizerVersion: 8,
+        optimizer: 'fixed balanced squad with weekly best-XI and competitive bench-cover objective',
       ...lineupSelection.audit,
     };
 
@@ -487,7 +501,7 @@ router.post('/', heavyEndpointLimiter, async (req, res) => {
         expectedPoints: Math.round(expectedPoints * 10) / 10,
         quality: qualityAudit,
       },
-      transfers: { plan: transferPlan },
+       transfers: { plan: transferPlan, plansByStrategy },
       chips: { schedule: chipSchedule },
     };
 
@@ -495,7 +509,7 @@ router.post('/', heavyEndpointLimiter, async (req, res) => {
     if (sql) {
       try {
         await sql`INSERT INTO ai_team (session_id, squad, lineup, formation, team_cost, team_xpts, strategy, budget, horizon, is_locked, locked_at, transfers, chips)
-          VALUES (${sessionId}, ${JSON.stringify(result.squad)}, ${JSON.stringify(result.lineup)}, ${result.formation}, ${result.teamCost}, ${result.teamXpts}, ${strategy}, ${budget}, ${projectionData.horizon}, ${Boolean(shouldAutoLock)}, ${shouldAutoLock ? new Date() : null}, ${JSON.stringify(result.transfers)}, ${JSON.stringify(result.chips)})
+          VALUES (${storageKey}, ${JSON.stringify(result.squad)}, ${JSON.stringify(result.lineup)}, ${result.formation}, ${result.teamCost}, ${result.teamXpts}, ${strategy}, ${budget}, ${projectionData.horizon}, ${Boolean(shouldAutoLock)}, ${shouldAutoLock ? new Date() : null}, ${JSON.stringify(result.transfers)}, ${JSON.stringify(result.chips)})
 ON CONFLICT (session_id) DO UPDATE SET
             squad = EXCLUDED.squad, lineup = EXCLUDED.lineup, formation = EXCLUDED.formation,
             team_cost = EXCLUDED.team_cost, team_xpts = EXCLUDED.team_xpts, strategy = EXCLUDED.strategy,
