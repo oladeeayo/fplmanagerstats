@@ -2370,13 +2370,14 @@ const FPL = {
             const fotmobPhoto = this.playerPhotoUrl(p, '110x140', true);
             const plFallback = p.code ? `https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png` : '';
             const photoUrl = fotmobPhoto || plFallback;
+            const statText = p.count != null ? `${p.count} (${p.ownershipPct}%)` : `${p.ownershipPct}%`;
             return `<div class="template-player-badge" onclick="FPL.showTemplatePlayerOwners(${p.id})" style="display:flex;flex-direction:column;align-items:center;cursor:pointer;width:68px;transition:transform 0.15s;" onmouseover="this.style.transform='scale(1.06)'" onmouseout="this.style.transform='scale(1)'" title="Click to view managers who own ${this.escapeHTML(p.name)}">
                 <div style="position:relative;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.06);overflow:hidden;display:flex;align-items:center;justify-content:center;">
                     <img src="${photoUrl}" onerror="if(this.src!=='${plFallback}'&&'${plFallback}'){this.src='${plFallback}';}else{this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2244%22 height=%2244%22 viewBox=%220 0 24 24%22 fill=%22%23777%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E';}" style="width:100%;height:100%;object-fit:cover;object-position:top;" alt="${p.name}">
                 </div>
                 <div style="margin-top:3px;background:rgba(0,0,0,0.85);border:1px solid rgba(255,255,255,0.1);border-radius:4px;padding:1px 4px;text-align:center;width:100%;">
                     <div style="font-weight:700;font-size:10px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(p.name)}</div>
-                    <div class="mono" style="font-size:9px;color:var(--fdr-1);font-weight:800;">${p.ownershipPct}%</div>
+                    <div class="mono" style="font-size:9px;color:var(--fdr-1);font-weight:800;">${statText}</div>
                 </div>
             </div>`;
         };
@@ -2417,6 +2418,7 @@ const FPL = {
             const fotmobPhoto = this.playerPhotoUrl(item, '110x140', true);
             const plFallback = item.code ? `https://resources.premierleague.com/premierleague/photos/players/110x140/p${item.code}.png` : '';
             const photoUrl = fotmobPhoto || plFallback;
+            const statText = item.count != null ? `${item.count} (${item.pct}%)` : `${item.pct}%`;
             return `<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:12px;">
                 <div style="width:36px;height:42px;overflow:hidden;flex-shrink:0;">
                     <img src="${photoUrl}" onerror="if(this.src!=='${plFallback}'&&'${plFallback}'){this.src='${plFallback}';}else{this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2236%22 height=%2242%22 viewBox=%220 0 24 24%22 fill=%22%23777%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E';}" style="width:100%;height:100%;object-fit:cover;object-position:top;" alt="${item.name}">
@@ -2424,7 +2426,7 @@ const FPL = {
                 <div style="flex:1;min-width:0;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
                         <div style="font-weight:700;font-size:12px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(item.name)} <span style="font-size:10px;color:var(--md-sys-color-on-surface-variant);font-weight:400;">(${item.team})</span></div>
-                        <div class="mono" style="font-size:11px;font-weight:800;color:var(--fdr-1);">${item.count} mgrs <span style="color:var(--md-sys-color-on-surface-variant);font-weight:400;">(${item.pct}%)</span></div>
+                        <div class="mono" style="font-size:11px;font-weight:800;color:var(--fdr-1);">${statText}</div>
                     </div>
                     <div style="width:100%;height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;">
                         <div style="width:${item.pct}%;height:100%;background:linear-gradient(90deg, #00FF85 0%, #00CC6A 100%);border-radius:2px;"></div>
@@ -2714,7 +2716,8 @@ const FPL = {
                     ctx.fillStyle = '#047857';
                     ctx.font = `bold ${10 * scale}px "Fira Code", monospace`;
                     ctx.textAlign = 'right';
-                    ctx.fillText(`${p.ownershipPct || 0}%`, tX + cardW - (8 * scale), tY + (18 * scale));
+                    const pStatText = p.count != null ? `${p.count} (${p.ownershipPct || 0}%)` : `${p.ownershipPct || 0}%`;
+                    ctx.fillText(pStatText, tX + cardW - (8 * scale), tY + (18 * scale));
 
                     tX += cardW + (8 * scale);
                     if ((idx + 1) % 5 === 0) {
@@ -2759,7 +2762,8 @@ const FPL = {
                     ctx.fillStyle = '#047857';
                     ctx.font = `bold ${10 * scale}px "Fira Code", monospace`;
                     ctx.textAlign = 'right';
-                    ctx.fillText(`${c.count} mgrs (${c.pct}%)`, cX + cardW - (8 * scale), cY + (16 * scale));
+                    const cStatText = c.count != null ? `${c.count} (${c.pct || 0}%)` : `${c.pct || 0}%`;
+                    ctx.fillText(cStatText, cX + cardW - (8 * scale), cY + (16 * scale));
 
                     cX += cardW + (8 * scale);
                     if ((idx + 1) % 3 === 0) {
@@ -2819,7 +2823,7 @@ const FPL = {
         const currentGW = this.state.bootstrapData?.events?.find(e => e.is_current || e.is_next)?.id || 1;
         const captaincy = standingsData.captaincyCount || [];
         const template = standingsData.leagueTemplate || [];
-        const totalManagers = standingsData.totalManagers || standingsData.standings?.length || 0;
+        const totalManagers = standingsData.totalManagers || standingsData.managers?.length || standingsData.standings?.length || 50;
         const todayDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 
         const scale = 2;
