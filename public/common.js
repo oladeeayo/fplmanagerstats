@@ -5934,6 +5934,7 @@ const FPL = {
         if (!/^\d{3,}$/.test(val)) {
             resultsEl.innerHTML = '';
             resultsEl.style.display = 'none';
+            this._selectedLeagueId[inputId] = null;
             return;
         }
         resultsEl.innerHTML = '<div style="padding:8px 12px;color:var(--md-sys-color-on-surface-variant);font-size:12px;">Searching...</div>';
@@ -5943,9 +5944,9 @@ const FPL = {
                 const data = await this.apiFetch(this.API.managerLookup(val));
                 const name = data.name || 'Unknown Team';
                 const owner = [data.playerFirstName, data.playerLastName].filter(Boolean).join(' ');
-                const nameEsc = this.escapeHTML(name).replace(/'/g, "\\'");
-                const ownerEsc = this.escapeHTML(owner).replace(/'/g, "\\'");
-                resultsEl.innerHTML = `<div style="padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;" onmousedown="FPL.selectManagerAndLoadLeagues('${inputId}','${resultsId}',${data.id},'${nameEsc}','${ownerEsc}')"><span class="material-symbols-outlined" style="font-size:16px;color:#00FF85;">check_circle</span><div><div style="font-size:13px;font-weight:600;color:var(--md-sys-color-on-surface);">${this.escapeHTML(name)}</div><div style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">${this.escapeHTML(owner)} · ID: ${data.id}</div></div></div>`;
+                const nameEsc = this.escapeHTML(name).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                const ownerEsc = this.escapeHTML(owner).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                resultsEl.innerHTML = `<div class="fpl-mgr-result" data-manager-id="${data.id}" style="padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;" onmousedown="event.preventDefault();event.stopPropagation();FPL.selectManagerAndLoadLeagues('${inputId}','${resultsId}',${data.id},'${nameEsc}','${ownerEsc}')"><span class="material-symbols-outlined" style="font-size:16px;color:#00FF85;">check_circle</span><div><div style="font-size:13px;font-weight:600;color:var(--md-sys-color-on-surface);">${this.escapeHTML(name)}</div><div style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">${this.escapeHTML(owner)} · ID: ${data.id}</div></div></div>`;
                 resultsEl.style.display = 'block';
             } catch {
                 resultsEl.innerHTML = '<div style="padding:8px 12px;color:var(--md-sys-color-error,#f44336);font-size:12px;">Manager not found</div>';
@@ -5960,55 +5961,72 @@ const FPL = {
         if (input) input.value = id;
         if (!resultsEl) return;
         this._selectedLeagueId[inputId] = null;
-        resultsEl.innerHTML = `<div style="padding:8px 12px;display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:16px;color:#00FF85;">check_circle</span><div><div style="font-size:13px;font-weight:600;color:var(--md-sys-color-on-surface);">${this.escapeHTML(name)}</div><div style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">${this.escapeHTML(owner)} · ID: ${id}</div></div></div><div style="padding:4px 12px 8px;color:var(--md-sys-color-on-surface-variant);font-size:11px;">Loading leagues...</div>`;
+        resultsEl.innerHTML = `<div style="padding:8px 12px;display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:16px;color:#00FF85;">check_circle</span><div><div style="font-size:13px;font-weight:600;color:var(--md-sys-color-on-surface);">${name}</div><div style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">${owner} · ID: ${id}</div></div></div><div style="padding:4px 12px 8px;color:var(--md-sys-color-on-surface-variant);font-size:11px;">Loading leagues...</div>`;
         try {
             const leagueData = await this.apiFetch(this.API.managerLeagues(id));
             const leagues = leagueData.leagues || [];
             const privateLeagues = leagues.filter(l => l.type === 'private');
             const systemLeagues = leagues.filter(l => l.type === 'system');
-            let html = `<div style="padding:8px 12px;display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:16px;color:#00FF85;">check_circle</span><div><div style="font-size:13px;font-weight:600;color:var(--md-sys-color-on-surface);">${this.escapeHTML(name)}</div><div style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">${this.escapeHTML(owner)} · ID: ${id}</div></div></div>`;
+            let html = `<div style="padding:8px 12px;display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:16px;color:#00FF85;">check_circle</span><div><div style="font-size:13px;font-weight:600;color:var(--md-sys-color-on-surface);">${name}</div><div style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">${owner} · ID: ${id}</div></div></div>`;
             if (privateLeagues.length > 0) {
                 html += '<div style="padding:6px 12px 4px;font-size:10px;font-weight:600;color:var(--md-sys-color-primary,#00FF85);text-transform:uppercase;letter-spacing:0.08em;">Your Leagues</div>';
                 privateLeagues.forEach(l => {
                     const rankText = l.rank ? `#${l.rank}` : l.percentileRank ? `Top ${l.percentileRank}%` : '';
-                    html += `<div style="padding:6px 12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--md-sys-color-on-surface);border-radius:4px;margin:0 4px;" onmouseover="this.style.background='rgba(0,255,133,0.1)'" onmouseout="this.style.background='transparent'" onmousedown="FPL.selectLeague('${inputId}','${resultsId}',${l.id},'${this.escapeHTML(l.name).replace(/'/g, "\\'")}')"><span style="display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:14px;color:var(--md-sys-color-on-surface-variant);">shield</span>${this.escapeHTML(l.name)}${l.admin ? '<span style="font-size:9px;padding:1px 4px;background:rgba(0,255,133,0.15);color:#00FF85;border-radius:4px;">Admin</span>' : ''}</span><span style="font-size:11px;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);">${rankText}</span></div>`;
+                    const lNameEsc = this.escapeHTML(l.name).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    html += `<div class="fpl-league-item" data-league-id="${l.id}" style="padding:6px 12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--md-sys-color-on-surface);border-radius:4px;margin:0 4px;border:1px solid transparent;" onmouseover="this.style.background='rgba(0,255,133,0.1)'" onmouseout="if(!this.classList.contains('fpl-league-selected')){this.style.background='';this.style.border='1px solid transparent'}" onmousedown="event.preventDefault();event.stopPropagation();FPL.selectLeague('${inputId}','${resultsId}',${l.id},'${lNameEsc}')"><span style="display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:14px;color:var(--md-sys-color-on-surface-variant);">shield</span>${this.escapeHTML(l.name)}${l.admin ? '<span style="font-size:9px;padding:1px 4px;background:rgba(0,255,133,0.15);color:#00FF85;border-radius:4px;">Admin</span>' : ''}</span><span style="font-size:11px;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);">${rankText}</span></div>`;
                 });
             }
             if (systemLeagues.length > 0) {
                 html += '<div style="padding:6px 12px 4px;font-size:10px;font-weight:600;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.08em;">System Leagues</div>';
                 systemLeagues.slice(0, 3).forEach(l => {
-                    html += `<div style="padding:6px 12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--md-sys-color-on-surface);border-radius:4px;margin:0 4px;" onmouseover="this.style.background='rgba(0,255,133,0.1)'" onmouseout="this.style.background='transparent'" onmousedown="FPL.selectLeague('${inputId}','${resultsId}',${l.id},'${this.escapeHTML(l.name).replace(/'/g, "\\'")}')"><span style="display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:14px;color:var(--md-sys-color-on-surface-variant);">public</span>${this.escapeHTML(l.name)}</span><span style="font-size:11px;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);">${l.rank ? '#' + l.rank : ''}</span></div>`;
+                    const lNameEsc = this.escapeHTML(l.name).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    html += `<div class="fpl-league-item" data-league-id="${l.id}" style="padding:6px 12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--md-sys-color-on-surface);border-radius:4px;margin:0 4px;border:1px solid transparent;" onmouseover="this.style.background='rgba(0,255,133,0.1)'" onmouseout="if(!this.classList.contains('fpl-league-selected')){this.style.background='';this.style.border='1px solid transparent'}" onmousedown="event.preventDefault();event.stopPropagation();FPL.selectLeague('${inputId}','${resultsId}',${l.id},'${lNameEsc}')"><span style="display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:14px;color:var(--md-sys-color-on-surface-variant);">public</span>${this.escapeHTML(l.name)}</span><span style="font-size:11px;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);">${l.rank ? '#' + l.rank : ''}</span></div>`;
                 });
             }
             html += '<div style="padding:6px 12px 4px;font-size:10px;font-weight:600;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.08em;">Or enter custom league</div>';
-            html += `<div style="padding:6px 12px;display:flex;gap:6px;margin:0 4px;" onmousedown="event.stopPropagation()"><input type="number" id="${inputId}-custom-league" placeholder="League ID" min="1" inputmode="numeric" style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:6px 8px;color:var(--md-sys-color-on-surface);font-size:12px;font-family:var(--font-mono);outline:none;" onfocus="this.style.borderColor='rgba(0,255,133,0.5)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"><button type="button" onclick="FPL.selectCustomLeague('${inputId}','${resultsId}')" style="background:rgba(0,255,133,0.15);border:1px solid rgba(0,255,133,0.3);color:#00FF85;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:600;cursor:pointer;">Set</button></div>`;
+            html += `<div style="padding:6px 12px 8px;display:flex;gap:6px;margin:0 4px;" onmousedown="event.stopPropagation()"><input type="number" id="${inputId}-custom-league" placeholder="League ID" min="1" inputmode="numeric" style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:6px 8px;color:var(--md-sys-color-on-surface);font-size:12px;font-family:var(--font-mono);outline:none;" onfocus="this.style.borderColor='rgba(0,255,133,0.5)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'" oninput="FPL.onCustomLeagueInput('${inputId}')"><button type="button" onclick="FPL.selectCustomLeague('${inputId}','${resultsId}')" style="background:rgba(0,255,133,0.15);border:1px solid rgba(0,255,133,0.3);color:#00FF85;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:600;cursor:pointer;">Set</button></div>`;
             resultsEl.innerHTML = html;
         } catch {
-            resultsEl.innerHTML = `<div style="padding:8px 12px;display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:16px;color:#00FF85;">check_circle</span><div><div style="font-size:13px;font-weight:600;color:var(--md-sys-color-on-surface);">${this.escapeHTML(name)}</div><div style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">${this.escapeHTML(owner)} · ID: ${id}</div></div></div><div style="padding:4px 12px 8px;font-size:11px;color:var(--md-sys-color-on-surface-variant);">Could not load leagues. You can still connect.</div>`;
+            resultsEl.innerHTML = `<div style="padding:8px 12px;display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:16px;color:#00FF85;">check_circle</span><div><div style="font-size:13px;font-weight:600;color:var(--md-sys-color-on-surface);">${name}</div><div style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">${owner} · ID: ${id}</div></div></div><div style="padding:4px 12px 8px;font-size:11px;color:var(--md-sys-color-on-surface-variant);">Could not load leagues. You can still connect.</div>`;
         }
     },
 
     selectLeague(inputId, resultsId, leagueId, leagueName) {
-        const input = document.getElementById(inputId);
-        const resultsEl = document.getElementById(resultsId);
         this._selectedLeagueId[inputId] = leagueId;
+        const resultsEl = document.getElementById(resultsId);
         if (resultsEl) {
-            const leagueInput = document.getElementById(inputId + '-custom-league');
-            if (leagueInput) leagueInput.value = '';
-            const items = resultsEl.querySelectorAll('div[onmousedown]');
-            items.forEach(item => {
-                if (item.textContent.includes(leagueName)) {
+            const customInput = document.getElementById(inputId + '-custom-league');
+            if (customInput) customInput.value = '';
+            resultsEl.querySelectorAll('.fpl-league-item').forEach(item => {
+                if (Number(item.dataset.leagueId) === leagueId) {
+                    item.classList.add('fpl-league-selected');
                     item.style.background = 'rgba(0,255,133,0.2)';
                     item.style.border = '1px solid rgba(0,255,133,0.3)';
                 } else {
+                    item.classList.remove('fpl-league-selected');
                     item.style.background = '';
-                    item.style.border = '';
+                    item.style.border = '1px solid transparent';
                 }
             });
         }
-        if (input) {
-            const customLeagueInput = document.getElementById(inputId + '-custom-league');
-            if (customLeagueInput) customLeagueInput.value = leagueId;
+    },
+
+    onCustomLeagueInput(inputId) {
+        const customInput = document.getElementById(inputId + '-custom-league');
+        if (!customInput) return;
+        const val = customInput.value.trim();
+        if (/^\d+$/.test(val) && Number(val) > 0) {
+            this._selectedLeagueId[inputId] = Number(val);
+        } else {
+            this._selectedLeagueId[inputId] = null;
+        }
+        const resultsEl = document.getElementById(inputId === 'connect-manager-id' ? 'connect-manager-results' : 'manager-id-results');
+        if (resultsEl) {
+            resultsEl.querySelectorAll('.fpl-league-item').forEach(item => {
+                item.classList.remove('fpl-league-selected');
+                item.style.background = '';
+                item.style.border = '1px solid transparent';
+            });
         }
     },
 
@@ -6016,16 +6034,16 @@ const FPL = {
         const customInput = document.getElementById(inputId + '-custom-league');
         if (!customInput) return;
         const val = customInput.value.trim();
-        if (!/^\d+$/.test(val)) return;
+        if (!/^\d+$/.test(val) || Number(val) < 1) return;
         this._selectedLeagueId[inputId] = Number(val);
+        customInput.style.borderColor = 'rgba(0,255,133,0.5)';
         const resultsEl = document.getElementById(resultsId);
         if (resultsEl) {
-            const items = resultsEl.querySelectorAll('div[onmousedown]');
-            items.forEach(item => {
+            resultsEl.querySelectorAll('.fpl-league-item').forEach(item => {
+                item.classList.remove('fpl-league-selected');
                 item.style.background = '';
-                item.style.border = '';
+                item.style.border = '1px solid transparent';
             });
-            customInput.style.borderColor = 'rgba(0,255,133,0.5)';
         }
     },
 
@@ -6036,6 +6054,23 @@ const FPL = {
         if (resultsEl) { resultsEl.innerHTML = ''; resultsEl.style.display = 'none'; }
     },
 
+    getSelectedLeagueId(inputId) {
+        if (this._selectedLeagueId[inputId]) return this._selectedLeagueId[inputId];
+        const customInput = document.getElementById(inputId + '-custom-league');
+        if (customInput) {
+            const val = customInput.value.trim();
+            if (/^\d+$/.test(val) && Number(val) > 0) return Number(val);
+        }
+        if (inputId === 'connect-manager-id') {
+            const leagueInput = document.getElementById('connect-league-id');
+            if (leagueInput) {
+                const val = leagueInput.value.trim();
+                if (/^\d+$/.test(val) && Number(val) > 0) return Number(val);
+            }
+        }
+        return null;
+    },
+
     connectManagerFromInput() {
         const input = document.getElementById('manager-id-input-field');
         const id = input?.value?.trim();
@@ -6044,7 +6079,7 @@ const FPL = {
             input?.focus();
             return;
         }
-        const leagueId = this._selectedLeagueId?.['manager-id-input-field'] || null;
+        const leagueId = this.getSelectedLeagueId('manager-id-input-field');
         this.state.managerId = id;
         localStorage.setItem('fplManagerId', id);
         if (leagueId) {
@@ -6062,11 +6097,7 @@ const FPL = {
             input?.focus();
             return;
         }
-        const leagueId = this._selectedLeagueId?.['connect-manager-id'] || document.getElementById('connect-league-id')?.value?.trim();
-        if (leagueId && (!/^\d+$/.test(String(leagueId)) || Number(leagueId) < 1)) {
-            this.showError('Enter a valid League ID');
-            return;
-        }
+        const leagueId = this.getSelectedLeagueId('connect-manager-id');
         this.state.managerId = id;
         localStorage.setItem('fplManagerId', id);
         if (leagueId) {
