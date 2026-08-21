@@ -3073,7 +3073,7 @@ const FPL = {
         // LEFT COLUMN: Top Captains Table
         const col1X = 45;
         const col1Y = 105;
-        const col1W = 510;
+        const col1W = 340;
         const col1H = 880;
 
         drawRoundedRect(col1X, col1Y, col1W, col1H, 14);
@@ -3087,8 +3087,9 @@ const FPL = {
         ctx.fillStyle = '#101d33';
         ctx.fill();
 
-        const pillSize = 55;
-        const pillX = col1X + col1W - pillSize - 14;
+        const pillW = 65;
+        const pillH = 42;
+        const pillX = col1X + 250;
 
         ctx.font = '800 12px "Fira Code", monospace';
         ctx.fillStyle = '#38bdf8';
@@ -3099,10 +3100,11 @@ const FPL = {
         ctx.font = '800 11px "Fira Code", monospace';
         ctx.fillStyle = '#94a3b8';
         ctx.textAlign = 'center';
-        ctx.fillText('Capped', pillX + (pillSize / 2), col1Y + 21);
+        ctx.fillText('Capped', pillX + (pillW / 2), col1Y + 21);
 
         const rowH = 55;
         const renderCaptains = topCaptains.slice(0, 15);
+        const topVal = renderCaptains[0]?.pct ?? renderCaptains[0]?.count ?? 1;
 
         renderCaptains.forEach((item, idx) => {
             const rY = col1Y + 44 + (idx * rowH);
@@ -3147,16 +3149,29 @@ const FPL = {
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
             const pName = item.name || 'Player';
-            ctx.fillText(pName, col1X + 78, rY + (rowH / 2));
+            ctx.fillText(pName, col1X + 74, rY + (rowH / 2));
 
             // Keep the captain count in a flat square so the player name has room to breathe.
-            const curPillY = rY + (rowH / 2) - (pillSize / 2);
+            const curPillY = rY + (rowH / 2) - (pillH / 2);
+            const itemVal = item.pct ?? item.count ?? 0;
+            const ratio = topVal > 0 ? Math.max(0.06, Math.min(1, itemVal / topVal)) : 0.06;
 
-            ctx.fillStyle = '#0e7490';
-            ctx.strokeStyle = '#38bdf8';
+            drawRoundedRect(pillX, curPillY, pillW, pillH, 6);
+
+            if (ratio > 0.6) {
+                ctx.fillStyle = `rgba(2, 132, 199, ${(0.80 + ratio * 0.20).toFixed(2)})`;
+                ctx.strokeStyle = '#38bdf8';
+            } else if (ratio > 0.2) {
+                ctx.fillStyle = `rgba(3, 105, 161, ${(0.65 + ratio * 0.25).toFixed(2)})`;
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
+            } else {
+                ctx.fillStyle = `rgba(14, 116, 144, ${(0.50 + ratio * 0.20).toFixed(2)})`;
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+            }
+
+            ctx.fill();
             ctx.lineWidth = 1;
-            ctx.fillRect(pillX, curPillY, pillSize, pillSize);
-            ctx.strokeRect(pillX, curPillY, pillSize, pillSize);
+            ctx.stroke();
 
             ctx.font = '800 13px "Fira Code", monospace';
             ctx.fillStyle = '#ffffff';
@@ -3164,16 +3179,17 @@ const FPL = {
             ctx.textBaseline = 'middle';
             const mCount = item.count ?? (item.pct != null && totalManagers ? Math.round((item.pct / 100) * totalManagers) : null);
             const pPct = item.pct ?? 0;
-            ctx.fillText(`${mCount ?? '--'}`, pillX + (pillSize / 2), curPillY + 22);
-            ctx.font = '700 9px "Fira Code", monospace';
-            ctx.fillText(`${pPct}%`, pillX + (pillSize / 2), curPillY + 38);
+            ctx.fillText(`${mCount ?? '--'}`, pillX + (pillW / 2), curPillY + 16);
+            ctx.font = '700 10px "Fira Code", monospace';
+            ctx.fillStyle = ratio > 0.6 ? '#e0f2fe' : '#38bdf8';
+            ctx.fillText(`${pPct}%`, pillX + (pillW / 2), curPillY + 30);
         });
 
         // RIGHT COLUMN: Pitch & Tactical Formation
-        const col2X = 575;
+        const col2X = 405;
         const col2Y = 105;
-        const col2W = 780;
-        const col2H = 780;
+        const col2W = 950;
+        const col2H = 880;
 
         drawRoundedRect(col2X, col2Y, col2W, col2H, 16);
         ctx.fillStyle = '#0c1524';
