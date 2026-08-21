@@ -883,7 +883,7 @@ const FPL = {
             lineup.bench.slice(0, 4).forEach((p, i) => {
                 const xPts = sumPlayerXPts(p, gwView).toFixed(1);
                 const shirt = FPL.playerTeamShirtUrl(p);
-                const shirtImg = shirt ? `<img src="${shirt}" alt="" loading="lazy" decoding="async" onerror="this.closest('.aiteam-bench-shirt-img').classList.add('is-missing');this.remove();" style="width:100%;height:100%;object-fit:contain;">` : '';
+                const shirtImg = shirt ? `<img src="${shirt}" alt="" loading="lazy" decoding="async" onerror="this.closest('.tactics-player-shirt').classList.add('is-missing');this.remove();" style="width:100%;height:100%;object-fit:contain;">` : '';
                 const weekly = p.weekly || [];
                 const fixtures = p.upcomingFixtures || [];
                 const fixturePills = [];
@@ -892,14 +892,15 @@ const FPL = {
                     const fx = fixtures.find(f => f.gw === w.gameweek) || fixtures[j];
                     if (!fx) continue;
                     const col = fdrColor(fx.fdr);
-                    fixturePills.push(`<div class="aiteam-pitch-fixture-pill" style="background:${col};"><span class="aiteam-fixture-opp">${fx.home ? fx.opponent + '(H)' : fx.opponent + '(A)'}</span></div>`);
+                    const oppLabel = fx.home ? `${fx.opponent}(H)` : `${fx.opponent}(A)`;
+                    fixturePills.push(`<div class="aiteam-pitch-fixture-pill" style="background:${col};"><span class="aiteam-fixture-opp">${oppLabel}</span></div>`);
                 }
-                html += `<div class="aiteam-bench-card" onclick="FPL.openSmartTeamSubUnderlay(${p.id})" style="cursor:pointer;" title="Click to view sub replacements for ${FPL.escapeHTML(p.name)}">
-                    <div class="aiteam-bench-top-row">
+                html += `<div class="tactics-player-card bench aiteam-pitch-card aiteam-bench-card" onclick="FPL.openSmartTeamSubUnderlay(${p.id})" style="cursor:pointer;" title="Click to view sub replacements for ${FPL.escapeHTML(p.name)}">
+                    <div class="aiteam-bench-badges">
                         <span class="aiteam-bench-order-badge">${i === 0 ? 'GK' : i}</span>
                         <span class="aiteam-bench-pos-badge">${p.position}</span>
                     </div>
-                    <div class="aiteam-pitch-shirt-wrap" style="display:grid;place-items:center;height:40px;margin:2px 0;">
+                    <div class="tactics-player-shirt" style="display:grid;place-items:center;background:transparent;position:relative;">
                         ${shirtImg}
                         <span class="aiteam-shirt-fallback" aria-hidden="true">${FPL.playerTeamShort(p)}</span>
                     </div>
@@ -907,7 +908,7 @@ const FPL = {
                         <span class="aiteam-pitch-name">${FPL.escapeHTML(p.name)}</span>
                     </div>
                     <div class="aiteam-pitch-metrics-tag">
-                        <span class="aiteam-pitch-cost">£${p.cost?.toFixed(1)}m</span>
+                        <span class="aiteam-pitch-cost">£${(p.cost || 0).toFixed(1)}m</span>
                         <span class="aiteam-pitch-xpts">${xPts} xPts</span>
                     </div>
                     <div class="aiteam-fixture-block">${fixturePills.join('')}</div>

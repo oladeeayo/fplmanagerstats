@@ -3847,11 +3847,12 @@ select option {
     width: clamp(76px, 16vw, 108px);
     max-width: 108px;
     padding: 6px 4px;
-    background: rgba(8, 22, 14, 0.75);
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(8, 22, 14, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 10px;
     backdrop-filter: blur(8px);
-    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.5);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45);
     cursor: pointer;
     transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     user-select: none;
@@ -3880,10 +3881,12 @@ select option {
 
 /* Pitch card internal layout */
 .aiteam-pitch-card { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
-.aiteam-pitch-name { font-size: 11px; color: #fff; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.aiteam-pitch-name-tag { width: 100%; padding: 2px 4px; background: rgba(0, 0, 0, 0.65); border-radius: 4px; box-sizing: border-box; text-align: center; overflow: hidden; margin-top: 2px; }
+.aiteam-pitch-name { font-size: 11px; font-weight: 700; color: #fff; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .aiteam-pitch-name.is-captain { color: #FFD700; }
+.aiteam-pitch-metrics-tag { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-top: 1px; }
 .aiteam-pitch-cost { font: 700 10px var(--font-mono); color: #B0B0B0; }
-.aiteam-pitch-xpts { font: 700 11px var(--font-mono); color: #00FF85; margin: 1px 0; }
+.aiteam-pitch-xpts { font: 800 11px var(--font-mono); color: #00FF85; margin: 1px 0; }
 .aiteam-fixture-block { display: flex; width: fit-content; max-width: 100%; flex-direction: column; align-self: center; gap: 1px; }
 .aiteam-fixture-row { display: flex; align-items: center; justify-content: center; gap: 4px; }
 .aiteam-fixture-opp { font: 700 8px var(--font-mono); letter-spacing: -0.02em; }
@@ -3892,8 +3895,13 @@ select option {
 .aiteam-shirt-fallback { display: none; color: #91a99b; font: 800 11px var(--font-mono); }
 .tactics-player-shirt.is-missing .aiteam-shirt-fallback, .aiteam-bench-shirt-img.is-missing .aiteam-shirt-fallback, .tactics-player-shirt:not(:has(img)) .aiteam-shirt-fallback, .aiteam-bench-shirt-img:not(:has(img)) .aiteam-shirt-fallback { display: block; }
 
+/* Bench Badges & Layout */
+.aiteam-bench-badges { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 2px; padding: 0 2px; }
+.aiteam-bench-order-badge { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: #14241c; border: 1px solid #00FF85; color: #00FF85; font: 800 9px var(--font-mono); }
+.aiteam-bench-pos-badge { font: 800 9px var(--font-mono); color: #8ba396; text-transform: uppercase; }
+
 /* Bench */
-.aiteam-bench { padding: 14px 16px 16px; border-top: 1px solid #315443; background: #101b15; border-radius: 0 0 10px 10px; }
+.aiteam-bench { padding: 14px 16px 16px; border-top: 1px solid #315443; background: #0c1711; border-radius: 0 0 16px 16px; }
 .aiteam-bench-label {
     display: flex;
     align-items: center;
@@ -4193,16 +4201,9 @@ select option {
     .aiteam-pitch-tools { display: grid; width: 100%; gap: 10px; }
     .aiteam-captain-pick { justify-items: center; text-align: center; }
     .aiteam-chips-grid { grid-template-columns: 1fr; }
-    .aiteam-bench { padding: 12px 8px 14px; }
-    .aiteam-bench-players { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
-    .aiteam-bench-slot { min-height: 126px; grid-template-columns: 20px 32px minmax(0,1fr); gap: 6px; padding: 8px; }
-    .aiteam-bench-order { width: 20px; height: 20px; }
-    .aiteam-bench-shirt-img { display: grid; width: 32px; height: 36px; }
-    .aiteam-bench-shirt-img img, .tactics-player-shirt img { display: block; width: 100%; height: 100%; object-fit: contain; }
-    .aiteam-bench-name { font-size: 11px; }
-    .aiteam-bench-club { min-height: 22px; white-space: normal; line-height: 1.2; }
-    .aiteam-bench-metrics { align-items: flex-start; flex-direction: column; gap: 1px; margin-top: 4px; }
-    .aiteam-bench .aiteam-fixture-block { margin-top: auto; padding-top: 5px; }
+    .aiteam-bench { padding: 10px 6px 12px; background: #0a140d; border-top: 1px solid rgba(255, 255, 255, 0.15); }
+    .aiteam-bench-players { grid-template-columns: repeat(4, 1fr); gap: 4px; }
+    .aiteam-bench-card { width: 100% !important; max-width: 100% !important; box-sizing: border-box; }
     .aiteam-control-group input,
     .aiteam-control-group select { min-width: auto; width: 100%; }
     .aiteam-gw-toggle { width: 100%; }
@@ -4210,18 +4211,23 @@ select option {
     .aiteam-hero-sub { max-width: 100%; overflow-wrap: anywhere; }
     .aiteam-pitch .tactics-player-card,
     .aiteam-pitch-card {
-        width: clamp(60px, 19vw, 82px);
-        max-width: 82px;
+        width: clamp(66px, 22vw, 86px);
+        max-width: 86px;
         padding: 4px 2px;
         border-radius: 8px;
+        background: rgba(8, 22, 14, 0.5) !important;
+        backdrop-filter: blur(8px) !important;
+        -webkit-backdrop-filter: blur(8px) !important;
     }
     .aiteam-pitch .tactics-player-shirt { width: 34px; height: 38px; }
-    .aiteam-pitch .tactics-pitch { min-height: 480px; padding: 16px 8px; }
+    .aiteam-pitch .tactics-pitch { min-height: clamp(520px, 145vw, 640px) !important; height: auto !important; padding: 18px 4px !important; display: flex !important; flex-direction: column !important; justify-content: space-between !important; }
     .aiteam-pitch .tactics-pitch-row { gap: 4px; padding-inline: 0; margin: 2px 0; }
-    .aiteam-pitch-name-tag { padding: 2px 4px; margin-top: 2px; }
-    .aiteam-pitch-name { font-size: 9px; }
-    .aiteam-pitch-metrics-tag { font-size: 8px; padding: 1px 3px; gap: 2px; }
-    .aiteam-pitch-fixture-pill { font-size: 8px; padding: 1px 4px; }
+    .aiteam-pitch-name-tag { padding: 1px 2px; margin-top: 1px; }
+    .aiteam-pitch-name { font-size: 9.5px; font-weight: 700; }
+    .aiteam-pitch-metrics-tag { font-size: 8.5px; padding: 1px 2px; gap: 2px; flex-direction: column; }
+    .aiteam-pitch-cost { font-size: 8.5px; line-height: 1.1; color: #a0c4b2; }
+    .aiteam-pitch-xpts { font-size: 9.5px; font-weight: 800; line-height: 1.1; margin: 0; color: #00FF85; }
+    .aiteam-pitch-fixture-pill { font-size: 7.5px; padding: 1px 3px; }
     .aiteam-pitch-cap-badge { width: 16px; height: 16px; font-size: 9px; top: -2px; right: -4px; }
 
 
@@ -4993,11 +4999,13 @@ div.collapsed > .sidebar-section-toggle .sidebar-section-chevron { transform: ro
     }
 
     .aiteam-pitch .tactics-pitch {
-        min-height: 0;
-        height: clamp(280px, 82vw, 340px);
+        min-height: clamp(520px, 150vw, 640px) !important;
+        height: auto !important;
         aspect-ratio: auto;
-        background-image: url('/pitch-wide.svg');
-        background-size: 100% 100%;
+        padding: 18px 4px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
     }
 
     .decision-pitch {
