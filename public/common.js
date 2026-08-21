@@ -4092,11 +4092,11 @@ const FPL = {
                 const borderTier = m.rank === 1 ? 'fdr-1' : m.rank === 2 ? 'fdr-2' : m.rank === 3 ? 'fdr-3' : m.rank === 4 ? 'fdr-4' : 'fdr-5';
 
                 return `<tr class="data-row" style="border-bottom:1px solid rgba(255,255,255,0.05);transition:background 0.2s;${rowBg}" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='${isEven ? 'rgba(255,255,255,0.03)' : 'transparent'}'">
-                    <td style="padding:4px 6px;position:relative;font-weight:700;color:var(--md-sys-color-on-surface);width:40px;background:${isEven ? 'rgba(2,43,30,0.5)' : '#022B1E'};">
+                    <td style="padding:4px 6px;position:relative;font-weight:700;color:var(--md-sys-color-on-surface);width:40px;background:${isEven ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.05)'};">
                         <div style="position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:70%;background:var(--${borderTier});border-radius:0 2px 2px 0;"></div>
                         ${m.rank}
                     </td>
-                    <td style="padding:4px 6px;background:${isEven ? 'rgba(2,43,30,0.5)' : '#022B1E'};max-width:140px;overflow:hidden;">
+                    <td style="padding:4px 6px;background:${isEven ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.05)'};max-width:140px;overflow:hidden;">
                         <div style="font-weight:700;color:var(--md-sys-color-on-surface);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(m.managerName)}</div>
                         <div style="font-size:9px;color:var(--md-sys-color-on-surface-variant);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(m.entryName)}</div>
                     </td>
@@ -4527,8 +4527,8 @@ const FPL = {
 
         function renderLeaderboard(title, icon, items, valueKey, valueLabel, colorFn) {
             if (!items || items.length === 0) return '';
-            return '<div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:16px;">' +
-                '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">' +
+            return '<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:16px 0;">' +
+                '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:0 16px;">' +
                 '<span class="material-symbols-outlined" style="color:var(--md-sys-color-primary);font-size:20px;">' + icon + '</span>' +
                 '<span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--md-sys-color-on-surface-variant);">' + title + '</span>' +
                 '</div><div style="display:flex;flex-direction:column;gap:6px;">' +
@@ -4536,14 +4536,14 @@ const FPL = {
                     var medal = idx < 3 ? medalColor(idx) : 'var(--md-sys-color-on-surface-variant)';
                     var val = t[valueKey];
                     var displayVal = typeof val === 'number' ? (valueKey.includes('cs') || valueKey.includes('win') ? val.toFixed(0) + '%' : val.toFixed(2)) : val;
-                    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--md-sys-color-surface-container-high);border-radius:6px;border:1px solid var(--md-sys-color-outline-variant);">' +
+                    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;border-bottom:1px solid rgba(255,255,255,0.04);">' +
                         '<div style="display:flex;align-items:center;gap:8px;">' +
                         '<span style="font-family:var(--font-mono);font-weight:900;font-size:12px;color:' + medal + ';">#' + t.rank + '</span>' +
                         self.teamBadge(t.team, 16) +
                         '<span style="font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--md-sys-color-on-surface);">' + self.escapeHTML(t.team) + '</span>' +
                         '<span style="font-family:var(--font-mono);font-size:10px;color:var(--md-sys-color-on-surface-variant);">vs ' + self.escapeHTML(t.opponent) + (t.isHome ? ' (H)' : ' (A)') + '</span>' +
                         '</div>' +
-                        '<span style="font-family:var(--font-mono);font-weight:900;font-size:13px;color:' + (colorFn ? colorFn(t) : 'var(--data-blue)') + ';background:rgba(0,209,255,0.12);padding:3px 8px;border-radius:5px;">' + displayVal + ' ' + valueLabel + '</span></div>';
+                        '<span style="font-family:var(--font-mono);font-weight:900;font-size:13px;color:' + (colorFn ? colorFn(t) : 'var(--data-blue)') + ';letter-spacing:0.02em;">' + displayVal + ' ' + valueLabel + '</span></div>';
                 }).join('') +
                 '</div></div>';
         }
