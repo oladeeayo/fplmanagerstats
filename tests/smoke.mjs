@@ -106,7 +106,7 @@ try {
   assert.equal(hydratedState.aiTabActive, true, 'Cold /ai-team load must hydrate directly into AI Team');
   await coldContext.close();
 
-  const routes = ['/', '/manager', '/decision-lab', '/league', '/players', '/tactics', '/fixtures', '/captaincy', '/ownership', '/set-pieces', '/ai-team', '/team-builder'];
+  const routes = ['/', '/manager', '/decision-lab', '/league', '/players', '/tactics', '/fixtures', '/captaincy', '/ownership', '/set-pieces', '/ai-team'];
   const viewports = [
     { width: 1440, height: 900 },
     { width: 768, height: 1024 },
@@ -128,9 +128,8 @@ try {
     for (const route of routes) {
       await page.goto(`${baseUrl}${route}`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.layout');
-      const expectedTab = route === '/' ? 'general' : route === '/decision-lab' ? 'decision' : route === '/tactics' ? 'zones' : route === '/captaincy' ? 'captain' : route === '/set-pieces' ? 'setpieces' : route === '/ai-team' ? 'aiteam' : route === '/team-builder' ? 'teambuilder' : route.slice(1);
+      const expectedTab = route === '/' ? 'general' : route === '/decision-lab' ? 'decision' : route === '/tactics' ? 'zones' : route === '/captaincy' ? 'captain' : route === '/set-pieces' ? 'setpieces' : route === '/ai-team' ? 'aiteam' : route.slice(1);
       await page.waitForSelector(`#content-${expectedTab}.active`);
-      if (route === '/team-builder') await page.waitForSelector('#tb-workspace:not(.hidden)', { timeout: 90000 });
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       const clippedElements = await page.evaluate(() => {
         const viewportWidth = document.documentElement.clientWidth;

@@ -167,7 +167,6 @@
                         <a href="/captaincy" class="sidebar-nav-item" data-tab="captain" onclick="event.preventDefault();FPL.navigateTo('captain')"><span class="material-symbols-outlined">star</span> Captaincy</a>
                         <a href="/decision-lab" class="sidebar-nav-item" data-tab="decision" onclick="event.preventDefault();FPL.navigateTo('decision')"><span class="material-symbols-outlined">model_training</span> Decision Lab</a>
                         <a href="/ai-team" class="sidebar-nav-item" data-tab="aiteam" onclick="event.preventDefault();FPL.navigateTo('aiteam')"><span class="material-symbols-outlined">auto_awesome</span> Smart Team</a>
-                        <a href="/team-builder" class="sidebar-nav-item" data-tab="teambuilder" onclick="event.preventDefault();FPL.navigateTo('teambuilder')"><span class="material-symbols-outlined">edit_square</span> Team Builder</a>
                     </div>
                 </div>
                 <div class="sidebar-section-group">
@@ -189,6 +188,7 @@
                     <div class="topbar-title"><span class="material-symbols-outlined filled" style="font-size:22px;">sports_soccer</span><span style="font-weight:700;font-size:14px;">FPL Manager Stats</span></div>
                 </div>
                 <div class="topbar-right">
+                    <button class="btn btn-ghost btn-icon" type="button" data-theme-toggle onclick="FPL.toggleTheme()" aria-label="Switch to light mode" title="Switch to light mode"><span class="material-symbols-outlined">light_mode</span></button>
                     <button class="btn btn-primary btn-sm" onclick="FPL.showDialog('connect-dialog')"><span class="material-symbols-outlined" style="font-size:18px;">link</span> Connect</button>
                 </div>
             </header>
@@ -1203,158 +1203,6 @@
                     </div>
                 </div>
 
-                <!-- TEAM BUILDER -->
-                <div id="content-teambuilder" class="tab-content">
-                    <div class="tb-page">
-                        <header class="tb-heading">
-                            <div>
-                                <h1>Team Builder</h1>
-                                <p>Build a legal 15-player squad and compare projected returns across up to eight gameweeks.</p>
-                            </div>
-                            <div class="tb-heading-actions">
-                                <button type="button" class="tb-btn tb-btn-secondary" onclick="FPL.loadBuilderCurrentSquad()"><span class="material-symbols-outlined">download</span> Current squad</button>
-                                <button type="button" class="tb-icon-btn" onclick="FPL.clearTeamBuilder()" title="Clear squad" aria-label="Clear squad"><span class="material-symbols-outlined">delete_sweep</span></button>
-                            </div>
-                        </header>
-
-                        <div class="tb-tab-summary" id="tb-tab-summary"></div>
-
-                        <section class="tb-horizon" aria-labelledby="tb-horizon-title">
-                            <div><h2 id="tb-horizon-title">Projection horizon</h2></div>
-                            <div id="tb-gw-selector" class="tb-gw-selector" aria-label="Gameweek selection"></div>
-                        </section>
-
-                        <div id="tb-loading" class="tb-loading" role="status">Loading player projections...</div>
-                        <div id="tb-error" class="tb-message tb-message-error hidden" role="alert"></div>
-
-                        <div id="tb-workspace" class="tb-workspace-squad">
-                            <!-- Pitch + Squad Panel -->
-                            <section class="tb-squad-panel" aria-labelledby="tb-squad-title">
-                                <div class="tb-panel-heading">
-                                    <div><h2 id="tb-squad-title">Your squad</h2><span id="tb-squad-count">0 / 15 selected</span></div>
-                                    <div class="tb-squad-tools">
-                                        <div class="tb-import-view-toggle" role="radiogroup" aria-label="Squad view">
-                                            <button type="button" class="tb-import-view-btn" data-view="list" onclick="FPL.setBuilderSquadView('list')" aria-pressed="false"><span class="material-symbols-outlined">list</span> List</button>
-                                            <button type="button" class="tb-import-view-btn" data-view="pitch" onclick="FPL.setBuilderSquadView('pitch')" aria-pressed="true"><span class="material-symbols-outlined">sports_soccer</span> Pitch</button>
-                                        </div>
-                                        <strong id="tb-horizon-total">0.0 xPts</strong>
-                                    </div>
-                                </div>
-                                <div class="tb-squad-actions">
-                                    <button type="button" class="tb-btn tb-btn-autofill" onclick="FPL.autoFillTeamBuilder()" title="Auto-fill a legal 15-player squad"><span class="material-symbols-outlined">auto_awesome</span> Autofill</button>
-                                    <button type="button" id="tb-autofill-reroll" class="tb-btn tb-btn-secondary hidden" onclick="FPL.reRollTeamBuilderAutoFill()" title="Alternative auto-fill"><span class="material-symbols-outlined">refresh</span> Re-roll</button>
-                                    <button type="button" class="tb-btn tb-btn-secondary" onclick="FPL.openMarketDrawer()" title="Add player from market"><span class="material-symbols-outlined">person_add</span> Add player</button>
-                                    <button type="button" class="tb-btn tb-btn-secondary" onclick="FPL.clearTeamBuilder()" title="Remove all players"><span class="material-symbols-outlined">delete_sweep</span> Reset</button>
-                                </div>
-                                <div id="tb-budget-meter" class="tb-budget-meter"></div>
-                                <div id="tb-rule-strip" class="tb-rule-strip"></div>
-                                <div id="tb-squad-list" class="tb-squad-list"></div>
-                                <div id="tb-squad-pitch" class="tb-squad-pitch"></div>
-                                <div id="tb-replace-suggestions" class="tb-replace-suggestions hidden"></div>
-                                <div id="tb-save-status" class="tb-save-status" aria-live="polite"></div>
-                            </section>
-                        </div>
-
-                        <!-- Gameweek Breakdown -->
-                        <section id="tb-breakdown" class="tb-breakdown" aria-labelledby="tb-breakdown-title">
-                            <div class="tb-panel-heading"><div><h2 id="tb-breakdown-title">Gameweek outlook</h2><span>Best legal XI per gameweek, plus captain bonus</span></div></div>
-                            <div class="tb-breakdown-scroll" tabindex="0" aria-label="Team projected points by gameweek"><table><caption class="sr-only">Team projected points by selected gameweek</caption><thead id="tb-breakdown-head"></thead><tbody id="tb-breakdown-body"></tbody></table></div>
-                        </section>
-
-                        <!-- Squad Advisor (integrated, not a tab) -->
-                        <section id="tb-advisor" class="tb-advisor" aria-labelledby="tb-advisor-title">
-                            <div class="tb-advisor-heading">
-                                <div><h2 id="tb-advisor-title">Squad Advisor</h2><p>Evidence-led critique across players, transfers, lineup, captaincy and chips.</p></div>
-                                <button type="button" class="tb-btn tb-btn-primary" onclick="FPL.reviewTeamBuilderSquad()"><span class="material-symbols-outlined">psychology</span> Review my squad</button>
-                            </div>
-                            <div class="tb-advisor-settings">
-                                <label>Approach<select id="tb-advisor-strategy"><option value="balanced">Balanced</option><option value="protect">Protect rank</option><option value="chase">Chase rank</option></select></label>
-                                <label>Free transfers<input id="tb-advisor-transfers" type="number" min="1" max="5" value="1"></label>
-                                <label>Money in bank<input id="tb-advisor-bank" type="number" min="0" max="20" step="0.1" placeholder="Auto"></label>
-                                <fieldset><legend>Used chips</legend><label><input type="checkbox" value="wildcard"><span>Wildcard</span></label><label><input type="checkbox" value="freehit"><span>Free Hit</span></label><label><input type="checkbox" value="bboost"><span>Bench Boost</span></label><label><input type="checkbox" value="3xc"><span>Triple Captain</span></label></fieldset>
-                            </div>
-                            <div id="tb-advisor-loading" class="tb-loading hidden" role="status">Reviewing squad evidence...</div>
-                            <div id="tb-advisor-error" class="tb-message tb-message-error hidden" role="alert"></div>
-                            <div id="tb-advisor-results" class="tb-advisor-results hidden"></div>
-                        </section>
-
-                        <!-- Preferences (integrated, not a tab) -->
-                        <section class="tb-preferences" aria-labelledby="tb-preferences-title">
-                            <div class="tb-preferences-head">
-                                <div><h2 id="tb-preferences-title">Build around my preferences</h2><p>Tell the system who you want, who to avoid, price limits, teams, or a formation.</p></div>
-                                <div class="tb-preferences-samples">
-                                    <span>Try:</span>
-                                    <button type="button" class="tb-pref-sample" data-pref="Add Tzolis Bruno Rice. No Chelsea players. Play 4-4-2.">Names + formation</button>
-                                    <button type="button" class="tb-pref-sample" data-pref="Add a 4.5m bench midfielder and two defenders under 5.0m. Keep 1.0m in the bank.">Bench + enablers</button>
-                                    <button type="button" class="tb-pref-sample" data-pref="Give me a player with at least 45 xPts over the next 3 GWs, plus all midfielders with at least 200 xMins.">Projection target</button>
-                                    <button type="button" class="tb-pref-sample" data-pref="Build a low-owned differential team with one forward under 8.0m, nailed starters, and no injured players.">Differentials + minutes</button>
-                                    <button type="button" class="tb-pref-sample" data-pref="Start Salah and Saka. Bench Dibling. Captain Haaland. Max 3 Arsenal and 1 Liverpool.">XI + captaincy</button>
-                                    <button type="button" class="tb-pref-sample" data-pref="Maximize xG over 5 GWs. Prioritize penalty and set-piece takers where the data supports it.">Metric strategy</button>
-                                </div>
-                            </div>
-                            <div class="tb-preferences-row">
-                                <textarea id="tb-preferences-input" class="tb-preferences-input" rows="2" placeholder="e.g. I want Haaland and Salah. No Chelsea players. Midfielders under 8.0. 2 from Arsenal. Play 4-4-2. Keep 1.0 in the bank." aria-label="Team building preferences"></textarea>
-                                <button type="button" id="tb-preferences-build" class="tb-btn tb-btn-primary" onclick="FPL.buildTeamBuilderFromPreferences()"><span class="material-symbols-outlined">psychology_alt</span> Build with preferences</button>
-                            </div>
-                            <div id="tb-preferences-feedback" class="tb-preferences-feedback" aria-live="polite"></div>
-                        </section>
-                    </div>
-                </div>
-
-                <!-- Player Action Modal (noblocks-style) -->
-                <div id="tb-player-modal" class="tb-player-modal" role="dialog" aria-modal="true" aria-label="Player actions" hidden>
-                    <div class="tb-player-modal-backdrop" onclick="FPL.closePlayerModal()"></div>
-                    <div class="tb-player-modal-content">
-                        <div class="tb-player-modal-header">
-                            <div class="tb-player-modal-identity">
-                                <div class="tb-player-modal-shirt" id="tb-modal-shirt"></div>
-                                <div class="tb-player-modal-text">
-                                    <div class="tb-player-modal-name" id="tb-modal-name"></div>
-                                    <div class="tb-player-modal-meta" id="tb-modal-meta"></div>
-                                </div>
-                            </div>
-                            <button type="button" class="tb-player-modal-close" onclick="FPL.closePlayerModal()" aria-label="Close"><span class="material-symbols-outlined">close</span></button>
-                        </div>
-                        <div class="tb-player-modal-body">
-                            <div class="tb-player-modal-section">
-                                <button type="button" class="tb-player-modal-action" id="tb-modal-captain" onclick="FPL.modalMakeCaptain()"></button>
-                                <button type="button" class="tb-player-modal-action" id="tb-modal-vice" onclick="FPL.modalMakeViceCaptain()"></button>
-                            </div>
-                            <div class="tb-player-modal-section">
-                                <div class="tb-player-modal-section-title">Swap with bench</div>
-                                <div id="tb-modal-bench-list" class="tb-player-modal-bench-list"></div>
-                                <button type="button" class="tb-player-modal-action tb-player-modal-action-replace" id="tb-modal-replace" onclick="FPL.modalReplaceFromMarket()">
-                                    <span class="material-symbols-outlined">storefront</span> Replace from market
-                                </button>
-                            </div>
-                            <div class="tb-player-modal-section tb-player-modal-section-danger">
-                                <button type="button" class="tb-player-modal-action tb-player-modal-action-danger" onclick="FPL.modalRemovePlayer()">
-                                    <span class="material-symbols-outlined">delete</span> Remove from squad
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Market Slide-out Panel -->
-                <div id="tb-market-drawer" class="tb-market-drawer" hidden>
-                    <div class="tb-market-drawer-backdrop" onclick="FPL.closeMarketDrawer()"></div>
-                    <div class="tb-market-drawer-content">
-                        <div class="tb-market-drawer-header">
-                            <h2 id="tb-drawer-title">Select player</h2>
-                            <button type="button" class="tb-market-drawer-close" onclick="FPL.closeMarketDrawer()" aria-label="Close"><span class="material-symbols-outlined">close</span></button>
-                        </div>
-                        <div class="tb-market-drawer-controls">
-                            <label class="tb-search"><span class="material-symbols-outlined">search</span><input id="tb-drawer-search" type="search" placeholder="Search player or club" oninput="FPL.updateDrawerFilters()" aria-label="Search players"></label>
-                            <select id="tb-drawer-position" onchange="FPL.updateDrawerFilters()" aria-label="Filter by position"><option value="all">All positions</option><option>GKP</option><option>DEF</option><option>MID</option><option>FWD</option></select>
-                            <select id="tb-drawer-club" onchange="FPL.updateDrawerFilters()" aria-label="Filter by club"><option value="all">All clubs</option></select>
-                            <select id="tb-drawer-sort" onchange="FPL.updateDrawerFilters()" aria-label="Sort players"><option value="value">xPts per \u00A3m</option><option value="xpts">Horizon xPts</option><option value="price-desc">Price high to low</option><option value="ownership">Ownership</option></select>
-                        </div>
-                        <div id="tb-drawer-message" class="tb-market-drawer-message" aria-live="polite"></div>
-                        <div id="tb-drawer-player-list" class="tb-market-drawer-list"></div>
-                    </div>
-                </div>
-
             </main>
         </div>
     </div>
@@ -1365,7 +1213,7 @@
         <a href="/players" class="bottom-nav-item" data-tab="players" onclick="event.preventDefault();FPL.navigateTo('players')"><span class="material-symbols-outlined">person_search</span><span>Players</span></a>
         <a href="/fixtures" class="bottom-nav-item" data-tab="fixtures" onclick="event.preventDefault();FPL.navigateTo('fixtures')"><span class="material-symbols-outlined">calendar_month</span><span>Fixtures</span></a>
         <a href="/captaincy" class="bottom-nav-item" data-tab="captain" onclick="event.preventDefault();FPL.navigateTo('captain')"><span class="material-symbols-outlined">star</span><span>Captain</span></a>
-        <a href="/team-builder" class="bottom-nav-item" data-tab="teambuilder" onclick="event.preventDefault();FPL.navigateTo('teambuilder')"><span class="material-symbols-outlined">edit_square</span><span>Build</span></a>
+        <a href="/decision-lab" class="bottom-nav-item" data-tab="decision" onclick="event.preventDefault();FPL.navigateTo('decision')"><span class="material-symbols-outlined">model_training</span><span>Decide</span></a>
     </nav>
 
     <div class="bottom-nav-overflow" id="bottom-nav-overflow">
@@ -1426,12 +1274,11 @@
         </div>
     </div>
 
-    <script src="team-preferences.js?v=2"></script>
     <script src="common.js?v=23"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams(window.location.search);
-            const routeTab = window.location.pathname === '/ai-team' ? 'aiteam' : window.location.pathname === '/team-builder' ? 'teambuilder' : params.get('tab');
+            const routeTab = window.location.pathname === '/ai-team' ? 'aiteam' : params.get('tab');
             if (routeTab) {
                 document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
                 document.getElementById(`content-${routeTab}`)?.classList.add('active');

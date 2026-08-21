@@ -9,8 +9,8 @@
     "preview": "vite preview",
     "update:fotmob-ids": "node scripts/update-fotmob-player-ids.mjs",
     "generate:positions": "node scripts/generate-player-positions.mjs",
-    "check": "node --check src/server.js && node --check src/decisionModel.js && node --check public/common.js && node --check public/squad-import.js && node --check public/team-preferences.js && tsc -b",
-    "test": "node tests/captaincy-model.mjs && node tests/decision-model.mjs && node tests/ai-team-model.mjs && node tests/squad-import.mjs && node tests/team-preferences.mjs",
+    "check": "node --check src/server.js && node --check src/decisionModel.js && node --check public/common.js && tsc -b",
+    "test": "node tests/captaincy-model.mjs && node tests/decision-model.mjs && node tests/ai-team-model.mjs",
     "test:smoke": "node tests/smoke.mjs",
     "test:vitest": "vitest run",
     "test:vitest:watch": "vitest"
@@ -38,7 +38,6 @@
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.8.0",
-    "tesseract.js": "^6.0.1",
     "uuid": "^14.0.1"
   },
   "devDependencies": {

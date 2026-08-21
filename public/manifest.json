@@ -78,10 +78,10 @@
             "description": "Captain pick recommendations"
         },
         {
-            "name": "Team Builder",
-            "short_name": "Builder",
-            "url": "/team-builder",
-            "description": "Build your dream squad"
+            "name": "Decision Lab",
+            "short_name": "Decide",
+            "url": "/decision-lab",
+            "description": "Plan transfers, lineup, captaincy and chips"
         }
     ]
 }

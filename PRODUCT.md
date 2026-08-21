@@ -20,16 +20,14 @@ The product combines official FPL data with modeled xPts, fixture context, and d
 
 ## Operating Context
 
-Managers scan player tables, fixture difficulty, ownership, availability, and projections before a gameweek deadline. A team-building workflow should support both a blank squad and the connected manager's current squad.
+Managers scan player tables, fixture difficulty, ownership, availability, and projections before a gameweek deadline. Decision Lab turns that evidence into transfer, lineup, captaincy, and chip recommendations for the connected manager's squad.
 
 ## Capabilities and Constraints
 
 - Existing routes are served by a React shell over a legacy dashboard UI.
 - Bootstrap data provides players, teams, gameweeks, and official FPL squad metadata.
-- The builder must enforce the usual FPL squad constraints: 15 players, position quotas of 2 GKP / 5 DEF / 5 MID / 3 FWD, maximum 3 players per club, and a £100.0m budget.
 - Users should be able to select up to 8 gameweeks and see player and team xPts over that horizon.
-- Users can import an official FPL squad screenshot. OCR runs locally and detected names must be confirmed before filling the builder because screenshots can be ambiguous.
-- A squad advisor critiques each player and provides evidence-led lineup, captaincy, transfer and chip recommendations using projections, expected minutes, availability, fixture context, value, uncertainty and FPL constraints.
+- Decision Lab critiques the connected squad and provides evidence-led lineup, captaincy, transfer and chip recommendations using projections, expected minutes, availability, fixture context, value, uncertainty and FPL constraints.
 - xPts are model projections and should be presented as projections rather than guarantees.
 - Recommendations must distinguish modeled evidence from uncertain assumptions and should prefer holding a chip or transfer when the evidence does not clear a meaningful threshold.
 - Open: persistence and submission to the official FPL account are not part of this surface unless explicitly added later.
@@ -42,7 +40,6 @@ Managers scan player tables, fixture difficulty, ownership, availability, and pr
 
 ## Product Principles
 
-- Make legality visible while the squad is being assembled.
 - Keep the next decision close to its projected consequence.
 - Support scanning and comparison across a chosen gameweek horizon.
 - Show uncertainty and constraints without slowing down expert users.
