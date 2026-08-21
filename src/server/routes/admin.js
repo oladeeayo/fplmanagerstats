@@ -320,7 +320,7 @@ router.get('/feature-usage', async (req, res) => {
     const features = await sql`
       SELECT
         CASE
-          WHEN path LIKE '/api/analyze-manager%' THEN 'Team Analysis'
+          WHEN path LIKE '/api/analyze-manager%' THEN 'Manager Analysis'
           WHEN path LIKE '/api/league-standings%' THEN 'League Standings'
           WHEN path LIKE '/api/leagues-classic%' THEN 'League Standings'
           WHEN path LIKE '/api/zone-analysis%' THEN 'Zone Analysis'

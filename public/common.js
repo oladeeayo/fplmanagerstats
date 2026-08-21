@@ -4164,16 +4164,27 @@ const FPL = {
 
     switchLeague(leagueId) {
         if (!leagueId) return;
-        this.state.selectedLeagueId = leagueId;
+        this.state.selectedLeagueId = Number(leagueId);
         this.state.standingsPage = 1;
-        this.renderLeague();
+        const select = document.getElementById('league-select');
+        if (select) select.value = String(this.state.selectedLeagueId);
+        void this.renderLeague();
     },
 
     loadCustomLeague() {
         const input = document.getElementById('league-id-input');
         const val = input?.value?.trim();
-        if (!val || isNaN(val)) return;
+        if (!/^\d+$/.test(val || '') || Number(val) < 1) {
+            this.showError('Enter a valid League ID or select a manager and league');
+            return;
+        }
         this.switchLeague(parseInt(val));
+        if (input) input.value = '';
+        const resultsEl = document.getElementById('league-search-results');
+        if (resultsEl) {
+            resultsEl.innerHTML = '';
+            resultsEl.style.display = 'none';
+        }
     },
 
     // ==================== RENDER: FIXTURES ====================
@@ -6052,7 +6063,16 @@ const FPL = {
 
     selectLeague(inputId, resultsId, leagueId) {
         this._selectedLeagueId[inputId] = leagueId;
-        if (inputId === 'connect-manager-id') {
+        const resultsEl = document.getElementById(resultsId);
+        if (resultsEl) {
+            resultsEl.innerHTML = '';
+            resultsEl.style.display = 'none';
+        }
+        if (inputId === 'league-id-input') {
+            const input = document.getElementById(inputId);
+            if (input) input.value = '';
+            this.switchLeague(leagueId);
+        } else if (inputId === 'connect-manager-id') {
             this.hideDialog('connect-dialog');
             this.connectManager();
         } else {
@@ -6085,7 +6105,16 @@ const FPL = {
         const val = customInput.value.trim();
         if (!/^\d+$/.test(val) || Number(val) < 1) return;
         this._selectedLeagueId[inputId] = Number(val);
-        if (inputId === 'connect-manager-id') {
+        const resultsEl = document.getElementById(resultsId);
+        if (resultsEl) {
+            resultsEl.innerHTML = '';
+            resultsEl.style.display = 'none';
+        }
+        if (inputId === 'league-id-input') {
+            const input = document.getElementById(inputId);
+            if (input) input.value = '';
+            this.switchLeague(Number(val));
+        } else if (inputId === 'connect-manager-id') {
             this.hideDialog('connect-dialog');
             this.connectManager();
         } else {

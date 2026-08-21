@@ -1740,12 +1740,13 @@ body.sidebar-open {
         height: calc(56px + env(safe-area-inset-top, 0px));
         padding: 0 16px;
         padding-top: env(safe-area-inset-top, 0px);
+        box-sizing: border-box;
         border-radius: 0;
         border: none;
         border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-        background: rgba(10, 15, 13, 0.98);
-        backdrop-filter: blur(24px);
-        -webkit-backdrop-filter: blur(24px);
+        background: #0a0f0d;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
         box-shadow: 0 2px 16px rgba(0,0,0,0.6);
     }
     /* Ensure background covers the status bar area fully */
@@ -1753,9 +1754,12 @@ body.sidebar-open {
         content: '';
         position: absolute;
         top: 0; left: 0; right: 0;
-        height: calc(env(safe-area-inset-top, 0px) + 4px);
-        background: rgba(10, 15, 13, 0.98);
+        height: 100%;
+        background: #0a0f0d;
+        z-index: 0;
     }
+    .topbar-left,
+    .topbar-right { position: relative; z-index: 1; }
     .topbar-left { gap: 8px; min-width: 0; }
     .topbar-title { font-size: 0.875rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
     .topbar-title .material-symbols-outlined { font-size: 20px; }
