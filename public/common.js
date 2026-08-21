@@ -2419,7 +2419,7 @@ const FPL = {
             const plFallback = item.code ? `https://resources.premierleague.com/premierleague/photos/players/110x140/p${item.code}.png` : '';
             const photoUrl = fotmobPhoto || plFallback;
             const statText = item.count != null ? `${item.count} (${item.pct}%)` : `${item.pct}%`;
-            return `<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:12px;">
+            return `<div style="padding:10px 4px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:12px;">
                 <div style="width:36px;height:42px;overflow:hidden;flex-shrink:0;">
                     <img src="${photoUrl}" onerror="if(this.src!=='${plFallback}'&&'${plFallback}'){this.src='${plFallback}';}else{this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2236%22 height=%2242%22 viewBox=%220 0 24 24%22 fill=%22%23777%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E';}" style="width:100%;height:100%;object-fit:cover;object-position:top;" alt="${item.name}">
                 </div>
@@ -2795,11 +2795,8 @@ const FPL = {
             ctx.font = `10px "Fira Code", monospace`;
             ctx.fillText('• FPL MANAGER ANALYTICS', (tableWidth / 2) + (100 * scale), footerY);
 
-            const link = document.createElement('a');
-            link.download = `league-${standingsData.leagueId}-analytics-report.png`;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-
+            const filename = `league-${standingsData.leagueId}-analytics-report.png`;
+            this.saveCanvasImage(canvas, filename);
             this.hideDialog('export-league-dialog');
         };
 
@@ -3090,7 +3087,7 @@ const FPL = {
         ctx.fillStyle = '#101d33';
         ctx.fill();
 
-        const pillW = 140;
+        const pillW = 48;
         const pillX = col1X + col1W - pillW - 14;
 
         ctx.font = '800 12px "Fira Code", monospace';
@@ -3102,7 +3099,7 @@ const FPL = {
         ctx.font = '800 11px "Fira Code", monospace';
         ctx.fillStyle = '#94a3b8';
         ctx.textAlign = 'center';
-        ctx.fillText('CAPTAINED', pillX + (pillW / 2), col1Y + 21);
+        ctx.fillText('COUNT', pillX + (pillW / 2), col1Y + 21);
 
         const rowH = 47;
         const renderCaptains = topCaptains.slice(0, 15);
@@ -3153,11 +3150,11 @@ const FPL = {
             const pName = item.name || 'Player';
             ctx.fillText(pName, col1X + 78, rY + (rowH / 2));
 
-            // Rounded Stat Pill with Generous Top/Bottom Padding & Vertical Spacing
+            // Keep the captain count compact so the player name has room to breathe.
             const itemVal = item.pct ?? item.count ?? 0;
             const ratio = topVal > 0 ? Math.max(0.06, Math.min(1, itemVal / topVal)) : 0.06;
             
-            const pillH = 32;
+            const pillH = 40;
             const curPillY = rY + (rowH / 2) - (pillH / 2);
             
             drawRoundedRect(pillX, curPillY, pillW, pillH, 8);
@@ -3177,14 +3174,15 @@ const FPL = {
             ctx.lineWidth = 1;
             ctx.stroke();
 
-            ctx.font = '800 14px "Fira Code", monospace';
+            ctx.font = '800 13px "Fira Code", monospace';
             ctx.fillStyle = '#ffffff';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             const mCount = item.count ?? (item.pct != null && totalManagers ? Math.round((item.pct / 100) * totalManagers) : null);
             const pPct = item.pct ?? 0;
-            const countTxt = mCount != null ? `${mCount} (${pPct}%)` : `${pPct}%`;
-            ctx.fillText(countTxt, pillX + (pillW / 2), curPillY + (pillH / 2));
+            ctx.fillText(`${mCount ?? '--'}`, pillX + (pillW / 2), curPillY + 15);
+            ctx.font = '700 9px "Fira Code", monospace';
+            ctx.fillText(`${pPct}%`, pillX + (pillW / 2), curPillY + 29);
         });
 
         // RIGHT COLUMN: Pitch & Tactical Formation
@@ -3336,10 +3334,71 @@ const FPL = {
         ctx.font = '800 12px "Fira Code", monospace';
         ctx.fillText(footPart2, startFootX + part1W, footerY);
 
-        const link = document.createElement('a');
-        link.download = `league-${standingsData.leagueId || 'stats'}-captains-template-gw${currentGW}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
+        const filename = `league-${standingsData.leagueId || 'stats'}-captains-template-gw${currentGW}.png`;
+        this.saveCanvasImage(canvas, filename);
+    },
+
+    saveCanvasImage(canvas, filename) {
+        if (!canvas) return;
+        try {
+            if (canvas.toBlob) {
+                canvas.toBlob((blob) => {
+                    if (!blob) {
+                        this.triggerDownloadLink(canvas.toDataURL('image/png'), filename);
+                        return;
+                    }
+                    if (navigator.canShare && navigator.canShare({ files: [new File([blob], filename, { type: 'image/png' })] }) && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                        const file = new File([blob], filename, { type: 'image/png' });
+                        navigator.share({
+                            files: [file],
+                            title: filename,
+                            text: 'FPL League Graphic Report'
+                        }).catch(() => {
+                            this.triggerBlobDownload(blob, filename);
+                        });
+                    } else {
+                        this.triggerBlobDownload(blob, filename);
+                    }
+                }, 'image/png');
+            } else {
+                this.triggerDownloadLink(canvas.toDataURL('image/png'), filename);
+            }
+        } catch (e) {
+            console.error('Canvas export error:', e);
+            try {
+                this.triggerDownloadLink(canvas.toDataURL('image/png'), filename);
+            } catch (err) {
+                alert('Export failed. Please long-press or right-click to save image.');
+            }
+        }
+    },
+
+    triggerBlobDownload(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = filename;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+            if (a.parentNode) document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 1500);
+    },
+
+    triggerDownloadLink(dataUrl, filename) {
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = dataUrl;
+        a.download = filename;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+            if (a.parentNode) document.body.removeChild(a);
+        }, 1500);
     },
 
     showManagerDetail(managerId, managerName, teamName, rank, eventTotal, total, rankDiff, diffCount) {
