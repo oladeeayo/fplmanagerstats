@@ -20,6 +20,28 @@ router.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: Date.now() });
 });
 
+// ---- Manager Lookup (validate ID and return team info) ----
+router.get('/manager-lookup/:id', async (req, res) => {
+  const id = parsePositiveId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Invalid manager ID' });
+  try {
+    const data = await getCachedApiData(`https://fantasy.premierleague.com/api/entry/${id}/`);
+    res.json({
+      id: data.id,
+      name: data.name,
+      playerFirstName: data.player_first_name,
+      playerLastName: data.player_second_name,
+      overallPoints: data.summary_overall_points,
+      overallRank: data.summary_overall_rank,
+    });
+  } catch (error) {
+    const status = error.response?.status || 500;
+    if (status === 404) return res.status(404).json({ error: 'Manager not found' });
+    logger.error({ err: error }, 'Manager lookup error');
+    res.status(status).json({ error: 'Failed to look up manager' });
+  }
+});
+
 // ---- Bootstrap Static (proxied from FPL API, 5min cache) ----
 router.get('/bootstrap-static', async (req, res) => {
   try {

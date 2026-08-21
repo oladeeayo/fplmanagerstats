@@ -96,6 +96,7 @@ const FPL = {
         goalsProjections: (gw, horizon) => `/api/goals-projections?gw=${gw || ''}&horizon=${horizon || 6}`,
         goalsConceded: (gw, horizon) => `/api/goals-conceded?gw=${gw || ''}&horizon=${horizon || 6}`,
         rollingFDR: (gw) => `/api/rolling-fdr?gw=${gw || ''}`,
+        managerLookup: (id) => `/api/manager-lookup/${id}`,
     },
 
     async apiFetch(url) {
@@ -5918,6 +5919,42 @@ const FPL = {
             case 'decision': this.renderDecisionCentre(); break;
             case 'setpieces': this.renderSetPieces(); break;
         }
+    },
+
+    _managerSearchTimers: {},
+
+    searchManager(inputId, resultsId) {
+        const input = document.getElementById(inputId);
+        const resultsEl = document.getElementById(resultsId);
+        if (!input || !resultsEl) return;
+        const val = input.value.trim();
+        clearTimeout(this._managerSearchTimers[inputId]);
+        if (!/^\d{3,}$/.test(val)) {
+            resultsEl.innerHTML = '';
+            resultsEl.style.display = 'none';
+            return;
+        }
+        resultsEl.innerHTML = '<div style="padding:8px 12px;color:var(--md-sys-color-on-surface-variant);font-size:12px;">Searching...</div>';
+        resultsEl.style.display = 'block';
+        this._managerSearchTimers[inputId] = setTimeout(async () => {
+            try {
+                const data = await this.apiFetch(this.API.managerLookup(val));
+                const name = data.name || 'Unknown Team';
+                const owner = [data.playerFirstName, data.playerLastName].filter(Boolean).join(' ');
+                resultsEl.innerHTML = `<div style="padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;" onmousedown="FPL.selectManagerResult('${inputId}','${resultsId}',${data.id},'${this.escapeHTML(name).replace(/'/g, "\\'")}')"><span class="material-symbols-outlined" style="font-size:16px;color:#00FF85;">check_circle</span><div><div style="font-size:13px;font-weight:600;color:var(--md-sys-color-on-surface);">${this.escapeHTML(name)}</div><div style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">${this.escapeHTML(owner)} · ID: ${data.id}</div></div></div>`;
+                resultsEl.style.display = 'block';
+            } catch {
+                resultsEl.innerHTML = '<div style="padding:8px 12px;color:var(--md-sys-color-error,#f44336);font-size:12px;">Manager not found</div>';
+                resultsEl.style.display = 'block';
+            }
+        }, 300);
+    },
+
+    selectManagerResult(inputId, resultsId, id, name) {
+        const input = document.getElementById(inputId);
+        const resultsEl = document.getElementById(resultsId);
+        if (input) input.value = id;
+        if (resultsEl) { resultsEl.innerHTML = ''; resultsEl.style.display = 'none'; }
     },
 
     connectManagerFromInput() {
