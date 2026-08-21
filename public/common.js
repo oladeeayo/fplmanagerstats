@@ -2152,9 +2152,44 @@ const FPL = {
         this.renderFixtures();
     },
 
+    setFixtureLookahead(n) {
+        this.state.fixtureLookahead = parseInt(n, 10);
+        this.renderFixturesFDRGrid();
+    },
+
     setFixtureStartGW(gw) {
-        this.state.fixtureStartGW = parseInt(gw);
-        this.renderFixtures();
+        this.state.fixtureStartGW = parseInt(gw, 10);
+        this.renderFixturesFDRGrid();
+    },
+
+    sortFixturesByGW(gw) {
+        if (this.state.fixtureSortGW === gw) {
+            this.state.fixtureSortAsc = !this.state.fixtureSortAsc;
+        } else {
+            this.state.fixtureSortGW = gw;
+            this.state.fixtureSortAsc = true;
+        }
+        this.renderFixturesFDRGrid();
+    },
+
+    sortGoalsProjections(key) {
+        if (this.state.goalsSortKey === key) {
+            this.state.goalsSortAsc = !this.state.goalsSortAsc;
+        } else {
+            this.state.goalsSortKey = key;
+            this.state.goalsSortAsc = false;
+        }
+        this.renderProjectionsTab();
+    },
+
+    sortConcededProjections(key) {
+        if (this.state.concededSortKey === key) {
+            this.state.concededSortAsc = !this.state.concededSortAsc;
+        } else {
+            this.state.concededSortKey = key;
+            this.state.concededSortAsc = false;
+        }
+        this.renderProjectionsTab();
     },
 
     renderFixtures() {
@@ -2172,20 +2207,189 @@ const FPL = {
             projections: document.getElementById('fixture-view-btn-projections'),
         };
 
+        const activeView = views.includes(subview) ? subview : 'form';
+        this.state.currentFixtureSubView = activeView;
+
         views.forEach(v => {
             if (viewElements[v]) viewElements[v].style.display = 'none';
-            if (btnElements[v]) btnElements[v].classList.remove('active');
+            if (btnElements[v]) {
+                btnElements[v].style.background = 'transparent';
+                btnElements[v].style.borderBottom = '3px solid transparent';
+                btnElements[v].style.color = 'var(--md-sys-color-on-surface-variant)';
+                btnElements[v].style.opacity = '0.75';
+                btnElements[v].classList.remove('active');
+            }
         });
 
-        const activeView = views.includes(subview) ? subview : 'form';
         if (viewElements[activeView]) viewElements[activeView].style.display = 'block';
-        if (btnElements[activeView]) btnElements[activeView].classList.add('active');
+        if (btnElements[activeView]) {
+            btnElements[activeView].style.background = 'rgba(0, 255, 133, 0.06)';
+            btnElements[activeView].style.borderBottom = '3px solid #00FF85';
+            btnElements[activeView].style.color = '#00FF85';
+            btnElements[activeView].style.opacity = '1';
+            btnElements[activeView].classList.add('active');
+        }
 
         if (activeView === 'form') {
+            this.renderFixturesFDRGrid();
             this.renderTeamFormLeaders();
         } else if (activeView === 'projections') {
             this.renderProjectionsTab();
         }
+    },
+
+    renderFixturesFDRGrid() {
+        const container = document.getElementById('fixture-fdr-matrix-container');
+        if (!container) return;
+
+        const fixtures = this.state.fixtures;
+        const bootstrap = this.state.bootstrapData;
+        if (!fixtures || !bootstrap) {
+            container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--md-sys-color-on-surface-variant);">Loading Fixtures FDR matrix...</div>';
+            return;
+        }
+
+        const lookaheadCount = this.state.fixtureLookahead || 5;
+        const currentGW = bootstrap.events?.find(e => e.is_current)?.id || 1;
+        const startGW = this.state.fixtureStartGW || currentGW;
+        const teams = bootstrap.teams || [];
+
+        let html = `
+            <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;padding:20px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;margin-bottom:16px;">
+                    <div>
+                        <h3 style="font-family:var(--font-mono);font-size:18px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0 0 4px 0;display:flex;align-items:center;gap:8px;">
+                            <span class="material-symbols-outlined" style="color:#00ff85;">grid_view</span>
+                            FIXTURE DIFFICULTY MATRIX (FDR)
+                        </h3>
+                        <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0;">Upcoming match difficulties for all 20 Premier League teams. Click GW headers to sort.</p>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <label style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--md-sys-color-on-surface-variant);">START:</label>
+                            <select id="fixture-gw-select" onchange="FPL.setFixtureStartGW(this.value)" style="padding:6px 10px;border-radius:8px;border:1px solid var(--md-sys-color-outline-variant);background:var(--md-sys-color-surface);color:var(--md-sys-color-on-surface);font-family:var(--font-mono);font-size:12px;font-weight:700;outline:none;">
+        `;
+
+        for (let i = 1; i <= 38; i++) {
+            html += `<option value="${i}" ${i === startGW ? 'selected' : ''}>GW ${i}</option>`;
+        }
+
+        html += `
+                            </select>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:4px;background:var(--md-sys-color-surface);padding:3px;border-radius:8px;border:1px solid var(--md-sys-color-outline-variant);">
+                            <button onclick="FPL.setFixtureLookahead(3)" style="padding:4px 10px;border-radius:6px;border:none;font-family:var(--font-mono);font-size:11px;font-weight:700;cursor:pointer;background:${lookaheadCount === 3 ? '#00FF85' : 'transparent'};color:${lookaheadCount === 3 ? '#0a0f0d' : 'var(--md-sys-color-on-surface-variant)'};">3 GW</button>
+                            <button onclick="FPL.setFixtureLookahead(5)" style="padding:4px 10px;border-radius:6px;border:none;font-family:var(--font-mono);font-size:11px;font-weight:700;cursor:pointer;background:${lookaheadCount === 5 ? '#00FF85' : 'transparent'};color:${lookaheadCount === 5 ? '#0a0f0d' : 'var(--md-sys-color-on-surface-variant)'};">5 GW</button>
+                            <button onclick="FPL.setFixtureLookahead(10)" style="padding:4px 10px;border-radius:6px;border:none;font-family:var(--font-mono);font-size:11px;font-weight:700;cursor:pointer;background:${lookaheadCount === 10 ? '#00FF85' : 'transparent'};color:${lookaheadCount === 10 ? '#0a0f0d' : 'var(--md-sys-color-on-surface-variant)'};">10 GW</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FDR Legend -->
+                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:11px;font-family:var(--font-mono);color:var(--md-sys-color-on-surface-variant);margin-bottom:16px;padding:8px 12px;border-radius:8px;background:rgba(255,255,255,0.02);">
+                    <span style="font-weight:700;color:var(--md-sys-color-on-surface);">FDR Legend:</span>
+                    <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:#00FF85;"></span> Easy (1-2)</span>
+                    <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:#E1E1E1;"></span> Moderate (3)</span>
+                    <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:#FFA600;"></span> Hard (4)</span>
+                    <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:#FF005A;"></span> Very Hard (5)</span>
+                </div>
+        `;
+
+        const targetGWs = [];
+        for (let g = startGW; g < Math.min(39, startGW + lookaheadCount); g++) {
+            targetGWs.push(g);
+        }
+
+        const sortGW = this.state.fixtureSortGW || null;
+        const sortAsc = this.state.fixtureSortAsc !== false;
+
+        const getTeamFDR = (teamId, gw) => {
+            const fx = fixtures.find(f => f.event === gw && (f.team_h === teamId || f.team_a === teamId));
+            if (!fx) return 6;
+            return fx.team_h === teamId ? (fx.team_h_difficulty || fx.difficulty || 3) : (fx.team_a_difficulty || fx.difficulty || 3);
+        };
+
+        let sortedTeams = [...teams];
+        if (sortGW && targetGWs.includes(sortGW)) {
+            sortedTeams.sort((a, b) => {
+                const fdrA = getTeamFDR(a.id, sortGW);
+                const fdrB = getTeamFDR(b.id, sortGW);
+                return sortAsc ? fdrA - fdrB : fdrB - fdrA;
+            });
+        }
+
+        const fdrColors = {
+            1: { bg: '#00FF85', text: '#0a0f0d' },
+            2: { bg: '#37DB59', text: '#0a0f0d' },
+            3: { bg: '#E1E1E1', text: '#0a0f0d' },
+            4: { bg: '#FFA600', text: '#0a0f0d' },
+            5: { bg: '#FF005A', text: '#ffffff' },
+            6: { bg: '#2b3630', text: '#8ba396' }
+        };
+
+        let rowsHTML = sortedTeams.map((team, idx) => {
+            const cellHTMLs = targetGWs.map(gw => {
+                const fx = fixtures.find(f => f.event === gw && (f.team_h === team.id || f.team_a === team.id));
+                if (!fx) {
+                    return `<td style="padding:3px;">
+                        <div style="background:#2b3630;border-radius:6px;padding:4px;display:flex;align-items:center;justify-content:center;height:38px;opacity:0.6;">
+                            <span style="font-size:10px;font-weight:700;font-family:var(--font-mono);color:#8ba396">BLANK</span>
+                        </div>
+                    </td>`;
+                }
+
+                const isHome = fx.team_h === team.id;
+                const oppId = isHome ? fx.team_a : fx.team_h;
+                const oppTeam = teams.find(t => t.id === oppId);
+                const oppShort = oppTeam ? oppTeam.short_name : '???';
+                const venueStr = isHome ? 'H' : 'A';
+                const fdr = isHome ? (fx.team_h_difficulty || fx.difficulty || 3) : (fx.team_a_difficulty || fx.difficulty || 3);
+                const colStyle = fdrColors[fdr] || fdrColors[3];
+                const isSortedCol = sortGW === gw;
+                const highlight = isSortedCol ? `box-shadow:inset 0 0 0 2px rgba(0,255,133,0.5);` : '';
+
+                return `<td style="padding:3px;">
+                    <div style="background:${colStyle.bg};border-radius:6px;padding:4px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;height:38px;${highlight}">
+                        <span style="font-size:11px;font-weight:800;font-family:var(--font-mono);color:${colStyle.text}">${oppShort} (${venueStr})</span>
+                    </div>
+                </td>`;
+            }).join('');
+
+            return `
+                <tr style="border-bottom:1px solid var(--md-sys-color-outline-variant);">
+                    <td style="position:sticky;left:0;z-index:2;background:var(--md-sys-color-surface-container);padding:8px 12px;border-right:1px solid var(--md-sys-color-outline-variant);">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            ${this.teamBadge(team.short_name, 20)}
+                            <span style="font-family:var(--font-mono);font-weight:800;font-size:13px;color:var(--md-sys-color-on-surface);">${this.escapeHTML(team.short_name)}</span>
+                        </div>
+                    </td>
+                    ${cellHTMLs}
+                </tr>
+            `;
+        }).join('');
+
+        html += `
+            <div class="table-scroll-mobile sticky-first-column" tabindex="0" aria-label="Fixtures FDR Matrix Table">
+                <table style="width:100%;border-collapse:collapse;white-space:nowrap;">
+                    <thead>
+                        <tr style="background:rgba(255,255,255,0.03);border-bottom:1px solid var(--md-sys-color-outline-variant);">
+                            <th style="position:sticky;left:0;z-index:3;background:var(--md-sys-color-surface-container);padding:10px 12px;font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-on-surface);font-weight:800;text-align:left;border-right:1px solid var(--md-sys-color-outline-variant);width:100px;">TEAM</th>
+                            ${targetGWs.map(gw => {
+                                const isSorted = sortGW === gw;
+                                const arrow = isSorted ? (sortAsc ? ' ▲' : ' ▼') : '';
+                                const color = isSorted ? '#00FF85' : 'var(--md-sys-color-on-surface)';
+                                return `<th style="padding:8px 6px;text-align:center;font-family:var(--font-mono);font-size:11px;color:${color};font-weight:800;cursor:pointer;user-select:none;transition:color 0.2s;min-width:72px;" onclick="FPL.sortFixturesByGW(${gw})" title="Sort by GW${gw} FDR">GW${gw}${arrow}</th>`;
+                            }).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHTML}
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
+
+        container.innerHTML = html;
     },
 
     setFixtureOddsGW(gw) {
@@ -2768,8 +2972,32 @@ const FPL = {
         const horizon = goalsData.horizon || 6;
         const gwList = Array.from({ length: horizon }, (_, i) => startGW + i);
 
-        // Section 1: Goals Scored Table (Matching Image 1)
-        let goalsTableRows = goalsData.ranked.map((t, idx) => {
+        // Sorting logic for Goals Scored table
+        let sortedGoalsRanked = [...goalsData.ranked];
+        const gKey = self.state.goalsSortKey;
+        const gAsc = self.state.goalsSortAsc !== false;
+
+        if (gKey) {
+            sortedGoalsRanked.sort((a, b) => {
+                let valA, valB;
+                if (gKey === 'team') {
+                    valA = a.team; valB = b.team;
+                    return gAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                } else if (gKey === 'totalXG') {
+                    valA = a.totalXG || 0; valB = b.totalXG || 0;
+                } else if (gKey.startsWith('gw_')) {
+                    const gwNum = parseInt(gKey.replace('gw_', ''), 10);
+                    valA = a.gameweeks?.find(g => g.gw === gwNum)?.xg || 0;
+                    valB = b.gameweeks?.find(g => g.gw === gwNum)?.xg || 0;
+                } else {
+                    valA = 0; valB = 0;
+                }
+                return gAsc ? valA - valB : valB - valA;
+            });
+        }
+
+        // Section 1: Goals Scored Table
+        let goalsTableRows = sortedGoalsRanked.map((t, idx) => {
             const teamObj = self.state.bootstrapData?.teams?.find(team => team.short_name === t.team || team.name === t.team);
             const teamShort = t.team || (teamObj ? teamObj.short_name : '???');
 
@@ -2778,12 +3006,13 @@ const FPL = {
                 if (!gwData) return '<td style="text-align:center;padding:10px;font-size:11px;color:var(--md-sys-color-outline);">BLANK</td>';
 
                 const xg = gwData.xg || 0;
-                // Shading intensity matching teal/cyan palette (#1ba6da)
                 const alpha = Math.min(0.85, Math.max(0.12, (xg - 0.7) / 1.5));
                 const oppStr = self.escapeHTML(gwData.opponent || 'OPP') + (gwData.isHome ? ' (H)' : ' (A)');
+                const isSortedCol = gKey === `gw_${gw}`;
+                const highlight = isSortedCol ? 'box-shadow:inset 0 0 0 2px #00FF85;' : '';
 
                 return `
-                    <td style="background:rgba(27, 166, 218, ${alpha});border:1px solid rgba(255,255,255,0.06);text-align:center;padding:8px 6px;min-width:72px;">
+                    <td style="background:rgba(27, 166, 218, ${alpha});border:1px solid rgba(255,255,255,0.06);text-align:center;padding:8px 6px;min-width:72px;${highlight}">
                         <div style="font-family:var(--font-mono);font-weight:900;font-size:13px;color:#ffffff;line-height:1.1;">${xg.toFixed(2)}</div>
                         <div style="font-size:9px;font-weight:600;color:rgba(255,255,255,0.85);margin-top:3px;font-family:var(--font-mono);">${oppStr}</div>
                     </td>
@@ -2805,8 +3034,32 @@ const FPL = {
             `;
         }).join('');
 
-        // Section 2: Goals Conceded / Clean Sheets Table (Matching Image 2)
-        let concededTableRows = concededData.ranked.map((t, idx) => {
+        // Sorting logic for Goals Conceded table
+        let sortedConcededRanked = [...concededData.ranked];
+        const cKey = self.state.concededSortKey;
+        const cAsc = self.state.concededSortAsc !== false;
+
+        if (cKey) {
+            sortedConcededRanked.sort((a, b) => {
+                let valA, valB;
+                if (cKey === 'team') {
+                    valA = a.team; valB = b.team;
+                    return cAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                } else if (cKey === 'totalCS') {
+                    valA = a.totalCS || a.totalXGA || 0; valB = b.totalCS || b.totalXGA || 0;
+                } else if (cKey.startsWith('gw_')) {
+                    const gwNum = parseInt(cKey.replace('gw_', ''), 10);
+                    valA = a.gameweeks?.find(g => g.gw === gwNum)?.csPct || 0;
+                    valB = b.gameweeks?.find(g => g.gw === gwNum)?.csPct || 0;
+                } else {
+                    valA = 0; valB = 0;
+                }
+                return cAsc ? valA - valB : valB - valA;
+            });
+        }
+
+        // Section 2: Goals Conceded / Clean Sheets Table
+        let concededTableRows = sortedConcededRanked.map((t, idx) => {
             const teamObj = self.state.bootstrapData?.teams?.find(team => team.short_name === t.team || team.name === t.team);
             const teamShort = t.team || (teamObj ? teamObj.short_name : '???');
 
@@ -2815,12 +3068,13 @@ const FPL = {
                 if (!gwData) return '<td style="text-align:center;padding:10px;font-size:11px;color:var(--md-sys-color-outline);">BLANK</td>';
 
                 const csPct = gwData.csPct != null ? gwData.csPct : Math.round(Math.exp(-(gwData.xga || 1.3)) * 100);
-                // Shading intensity matching magenta/pink palette (#e02888)
                 const alpha = Math.min(0.85, Math.max(0.12, csPct / 60));
                 const oppStr = self.escapeHTML(gwData.opponent || 'OPP') + (gwData.isHome ? ' (H)' : ' (A)');
+                const isSortedCol = cKey === `gw_${gw}`;
+                const highlight = isSortedCol ? 'box-shadow:inset 0 0 0 2px #00FF85;' : '';
 
                 return `
-                    <td style="background:rgba(224, 40, 136, ${alpha});border:1px solid rgba(255,255,255,0.06);text-align:center;padding:8px 6px;min-width:72px;">
+                    <td style="background:rgba(224, 40, 136, ${alpha});border:1px solid rgba(255,255,255,0.06);text-align:center;padding:8px 6px;min-width:72px;${highlight}">
                         <div style="font-family:var(--font-mono);font-weight:900;font-size:13px;color:#ffffff;line-height:1.1;">${csPct}%</div>
                         <div style="font-size:9px;font-weight:600;color:rgba(255,255,255,0.85);margin-top:3px;font-family:var(--font-mono);">${oppStr}</div>
                     </td>
@@ -2904,7 +3158,7 @@ const FPL = {
                             <span class="material-symbols-outlined" style="color:#1ba6da;">sports_soccer</span>
                             Which Premier League Teams are expected to score the most in the next six GWs?
                         </h3>
-                        <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0;">Projected expected goals for each team over the next six gameweeks.</p>
+                        <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0;">Projected expected goals for each team over the next six gameweeks. Click headers to sort.</p>
                     </div>
 
                     <div class="table-scroll-mobile sticky-first-column" tabindex="0" aria-label="Goals Scored Projections Table">
@@ -2912,9 +3166,14 @@ const FPL = {
                             <thead>
                                 <tr style="background:rgba(255,255,255,0.03);border-bottom:1px solid var(--md-sys-color-outline-variant);">
                                     <th style="padding:10px 8px;font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-on-surface-variant);font-weight:700;text-align:center;width:40px;">RK</th>
-                                    <th style="position:sticky;left:0;z-index:3;background:var(--md-sys-color-surface-container);padding:10px 12px;font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-on-surface);font-weight:700;text-align:left;border-right:1px solid var(--md-sys-color-outline-variant);width:100px;">TEAM</th>
-                                    <th style="padding:10px 12px;font-family:var(--font-mono);font-size:11px;color:#1ba6da;font-weight:800;text-align:center;background:rgba(27, 166, 218, 0.08);">EXP. GOALS</th>
-                                    ${gwList.map(gw => `<th style="padding:10px 8px;font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-on-surface);font-weight:700;text-align:center;min-width:72px;">GW${gw}</th>`).join('')}
+                                    <th style="position:sticky;left:0;z-index:3;background:var(--md-sys-color-surface-container);padding:10px 12px;font-family:var(--font-mono);font-size:11px;color:${gKey === 'team' ? '#00FF85' : 'var(--md-sys-color-on-surface)'};font-weight:800;text-align:left;border-right:1px solid var(--md-sys-color-outline-variant);width:100px;cursor:pointer;" onclick="FPL.sortGoalsProjections('team')">TEAM${gKey === 'team' ? (gAsc ? ' ▲' : ' ▼') : ''}</th>
+                                    <th style="padding:10px 12px;font-family:var(--font-mono);font-size:11px;color:${gKey === 'totalXG' ? '#00FF85' : '#1ba6da'};font-weight:800;text-align:center;background:rgba(27, 166, 218, 0.08);cursor:pointer;" onclick="FPL.sortGoalsProjections('totalXG')">EXP. GOALS${gKey === 'totalXG' ? (gAsc ? ' ▲' : ' ▼') : ''}</th>
+                                    ${gwList.map(gw => {
+                                        const isSorted = gKey === `gw_${gw}`;
+                                        const arrow = isSorted ? (gAsc ? ' ▲' : ' ▼') : '';
+                                        const color = isSorted ? '#00FF85' : 'var(--md-sys-color-on-surface)';
+                                        return `<th style="padding:10px 8px;font-family:var(--font-mono);font-size:11px;color:${color};font-weight:800;text-align:center;min-width:72px;cursor:pointer;user-select:none;" onclick="FPL.sortGoalsProjections('gw_${gw}')">GW${gw}${arrow}</th>`;
+                                    }).join('')}
                                 </tr>
                             </thead>
                             <tbody>
@@ -2931,7 +3190,7 @@ const FPL = {
                             <span class="material-symbols-outlined" style="color:#e02888;">shield</span>
                             Which Premier League Teams are expected to keep the most Clean Sheets?
                         </h3>
-                        <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0;">Clean Sheet probabilities & expected goals conceded for each team over the next six gameweeks.</p>
+                        <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0;">Clean Sheet probabilities & expected goals conceded for each team over the next six gameweeks. Click headers to sort.</p>
                     </div>
 
                     <div class="table-scroll-mobile sticky-first-column" tabindex="0" aria-label="Goals Conceded Projections Table">
@@ -2939,9 +3198,14 @@ const FPL = {
                             <thead>
                                 <tr style="background:rgba(255,255,255,0.03);border-bottom:1px solid var(--md-sys-color-outline-variant);">
                                     <th style="padding:10px 8px;font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-on-surface-variant);font-weight:700;text-align:center;width:40px;">RK</th>
-                                    <th style="position:sticky;left:0;z-index:3;background:var(--md-sys-color-surface-container);padding:10px 12px;font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-on-surface);font-weight:700;text-align:left;border-right:1px solid var(--md-sys-color-outline-variant);width:100px;">TEAM</th>
-                                    <th style="padding:10px 12px;font-family:var(--font-mono);font-size:11px;color:#e02888;font-weight:800;text-align:center;background:rgba(224, 40, 136, 0.08);">EXP. CS</th>
-                                    ${gwList.map(gw => `<th style="padding:10px 8px;font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-on-surface);font-weight:700;text-align:center;min-width:72px;">GW${gw}</th>`).join('')}
+                                    <th style="position:sticky;left:0;z-index:3;background:var(--md-sys-color-surface-container);padding:10px 12px;font-family:var(--font-mono);font-size:11px;color:${cKey === 'team' ? '#00FF85' : 'var(--md-sys-color-on-surface)'};font-weight:800;text-align:left;border-right:1px solid var(--md-sys-color-outline-variant);width:100px;cursor:pointer;" onclick="FPL.sortConcededProjections('team')">TEAM${cKey === 'team' ? (cAsc ? ' ▲' : ' ▼') : ''}</th>
+                                    <th style="padding:10px 12px;font-family:var(--font-mono);font-size:11px;color:${cKey === 'totalCS' ? '#00FF85' : '#e02888'};font-weight:800;text-align:center;background:rgba(224, 40, 136, 0.08);cursor:pointer;" onclick="FPL.sortConcededProjections('totalCS')">EXP. CS${cKey === 'totalCS' ? (cAsc ? ' ▲' : ' ▼') : ''}</th>
+                                    ${gwList.map(gw => {
+                                        const isSorted = cKey === `gw_${gw}`;
+                                        const arrow = isSorted ? (cAsc ? ' ▲' : ' ▼') : '';
+                                        const color = isSorted ? '#00FF85' : 'var(--md-sys-color-on-surface)';
+                                        return `<th style="padding:10px 8px;font-family:var(--font-mono);font-size:11px;color:${color};font-weight:800;text-align:center;min-width:72px;cursor:pointer;user-select:none;" onclick="FPL.sortConcededProjections('gw_${gw}')">GW${gw}${arrow}</th>`;
+                                    }).join('')}
                                 </tr>
                             </thead>
                             <tbody>

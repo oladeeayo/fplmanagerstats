@@ -769,22 +769,25 @@
 
                 <!-- FIXTURES -->
                 <div id="content-fixtures" class="tab-content">
-                    <!-- Top Fixture Subview Navigation -->
-                    <div class="fixtures-nav-bar">
-                        <div class="fixtures-nav-tabs">
-                            <button id="fixture-view-btn-form" onclick="FPL.switchFixtureSubView('form')" class="fixture-view-btn active">
-                                <span class="material-symbols-outlined">trending_up</span>
-                                Form Leaders
-                            </button>
-                            <button id="fixture-view-btn-projections" onclick="FPL.switchFixtureSubView('projections')" class="fixture-view-btn">
-                                <span class="material-symbols-outlined">analytics</span>
-                                Goal Score & Conceded Projection
-                            </button>
-                        </div>
+                    <!-- Traditional Site Tab Navigation Strip -->
+                    <div class="fixtures-nav-strip" style="display:flex;gap:4px;border-bottom:1px solid var(--md-sys-color-outline-variant);margin-bottom:24px;overflow-x:auto;">
+                        <button id="fixture-view-btn-form" onclick="FPL.switchFixtureSubView('form')" class="fixture-tab-item active" style="display:inline-flex;align-items:center;gap:8px;padding:12px 20px;background:rgba(0,255,133,0.06);border:none;border-bottom:3px solid #00FF85;color:#00FF85;font-family:var(--font-mono);font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.2s;">
+                            <span class="material-symbols-outlined" style="font-size:20px;">calendar_month</span>
+                            Fixtures & Form Leaders
+                        </button>
+                        <button id="fixture-view-btn-projections" onclick="FPL.switchFixtureSubView('projections')" class="fixture-tab-item" style="display:inline-flex;align-items:center;gap:8px;padding:12px 20px;background:transparent;border:none;border-bottom:3px solid transparent;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;opacity:0.75;transition:all 0.2s;">
+                            <span class="material-symbols-outlined" style="font-size:20px;">analytics</span>
+                            Goal Score & Conceded Projection
+                        </button>
                     </div>
 
-                    <!-- SUBVIEW 1: Form Leaders -->
+                    <!-- SUBVIEW 1: Fixtures FDR Matrix & Form Leaders -->
                     <div id="fixture-subview-form" class="fixture-subview-content">
+                        <!-- Part A: Fixtures FDR Grid Matrix -->
+                        <div id="fixture-fdr-matrix-container" style="margin-bottom:32px;">
+                            <div style="padding:40px;text-align:center;color:var(--md-sys-color-on-surface-variant);"><span class="material-symbols-outlined" style="font-size:36px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Loading Fixture FDR matrix...</p></div>
+                        </div>
+                        <!-- Part B: Top 4 Performers per Team -->
                         <div id="fixture-form-leaders-container">
                             <div style="padding:40px;text-align:center;color:var(--md-sys-color-on-surface-variant);"><span class="material-symbols-outlined" style="font-size:36px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Loading team form leaders...</p></div>
                         </div>
