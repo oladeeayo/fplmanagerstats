@@ -3090,6 +3090,9 @@ const FPL = {
         ctx.fillStyle = '#101d33';
         ctx.fill();
 
+        const pillW = 140;
+        const pillX = col1X + col1W - pillW - 14;
+
         ctx.font = '800 12px "Fira Code", monospace';
         ctx.fillStyle = '#38bdf8';
         ctx.textAlign = 'left';
@@ -3098,8 +3101,8 @@ const FPL = {
 
         ctx.font = '800 11px "Fira Code", monospace';
         ctx.fillStyle = '#94a3b8';
-        ctx.textAlign = 'right';
-        ctx.fillText('CAPTAINED', col1X + col1W - 20, col1Y + 21);
+        ctx.textAlign = 'center';
+        ctx.fillText('CAPTAINED', pillX + (pillW / 2), col1Y + 21);
 
         const rowH = 47;
         const renderCaptains = topCaptains.slice(0, 15);
@@ -3150,16 +3153,14 @@ const FPL = {
             const pName = item.name || 'Player';
             ctx.fillText(pName, col1X + 78, rY + (rowH / 2));
 
-            // Full Height Square Block for Stat
+            // Rounded Stat Pill with Generous Top/Bottom Padding & Vertical Spacing
             const itemVal = item.pct ?? item.count ?? 0;
             const ratio = topVal > 0 ? Math.max(0.06, Math.min(1, itemVal / topVal)) : 0.06;
             
-            const pillW = 150;
-            const pillH = rowH - 2;
-            const pillX = col1X + col1W - pillW - 1;
-            const pillY = rY + 1;
+            const pillH = 32;
+            const curPillY = rY + (rowH / 2) - (pillH / 2);
             
-            drawRoundedRect(pillX, pillY, pillW, pillH, 4);
+            drawRoundedRect(pillX, curPillY, pillW, pillH, 8);
             
             if (ratio > 0.6) {
                 ctx.fillStyle = `rgba(2, 132, 199, ${(0.75 + ratio * 0.25).toFixed(2)})`;
@@ -3176,14 +3177,14 @@ const FPL = {
             ctx.lineWidth = 1;
             ctx.stroke();
 
-            ctx.font = '800 15px "Fira Code", monospace';
+            ctx.font = '800 14px "Fira Code", monospace';
             ctx.fillStyle = '#ffffff';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             const mCount = item.count ?? (item.pct != null && totalManagers ? Math.round((item.pct / 100) * totalManagers) : null);
             const pPct = item.pct ?? 0;
             const countTxt = mCount != null ? `${mCount} (${pPct}%)` : `${pPct}%`;
-            ctx.fillText(countTxt, pillX + (pillW / 2), pillY + (pillH / 2));
+            ctx.fillText(countTxt, pillX + (pillW / 2), curPillY + (pillH / 2));
         });
 
         // RIGHT COLUMN: Pitch & Tactical Formation
