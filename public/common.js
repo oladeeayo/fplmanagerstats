@@ -6000,21 +6000,11 @@ const FPL = {
 
     selectLeague(inputId, resultsId, leagueId) {
         this._selectedLeagueId[inputId] = leagueId;
-        const resultsEl = document.getElementById(resultsId);
-        if (resultsEl) {
-            const customInput = document.getElementById(inputId + '-custom-league');
-            if (customInput) customInput.value = '';
-            resultsEl.querySelectorAll('.fpl-league-item').forEach(item => {
-                if (Number(item.dataset.leagueId) === leagueId) {
-                    item.classList.add('fpl-league-selected');
-                    item.style.background = 'rgba(0,255,133,0.2)';
-                    item.style.border = '1px solid rgba(0,255,133,0.3)';
-                } else {
-                    item.classList.remove('fpl-league-selected');
-                    item.style.background = '';
-                    item.style.border = '1px solid transparent';
-                }
-            });
+        if (inputId === 'connect-manager-id') {
+            this.hideDialog('connect-dialog');
+            this.connectManager();
+        } else {
+            this.connectManagerFromInput();
         }
     },
 
@@ -6043,14 +6033,11 @@ const FPL = {
         const val = customInput.value.trim();
         if (!/^\d+$/.test(val) || Number(val) < 1) return;
         this._selectedLeagueId[inputId] = Number(val);
-        customInput.style.borderColor = 'rgba(0,255,133,0.5)';
-        const resultsEl = document.getElementById(resultsId);
-        if (resultsEl) {
-            resultsEl.querySelectorAll('.fpl-league-item').forEach(item => {
-                item.classList.remove('fpl-league-selected');
-                item.style.background = '';
-                item.style.border = '1px solid transparent';
-            });
+        if (inputId === 'connect-manager-id') {
+            this.hideDialog('connect-dialog');
+            this.connectManager();
+        } else {
+            this.connectManagerFromInput();
         }
     },
 
