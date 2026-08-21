@@ -2105,7 +2105,7 @@ const FPL = {
 
             // Bento Grid Card 1: League Name & ID
             const nameEl = document.getElementById('standings-league-name');
-            if (nameEl) nameEl.textContent = data.leagueName || `League ${leagueId}`;
+            if (nameEl) nameEl.textContent = this.decodeHTML(data.leagueName || `League ${leagueId}`);
 
             const badgeEl = document.getElementById('standings-league-id-badge');
             if (badgeEl) badgeEl.textContent = `ID: ${data.leagueId}`;
@@ -2486,7 +2486,7 @@ const FPL = {
             // Mini-League Name Header
             ctx.fillStyle = '#ffffff';
             ctx.font = `bold ${18 * scale}px "Outfit", system-ui, sans-serif`;
-            const leagueNameText = `LEAGUE: ${standingsData.leagueName || ('League ' + standingsData.leagueId)}`;
+            const leagueNameText = `LEAGUE: ${this.decodeHTML(standingsData.leagueName || ('League ' + standingsData.leagueId))}`;
             ctx.fillText(leagueNameText, 25 * scale, 42 * scale);
 
             // Subtitle
@@ -2727,7 +2727,7 @@ const FPL = {
             return;
         }
 
-        const leagueName = standingsData.leagueName || (`League ${standingsData.leagueId || ''}`);
+        const leagueName = this.decodeHTML(standingsData.leagueName || (`League ${standingsData.leagueId || ''}`));
         const currentGW = this.state.bootstrapData?.events?.find(e => e.is_current || e.is_next)?.id || 1;
         const captaincy = standingsData.captaincyCount || [];
         const template = standingsData.leagueTemplate || [];
@@ -2949,7 +2949,7 @@ const FPL = {
 
         ctx.font = '500 12px "Fira Code", monospace';
         ctx.fillStyle = '#94a3b8';
-        ctx.fillText(`Live projections & template XI from FPL Manager Analytics | ${this.escapeHTML(leagueName)} | Updated: ${todayDate}`, 45, 78);
+        ctx.fillText(`Live projections & template XI from FPL Manager Analytics | ${leagueName} | Updated: ${todayDate}`, 45, 78);
 
         // Header Site Badge
         const logoX = width - 190;
@@ -4707,6 +4707,17 @@ const FPL = {
             ? `<img src="${shirt}" alt="" loading="lazy" decoding="async" onerror="this.closest('.tactics-player-shirt').classList.add('is-missing');this.remove();" style="width:100%;height:100%;object-fit:contain;">`
             : '';
         return `${img}<span class="aiteam-shirt-fallback" aria-hidden="true">${fallback}</span>`;
+    },
+
+    decodeHTML(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&#0*39;/g, "'")
+            .replace(/&apos;/g, "'")
+            .replace(/&quot;/g, '"')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>');
     },
 
     starterBadge(player) {

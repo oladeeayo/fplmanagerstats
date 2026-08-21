@@ -14,6 +14,17 @@ const teamStrengthData = require('../teamStrengthData');
 
 const router = express.Router();
 
+function decodeHTMLEntities(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&#0*39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
 // ---- Health Check ----
 router.get('/health', (req, res) => {
   try {
@@ -244,7 +255,7 @@ router.get('/league-standings/:leagueId', heavyEndpointLimiter, async (req, res)
     }
 
     res.json({
-      leagueName: p1.data.league?.name || 'Classic League',
+      leagueName: decodeHTMLEntities(p1?.league?.name || p1?.data?.league?.name) || 'Classic League',
       currentGW,
       standings: enriched
     });
@@ -1424,7 +1435,7 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
     if (results.length === 0) {
       return res.json({
         leagueId: parseInt(leagueId) || 314,
-        leagueName: leagueInfo.name || `Overall Top 50k`,
+        leagueName: decodeHTMLEntities(leagueInfo.name) || `Overall Top 50k`,
         leagueType: 'Public Global',
         page,
         totalPages: 0,
@@ -1575,7 +1586,7 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
 
     return res.json({
       leagueId: parseInt(leagueId),
-      leagueName: leagueInfo.name || `League ${leagueId}`,
+      leagueName: decodeHTMLEntities(leagueInfo.name) || `League ${leagueId}`,
       leagueType: leagueInfo.league_type === 'x' ? 'Classic League' : 'Public Global',
       page,
       totalPages: pagination.has_next ? page + 1 : page,
