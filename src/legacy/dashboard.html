@@ -124,20 +124,20 @@
     <div class="layout">
         <!-- Sidebar -->
         <aside id="sidebar" class="layout-sidebar">
-            <div style="padding:var(--space-lg);border-bottom:1px solid var(--md-sys-color-outline-variant);display:flex;align-items:center;justify-content:space-between;">
+            <div style="padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
                 <div class="topbar-title" style="min-width:0;">
-                    <span class="material-symbols-outlined filled" style="font-size:32px;">sports_soccer</span>
-                    <div class="sidebar-label"><div style="font-size:1.125rem;font-weight:700;">FPL Manager Stats</div><div style="font-size:0.625rem;color:var(--md-sys-color-on-surface-variant);font-weight:400;">Manager Dashboard</div></div>
+                    <span class="material-symbols-outlined filled" style="font-size:28px;">sports_soccer</span>
+                    <div class="sidebar-label"><div style="font-size:1rem;font-weight:700;">FPL Manager Stats</div></div>
                 </div>
-                <button type="button" id="sidebar-collapse-btn" onclick="FPL.toggleSidebarCollapse()" class="btn btn-ghost btn-icon" style="width:32px;height:32px;flex-shrink:0;" aria-label="Toggle sidebar" title="Collapse sidebar">
-                    <span class="material-symbols-outlined" style="font-size:20px;">chevron_left</span>
+                <button type="button" id="sidebar-collapse-btn" onclick="FPL.toggleSidebarCollapse()" class="btn btn-ghost btn-icon" style="width:32px;height:32px;flex-shrink:0;border-radius:10px;" aria-label="Toggle sidebar" title="Collapse sidebar">
+                    <span class="material-symbols-outlined" style="font-size:18px;">chevron_left</span>
                 </button>
-                <button type="button" id="sidebar-mobile-close-btn" class="btn btn-ghost btn-icon" aria-label="Close navigation menu" title="Close navigation menu">
-                    <span class="material-symbols-outlined" style="font-size:20px;">close</span>
+                <button type="button" id="sidebar-mobile-close-btn" class="btn btn-ghost btn-icon" style="border-radius:10px;" aria-label="Close navigation menu" title="Close navigation menu">
+                    <span class="material-symbols-outlined" style="font-size:18px;">close</span>
                 </button>
             </div>
-            <nav style="padding:var(--space-md);flex:1;">
-                <div style="margin-bottom:var(--space-md);">
+            <nav style="flex:1;overflow-y:auto;">
+                <div class="sidebar-section-group">
                     <button type="button" class="sidebar-section-toggle" onclick="this.parentElement.classList.toggle('collapsed')">
                         <span class="material-symbols-outlined sidebar-section-chevron">expand_more</span>
                         Overview
@@ -147,7 +147,7 @@
                         <a href="/league" class="sidebar-nav-item" data-tab="league" onclick="event.preventDefault();FPL.navigateTo('league')"><span class="material-symbols-outlined">leaderboard</span> Standings</a>
                     </div>
                 </div>
-                <div style="margin-bottom:var(--space-md);">
+                <div class="sidebar-section-group">
                     <button type="button" class="sidebar-section-toggle" onclick="this.parentElement.classList.toggle('collapsed')">
                         <span class="material-symbols-outlined sidebar-section-chevron">expand_more</span>
                         Analysis
@@ -159,7 +159,7 @@
                         <a href="/decision-lab" class="sidebar-nav-item" data-tab="decision" onclick="event.preventDefault();FPL.navigateTo('decision')"><span class="material-symbols-outlined">model_training</span> Decision Lab</a>
                     </div>
                 </div>
-                <div style="margin-bottom:var(--space-md);">
+                <div class="sidebar-section-group">
                     <button type="button" class="sidebar-section-toggle" onclick="this.parentElement.classList.toggle('collapsed')">
                         <span class="material-symbols-outlined sidebar-section-chevron">expand_more</span>
                         Planning
@@ -171,7 +171,7 @@
                         <a href="/ownership" class="sidebar-nav-item" data-tab="ownership" onclick="event.preventDefault();FPL.navigateTo('ownership')"><span class="material-symbols-outlined">pie_chart</span> Ownership</a>
                     </div>
                 </div>
-                <div style="margin-bottom:var(--space-md);">
+                <div class="sidebar-section-group">
                     <button type="button" class="sidebar-section-toggle" onclick="this.parentElement.classList.toggle('collapsed')">
                         <span class="material-symbols-outlined sidebar-section-chevron">expand_more</span>
                         Tools
@@ -182,15 +182,14 @@
                         <a href="/team-builder" class="sidebar-nav-item" data-tab="teambuilder" onclick="event.preventDefault();FPL.navigateTo('teambuilder')"><span class="material-symbols-outlined">edit_square</span> Team Builder</a>
                     </div>
                 </div>
-                <div class="divider"></div>
-                <div>
+                <div class="sidebar-section-group">
                     <button type="button" class="sidebar-nav-item sidebar-nav-button" onclick="FPL.showDialog('connect-dialog')"><span class="material-symbols-outlined">link</span> Connect FPL ID</button>
                     <button type="button" class="sidebar-nav-item sidebar-nav-button" onclick="FPL.initHistory()"><span class="material-symbols-outlined">history</span> History</button>
                     <button type="button" class="sidebar-nav-item sidebar-nav-button" onclick="FPL.initSettings()"><span class="material-symbols-outlined">settings</span> Settings</button>
                 </div>
             </nav>
-            <div style="padding:var(--space-md);border-top:1px solid var(--md-sys-color-outline-variant);">
-                <div id="manager-id-display" style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);text-align:center;">No manager connected</div>
+            <div style="padding:10px 14px;">
+                <div id="manager-id-display" style="font-size:0.7rem;color:rgba(255,255,255,0.35);text-align:center;font-family:var(--font-mono);">No manager connected</div>
             </div>
         </aside>
 
