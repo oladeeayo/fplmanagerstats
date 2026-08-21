@@ -80,7 +80,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// ---- Core AI Team Builder ----
+// ---- Core Smart Team optimizer ----
 router.post('/', heavyEndpointLimiter, async (req, res) => {
   const budget = 100;
   const horizon = Math.max(3, Math.min(8, Number(req.body?.horizon) || 8));
@@ -88,7 +88,7 @@ router.post('/', heavyEndpointLimiter, async (req, res) => {
   const sessionId = req.fplSessionId;
 
   try {
-    if (sql) {
+    if (sql && !req.body?.rebuild) {
       const rows = await sql`SELECT * FROM ai_team WHERE session_id = ${sessionId} AND is_locked = TRUE ORDER BY updated_at DESC LIMIT 1`;
       if (rows.length) {
         const row = rows[0];
@@ -359,9 +359,14 @@ router.post('/', heavyEndpointLimiter, async (req, res) => {
             return total + xi.starters.reduce((sum, player) => sum + scoreWeek(player), 0) * (0.9 ** offset);
           }, 0);
         const currentScore = scoreSquadFromGW(currentSquad);
-        const weakLinks = currentSquad
-          .filter(p => p.availability < 60 || (p.weekly?.find(w => w.gameweek === gw)?.xMins || 0) < 45)
-          .sort((a, b) => (a.weekly?.find(w => w.gameweek === gw)?.xPts || 0) - (b.weekly?.find(w => w.gameweek === gw)?.xPts || 0));
+        const remainingScore = player => projectionData.gameweeks
+          .filter(projectedGW => projectedGW >= gw)
+          .reduce((sum, projectedGW, offset) => sum + (Number(player.weekly?.find(w => w.gameweek === projectedGW)?.xPts) || 0) * (0.9 ** offset), 0);
+        const weakLinks = [...currentSquad].sort((a, b) => {
+          const riskA = a.availability < 60 || (a.weekly?.find(w => w.gameweek === gw)?.xMins || 0) < 45 ? 1 : 0;
+          const riskB = b.availability < 60 || (b.weekly?.find(w => w.gameweek === gw)?.xMins || 0) < 45 ? 1 : 0;
+          return riskB - riskA || remainingScore(a) - remainingScore(b);
+        });
         const squadIds = new Set(currentSquad.map(p => p.id));
         const teamCounts = {};
         currentSquad.forEach(p => { teamCounts[p.teamId] = (teamCounts[p.teamId] || 0) + 1; });

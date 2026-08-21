@@ -566,14 +566,15 @@ const FPL = {
         const nextTheme = this.state.theme === 'light' ? 'dark' : 'light';
         this.state.theme = nextTheme;
         document.documentElement.dataset.theme = nextTheme;
+        document.documentElement.classList.toggle('dark', nextTheme === 'dark');
+        localStorage.setItem('theme', nextTheme);
         localStorage.setItem('fplTheme', nextTheme);
         const themeMeta = document.querySelector('meta[name="theme-color"]');
         if (themeMeta) themeMeta.setAttribute('content', nextTheme === 'light' ? '#f7faf8' : '#0f1412');
         document.querySelectorAll('[data-theme-toggle]').forEach((button) => {
-            button.setAttribute('aria-label', nextTheme === 'light' ? 'Switch to dark mode' : 'Switch to light mode');
+            button.setAttribute('aria-label', 'Toggle theme');
             button.setAttribute('title', nextTheme === 'light' ? 'Switch to dark mode' : 'Switch to light mode');
-            const icon = button.querySelector('.material-symbols-outlined');
-            if (icon) icon.textContent = nextTheme === 'light' ? 'dark_mode' : 'light_mode';
+            button.classList.toggle('is-dark', nextTheme === 'dark');
         });
     },
 
@@ -627,7 +628,7 @@ const FPL = {
             if (!data) {
                 const horizon = Number(document.getElementById('aiteam-horizon')?.value) || 5;
                 const strategy = document.getElementById('aiteam-strategy')?.value || 'balanced';
-                data = await this.apiPost(this.API.aiTeam, { horizon, strategy });
+                data = await this.apiPost(this.API.aiTeam, { horizon, strategy, rebuild: force });
                 data = this.normalizeAITeamData(data);
             }
             if (!data) throw new Error('The AI returned an incomplete squad. Rebuild again after the latest FPL data loads.');
@@ -926,39 +927,30 @@ const FPL = {
         // --- Transfer Suggestions ---
         const transferEl = document.getElementById('aiteam-transfer-suggestions');
         if (transferEl) {
-            const suggestions = [];
-            const allSquad = [...lineup.starters, ...lineup.bench];
-            allSquad.forEach(p => {
-                if (!p.weekly || p.weekly.length < 2) return;
-                const next1 = p.weekly[0]?.xPts || 0;
-                const avg = p.weekly.slice(0, Math.min(3, p.weekly.length)).reduce((s, w) => s + (w.xPts || 0), 0) / Math.min(3, p.weekly.length);
-                const fix = p.upcomingFixtures?.[0];
-                if (fix && fix.fdr >= 4 && next1 < avg * 0.6) {
-                    suggestions.push({ player: p, reason: `Hard fixture (FDR ${fix.fdr}) — ${fix.home ? 'vs' : '@'} ${fix.opponent}`, xPtsDrop: avg - next1 });
-                }
-            });
-            suggestions.sort((a, b) => b.xPtsDrop - a.xPtsDrop);
+            const suggestions = (transfers?.plan || [])
+                .filter(plan => plan.transfers?.length)
+                .flatMap(plan => plan.transfers.map(move => ({ ...move, gw: plan.gw, planHit: plan.hit || 0 })))
+                .filter(move => move.gain > 0)
+                .sort((a, b) => b.gain - a.gain);
             if (suggestions.length) {
                 transferEl.innerHTML = `
                     <div style="margin-bottom:16px;">
                         <div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:4px;">Transfer Suggestions</div>
-                        <div style="font-size:11px;color:#8ba396;">Players with tough upcoming fixtures — consider swapping for better value.</div>
+                        <div style="font-size:11px;color:#8ba396;">Planned from the original GW1 squad using legal starting-XI gain across the remaining horizon.</div>
                     </div>
                     ${suggestions.slice(0, 5).map(s => {
-                        const fix = s.player.upcomingFixtures?.[0];
-                        const col = fix ? (fix.fdr <= 2 ? '#00FF85' : fix.fdr <= 3 ? '#FFA726' : '#ff4d4d') : '#8ba396';
                         return `<div class="aiteam-transfer-suggest">
                             <div class="aiteam-transfer-suggest-header">
-                                <h3>${s.player.name} <span class="reason">${s.player.position} \u00B7 ${s.player.teamFull || s.player.team}</span></h3>
-                                <span style="font:600 11px var(--font-mono);color:${col};">${fix ? (fix.home ? 'vs' : '@') + ' ' + fix.opponent : 'BLANK'} (FDR ${fix?.fdr || '?'})</span>
+                                <h3>GW${s.gw}: ${s.out.name} <span class="reason">${s.out.position} \u00B7 ${s.out.teamFull || s.out.team}</span></h3>
+                                <span style="font:600 11px var(--font-mono);color:#00FF85;">+${s.gain.toFixed(1)} XI xPts${s.planHit ? ` \u00B7 -${s.planHit} hit` : ''}</span>
                             </div>
                             <div class="aiteam-transfer-option">
                                 <div class="aiteam-transfer-player out">
-                                    <div><div class="aiteam-transfer-player-name">${s.player.name}</div><div class="aiteam-transfer-player-meta">\u00A3${s.player.cost?.toFixed(1)}m \u00B7 ${sumPlayerXPts(s.player, 1).toFixed(1)} xPts (next GW)</div></div>
+                                    <div><div class="aiteam-transfer-player-name">${s.out.name}</div><div class="aiteam-transfer-player-meta">\u00A3${s.out.cost?.toFixed(1)}m \u00B7 outgoing</div></div>
                                 </div>
                                 <span class="material-symbols-outlined" style="color:#8ba396;font-size:18px;">arrow_forward</span>
-                                <div style="font-size:11px;color:#8ba396;">${s.reason}</div>
-                                <button class="aiteam-transfer-apply" onclick="FPL.suggestAITeamTransfer(${s.player.id})">Find replacement</button>
+                                <div class="aiteam-transfer-player in"><div><div class="aiteam-transfer-player-name">${s.in.name}</div><div class="aiteam-transfer-player-meta">\u00A3${s.in.cost?.toFixed(1)}m \u00B7 ${s.nextGain >= 0 ? '+' : ''}${s.nextGain.toFixed(1)} next GW</div></div></div>
+                                <button class="aiteam-transfer-apply" onclick="FPL.suggestAITeamTransfer(${s.out.id})">Review</button>
                             </div>
                         </div>`;
                     }).join('')}`;
@@ -1015,7 +1007,7 @@ const FPL = {
                         const color = chipColors[c.chip] || '#00FF85';
                         return `<div class="aiteam-chip-card" style="border-color:${color}55;padding:12px;border:1px solid ${color}33;border-radius:6px;background:#141916;">
                             <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><span class="material-symbols-outlined" style="color:${color};font-size:18px;">${chipIcons[c.chip] || 'auto_awesome'}</span><span style="font-weight:700;color:#fff;font-size:13px;">${name}</span></div>
-                            <div style="color:${color};font-weight:700;font-size:14px;">GW ${c.gameweek}</div>
+                            <div style="color:${color};font-weight:700;font-size:14px;">GW ${c.gw ?? c.gameweek}</div>
                             <div style="color:#8ba396;font-size:10px;margin-top:4px;">${c.reason || ''}</div>
                             <div style="margin-top:4px;color:#00FF85;font-size:10px;font-weight:600;">+${(c.expectedGain || 0).toFixed(1)} xPts</div>
                         </div>`;
@@ -2909,7 +2901,7 @@ const FPL = {
         const tier = player.starterTier || 'Unknown role';
         const score = Number(player.starterScore);
         const cls = score >= 75 ? 'is-nailed' : score >= 55 ? 'is-likely' : score >= 35 ? 'is-rotation' : 'is-unknown';
-        return `<span class="tb-starter-badge ${cls}" title="${this.escapeHTML(tier)} (${Number.isFinite(score) ? score : '?'}/100)">${this.escapeHTML(tier)}</span>`;
+        return `<span class="aiteam-starter-badge ${cls}" title="${this.escapeHTML(tier)} (${Number.isFinite(score) ? score : '?'}/100)">${this.escapeHTML(tier)}</span>`;
     },
 
 
@@ -4685,12 +4677,12 @@ const FPL = {
         if (trigger) trigger.setAttribute('aria-expanded', 'false');
     },
 
-    // ==================== AI TEAM REBUILD CONFIRMATION ====================
+    // ==================== AI TEAM MODEL UPDATE ====================
     async confirmAITeamRebuild() {
         const result = await this.confirmDialog({
-            title: 'Rebuild AI Squad?',
-            message: 'This will discard the current AI squad and generate a new one from scratch. This may take a few seconds.',
-            confirmLabel: 'Rebuild',
+            title: 'Update the AI model?',
+            message: 'Re-run squad selection against the latest FPL availability, fixtures and projections. No reset step is required.',
+            confirmLabel: 'Update model',
             cancelLabel: 'Cancel'
         });
         if (result) this.loadAITeam(true);

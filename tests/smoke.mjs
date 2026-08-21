@@ -133,7 +133,7 @@ try {
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       const clippedElements = await page.evaluate(() => {
         const viewportWidth = document.documentElement.clientWidth;
-        const approvedScroller = (element) => element.closest('.table-scroll-mobile, .players-table-wrap, .league-table-wrap, .table-container, .tabs, .bottom-nav, .tactics-pitch, .player-position-filter, .decision-subnav, .tb-player-list, .tb-breakdown-scroll');
+        const approvedScroller = (element) => element.closest('.table-scroll-mobile, .players-table-wrap, .league-table-wrap, .table-container, .tabs, .bottom-nav, .tactics-pitch, .player-position-filter, .decision-subnav');
         return [...document.querySelectorAll('body *')].flatMap((element) => {
           const style = getComputedStyle(element);
           const rect = element.getBoundingClientRect();
@@ -150,7 +150,7 @@ try {
       assert.deepEqual(clippedElements, [], `${route} has clipped visible elements at ${viewport.width}px:\n${clippedElements.join('\n')}`);
 
       const brokenTables = await page.evaluate(() => [...document.querySelectorAll(`#content-${document.querySelector('.tab-content.active')?.id?.replace('content-', '')} table`)].flatMap((table) => {
-        const wrapper = table.closest('.table-scroll-mobile, .players-table-wrap, .league-table-wrap, .table-container, .tb-breakdown-scroll');
+        const wrapper = table.closest('.table-scroll-mobile, .players-table-wrap, .league-table-wrap, .table-container');
         if (table.scrollWidth <= document.documentElement.clientWidth + 1 || wrapper) return [];
         return [table.id || table.className || table.parentElement?.className || 'unwrapped table'];
       }));

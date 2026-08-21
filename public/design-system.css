@@ -2566,6 +2566,12 @@ body.sidebar-open {
     }
 }
 
+.aiteam-starter-badge { display: inline-block; justify-self: start; margin-top: 2px; padding: 1px 5px; border-radius: 7px; font: 700 8px var(--font-mono); letter-spacing: 0.4px; text-transform: uppercase; white-space: nowrap; }
+.aiteam-starter-badge.is-nailed { color: #00ff85; background: rgba(0,255,133,0.12); border: 1px solid rgba(0,255,133,0.4); }
+.aiteam-starter-badge.is-likely { color: #ffd700; background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.35); }
+.aiteam-starter-badge.is-rotation { color: #ffa94d; background: rgba(255,169,77,0.1); border: 1px solid rgba(255,169,77,0.35); }
+.aiteam-starter-badge.is-unknown { color: #ff6b6b; background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.35); }
+
 /* Light mode: shared surface, control, navigation and data-visualization layer. */
 :root[data-theme='light'] {
     color-scheme: light;
@@ -2634,6 +2640,16 @@ body.sidebar-open {
 }
 
 :root[data-theme='light'] body { background: var(--md-sys-color-background); color: var(--md-sys-color-on-surface); }
+:root[data-theme='light'] { --md-sys-color-background: #f4f4f5; --md-sys-color-surface: #ffffff; --md-sys-color-surface-container-lowest: #ffffff; --md-sys-color-surface-container-low: #fafafa; --md-sys-color-surface-container: #f4f4f5; --md-sys-color-surface-container-high: #e4e4e7; --md-sys-color-surface-container-highest: #d4d4d8; --md-sys-color-on-background: #09090b; --md-sys-color-on-surface: #09090b; --md-sys-color-on-surface-variant: #71717b; --md-sys-color-outline: #a1a1aa; --md-sys-color-outline-variant: #e4e4e7; --fpl-text-muted: #71717b; --fpl-border: #e4e4e7; --glass-bg: #ffffff; --glass-border: #e4e4e7; --glass-border-hover: #d4d4d8; --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8); }
+:root[data-theme='light'] .theme-toggle { background: #f4f4f5; border-color: #e4e4e7; color: #18181b; }
+:root[data-theme='light'] .theme-toggle:hover { background: #fafafa; }
+.theme-toggle { position: relative; width: 28px; height: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,.14); border-radius: 8px; background: rgba(255,255,255,.08); color: var(--md-sys-color-on-surface); cursor: pointer; transition: background 150ms ease, color 150ms ease; }
+.theme-toggle:hover { background: rgba(255,255,255,.14); }
+.theme-toggle .material-symbols-outlined { position: absolute; width: 16px; height: 16px; font-size: 16px; transition: transform 150ms ease, opacity 150ms ease; }
+.theme-toggle .theme-sun { transform: rotate(0deg) scale(1); opacity: 1; }
+.theme-toggle .theme-moon { transform: rotate(90deg) scale(0); opacity: 0; }
+.theme-toggle.is-dark .theme-sun { transform: rotate(-90deg) scale(0); opacity: 0; }
+.theme-toggle.is-dark .theme-moon { transform: rotate(0deg) scale(1); opacity: 1; }
 :root[data-theme='light'] ::selection { background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); }
 :root[data-theme='light'] ::-webkit-scrollbar-track { background: var(--md-sys-color-surface-container-low); }
 :root[data-theme='light'] ::-webkit-scrollbar-thumb { background: var(--md-sys-color-outline); }
@@ -2740,6 +2756,22 @@ body.sidebar-open {
     :root[data-theme='light'] .sticky-first-column td:first-child,
     :root[data-theme='light'] .sticky-rank-player th:nth-child(2),
     :root[data-theme='light'] .sticky-rank-player td:nth-child(2) { box-shadow: 4px 0 8px rgba(23, 35, 28, 0.12); }
+}
+
+/* Scrollbars stay functional but never add visible chrome to the app. */
+html * {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+}
+
+html *::-webkit-scrollbar,
+html *::-webkit-scrollbar-track,
+html *::-webkit-scrollbar-thumb {
+    width: 0 !important;
+    height: 0 !important;
+    display: none !important;
+    background: transparent !important;
+    border: 0 !important;
 }
 
 /* Fixtures page - sidebar stacking */
@@ -3560,8 +3592,7 @@ select option {
     justify-content: center;
 }
 .aiteam-card:last-child { border-right: 0; }
-.aiteam-status-card { width: 100%; color: inherit; font-family: inherit; cursor: pointer; }
-.aiteam-status-card:hover { background: rgba(255,255,255,.025); }
+.aiteam-status-card { width: 100%; color: inherit; font-family: inherit; }
 .aiteam-card-icon {
     display: grid;
     place-items: center;
@@ -3598,9 +3629,9 @@ select option {
 }
 .aiteam-pitch-wrapper { overflow: hidden; border: 1px solid #315443; background: #0b2d1c; border-radius: 10px; }
 .aiteam-pitch { width: 100%; min-width: 0; }
-.aiteam-pitch .tactics-pitch { min-height: 520px; padding: 28px 20px; border: 0; border-radius: 0; overflow: visible; }
-.aiteam-pitch .tactics-pitch-row { width: 100%; min-width: 0; margin-inline: auto; gap: clamp(8px, 1.5vw, 20px); padding-inline: 2px; }
-.aiteam-pitch .tactics-player-card { width: min(92px, calc((100% - ((var(--players) - 1) * clamp(8px, 1.5vw, 20px))) / var(--players))); min-width: 0; max-width: 92px; min-height: 114px; justify-content: flex-start; padding: 7px 5px; overflow: hidden; }
+.aiteam-pitch .tactics-pitch { min-height: 350px; aspect-ratio: 2 / 1; gap: clamp(6px, 1.2vw, 14px); padding: 16px clamp(8px, 2vw, 22px); border: 0; border-radius: 0; overflow: visible; background-image: url('/pitch-wide.svg'); background-size: cover; }
+.aiteam-pitch .tactics-pitch-row { width: 100%; min-width: 0; margin-inline: auto; gap: clamp(5px, 1vw, 12px); padding-inline: 2px; }
+.aiteam-pitch .tactics-player-card { width: clamp(54px, 7.2vw, 76px); min-width: 0; max-width: calc((100% - ((var(--players) - 1) * clamp(5px, 1vw, 12px))) / var(--players)); min-height: 98px; justify-content: flex-start; padding: 5px 4px; overflow: hidden; }
 .aiteam-pitch .tactics-player-shirt { position: relative; width: 42px; height: 46px; }
 
 /* Pitch card internal layout */
@@ -3609,7 +3640,7 @@ select option {
 .aiteam-pitch-name.is-captain { color: #FFD700; }
 .aiteam-pitch-cost { font: 700 10px var(--font-mono); color: #B0B0B0; }
 .aiteam-pitch-xpts { font: 700 11px var(--font-mono); color: #00FF85; margin: 1px 0; }
-.aiteam-fixture-block { display: flex; flex-direction: column; gap: 1px; width: 100%; }
+.aiteam-fixture-block { display: flex; width: fit-content; max-width: 100%; flex-direction: column; align-self: center; gap: 1px; }
 .aiteam-fixture-row { display: flex; align-items: center; justify-content: center; gap: 4px; }
 .aiteam-fixture-opp { font: 700 8px var(--font-mono); letter-spacing: -0.02em; }
 .aiteam-fixture-xpts { font: 700 8px var(--font-mono); color: #00FF85; }
@@ -3677,8 +3708,6 @@ select option {
     .aiteam-summary .aiteam-card-data { min-width: 0; }
     .aiteam-summary .aiteam-card-value { font: 700 16px var(--font-mono); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .aiteam-summary .aiteam-card-label { font-size: 10px; color: var(--fpl-text-muted); white-space: nowrap; }
-    .aiteam-summary .aiteam-status-card { cursor: pointer; transition: background var(--transition-fast); }
-    .aiteam-summary .aiteam-status-card:hover { background: rgba(255,255,255,0.03); }
 
     /* --- Formation & Captain inline --- */
     .aiteam-formation-badge { padding: 4px 10px; border: 1px solid rgba(0,255,133,.4); border-radius: 20px; background: rgba(0,255,133,.1); color: #00ff85; font: 800 13px var(--font-mono); }
@@ -3930,9 +3959,9 @@ select option {
     .aiteam-hero-sub { max-width: 100%; overflow-wrap: anywhere; }
     .aiteam-pitch .tactics-player-card { width: calc((100% - ((var(--players) - 1) * 3px)) / var(--players)); min-width: 0; max-width: none; min-height: 96px; padding: 4px 2px; border-radius: 5px; }
     .aiteam-pitch .tactics-player-shirt { width: 28px; height: 31px; }
-    .aiteam-pitch .tactics-pitch { min-height: 380px; padding: 12px 5px; }
+    .aiteam-pitch .tactics-pitch { min-height: 310px; aspect-ratio: 1.45 / 1; padding: 10px 4px; }
     .aiteam-pitch .tactics-pitch-row { gap: 3px; padding-inline: 0; }
-    .aiteam-pitch .aiteam-pitch-name { font-size: 8px; min-height: 20px; overflow: hidden; white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+    .aiteam-pitch .aiteam-pitch-name { font-size: 8px; min-height: 10px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; display: block; }
     .aiteam-pitch .aiteam-pitch-cost { font-size: 8px; }
     .aiteam-pitch .aiteam-pitch-xpts { font-size: 9px; margin: 0; }
     .aiteam-pitch .aiteam-fixture-opp { font-size: 7px; }
@@ -4702,11 +4731,17 @@ div.collapsed > .sidebar-section-toggle .sidebar-section-chevron { transform: ro
 
 /* Keep the portrait artwork proportional on narrow screens after component overrides. */
 @media (max-width: 480px) {
-    .tactics-pitch,
-    .aiteam-pitch .tactics-pitch {
+    .tactics-pitch {
         min-height: clamp(440px, 136vw, 540px);
         background-image: url('/pitch.svg');
         background-size: contain;
+    }
+
+    .aiteam-pitch .tactics-pitch {
+        min-height: 300px;
+        aspect-ratio: 1.3 / 1;
+        background-image: url('/pitch-wide.svg');
+        background-size: cover;
     }
 
     .decision-pitch {

@@ -14,8 +14,10 @@ function mountApp() {
   );
 }
 
-const savedTheme = window.localStorage.getItem('fplTheme');
-document.documentElement.dataset.theme = savedTheme === 'light' ? 'light' : 'dark';
+const savedTheme = window.localStorage.getItem('theme') || window.localStorage.getItem('fplTheme');
+const initialTheme = savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : 'dark';
+document.documentElement.dataset.theme = initialTheme;
+document.documentElement.classList.toggle('dark', initialTheme === 'dark');
 
 mountApp();
 

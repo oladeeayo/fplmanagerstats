@@ -48,10 +48,9 @@ function LegacyDashboardComponent({ activeTab }: LegacyDashboardProps) {
 
     dashboard.querySelectorAll<HTMLElement>('[data-theme-toggle]').forEach((button) => {
       const light = document.documentElement.dataset.theme === 'light';
-      button.setAttribute('aria-label', light ? 'Switch to dark mode' : 'Switch to light mode');
+      button.setAttribute('aria-label', 'Toggle theme');
       button.setAttribute('title', light ? 'Switch to dark mode' : 'Switch to light mode');
-      const icon = button.querySelector('.material-symbols-outlined');
-      if (icon) icon.textContent = light ? 'dark_mode' : 'light_mode';
+      button.classList.toggle('is-dark', !light);
     });
 
     const sidebar = dashboard.querySelector<HTMLElement>('#sidebar');
