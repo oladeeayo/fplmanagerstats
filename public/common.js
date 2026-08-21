@@ -2783,7 +2783,7 @@ const FPL = {
         };
 
         const createJerseyDataUri = (teamShort, isGkp = false) => {
-            const t = PL_TEAMS[teamShort] || { main: '#ef4444', sleeve: '#1e3a8a' };
+            const t = PL_TEAMS[teamShort] || { main: '#3b82f6', sleeve: '#1e3a8a' };
             const mainColor = isGkp ? '#f59e0b' : t.main;
             const sleeveColor = isGkp ? '#d97706' : t.sleeve;
             const strokeColor = isGkp ? '#78350f' : (mainColor === '#ffffff' ? '#000000' : '#ffffff');
@@ -2892,11 +2892,11 @@ const FPL = {
 
         ctx.font = '500 12px "Fira Code", monospace';
         ctx.fillStyle = '#94a3b8';
-        ctx.fillText(`Live manager picks & template XI from FPL Manager Stats | ${this.escapeHTML(leagueName)} | Updated: ${todayDate}`, 45, 78);
+        ctx.fillText(`Live manager picks & template XI from FPL Manager Analytics | ${this.escapeHTML(leagueName)} | Updated: ${todayDate}`, 45, 78);
 
-        const logoX = width - 180;
+        const logoX = width - 190;
         const logoY = 36;
-        const logoW = 135;
+        const logoW = 145;
         const logoH = 42;
         drawRoundedRect(logoX, logoY, logoW, logoH, 8);
         ctx.fillStyle = '#090e17';
@@ -2905,7 +2905,7 @@ const FPL = {
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        ctx.font = '800 16px "Fira Code", monospace';
+        ctx.font = '800 14px "Outfit", system-ui, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = '#ffffff';
@@ -3002,7 +3002,9 @@ const FPL = {
             ctx.fillStyle = '#38bdf8';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            const countTxt = item.pct != null ? `${item.count} (${item.pct}%)` : `${item.count} mgrs`;
+            const countTxt = (item.eventPoints != null || item.points != null)
+                ? `${item.eventPoints ?? item.points} pts`
+                : (item.pct != null ? `${item.count} (${item.pct}%)` : `${item.count} mgrs`);
             ctx.fillText(countTxt, pillX + (pillW / 2), pillY + (pillH / 2));
         });
 
@@ -3085,8 +3087,10 @@ const FPL = {
 
             ctx.font = '800 10px "Fira Code", monospace';
             ctx.fillStyle = '#047857';
-            const countStr = player.count != null ? `${player.count} (${player.ownershipPct || 0}%)` : `${player.ownershipPct || 0}%`;
-            ctx.fillText(countStr, x, cardY + 29);
+            const statStr = (player.eventPoints != null || player.points != null)
+                ? `${player.eventPoints ?? player.points} pts`
+                : (player.count != null ? `${player.count} (${player.ownershipPct || 0}%)` : `${player.ownershipPct || 0}%`);
+            ctx.fillText(statStr, x, cardY + 29);
         };
 
         const drawPlayerRow = (players, y, isGkp = false) => {
@@ -3131,15 +3135,27 @@ const FPL = {
         const footerY = height - 20;
         ctx.font = '500 12px "Fira Code", monospace';
         ctx.fillStyle = '#94a3b8';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('View and edit mini-league stats & get detailed breakdown for your team at fplmanagerstats.com', width / 2, footerY);
+
+        const footPart1 = 'View and edit mini-league stats & get detailed breakdown for your team at ';
+        const footPart2 = 'fplmanager.xyz';
+        const fullFootWidth = ctx.measureText(footPart1 + footPart2).width;
+        const startFootX = (width / 2) - (fullFootWidth / 2);
+
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText(footPart1, startFootX, footerY);
+
+        const part1W = ctx.measureText(footPart1).width;
+        ctx.fillStyle = '#ff6b00';
+        ctx.font = '800 12px "Fira Code", monospace';
+        ctx.fillText(footPart2, startFootX + part1W, footerY);
 
         const link = document.createElement('a');
         link.download = `league-${standingsData.leagueId || 'stats'}-captains-template-gw${currentGW}.png`;
         link.href = canvas.toDataURL('image/png');
         link.click();
     },
+
     showManagerDetail(managerId, managerName, teamName, rank, eventTotal, total, rankDiff, diffCount) {
         const bodyEl = document.getElementById('manager-detail-body');
         if (!bodyEl) return;
