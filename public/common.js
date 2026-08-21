@@ -2155,6 +2155,8 @@ const FPL = {
                 const borderTier = m.rank === 1 ? 'fdr-1' : m.rank === 2 ? 'fdr-2' : m.rank === 3 ? 'fdr-3' : m.rank === 4 ? 'fdr-4' : 'fdr-5';
                 const teamDisplayName = m.entryName || m.managerName || 'Team';
                 const managerIdArg = m.managerId ? m.managerId : 'null';
+                const xGWPtsVal = m.xGWPts != null ? Number(m.xGWPts).toFixed(1) : '--';
+                const captainDisp = m.captainName || '--';
 
                 return `<tr class="data-row" style="border-bottom:1px solid rgba(255,255,255,0.05);transition:background 0.2s;${rowBg}cursor:pointer;" onclick="FPL.showManagerDetail(${managerIdArg}, '${this.escapeHTML(m.managerName || '').replace(/'/g, "\\'")}', '${this.escapeHTML(m.entryName || '').replace(/'/g, "\\'")}', ${m.rank}, ${m.eventTotal}, ${m.total}, ${m.rankDiff}, ${m.diffCount})" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='${isEven ? 'rgba(255,255,255,0.03)' : 'transparent'}'" title="Click to view manager details">
                     <td style="padding:4px 6px;position:relative;font-weight:700;color:var(--md-sys-color-on-surface);width:36px;background:${isEven ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.05)'};">
@@ -2165,7 +2167,9 @@ const FPL = {
                         <div style="font-weight:700;color:var(--md-sys-color-on-surface);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(teamDisplayName)}</div>
                     </td>
                     <td style="padding:4px 6px;text-align:center;color:var(--md-sys-color-on-surface);font-weight:600;">${m.eventTotal}</td>
+                    <td class="mono" style="padding:4px 6px;text-align:center;color:#00FF85;font-weight:700;">${xGWPtsVal}</td>
                     <td class="mono" style="padding:4px 6px;text-align:center;color:var(--fdr-1);font-weight:800;">${this.formatNumber(m.total)}</td>
+                    <td class="desktop-only" style="padding:4px 6px;text-align:center;font-size:11px;color:var(--md-sys-color-on-surface);font-weight:600;">${this.escapeHTML(captainDisp)}</td>
                     <td style="padding:4px 6px;text-align:center;">${diffArrow}</td>
                     <td style="padding:4px 6px;text-align:center;">
                         <span class="mono" style="background:var(--md-sys-color-surface-variant);color:var(--md-sys-color-on-surface);font-size:10px;padding:2px 6px;border-radius:3px;font-weight:700;display:inline-block;">${this.formatNumber(m.diffCount)}</span>
@@ -2174,9 +2178,11 @@ const FPL = {
             }).join('');
 
             this.renderStandingsPagination(data);
+            this.renderLeagueTemplatePitch(data);
+            this.renderCaptaincyCount(data);
         } catch (err) {
             console.error('League standings error:', err);
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:var(--space-lg);color:var(--md-sys-color-error);">Failed to load standings: ${err.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:var(--space-lg);color:var(--md-sys-color-error);">Failed to load standings: ${err.message}</td></tr>`;
         }
     },
 
@@ -2220,6 +2226,318 @@ const FPL = {
         if (p < 1 || p > totalPages) return;
         this.state.standingsPage = p;
         this.renderLeague();
+    },
+
+    renderLeagueTemplatePitch(data) {
+        const container = document.getElementById('league-template-pitch');
+        if (!container) return;
+        
+        const template = data.leagueTemplate || [];
+        if (template.length === 0) {
+            container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--md-sys-color-on-surface-variant);">No template squad available for this league.</div>`;
+            return;
+        }
+
+        this.state.currentLeagueTemplate = template;
+
+        const gkps = template.filter(p => p.posType === 1);
+        const defs = template.filter(p => p.posType === 2);
+        const mids = template.filter(p => p.posType === 3);
+        const fwds = template.filter(p => p.posType === 4);
+
+        const startingGkp = gkps.slice(0, 1);
+        const benchGkp = gkps.slice(1, 2);
+        
+        const startingDef = defs.slice(0, 4);
+        const benchDef = defs.slice(4, 5);
+
+        const startingMid = mids.slice(0, 4);
+        const benchMid = mids.slice(4, 5);
+
+        const startingFwd = fwds.slice(0, 2);
+        const benchFwd = fwds.slice(2, 3);
+
+        const benchPlayers = [...benchGkp, ...benchDef, ...benchMid, ...benchFwd];
+
+        const renderPlayerBadge = (p, isBench = false) => {
+            const photoUrl = p.code ? `https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png` : '';
+            return `<div class="template-player-badge" onclick="FPL.showTemplatePlayerOwners(${p.id})" style="display:flex;flex-direction:column;align-items:center;cursor:pointer;width:68px;transition:transform 0.15s;" onmouseover="this.style.transform='scale(1.06)'" onmouseout="this.style.transform='scale(1)'" title="Click to view managers who own ${this.escapeHTML(p.name)}">
+                <div style="position:relative;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.08);border:1.5px solid ${isBench ? 'rgba(255,255,255,0.2)' : 'var(--fdr-1)'};overflow:hidden;display:flex;align-items:center;justify-content:center;">
+                    <img src="${photoUrl}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2244%22 height=%2244%22 viewBox=%220 0 24 24%22 fill=%22%23777%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E'" style="width:100%;height:100%;object-fit:cover;object-position:top;" alt="${p.name}">
+                </div>
+                <div style="margin-top:3px;background:rgba(0,0,0,0.85);border:1px solid rgba(255,255,255,0.1);border-radius:4px;padding:1px 4px;text-align:center;width:100%;">
+                    <div style="font-weight:700;font-size:10px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(p.name)}</div>
+                    <div class="mono" style="font-size:9px;color:var(--fdr-1);font-weight:800;">${p.ownershipPct}%</div>
+                </div>
+            </div>`;
+        };
+
+        const renderRow = (players) => `<div style="display:flex;justify-content:space-around;align-items:center;width:100%;">
+            ${players.map(p => renderPlayerBadge(p, false)).join('')}
+        </div>`;
+
+        container.innerHTML = `
+            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:120px;height:120px;border:1px solid rgba(0,255,133,0.12);border-radius:50%;pointer-events:none;"></div>
+            <div style="position:absolute;top:0;left:0;right:0;bottom:0;border:1px dashed rgba(0,255,133,0.1);pointer-events:none;margin:8px;border-radius:8px;"></div>
+            
+            ${renderRow(startingFwd)}
+            ${renderRow(startingMid)}
+            ${renderRow(startingDef)}
+            ${renderRow(startingGkp)}
+
+            <div style="background:rgba(0,0,0,0.6);border-top:1px solid rgba(0,255,133,0.2);padding:8px 4px;margin-top:6px;border-radius:8px;display:flex;flex-direction:column;gap:4px;">
+                <div style="font-size:9px;font-family:var(--font-mono);color:var(--md-sys-color-on-surface-variant);font-weight:700;letter-spacing:0.05em;text-align:center;">BENCH SQUAD</div>
+                <div style="display:flex;justify-content:space-around;align-items:center;">
+                    ${benchPlayers.map(p => renderPlayerBadge(p, true)).join('')}
+                </div>
+            </div>
+        `;
+    },
+
+    renderCaptaincyCount(data) {
+        const container = document.getElementById('league-captaincy-container');
+        if (!container) return;
+        
+        const captaincy = data.captaincyCount || [];
+        if (captaincy.length === 0) {
+            container.innerHTML = `<div style="text-align:center;padding:30px;color:var(--md-sys-color-on-surface-variant);">No captaincy breakdown available.</div>`;
+            return;
+        }
+
+        container.innerHTML = captaincy.map((item) => {
+            const photoUrl = item.code ? `https://resources.premierleague.com/premierleague/photos/players/110x140/p${item.code}.png` : '';
+            return `<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:12px;">
+                <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.08);overflow:hidden;flex-shrink:0;border:1px solid var(--fdr-1);">
+                    <img src="${photoUrl}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2236%22 height=%2236%22 viewBox=%220 0 24 24%22 fill=%22%23777%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E'" style="width:100%;height:100%;object-fit:cover;object-position:top;" alt="${item.name}">
+                </div>
+                <div style="flex:1;min-width:0;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                        <div style="font-weight:700;font-size:12px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(item.name)} <span style="font-size:10px;color:var(--md-sys-color-on-surface-variant);font-weight:400;">(${item.team})</span></div>
+                        <div class="mono" style="font-size:11px;font-weight:800;color:var(--fdr-1);">${item.count} mgrs <span style="color:var(--md-sys-color-on-surface-variant);font-weight:400;">(${item.pct}%)</span></div>
+                    </div>
+                    <div style="width:100%;height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;">
+                        <div style="width:${item.pct}%;height:100%;background:linear-gradient(90deg, #00FF85 0%, #00CC6A 100%);border-radius:2px;"></div>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    },
+
+    showTemplatePlayerOwners(playerId) {
+        const template = this.state.currentLeagueTemplate || [];
+        const player = template.find(p => p.id === playerId);
+        if (!player) return;
+
+        const titleEl = document.getElementById('template-player-owners-title');
+        if (titleEl) titleEl.textContent = `${player.name} (${player.team} - ${player.pos})`;
+
+        const subEl = document.getElementById('template-player-owners-sub');
+        if (subEl) subEl.textContent = `Owned by ${player.ownershipPct}% of league managers (${player.count}/${(player.managersWith.length + player.managersWithout.length)})`;
+
+        const bodyEl = document.getElementById('template-player-owners-body');
+        if (!bodyEl) return;
+
+        const renderManagerRow = (m, hasPlayer) => `
+            <div style="padding:8px 12px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;font-size:12px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span class="material-symbols-outlined" style="font-size:16px;color:${hasPlayer ? '#00FF85' : '#ff5252'};">${hasPlayer ? 'check_circle' : 'cancel'}</span>
+                    <div>
+                        <strong style="color:#fff;">${this.escapeHTML(m.entryName)}</strong>
+                        <span style="color:var(--md-sys-color-on-surface-variant);margin-left:6px;">(${this.escapeHTML(m.managerName)})</span>
+                    </div>
+                </div>
+            </div>`;
+
+        bodyEl.innerHTML = `
+            <div style="margin-bottom:20px;">
+                <h4 style="font-family:var(--font-mono);font-size:13px;color:#00FF85;margin:0 0 10px 0;display:flex;align-items:center;gap:6px;">
+                    <span class="material-symbols-outlined" style="font-size:18px;">check</span> MANAGERS WITH PLAYER (${player.managersWith.length})
+                </h4>
+                ${player.managersWith.length ? player.managersWith.map(m => renderManagerRow(m, true)).join('') : '<div style="color:var(--md-sys-color-on-surface-variant);font-size:12px;">No managers own this player.</div>'}
+            </div>
+            <div>
+                <h4 style="font-family:var(--font-mono);font-size:13px;color:#ff5252;margin:0 0 10px 0;display:flex;align-items:center;gap:6px;">
+                    <span class="material-symbols-outlined" style="font-size:18px;">close</span> MANAGERS WITHOUT PLAYER (${player.managersWithout.length})
+                </h4>
+                ${player.managersWithout.length ? player.managersWithout.map(m => renderManagerRow(m, false)).join('') : '<div style="color:var(--md-sys-color-on-surface-variant);font-size:12px;">All managers own this player.</div>'}
+            </div>
+        `;
+
+        this.showDialog('template-player-owners-dialog');
+    },
+
+    openExportLeagueModal() {
+        this.showDialog('export-league-dialog');
+    },
+
+    downloadLeaguePNG() {
+        const standingsData = this.state.standingsData;
+        if (!standingsData || !standingsData.managers) {
+            alert('No standings data available to export.');
+            return;
+        }
+
+        const incRank = document.getElementById('export-col-rank')?.checked ?? true;
+        const incTeam = document.getElementById('export-col-team')?.checked ?? true;
+        const incGW = document.getElementById('export-col-gwpts')?.checked ?? true;
+        const incXGW = document.getElementById('export-col-xgwpts')?.checked ?? true;
+        const incTotal = document.getElementById('export-col-total')?.checked ?? true;
+        const incCap = document.getElementById('export-col-captain')?.checked ?? true;
+        const incDiff = document.getElementById('export-col-diff')?.checked ?? true;
+
+        const maxCount = parseInt(document.getElementById('export-managers-count')?.value || 50);
+        const managers = standingsData.managers.slice(0, maxCount);
+
+        const scale = 2;
+        const rowHeight = 36 * scale;
+        const headerHeight = 90 * scale;
+        const footerHeight = 60 * scale;
+
+        const cols = [];
+        if (incRank) cols.push({ id: 'rank', label: 'RANK', width: 65 * scale, align: 'left' });
+        if (incTeam) cols.push({ id: 'team', label: 'TEAM & MANAGER', width: 220 * scale, align: 'left' });
+        if (incGW) cols.push({ id: 'gw', label: 'GW PTS', width: 85 * scale, align: 'center' });
+        if (incXGW) cols.push({ id: 'xgw', label: 'xGW-PTS', width: 95 * scale, align: 'center' });
+        if (incTotal) cols.push({ id: 'total', label: 'TOTAL PTS', width: 105 * scale, align: 'center' });
+        if (incCap) cols.push({ id: 'captain', label: 'GW CAPTAIN', width: 130 * scale, align: 'left' });
+        if (incDiff) cols.push({ id: 'diff', label: 'RANK DIFF', width: 90 * scale, align: 'center' });
+
+        const tableWidth = cols.reduce((sum, c) => sum + c.width, 0) + (40 * scale);
+        const tableHeight = headerHeight + (managers.length * rowHeight) + footerHeight;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = tableWidth;
+        canvas.height = tableHeight;
+        const ctx = canvas.getContext('2d');
+
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, tableHeight);
+        bgGrad.addColorStop(0, '#09120c');
+        bgGrad.addColorStop(1, '#0f1f16');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, tableWidth, tableHeight);
+
+        ctx.strokeStyle = 'rgba(0, 255, 133, 0.3)';
+        ctx.lineWidth = 2 * scale;
+        ctx.strokeRect(10 * scale, 10 * scale, tableWidth - (20 * scale), tableHeight - (20 * scale));
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${16 * scale}px "Outfit", sans-serif`;
+        ctx.fillText(standingsData.leagueName || 'League Standings', 25 * scale, 36 * scale);
+
+        ctx.fillStyle = '#00FF85';
+        ctx.font = `bold ${11 * scale}px "Fira Code", monospace`;
+        ctx.fillText(`TOP ${managers.length} STANDINGS • FPL MANAGER STATS`, 25 * scale, 56 * scale);
+
+        let startY = headerHeight;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+        ctx.fillRect(20 * scale, startY - (18 * scale), tableWidth - (40 * scale), 24 * scale);
+
+        ctx.fillStyle = '#8ba396';
+        ctx.font = `bold ${10 * scale}px "Fira Code", monospace`;
+
+        let currentX = 25 * scale;
+        cols.forEach(col => {
+            if (col.align === 'center') {
+                ctx.textAlign = 'center';
+                ctx.fillText(col.label, currentX + (col.width / 2), startY - (4 * scale));
+            } else {
+                ctx.textAlign = 'left';
+                ctx.fillText(col.label, currentX, startY - (4 * scale));
+            }
+            currentX += col.width;
+        });
+
+        managers.forEach((m, idx) => {
+            const y = startY + (idx * rowHeight);
+            
+            if (idx % 2 === 1) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+                ctx.fillRect(20 * scale, y, tableWidth - (40 * scale), rowHeight);
+            }
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1 * scale;
+            ctx.beginPath();
+            ctx.moveTo(20 * scale, y + rowHeight);
+            ctx.lineTo(tableWidth - (20 * scale), y + rowHeight);
+            ctx.stroke();
+
+            let x = 25 * scale;
+            cols.forEach(col => {
+                ctx.font = `11px "Outfit", sans-serif`;
+                if (col.id === 'rank') {
+                    ctx.textAlign = 'left';
+                    ctx.fillStyle = '#00FF85';
+                    ctx.font = `bold ${12 * scale}px "Fira Code", monospace`;
+                    ctx.fillText(`${m.rank}`, x, y + (22 * scale));
+                } else if (col.id === 'team') {
+                    ctx.textAlign = 'left';
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = `bold ${11 * scale}px "Outfit", sans-serif`;
+                    const titleText = `${m.entryName} (${m.managerName})`;
+                    const truncated = titleText.length > 26 ? titleText.substring(0, 24) + '...' : titleText;
+                    ctx.fillText(truncated, x, y + (22 * scale));
+                } else if (col.id === 'gw') {
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = `bold ${11 * scale}px "Fira Code", monospace`;
+                    ctx.fillText(`${m.eventTotal}`, x + (col.width / 2), y + (22 * scale));
+                } else if (col.id === 'xgw') {
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = '#00FF85';
+                    ctx.font = `bold ${11 * scale}px "Fira Code", monospace`;
+                    const xval = m.xGWPts != null ? Number(m.xGWPts).toFixed(1) : '--';
+                    ctx.fillText(`${xval}`, x + (col.width / 2), y + (22 * scale));
+                } else if (col.id === 'total') {
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = '#00FF85';
+                    ctx.font = `bold ${12 * scale}px "Fira Code", monospace`;
+                    ctx.fillText(`${m.total}`, x + (col.width / 2), y + (22 * scale));
+                } else if (col.id === 'captain') {
+                    ctx.textAlign = 'left';
+                    ctx.fillStyle = '#d0d8d3';
+                    ctx.font = `11px "Outfit", sans-serif`;
+                    ctx.fillText(`${m.captainName || '--'}`, x, y + (22 * scale));
+                } else if (col.id === 'diff') {
+                    ctx.textAlign = 'center';
+                    ctx.font = `bold ${11 * scale}px "Fira Code", monospace`;
+                    if (m.rankDiff > 0) {
+                        ctx.fillStyle = '#00FF85';
+                        ctx.fillText(`+${m.rankDiff}`, x + (col.width / 2), y + (22 * scale));
+                    } else if (m.rankDiff < 0) {
+                        ctx.fillStyle = '#ff5252';
+                        ctx.fillText(`${m.rankDiff}`, x + (col.width / 2), y + (22 * scale));
+                    } else {
+                        ctx.fillStyle = '#8ba396';
+                        ctx.fillText(`0`, x + (col.width / 2), y + (22 * scale));
+                    }
+                }
+                x += col.width;
+            });
+        });
+
+        const footerY = tableHeight - (24 * scale);
+        ctx.textAlign = 'center';
+        
+        ctx.fillStyle = '#00FF85';
+        ctx.beginPath();
+        ctx.arc((tableWidth / 2) - (80 * scale), footerY - (4 * scale), 4 * scale, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${12 * scale}px "Fira Code", monospace`;
+        ctx.fillText('fplmanager.xyz', tableWidth / 2, footerY);
+
+        ctx.fillStyle = '#8ba396';
+        ctx.font = `10px "Fira Code", monospace`;
+        ctx.fillText('• FPL MANAGER STATS ANALYTICS', (tableWidth / 2) + (100 * scale), footerY);
+
+        const link = document.createElement('a');
+        link.download = `league-${standingsData.leagueId}-standings-top${managers.length}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+
+        this.hideDialog('export-league-dialog');
     },
 
     showManagerDetail(managerId, managerName, teamName, rank, eventTotal, total, rankDiff, diffCount) {

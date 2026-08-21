@@ -1381,7 +1381,10 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     
-    const data = await getCachedApiData(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/?page_standings=${page}&page_new_entries=${page}`);
+    const [data, bootstrap] = await Promise.all([
+      getCachedApiData(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/?page_standings=${page}&page_new_entries=${page}`),
+      getCachedApiData(BOOTSTRAP_URL).catch(() => null)
+    ]);
 
     const leagueInfo = data.league || {};
     const standingsData = data.standings || {};
@@ -1413,20 +1416,146 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
         totalEntries: 0,
         hasMore: false,
         noData: true,
-        managers: []
+        managers: [],
+        leagueTemplate: [],
+        captaincyCount: []
       });
     }
 
-    const managers = results.map((entry, index) => ({
-      rank: entry.rank || ((page - 1) * 50) + index + 1,
-      managerName: entry.player_name || [entry.player_first_name, entry.player_last_name].filter(Boolean).join(' '),
-      entryName: entry.entry_name,
-      managerId: entry.entry || null,
-      eventTotal: entry.event_total || 0,
-      total: entry.total || 0,
-      rankDiff: entry.rank ? (entry.last_rank || entry.rank) - entry.rank : 0,
-      diffCount: Math.max(0, leaderTotal - (entry.total || 0))
-    }));
+    const elements = bootstrap?.elements || [];
+    const teams = bootstrap?.teams || [];
+    const activeEvent = bootstrap?.events?.find(e => e.is_current) || bootstrap?.events?.find(e => e.is_next) || bootstrap?.events?.[0];
+    const currentGW = activeEvent?.id || 1;
+    const getTeam = id => teams.find(t => t.id === id);
+
+    const elementMap = {};
+    elements.forEach(p => {
+      const xP = parseFloat(p.ep_next) || (parseFloat(p.form || 0) * 0.8 + parseFloat(p.points_per_game || 0) * 0.2);
+      elementMap[p.id] = {
+        id: p.id,
+        code: p.code,
+        webName: p.web_name,
+        fullName: `${p.first_name} ${p.second_name}`,
+        team: getTeam(p.team)?.short_name || 'FPL',
+        pos: p.element_type,
+        xP: Math.max(0, xP)
+      };
+    });
+
+    const managerEntries = results.slice(0, 50);
+    const picksResults = await Promise.all(
+      managerEntries.map(e => e.entry ? getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/event/${currentGW}/picks/`).catch(() => null) : Promise.resolve(null))
+    );
+
+    const playerCounts = {};
+    const captainCounts = {};
+
+    const managers = managerEntries.map((entry, index) => {
+      const mgrName = entry.player_name || [entry.player_first_name, entry.player_last_name].filter(Boolean).join(' ');
+      const entName = entry.entry_name || 'Team';
+      const mId = entry.entry || null;
+
+      const picksData = picksResults[index];
+      let xGWPts = null;
+      let captainName = '--';
+
+      if (picksData && Array.isArray(picksData.picks) && picksData.picks.length > 0) {
+        const activeChip = picksData.active_chip;
+        const capPick = picksData.picks.find(p => p.is_captain) || picksData.picks.find(p => p.is_vice_captain) || picksData.picks[0];
+        
+        if (capPick && elementMap[capPick.element]) {
+          const capEl = elementMap[capPick.element];
+          captainName = `${capEl.webName} ${activeChip === '3xc' ? '(TC)' : '(C)'}`;
+
+          captainCounts[capPick.element] = captainCounts[capPick.element] || { element: capPick.element, count: 0 };
+          captainCounts[capPick.element].count++;
+        }
+
+        let totalXP = 0;
+        picksData.picks.forEach(p => {
+          const isStarting = p.position <= 11 || activeChip === 'bboost';
+          const multiplier = p.is_captain ? (activeChip === '3xc' ? 3 : 2) : (isStarting ? 1 : 0);
+          const elObj = elementMap[p.element];
+          if (elObj && multiplier > 0) {
+            totalXP += elObj.xP * multiplier;
+          }
+
+          playerCounts[p.element] = playerCounts[p.element] || { element: p.element, count: 0, managersWith: [] };
+          playerCounts[p.element].count++;
+          playerCounts[p.element].managersWith.push({ managerId: mId, managerName: mgrName, entryName: entName });
+        });
+
+        xGWPts = Math.round(totalXP * 10) / 10;
+      }
+
+      return {
+        rank: entry.rank || ((page - 1) * 50) + index + 1,
+        managerName: mgrName,
+        entryName: entName,
+        managerId: mId,
+        eventTotal: entry.event_total || 0,
+        total: entry.total || 0,
+        rankDiff: entry.rank ? (entry.last_rank || entry.rank) - entry.rank : 0,
+        diffCount: Math.max(0, leaderTotal - (entry.total || 0)),
+        xGWPts,
+        captainName
+      };
+    });
+
+    const totalManagersOnPage = managers.length || 1;
+    const allManagerSummaries = managers.map(m => ({ managerId: m.managerId, managerName: m.managerName, entryName: m.entryName }));
+
+    // Build 15-player League Template (2 GKP, 5 DEF, 5 MID, 3 FWD)
+    const getPosStr = pos => pos === 1 ? 'GKP' : pos === 2 ? 'DEF' : pos === 3 ? 'MID' : 'FWD';
+    const playersByPosition = { 1: [], 2: [], 3: [], 4: [] };
+
+    Object.values(playerCounts).forEach(item => {
+      const elObj = elementMap[item.element];
+      if (!elObj) return;
+
+      const withSet = new Set(item.managersWith.map(m => m.managerId));
+      const managersWithout = allManagerSummaries.filter(m => !withSet.has(m.managerId));
+
+      playersByPosition[elObj.pos].push({
+        id: elObj.id,
+        code: elObj.code,
+        name: elObj.webName,
+        fullName: elObj.fullName,
+        team: elObj.team,
+        pos: getPosStr(elObj.pos),
+        posType: elObj.pos,
+        count: item.count,
+        ownershipPct: Math.round((item.count / totalManagersOnPage) * 100),
+        managersWith: item.managersWith,
+        managersWithout
+      });
+    });
+
+    Object.keys(playersByPosition).forEach(posKey => {
+      playersByPosition[posKey].sort((a, b) => b.count - a.count);
+    });
+
+    const leagueTemplate = [
+      ...playersByPosition[1].slice(0, 2),
+      ...playersByPosition[2].slice(0, 5),
+      ...playersByPosition[3].slice(0, 5),
+      ...playersByPosition[4].slice(0, 3)
+    ];
+
+    const captaincyCount = Object.values(captainCounts)
+      .map(item => {
+        const elObj = elementMap[item.element];
+        return {
+          id: item.element,
+          code: elObj?.code || 0,
+          name: elObj?.webName || 'Player',
+          team: elObj?.team || 'FPL',
+          count: item.count,
+          pct: Math.round((item.count / totalManagersOnPage) * 100)
+        };
+      })
+      .sort((a, b) => b.count - a.count);
+
     const eventScores = managers.map(manager => manager.eventTotal);
 
     return res.json({
@@ -1442,7 +1571,9 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       topScoreGW: eventScores.length ? Math.max(...eventScores) : 0,
       topScorerManager: managers.find(manager => manager.eventTotal === Math.max(...eventScores))?.managerName || '',
       topScorerTeam: managers.find(manager => manager.eventTotal === Math.max(...eventScores))?.entryName || '',
-      managers
+      managers,
+      leagueTemplate,
+      captaincyCount
     });
   } catch (e) {
     logger.error({ err: e }, 'League standings error');

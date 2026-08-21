@@ -5539,3 +5539,34 @@ html, body, *, *::before, *::after {
         gap: 8px !important;
     }
 }
+
+/* ==================== LEAGUE STANDINGS RESPONSIVE STYLES ==================== */
+@media (max-width: 900px) {
+    .league-analytics-grid {
+        grid-template-columns: 1fr !important;
+        gap: 20px !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .desktop-only {
+        display: none !important;
+    }
+    .league-controls-wrap {
+        justify-content: center !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    .league-search-box {
+        width: 100% !important;
+        flex: 1 1 100% !important;
+    }
+    #league-template-pitch {
+        min-height: 440px !important;
+        padding: 12px 6px !important;
+    }
+    .template-player-badge {
+        width: 58px !important;
+    }
+}
+

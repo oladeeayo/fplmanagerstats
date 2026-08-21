@@ -551,21 +551,24 @@
                     <div style="display:flex;flex-direction:column;gap:var(--space-md);margin-bottom:var(--space-lg);" class="md:flex-row md:justify-between md:items-end">
                         <div>
                             <h1 class="page-title" style="margin:0;">League <span style="color:var(--fdr-1);">Standings</span></h1>
-                            <p class="page-subtitle" style="margin-top:4px;">Real-time performance metrics and rank dynamics.</p>
+                            <p class="page-subtitle" style="margin-top:4px;">Real-time performance metrics, team template and rank dynamics.</p>
                         </div>
-                        <div style="display:flex;gap:var(--space-md);align-items:center;flex-wrap:wrap;">
+                        <div class="league-controls-wrap" style="display:flex;gap:var(--space-md);align-items:center;flex-wrap:wrap;width:100%;max-width:650px;justify-content:flex-end;">
                             <!-- Joined Leagues Dropdown -->
-                            <select id="league-select" style="width:200px;display:none;font-family:var(--font-mono);font-size:16px;background-color:rgba(255,255,255,0.04);color:var(--md-sys-color-on-surface);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 32px 8px 12px;appearance:none;background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22%23B0B0B0%22%3E%3Cpath d=%22M7 10l5 5 5-5z%22/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 10px center;" onchange="FPL.switchLeague(this.value)">
+                            <select id="league-select" style="flex:1 1 180px;display:none;font-family:var(--font-mono);font-size:14px;background-color:rgba(255,255,255,0.04);color:var(--md-sys-color-on-surface);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 32px 8px 12px;appearance:none;background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22%23B0B0B0%22%3E%3Cpath d=%22M7 10l5 5 5-5z%22/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 10px center;" onchange="FPL.switchLeague(this.value)">
                             </select>
 
                             <!-- Manager/team search with direct League ID fallback -->
-                            <div style="position:relative;width:200px;">
+                            <div class="league-search-box" style="position:relative;flex:1 1 200px;min-width:200px;width:100%;">
                                 <span class="material-symbols-outlined" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--md-sys-color-on-surface-variant);font-size:18px;">search</span>
-                                 <input type="text" id="league-id-input" placeholder="Team, manager or league ID" style="padding-left:36px;width:100%;font-family:var(--font-mono);font-size:16px;background-color:rgba(255,255,255,0.04);color:var(--md-sys-color-on-surface);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 12px 8px 36px;outline:none;" oninput="FPL.searchManager('league-id-input','league-search-results')" onkeydown="if(event.key==='Enter'){event.preventDefault();FPL.loadCustomLeague();}">
+                                 <input type="text" id="league-id-input" placeholder="Team, manager or league ID" style="padding-left:36px;width:100%;font-family:var(--font-mono);font-size:14px;background-color:rgba(255,255,255,0.04);color:var(--md-sys-color-on-surface);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 12px 8px 36px;outline:none;" oninput="FPL.searchManager('league-id-input','league-search-results')" onkeydown="if(event.key==='Enter'){event.preventDefault();FPL.loadCustomLeague();}">
                                 <div id="league-search-results" style="display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;min-width:280px;background:rgba(24,24,27,0.98);border:1px solid rgba(255,255,255,0.08);border-radius:10px;z-index:100;max-height:360px;overflow-y:auto;box-shadow:0 12px 30px rgba(0,0,0,0.55);"></div>
                             </div>
-                            <button class="btn btn-primary" onclick="FPL.loadCustomLeague()" style="white-space:nowrap;font-weight:700;padding:8px 20px;">
+                            <button class="btn btn-primary" onclick="FPL.loadCustomLeague()" style="white-space:nowrap;font-weight:700;padding:8px 16px;">
                                 Load League
+                            </button>
+                            <button class="btn btn-outline" onclick="FPL.openExportLeagueModal()" title="Export top 50 managers table as PNG image" style="white-space:nowrap;font-weight:700;padding:8px 14px;display:inline-flex;align-items:center;gap:6px;">
+                                <span class="material-symbols-outlined" style="font-size:18px;">image</span> Print PNG
                             </button>
                         </div>
                     </div>
@@ -620,19 +623,21 @@
                     <!-- Data Table (Standings) -->
                     <div style="border-radius:16px;overflow:clip;display:flex;flex-direction:column;">
                         <div class="league-table-wrap sticky-rank-player" tabindex="0" aria-label="League standings table">
-                            <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:13px;white-space:nowrap;min-width:700px;">
+                            <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:13px;white-space:nowrap;min-width:750px;">
                                 <thead>
                                     <tr style="background:rgba(255,255,255,0.03);color:var(--md-sys-color-on-surface);font-size:11px;font-family:var(--font-mono);">
                                         <th style="text-align:left;width:36px;background:rgba(24,24,27,0.9);position:sticky;left:0;z-index:2;">RANK</th>
                                         <th style="text-align:left;background:rgba(24,24,27,0.9);">TEAM</th>
                                         <th style="text-align:center;">GW PTS</th>
+                                        <th style="text-align:center;">xGW-PTS</th>
                                         <th style="text-align:center;">TOTAL PTS</th>
+                                        <th style="text-align:center;" class="desktop-only">CAPTAIN</th>
                                         <th style="text-align:center;">RANK DIFF</th>
                                         <th style="text-align:center;">DIFF COUNT</th>
                                     </tr>
                                 </thead>
                                 <tbody id="league-standings-body">
-                                    <tr><td colspan="6" style="text-align:center;padding:var(--space-xl);"><div style="display:flex;justify-content:center;padding:16px;"><div class="pixel-loader-container"><span class="pixel-grid" aria-hidden="true"><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span></span><span class="pixel-loader-label">Loading league standings...</span></div></div></td></tr>
+                                    <tr><td colspan="8" style="text-align:center;padding:var(--space-xl);"><div style="display:flex;justify-content:center;padding:16px;"><div class="pixel-loader-container"><span class="pixel-grid" aria-hidden="true"><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span></span><span class="pixel-loader-label">Loading league standings...</span></div></div></td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -642,6 +647,33 @@
                             <span id="standings-showing-count">Loading managers...</span>
                             <div id="standings-pagination-controls" style="display:flex;gap:6px;align-items:center;">
                                 <!-- Pagination buttons rendered dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- League Template & Captaincy Breakdown -->
+                    <div class="league-analytics-grid" style="display:grid;grid-template-columns:1fr 340px;gap:24px;margin-top:32px;">
+                        <!-- Left: League Template Pitch -->
+                        <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;padding:20px;display:flex;flex-direction:column;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                                <div>
+                                    <h3 style="font-family:var(--font-mono);font-size:16px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0;">LEAGUE TEMPLATE SQUAD</h3>
+                                    <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:4px 0 0 0;">Top 15 most owned players across managers (2 GKPs, 5 DEFs, 5 MIDs, 3 FWDs). Click any player to view ownership list.</p>
+                                </div>
+                            </div>
+
+                            <div id="league-template-pitch" style="position:relative;background:linear-gradient(180deg, #0b1f15 0%, #06110b 100%);border:1px solid rgba(0,255,133,0.2);border-radius:14px;padding:16px 12px;min-height:500px;display:flex;flex-direction:column;justify-content:space-between;gap:12px;overflow:hidden;">
+                                <div style="text-align:center;padding:40px;color:var(--md-sys-color-on-surface-variant);"><span class="material-symbols-outlined" style="font-size:32px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Loading league template...</p></div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Captaincy Count Breakdown -->
+                        <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;padding:20px;display:flex;flex-direction:column;">
+                            <h3 style="font-family:var(--font-mono);font-size:16px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0 0 4px 0;">CAPTAIN PICK BREAKDOWN</h3>
+                            <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0 0 16px 0;">GW Captain distribution across league managers.</p>
+
+                            <div id="league-captaincy-container" style="display:flex;flex-direction:column;gap:8px;max-height:480px;overflow-y:auto;padding-right:4px;">
+                                <div style="text-align:center;padding:40px;color:var(--md-sys-color-on-surface-variant);"><span class="material-symbols-outlined" style="font-size:32px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Loading captain picks...</p></div>
                             </div>
                         </div>
                     </div>
@@ -1200,6 +1232,74 @@
             <div class="dialog-body" id="sub-underlay-body" style="padding:20px;max-height:75vh;overflow-y:auto;background:#09140c;"></div>
             <div class="dialog-footer" style="border-top:1px solid rgba(255,255,255,0.08);padding:12px 20px;background:#0d1c12;">
                 <button class="btn btn-outline" onclick="FPL.hideDialog('sub-underlay-dialog')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export League Standings Modal -->
+    <div id="export-league-dialog" class="dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="export-league-dialog-title" aria-hidden="true">
+        <div class="dialog dialog-wide" style="max-width:540px;background:#0d1410;border:1px solid rgba(0,255,133,0.3);border-radius:18px;box-shadow:0 24px 60px rgba(0,0,0,0.85);overflow:hidden;">
+            <div class="dialog-header" style="border-bottom:1px solid rgba(255,255,255,0.08);padding:16px 20px;background:#101a14;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <span class="material-symbols-outlined" style="color:#00FF85;font-size:24px;">image</span>
+                    <div>
+                        <h3 id="export-league-dialog-title" style="font-family:var(--font-display);font-size:18px;font-weight:700;margin:0;color:#ffffff;">Export Standings Image</h3>
+                        <p style="margin:2px 0 0;font-size:12px;color:#8ba396;">Generate an HDR PNG image table with site watermark</p>
+                    </div>
+                </div>
+                <button class="btn btn-ghost btn-icon" type="button" aria-label="Close dialog" onclick="FPL.hideDialog('export-league-dialog')"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+            </div>
+            <div class="dialog-body" style="padding:20px;background:#0d1410;color:var(--md-sys-color-on-surface);">
+                <div style="margin-bottom:16px;">
+                    <label style="font-weight:700;font-size:13px;display:block;margin-bottom:8px;color:var(--md-sys-color-on-surface);">Select columns to include in PNG:</label>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="export-col-rank" checked> Rank</label>
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="export-col-team" checked> Team & Manager</label>
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="export-col-gwpts" checked> GW Pts</label>
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="export-col-xgwpts" checked> xGW-Pts</label>
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="export-col-total" checked> Total Pts</label>
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="export-col-captain" checked> GW Captain</label>
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="export-col-diff" checked> Rank Diff</label>
+                    </div>
+                </div>
+                <div style="margin-bottom:20px;">
+                    <label style="font-weight:700;font-size:13px;display:block;margin-bottom:8px;color:var(--md-sys-color-on-surface);">Number of top managers:</label>
+                    <select id="export-managers-count" style="width:100%;font-family:var(--font-mono);font-size:14px;background:rgba(255,255,255,0.06);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px 12px;">
+                        <option value="10">Top 10 Managers</option>
+                        <option value="25">Top 25 Managers</option>
+                        <option value="50" selected>Top 50 Managers</option>
+                    </select>
+                </div>
+                <div style="padding:12px;background:rgba(0,255,133,0.06);border:1px solid rgba(0,255,133,0.2);border-radius:8px;font-size:12px;color:#00FF85;display:flex;align-items:center;gap:8px;">
+                    <span class="material-symbols-outlined" style="font-size:18px;">verified</span>
+                    <span>Image includes site watermark (<strong style="color:#fff;">fplmanager.xyz</strong>) and HDR contrast rendering.</span>
+                </div>
+            </div>
+            <div class="dialog-footer" style="border-top:1px solid rgba(255,255,255,0.08);padding:14px 20px;background:#101a14;display:flex;justify-content:flex-end;gap:12px;">
+                <button class="btn btn-outline" onclick="FPL.hideDialog('export-league-dialog')">Cancel</button>
+                <button class="btn btn-primary" onclick="FPL.downloadLeaguePNG()" style="font-weight:700;display:inline-flex;align-items:center;gap:6px;">
+                    <span class="material-symbols-outlined" style="font-size:18px;">download</span> Download PNG
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Template Player Owners Dialog -->
+    <div id="template-player-owners-dialog" class="dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="template-player-owners-title" aria-hidden="true">
+        <div class="dialog dialog-wide" style="max-width:580px;background:#0b1710;border:1px solid rgba(0,255,133,0.3);border-radius:18px;box-shadow:0 24px 60px rgba(0,0,0,0.85);overflow:hidden;">
+            <div class="dialog-header" style="border-bottom:1px solid rgba(255,255,255,0.08);padding:16px 20px;background:#102218;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <span class="material-symbols-outlined" style="color:#00FF85;font-size:24px;">group</span>
+                    <div>
+                        <h3 id="template-player-owners-title" style="font-family:var(--font-display);font-size:18px;font-weight:700;margin:0;color:#ffffff;">Player Ownership</h3>
+                        <p id="template-player-owners-sub" style="margin:2px 0 0;font-size:12px;color:#8ba396;">Managers in league who own or don't own this player</p>
+                    </div>
+                </div>
+                <button class="btn btn-ghost btn-icon" type="button" aria-label="Close dialog" onclick="FPL.hideDialog('template-player-owners-dialog')"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+            </div>
+            <div class="dialog-body" id="template-player-owners-body" style="padding:20px;max-height:70vh;overflow-y:auto;background:#0b1710;"></div>
+            <div class="dialog-footer" style="border-top:1px solid rgba(255,255,255,0.08);padding:12px 20px;background:#102218;">
+                <button class="btn btn-outline" onclick="FPL.hideDialog('template-player-owners-dialog')">Close</button>
             </div>
         </div>
     </div>
