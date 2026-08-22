@@ -125,33 +125,34 @@ const FPL = {
         }
     },
 
+    setupDeadlineCountdown(deadlineTime, gwNum) {
+        if (!deadlineTime) return false;
+        const deadlineDate = new Date(deadlineTime);
+        if (Number.isNaN(deadlineDate.getTime())) return false;
+        localStorage.setItem('fplDeadlineTime', deadlineDate.toISOString());
+        if (gwNum) localStorage.setItem('fplDeadlineGW', String(gwNum));
+
+        const targetGW = gwNum || localStorage.getItem('fplDeadlineGW') || this.state.nextGW || this.state.currentGW || '';
+        const dlEl = document.getElementById('deadline-time');
+        if (dlEl) {
+            dlEl.textContent = deadlineDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+        }
+        const labelEl = document.getElementById('dash-deadline-label');
+        if (labelEl) {
+            labelEl.textContent = targetGW ? `DEADLINE FOR GW ${targetGW}` : 'DEADLINE';
+        }
+        this.startCountdown(deadlineDate);
+        return true;
+    },
+
     async init() {
         // The application shell is usable while base data hydrates in the background.
         this.hideLoading();
         this.state.playerFilter = 'all';
-        const setupDeadlineCountdown = (deadlineTime, gwNum) => {
-            if (!deadlineTime) return false;
-            const deadlineDate = new Date(deadlineTime);
-            if (Number.isNaN(deadlineDate.getTime())) return false;
-            localStorage.setItem('fplDeadlineTime', deadlineDate.toISOString());
-            if (gwNum) localStorage.setItem('fplDeadlineGW', String(gwNum));
 
-            const targetGW = gwNum || localStorage.getItem('fplDeadlineGW') || this.state.nextGW || this.state.currentGW || '';
-            const dlEl = document.getElementById('deadline-time');
-            if (dlEl) {
-                dlEl.textContent = deadlineDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-            }
-            const labelEl = document.getElementById('dash-deadline-label');
-            if (labelEl) {
-                labelEl.textContent = targetGW ? `DEADLINE FOR GW ${targetGW}` : 'DEADLINE';
-            }
-            this.startCountdown(deadlineDate);
-            return true;
-        };
-
-        setupDeadlineCountdown(localStorage.getItem('fplDeadlineTime'), localStorage.getItem('fplDeadlineGW'));
+        this.setupDeadlineCountdown(localStorage.getItem('fplDeadlineTime'), localStorage.getItem('fplDeadlineGW'));
         this.apiFetch(this.API.deadline)
-            .then(deadline => setupDeadlineCountdown(deadline?.deadlineTime, deadline?.deadlineGW || deadline?.nextGW))
+            .then(deadline => this.setupDeadlineCountdown(deadline?.deadlineTime, deadline?.deadlineGW || deadline?.nextGW))
             .catch(() => {});
 
         try {
@@ -188,9 +189,9 @@ const FPL = {
             });
 
             // Update deadline display and start countdown
-            if (!setupDeadlineCountdown(deadline.deadlineTime, futureEvent?.id || nextEvent?.id || deadline.currentGW)) {
+            if (!this.setupDeadlineCountdown(deadline.deadlineTime, futureEvent?.id || nextEvent?.id || deadline.currentGW)) {
                 // Fallback: fetch deadline independently if initial load failed
-                this.apiFetch(this.API.deadline).then(dl => setupDeadlineCountdown(dl?.deadlineTime, dl?.deadlineGW || dl?.nextGW)).catch(() => {});
+                this.apiFetch(this.API.deadline).then(dl => this.setupDeadlineCountdown(dl?.deadlineTime, dl?.deadlineGW || dl?.nextGW)).catch(() => {});
             }
 
             // Refresh deadline every 5 minutes to stay accurate
@@ -1302,7 +1303,7 @@ const FPL = {
                 labelEl.textContent = `DEADLINE FOR GW ${deadlineGW}`;
             }
             if (data.deadlineTime) {
-                setupDeadlineCountdown(data.deadlineTime, deadlineGW);
+                this.setupDeadlineCountdown(data.deadlineTime, deadlineGW);
             }
 
             const fdrColors = {

@@ -676,7 +676,7 @@
                             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
                                 <div>
                                     <h3 style="font-family:var(--font-mono);font-size:16px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0;">LEAGUE TEMPLATE SQUAD</h3>
-                                    <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:4px 0 0 0;">Top 15 most owned players analyzed across Top 300 managers (2 GKPs, 5 DEFs, 5 MIDs, 3 FWDs). Click any player to view ownership list.</p>
+                                    <p id="league-template-desc" style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:4px 0 0 0;">Top 15 most owned players analyzed across league managers (2 GKPs, 5 DEFs, 5 MIDs, 3 FWDs). Click any player to view ownership list.</p>
                                 </div>
                                 <button class="btn btn-primary" onclick="FPL.downloadLeagueGraphicPNG()" style="font-weight:700;display:inline-flex;align-items:center;gap:6px;padding:6px 14px;font-size:12px;white-space:nowrap;">
                                     <span class="material-symbols-outlined" style="font-size:18px;">image</span> Export Graphic PNG
@@ -691,7 +691,7 @@
                         <!-- Right: Captaincy Count Breakdown -->
                         <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;padding:20px;display:flex;flex-direction:column;">
                             <h3 style="font-family:var(--font-mono);font-size:16px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0 0 4px 0;">CAPTAIN PICK BREAKDOWN</h3>
-                            <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0 0 16px 0;">GW Captain distribution analyzed across Top 300 managers.</p>
+                            <p id="league-captaincy-desc" style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0 0 16px 0;">GW Captain distribution analyzed across league managers.</p>
 
                             <div id="league-captaincy-container" style="display:flex;flex-direction:column;gap:8px;max-height:480px;overflow-y:auto;padding-right:4px;">
                                 <div style="text-align:center;padding:40px;color:var(--md-sys-color-on-surface-variant);"><span class="material-symbols-outlined" style="font-size:32px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Loading captain picks...</p></div>
@@ -1306,6 +1306,9 @@
                         <option value="50" selected>Top 50 Managers</option>
                         <option value="100">Top 100 Managers</option>
                         <option value="300">Top 300 Managers</option>
+                        <option value="500">Top 500 Managers</option>
+                        <option value="1000">Top 1000 Managers</option>
+                        <option value="2000">Top 2000 Managers</option>
                     </select>
                 </div>
                 <div style="padding:12px;background:rgba(0,255,133,0.06);border:1px solid rgba(0,255,133,0.2);border-radius:8px;font-size:12px;color:#00FF85;display:flex;align-items:center;gap:8px;">

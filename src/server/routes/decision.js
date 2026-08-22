@@ -460,7 +460,7 @@ router.get('/v1/h2h-matchup/:managerId', heavyEndpointLimiter, async (req, res) 
       ? h2hLeagues.find(l => l.id === requestedLeagueId) || h2hLeagues[0]
       : h2hLeagues[0];
 
-    const currentGW = bootstrap.events.find(e => e.is_current)?.id || bootstrap.events.find(e => e.is_next)?.id || 1;
+    const currentGW = bootstrap.events?.find(e => e.is_current)?.id || bootstrap.events?.find(e => e.is_next)?.id || 1;
     const targetGW = Math.max(1, Math.min(38, parseInt(req.query.gw) || currentGW));
 
     // Fetch H2H match fixture for manager in this league and gameweek
@@ -469,7 +469,8 @@ router.get('/v1/h2h-matchup/:managerId', heavyEndpointLimiter, async (req, res) 
     );
 
     const matches = h2hData?.results || [];
-    const userMatch = matches.find(m => m.entry_1_entry === managerId || m.entry_2_entry === managerId) || matches[0];
+    const numManagerId = Number(managerId);
+    const userMatch = matches.find(m => Number(m.entry_1_entry) === numManagerId || Number(m.entry_2_entry) === numManagerId) || matches[0];
 
     if (!userMatch) {
       return res.json({
@@ -482,18 +483,51 @@ router.get('/v1/h2h-matchup/:managerId', heavyEndpointLimiter, async (req, res) 
       });
     }
 
-    const isEntry1 = userMatch.entry_1_entry === managerId;
-    const opponentId = isEntry1 ? userMatch.entry_2_entry : userMatch.entry_1_entry;
-    const opponentName = isEntry1 ? userMatch.entry_2_player_name : userMatch.entry_1_player_name;
-    const opponentTeam = isEntry1 ? userMatch.entry_2_name : userMatch.entry_1_name;
+    const isEntry1 = Number(userMatch.entry_1_entry) === numManagerId;
+    const isEntry2 = Number(userMatch.entry_2_entry) === numManagerId;
 
-    const userName = isEntry1 ? userMatch.entry_1_player_name : userMatch.entry_2_player_name;
-    const userTeam = isEntry1 ? userMatch.entry_1_name : userMatch.entry_2_name;
+    let opponentId = null;
+    let opponentName = 'Opponent';
+    let opponentTeam = 'Opponent Squad';
+    let userName = 'Your Team';
+    let userTeam = 'Your Squad';
 
-    // Fetch picks for manager and opponent
+    if (isEntry1) {
+      opponentId = userMatch.entry_2_entry;
+      opponentName = userMatch.entry_2_player_name || 'Opponent';
+      opponentTeam = userMatch.entry_2_name || 'Opponent Squad';
+      userName = userMatch.entry_1_player_name || 'You';
+      userTeam = userMatch.entry_1_name || 'Your Squad';
+    } else if (isEntry2) {
+      opponentId = userMatch.entry_1_entry;
+      opponentName = userMatch.entry_1_player_name || 'Opponent';
+      opponentTeam = userMatch.entry_1_name || 'Opponent Squad';
+      userName = userMatch.entry_2_player_name || 'You';
+      userTeam = userMatch.entry_2_name || 'Your Squad';
+    }
+
+    async function getLatestPicks(mId, requestedGW, activeGW) {
+      if (!mId) return null;
+      let picks = await optionalApiGet(`https://fantasy.premierleague.com/api/entry/${mId}/event/${requestedGW}/picks/`);
+      if (picks && Array.isArray(picks.picks) && picks.picks.length > 0) return picks;
+
+      if (activeGW && activeGW !== requestedGW) {
+        picks = await optionalApiGet(`https://fantasy.premierleague.com/api/entry/${mId}/event/${activeGW}/picks/`);
+        if (picks && Array.isArray(picks.picks) && picks.picks.length > 0) return picks;
+      }
+
+      for (let g = Math.min(38, activeGW || 38); g >= 1; g--) {
+        if (g === requestedGW || g === activeGW) continue;
+        picks = await optionalApiGet(`https://fantasy.premierleague.com/api/entry/${mId}/event/${g}/picks/`);
+        if (picks && Array.isArray(picks.picks) && picks.picks.length > 0) return picks;
+      }
+      return null;
+    }
+
+    // Fetch picks for manager and opponent with automatic fallback to active published GW if pre-deadline
     const [userPicksData, oppPicksData, oppEntryData] = await Promise.all([
-      optionalApiGet(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${targetGW}/picks/`),
-      opponentId ? optionalApiGet(`https://fantasy.premierleague.com/api/entry/${opponentId}/event/${targetGW}/picks/`) : Promise.resolve(null),
+      getLatestPicks(managerId, targetGW, currentGW),
+      opponentId ? getLatestPicks(opponentId, targetGW, currentGW) : Promise.resolve(null),
       opponentId ? optionalApiGet(`https://fantasy.premierleague.com/api/entry/${opponentId}/`) : Promise.resolve(null)
     ]);
 

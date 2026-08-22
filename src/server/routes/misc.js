@@ -1715,8 +1715,11 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       };
     });
 
-    // Fetch pages 1 to 6 (Top 300 managers) in parallel for template & captaincy analytics
-    const pagesToFetch = [1, 2, 3, 4, 5, 6];
+    // Fetch pages (up to 2000 managers) in parallel for template & captaincy analytics
+    const requestedLimit = Math.min(2000, Math.max(10, parseInt(req.query.limit || req.query.sampleLimit) || 300));
+    const pagesCount = Math.min(40, Math.ceil(requestedLimit / 50));
+    const pagesToFetch = Array.from({ length: pagesCount }, (_, i) => i + 1);
+
     const topPagesResults = await Promise.allSettled(
       pagesToFetch.map(pNum =>
         pNum === page
@@ -1725,19 +1728,19 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       )
     );
 
-    const top300Entries = [];
+    const topEntries = [];
     topPagesResults.forEach(res => {
       if (res.status === 'fulfilled' && res.value) {
         const resStandings = res.value.standings?.results || res.value.new_entries?.results || [];
-        top300Entries.push(...resStandings);
+        topEntries.push(...resStandings);
       }
     });
 
-    const sampleEntries = top300Entries.slice(0, 300);
+    const sampleEntries = topEntries.slice(0, requestedLimit);
 
-    // Fetch picks in controlled batches for top 300 sample entries
+    // Fetch picks in controlled batches for sample entries
     const samplePicksMap = {};
-    const BATCH_SIZE = 12;
+    const BATCH_SIZE = 20;
     for (let i = 0; i < sampleEntries.length; i += BATCH_SIZE) {
       const batch = sampleEntries.slice(i, i + BATCH_SIZE);
       await Promise.all(
@@ -1755,8 +1758,9 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
 
     const playerCounts = {};
     const captainCounts = {};
+    let totalManagersAnalyzed = 0;
 
-    // Calculate template & captaincy across Top 300
+    // Calculate template & captaincy across sampleEntries
     sampleEntries.forEach(entry => {
       const mgrName = entry.player_name || [entry.player_first_name, entry.player_last_name].filter(Boolean).join(' ');
       const entName = entry.entry_name || 'Team';
@@ -1764,6 +1768,7 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       const picksData = samplePicksMap[mId];
 
       if (picksData && Array.isArray(picksData.picks) && picksData.picks.length > 0) {
+        totalManagersAnalyzed++;
         const activeChip = picksData.active_chip;
         const capPick = picksData.picks.find(p => p.is_captain) || picksData.picks.find(p => p.is_vice_captain) || picksData.picks[0];
 
@@ -1779,6 +1784,10 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
         });
       }
     });
+
+    if (totalManagersAnalyzed === 0) {
+      totalManagersAnalyzed = Math.max(1, sampleEntries.length);
+    }
 
     const managerEntries = results.slice(0, 50);
 
@@ -1827,7 +1836,6 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       };
     });
 
-    const totalManagersOnPage = managers.length || 1;
     const allManagerSummaries = managers.map(m => ({ managerId: m.managerId, managerName: m.managerName, entryName: m.entryName }));
 
     // Build 15-player League Template (2 GKP, 5 DEF, 5 MID, 3 FWD)
@@ -1850,7 +1858,7 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
         pos: getPosStr(elObj.pos),
         posType: elObj.pos,
         count: item.count,
-        ownershipPct: Math.round((item.count / totalManagersOnPage) * 100),
+        ownershipPct: Math.min(100, Math.round((item.count / totalManagersAnalyzed) * 100)),
         managersWith: item.managersWith,
         managersWithout
       });
@@ -1876,7 +1884,7 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
           name: elObj?.webName || 'Player',
           team: elObj?.team || 'FPL',
           count: item.count,
-          pct: Math.round((item.count / totalManagersOnPage) * 100)
+          pct: Math.min(100, Math.round((item.count / totalManagersAnalyzed) * 100))
         };
       })
       .sort((a, b) => b.count - a.count);
@@ -1899,7 +1907,7 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       managers,
       leagueTemplate,
       captaincyCount,
-      totalManagersAnalyzed: sampleEntries.length || 300
+      totalManagersAnalyzed
     });
   } catch (e) {
     logger.error({ err: e }, 'League standings error');
