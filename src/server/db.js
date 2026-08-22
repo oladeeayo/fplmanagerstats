@@ -133,6 +133,19 @@ async function initDatabase() {
         await sql`ALTER TABLE ai_team ADD COLUMN IF NOT EXISTS chips JSONB NOT NULL DEFAULT '{"schedule":[]}'::jsonb`;
         await sql`DELETE FROM ai_team older USING ai_team newer WHERE older.session_id = newer.session_id AND older.id < newer.id`;
         await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_aiteam_session_unique ON ai_team(session_id)`;
+      }),
+
+      sql`
+        CREATE TABLE IF NOT EXISTS player_advanced_stats (
+          id SERIAL PRIMARY KEY,
+          gameweek INT NOT NULL,
+          players JSONB NOT NULL,
+          total_players INT NOT NULL,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `.then(async () => {
+        await sql`CREATE INDEX IF NOT EXISTS idx_pas_gameweek ON player_advanced_stats(gameweek)`;
+        await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_pas_gameweek_unique ON player_advanced_stats(gameweek)`;
       })
     ]);
 

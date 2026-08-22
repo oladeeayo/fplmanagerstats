@@ -3127,6 +3127,23 @@ router.get('/player-advanced', async (req, res) => {
       return res.status(500).json({ error: 'Failed to fetch bootstrap data' });
     }
 
+    const currentGW = bootstrap.events?.find(e => e.is_current)?.id || bootstrap.events?.find(e => e.is_next)?.id || 1;
+
+    // Try to load from database for current GW
+    if (sql) {
+      try {
+        const dbResult = await sql`SELECT players, total_players FROM player_advanced_stats WHERE gameweek = ${currentGW} LIMIT 1`;
+        if (dbResult.length > 0) {
+          const result = { players: dbResult[0].players, totalPlayers: dbResult[0].total_players, gameweek: currentGW };
+          playerAdvancedCache.data = result;
+          playerAdvancedCache.timestamp = Date.now();
+          return res.json(result);
+        }
+      } catch (e) {
+        logger.warn({ err: e }, 'Failed to read player_advanced_stats from DB');
+      }
+    }
+
     const teamMap = {};
     (bootstrap.teams || []).forEach(t => {
       teamMap[t.id] = { name: t.name, short: t.short_name, code: t.code };
@@ -3136,7 +3153,6 @@ router.get('/player-advanced', async (req, res) => {
 
     const activePlayers = bootstrap.elements.filter(p => (p.total_points || 0) > 0 || (p.minutes || 0) > 0);
 
-    // Concurrency-limited history fetching in batches of 50
     const BATCH_SIZE = 50;
     const historyResults = new Map();
     for (let i = 0; i < activePlayers.length; i += BATCH_SIZE) {
@@ -3219,11 +3235,11 @@ router.get('/player-advanced', async (req, res) => {
           });
         }
 
-        // Bonus match check:
+        // Bonus match check (cumulative: 3 bonus also counts for 2 and 1)
         if (h.bonus > 0) {
-          if (h.bonus === 3) bonus3Games += 1;
-          else if (h.bonus === 2) bonus2Games += 1;
-          else if (h.bonus === 1) bonus1Games += 1;
+          if (h.bonus >= 3) bonus3Games += 1;
+          if (h.bonus >= 2) bonus2Games += 1;
+          if (h.bonus >= 1) bonus1Games += 1;
           totalBonus += h.bonus;
 
           bonusMatches.push({
@@ -3268,12 +3284,22 @@ router.get('/player-advanced', async (req, res) => {
 
     const result = {
       players: playersData,
-      totalPlayers: playersData.length
+      totalPlayers: playersData.length,
+      gameweek: currentGW
     };
 
     // Cache the full response
     playerAdvancedCache.data = result;
     playerAdvancedCache.timestamp = Date.now();
+
+    // Save to database for persistence across weeks
+    if (sql) {
+      try {
+        await sql`INSERT INTO player_advanced_stats (gameweek, players, total_players) VALUES (${currentGW}, ${JSON.stringify(playersData)}, ${playersData.length}) ON CONFLICT (gameweek) DO UPDATE SET players = ${JSON.stringify(playersData)}, total_players = ${playersData.length}`;
+      } catch (e) {
+        logger.warn({ err: e }, 'Failed to save player_advanced_stats to DB');
+      }
+    }
 
     res.json(result);
   } catch (e) {
