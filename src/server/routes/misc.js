@@ -3110,4 +3110,175 @@ router.get('/match-analysis', async (req, res) => {
   }
 });
 
+// ---- Player Advanced Stats ----
+router.get('/player-advanced', async (req, res) => {
+  try {
+    const bootstrap = await getCachedApiData(BOOTSTRAP_URL, BOOTSTRAP_CACHE_TTL);
+    if (!bootstrap || !bootstrap.elements) {
+      return res.status(500).json({ error: 'Failed to fetch bootstrap data' });
+    }
+
+    const teamMap = {};
+    (bootstrap.teams || []).forEach(t => {
+      teamMap[t.id] = { name: t.name, short: t.short_name, code: t.code };
+    });
+
+    const posNames = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+
+    const activePlayers = bootstrap.elements.filter(p => (p.total_points || 0) > 0 || (p.minutes || 0) > 0);
+
+    // Concurrency-limited history fetching in batches of 20
+    const BATCH_SIZE = 20;
+    const historyResults = new Map();
+    for (let i = 0; i < activePlayers.length; i += BATCH_SIZE) {
+      const batch = activePlayers.slice(i, i + BATCH_SIZE);
+      await Promise.all(batch.map(async p => {
+        try {
+          const ph = await getGlobalPlayerHistory(p.id);
+          if (ph && Array.isArray(ph.history)) {
+            historyResults.set(p.id, ph.history);
+          }
+        } catch (err) {
+          // ignore individual player history fetch failures
+        }
+      }));
+    }
+
+    const playersData = activePlayers.map(p => {
+      const history = historyResults.get(p.id) || [];
+      const teamInfo = teamMap[p.team] || { name: 'Unknown', short: 'UNK', code: 0 };
+
+      let defconGames = 0;
+      let haulGames = 0;
+      let bonus3Games = 0;
+      let bonus2Games = 0;
+      let bonus1Games = 0;
+      let totalBonus = 0;
+
+      const defconMatches = [];
+      const haulMatches = [];
+      const bonusMatches = [];
+
+      history.forEach(h => {
+        if (!h.minutes || h.minutes === 0) return;
+
+        const oppTeam = teamMap[h.opponent_team] || { short: 'UNK' };
+        const oppShort = oppTeam.short;
+        const vsStr = h.was_home ? `vs ${oppShort} (H)` : `@ ${oppShort} (A)`;
+        const scoreStr = h.team_h_score != null && h.team_a_score != null
+          ? `${h.team_h_score} - ${h.team_a_score}`
+          : '-';
+
+        // DEFCON match check:
+        // Defensive contribution > 0 OR clearances_blocks_interceptions + tackles >= 8 OR clean sheet for DEF/GKP
+        const defVal = h.defensive_contribution || 0;
+        const cbi = h.clearances_blocks_interceptions || 0;
+        const tackles = h.tackles || 0;
+        const totalDefActions = cbi + tackles + (h.recoveries || 0);
+        const isDefcon = defVal > 0 || totalDefActions >= 8 || (h.clean_sheets > 0 && [1, 2].includes(p.element_type));
+
+        if (isDefcon) {
+          defconGames += 1;
+          defconMatches.push({
+            gw: h.round,
+            opponent: oppShort,
+            vs: vsStr,
+            wasHome: h.was_home,
+            score: scoreStr,
+            minutes: h.minutes,
+            defconVal: defVal || totalDefActions,
+            cleanSheets: h.clean_sheets,
+            points: h.total_points
+          });
+        }
+
+        // Haul match check: 10+ points
+        if (h.total_points >= 10) {
+          haulGames += 1;
+          haulMatches.push({
+            gw: h.round,
+            opponent: oppShort,
+            vs: vsStr,
+            wasHome: h.was_home,
+            score: scoreStr,
+            minutes: h.minutes,
+            goals: h.goals_scored,
+            assists: h.assists,
+            bonus: h.bonus,
+            bps: h.bps,
+            points: h.total_points
+          });
+        }
+
+        // Bonus match check:
+        if (h.bonus > 0) {
+          if (h.bonus === 3) bonus3Games += 1;
+          else if (h.bonus === 2) bonus2Games += 1;
+          else if (h.bonus === 1) bonus1Games += 1;
+          totalBonus += h.bonus;
+
+          bonusMatches.push({
+            gw: h.round,
+            opponent: oppShort,
+            vs: vsStr,
+            wasHome: h.was_home,
+            score: scoreStr,
+            minutes: h.minutes,
+            bonus: h.bonus,
+            bps: h.bps,
+            points: h.total_points
+          });
+        }
+      });
+
+      return {
+        id: p.id,
+        code: p.code,
+        name: p.web_name,
+        fullName: `${p.first_name} ${p.second_name}`,
+        team: teamInfo.short,
+        teamName: teamInfo.name,
+        teamCode: teamInfo.code,
+        position: posNames[p.element_type] || 'MID',
+        elementType: p.element_type,
+        cost: (p.now_cost || 0) / 10,
+        priceStr: `£${((p.now_cost || 0) / 10).toFixed(1)}m`,
+        totalPoints: p.total_points || 0,
+        minutes: p.minutes || 0,
+        defconGames,
+        defconMatches,
+        haulGames,
+        haulMatches,
+        bonus3Games,
+        bonus2Games,
+        bonus1Games,
+        totalBonus: totalBonus || (p.bonus || 0),
+        bonusMatches
+      };
+    });
+
+    res.json({
+      players: playersData,
+      totalPlayers: playersData.length
+    });
+  } catch (e) {
+    logger.error({ err: e }, 'Player advanced stats error');
+    res.status(500).json({ error: 'Failed to fetch player advanced stats' });
+  }
+});
+
+// ---- Player Single History ----
+router.get('/player-history/:id', async (req, res) => {
+  try {
+    const playerId = parseInt(req.params.id, 10);
+    if (isNaN(playerId)) return res.status(400).json({ error: 'Invalid player ID' });
+    const data = await getGlobalPlayerHistory(playerId);
+    res.json(data);
+  } catch (e) {
+    logger.error({ err: e }, 'Player single history error');
+    res.status(500).json({ error: 'Failed to fetch player history' });
+  }
+});
+
 module.exports = router;
+

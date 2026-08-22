@@ -11,6 +11,7 @@ export const appRoutes = {
   ownership: '/ownership',
   setpieces: '/set-pieces',
   aiteam: '/ai-team',
+  playeradvanced: '/player-advanced',
 } as const;
 
 export type AppTab = keyof typeof appRoutes;

@@ -600,6 +600,7 @@ const FPL = {
             case 'decision': return this.renderDecisionCentre();
             case 'setpieces': return this.renderSetPieces();
             case 'aiteam': return this.renderAITeam();
+            case 'playeradvanced': return this.loadPlayerAdvanced();
         }
     },
 
@@ -2177,6 +2178,309 @@ const FPL = {
                 </tr>
             `;
         }).join('');
+    },
+
+    // ==================== RENDER: PLAYER ADVANCED STATS ====================
+    async loadPlayerAdvanced() {
+        const tbody = document.getElementById('adv-table-body');
+        if (!this.state.advData) {
+            if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;font-family:var(--font-mono);">Fetching advanced player analytics...</td></tr>';
+            try {
+                const data = await this.apiFetch('/api/player-advanced');
+                if (data && Array.isArray(data.players)) {
+                    this.state.advData = data;
+                }
+            } catch (err) {
+                if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#ef4444;font-family:var(--font-mono);">Failed to load advanced player stats. Please try again.</td></tr>';
+                return;
+            }
+        }
+        this.renderPlayerAdvanced();
+    },
+
+    switchAdvancedTab(tab) {
+        this.state.advTab = tab;
+        ['defcon', 'haul', 'bonus'].forEach(t => {
+            const btn = document.getElementById(`adv-tab-${t}`);
+            if (btn) {
+                const isActive = t === tab;
+                btn.className = `adv-subtab-btn ${isActive ? 'active' : ''}`;
+                btn.style.background = isActive ? 'rgba(0,255,133,0.15)' : 'rgba(255,255,255,0.04)';
+                btn.style.color = isActive ? '#00FF85' : '#94a3b8';
+                btn.style.border = isActive ? '1px solid #00FF85' : '1px solid rgba(255,255,255,0.08)';
+            }
+        });
+
+        if (tab === 'defcon') this.state.advSortKey = 'defconGames';
+        else if (tab === 'haul') this.state.advSortKey = 'haulGames';
+        else if (tab === 'bonus') this.state.advSortKey = 'totalBonus';
+        this.state.advSortDir = -1;
+
+        this.renderPlayerAdvanced();
+    },
+
+    filterAdvancedPos(pos) {
+        this.state.advPosFilter = pos;
+        const btnGroup = document.getElementById('adv-pos-filters');
+        if (btnGroup) {
+            btnGroup.querySelectorAll('button').forEach(btn => {
+                const isMatch = btn.dataset.pos === pos;
+                btn.style.background = isMatch ? '#00FF85' : 'rgba(255,255,255,0.05)';
+                btn.style.color = isMatch ? '#000' : '#94a3b8';
+                btn.style.border = isMatch ? 'none' : '1px solid rgba(255,255,255,0.08)';
+            });
+        }
+        this.renderPlayerAdvanced();
+    },
+
+    sortAdvancedBy(key) {
+        if (this.state.advSortKey === key) {
+            this.state.advSortDir *= -1;
+        } else {
+            this.state.advSortKey = key;
+            this.state.advSortDir = -1;
+        }
+        this.renderPlayerAdvanced();
+    },
+
+    renderPlayerAdvanced() {
+        const data = this.state.advData;
+        if (!data || !data.players) return;
+
+        const tbody = document.getElementById('adv-table-body');
+        const headerRow = document.getElementById('adv-table-header');
+        const summaryCount = document.getElementById('adv-summary-count');
+        if (!tbody || !headerRow) return;
+
+        const activeTab = this.state.advTab || 'defcon';
+        const posFilter = this.state.advPosFilter || 'all';
+        const searchTerm = (document.getElementById('adv-player-search')?.value || '').toLowerCase().trim();
+
+        // 1. Filter players
+        let filtered = data.players.filter(p => {
+            if (posFilter !== 'all' && p.position !== posFilter) return false;
+            if (searchTerm) {
+                const matchName = p.name.toLowerCase().includes(searchTerm) || p.fullName.toLowerCase().includes(searchTerm) || p.team.toLowerCase().includes(searchTerm);
+                if (!matchName) return false;
+            }
+            if (activeTab === 'defcon') return p.defconGames > 0;
+            if (activeTab === 'haul') return p.haulGames > 0;
+            if (activeTab === 'bonus') return (p.totalBonus > 0 || p.bonus3Games > 0 || p.bonus2Games > 0 || p.bonus1Games > 0);
+            return true;
+        });
+
+        // 2. Sort players
+        const sortKey = this.state.advSortKey || (activeTab === 'defcon' ? 'defconGames' : activeTab === 'haul' ? 'haulGames' : 'totalBonus');
+        const sortDir = this.state.advSortDir || -1;
+
+        filtered.sort((a, b) => {
+            let valA = a[sortKey] ?? 0;
+            let valB = b[sortKey] ?? 0;
+            if (valA !== valB) return (valA - valB) * sortDir;
+            return (b.totalPoints - a.totalPoints);
+        });
+
+        // 3. Update summary badge
+        if (summaryCount) {
+            const tabName = activeTab === 'defcon' ? 'DEFCON Hitters' : activeTab === 'haul' ? 'Haul Hitters (10+ pts)' : 'Bonus Hitters';
+            summaryCount.textContent = `Showing ${filtered.length} ${tabName}`;
+        }
+
+        // 4. Render headers
+        const sortArrow = (key) => {
+            if (sortKey !== key) return '';
+            return sortDir === -1 ? ' <span style="font-size:10px;">▼</span>' : ' <span style="font-size:10px;">▲</span>';
+        };
+
+        if (activeTab === 'defcon') {
+            headerRow.innerHTML = `
+                <th style="padding:12px 16px;">Player</th>
+                <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('cost')">Price${sortArrow('cost')}</th>
+                <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('totalPoints')">Total Pts${sortArrow('totalPoints')}</th>
+                <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('defconGames')">DEFCON Games${sortArrow('defconGames')}</th>
+                <th style="padding:12px 16px;text-align:center;">Match Details</th>
+            `;
+        } else if (activeTab === 'haul') {
+            headerRow.innerHTML = `
+                <th style="padding:12px 16px;">Player</th>
+                <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('cost')">Price${sortArrow('cost')}</th>
+                <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('totalPoints')">Total Pts${sortArrow('totalPoints')}</th>
+                <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('haulGames')">Double Digit Hauls${sortArrow('haulGames')}</th>
+                <th style="padding:12px 16px;text-align:center;">Match Details</th>
+            `;
+        } else if (activeTab === 'bonus') {
+            headerRow.innerHTML = `
+                <th style="padding:12px 16px;">Player</th>
+                <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('cost')">Price${sortArrow('cost')}</th>
+                <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('totalPoints')">Total Pts${sortArrow('totalPoints')}</th>
+                <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('bonus3Games')">3 Bonus${sortArrow('bonus3Games')}</th>
+                <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('bonus2Games')">2 Bonus${sortArrow('bonus2Games')}</th>
+                <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('bonus1Games')">1 Bonus${sortArrow('bonus1Games')}</th>
+                <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('totalBonus')">Total Bonus Pts${sortArrow('totalBonus')}</th>
+            `;
+        }
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:36px;color:#94a3b8;font-family:var(--font-mono);">No players match the criteria.</td></tr>`;
+            return;
+        }
+
+        const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
+
+        // 5. Render body
+        tbody.innerHTML = filtered.slice(0, 100).map((p, idx) => {
+            const isEven = idx % 2 === 1;
+            const posColor = posColors[p.position] || '#4FC3F7';
+
+            let tabSpecificCells = '';
+            if (activeTab === 'defcon') {
+                tabSpecificCells = `
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:14px;font-weight:800;color:#00FF85;">
+                        <span style="background:rgba(0,255,133,0.12);padding:4px 12px;border-radius:20px;border:1px solid rgba(0,255,133,0.25);">${p.defconGames}</span>
+                    </td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:11px;color:#94a3b8;">
+                        <span style="color:#00FF85;font-weight:700;">View ${p.defconGames} DEFCON games ➔</span>
+                    </td>
+                `;
+            } else if (activeTab === 'haul') {
+                tabSpecificCells = `
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:14px;font-weight:800;color:#38bdf8;">
+                        <span style="background:rgba(56,189,248,0.12);padding:4px 12px;border-radius:20px;border:1px solid rgba(56,189,248,0.25);">${p.haulGames}</span>
+                    </td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:11px;color:#94a3b8;">
+                        <span style="color:#38bdf8;font-weight:700;">View ${p.haulGames} hauls ➔</span>
+                    </td>
+                `;
+            } else if (activeTab === 'bonus') {
+                tabSpecificCells = `
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#fbbf24;">${p.bonus3Games}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#cbd5e1;">${p.bonus2Games}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#94a3b8;">${p.bonus1Games}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:14px;font-weight:800;color:#fbbf24;">
+                        <span style="background:rgba(251,191,36,0.12);padding:4px 12px;border-radius:20px;border:1px solid rgba(251,191,36,0.25);">${p.totalBonus}</span>
+                    </td>
+                `;
+            }
+
+            return `
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.05);transition:background 0.2s;${isEven ? 'background:rgba(255,255,255,0.015);' : ''}cursor:pointer;" onclick="FPL.showPlayerMatchDetails(${p.id})" onmouseover="this.style.background='rgba(0,255,133,0.05)'" onmouseout="this.style.background='${isEven ? 'rgba(255,255,255,0.015)' : 'transparent'}'">
+                    <td style="padding:10px 16px;">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <div style="width:34px;height:34px;border-radius:50%;overflow:hidden;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.4);flex-shrink:0;">
+                                <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${this.escapeHTML(p.name)}" style="width:100%;height:100%;object-fit:cover;object-position:50% 15%;" onerror="this.src='https://fantasy.premierleague.com/static/libs/default-player.png'">
+                            </div>
+                            <div>
+                                <div style="font-weight:800;font-size:13px;color:#fff;">${this.escapeHTML(p.name)}</div>
+                                <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-family:var(--font-mono);margin-top:2px;">
+                                    <span style="padding:1px 4px;border-radius:3px;font-weight:800;background:${posColor}20;color:${posColor};">${p.position}</span>
+                                    <span style="color:#94a3b8;font-weight:700;">${p.team}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#e2e8f0;">${p.priceStr}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:13px;font-weight:800;color:#00FF85;">${p.totalPoints}</td>
+                    ${tabSpecificCells}
+                </tr>
+            `;
+        }).join('');
+    },
+
+    showPlayerMatchDetails(playerId) {
+        const data = this.state.advData;
+        if (!data || !data.players) return;
+        const player = data.players.find(p => p.id === playerId);
+        if (!player) return;
+
+        const modal = document.getElementById('adv-player-modal');
+        const modalHeader = document.getElementById('adv-modal-header');
+        const modalMatches = document.getElementById('adv-modal-matches');
+        if (!modal || !modalHeader || !modalMatches) return;
+
+        const activeTab = this.state.advTab || 'defcon';
+        let matches = [];
+        let subtabTitle = '';
+        let badgeColor = '';
+
+        if (activeTab === 'defcon') {
+            matches = player.defconMatches || [];
+            subtabTitle = `${player.defconGames} DEFCON Matches`;
+            badgeColor = '#00FF85';
+        } else if (activeTab === 'haul') {
+            matches = player.haulMatches || [];
+            subtabTitle = `${player.haulGames} Double Digit Hauls`;
+            badgeColor = '#38bdf8';
+        } else if (activeTab === 'bonus') {
+            matches = player.bonusMatches || [];
+            subtabTitle = `${player.totalBonus} Total Bonus Points (${player.bonus3Games}x 3pts, ${player.bonus2Games}x 2pts, ${player.bonus1Games}x 1pt)`;
+            badgeColor = '#fbbf24';
+        }
+
+        const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
+        const posColor = posColors[player.position] || '#4FC3F7';
+
+        modalHeader.innerHTML = `
+            <div style="display:flex;align-items:center;gap:14px;">
+                <div style="width:54px;height:54px;border-radius:50%;overflow:hidden;border:2px solid ${badgeColor};background:rgba(0,0,0,0.5);flex-shrink:0;">
+                    <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${player.code}.png" alt="${this.escapeHTML(player.name)}" style="width:100%;height:100%;object-fit:cover;object-position:50% 15%;" onerror="this.src='https://fantasy.premierleague.com/static/libs/default-player.png'">
+                </div>
+                <div>
+                    <h2 style="margin:0;font-size:20px;font-weight:800;color:#fff;">${this.escapeHTML(player.fullName || player.name)}</h2>
+                    <div style="display:flex;align-items:center;gap:8px;margin-top:4px;font-family:var(--font-mono);font-size:12px;">
+                        <span style="padding:2px 6px;border-radius:4px;font-weight:800;background:${posColor}20;color:${posColor};">${player.position}</span>
+                        <span style="color:#cbd5e1;font-weight:700;">${player.teamName} (${player.team})</span>
+                        <span style="color:#94a3b8;">·</span>
+                        <span style="color:#e2e8f0;font-weight:700;">${player.priceStr}</span>
+                        <span style="color:#94a3b8;">·</span>
+                        <span style="color:#00FF85;font-weight:800;">${player.totalPoints} pts total</span>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top:12px;padding:8px 12px;border-radius:8px;background:${badgeColor}15;border:1px solid ${badgeColor}30;color:${badgeColor};font-family:var(--font-mono);font-size:12px;font-weight:700;">
+                ${subtabTitle}
+            </div>
+        `;
+
+        if (matches.length === 0) {
+            modalMatches.innerHTML = `<div style="text-align:center;padding:24px;color:#94a3b8;font-family:var(--font-mono);">No detailed match records recorded for this tab.</div>`;
+        } else {
+            modalMatches.innerHTML = matches.map(m => {
+                let statSummary = '';
+                if (activeTab === 'defcon') {
+                    statSummary = `Defensive contribution: <b style="color:#00FF85;">${m.defconVal}</b> ${m.cleanSheets ? '• Clean Sheet' : ''}`;
+                } else if (activeTab === 'haul') {
+                    const parts = [];
+                    if (m.goals > 0) parts.push(`<b style="color:#00FF85;">${m.goals} Goal${m.goals > 1 ? 's' : ''}</b>`);
+                    if (m.assists > 0) parts.push(`<b style="color:#38bdf8;">${m.assists} Assist${m.assists > 1 ? 's' : ''}</b>`);
+                    if (m.bonus > 0) parts.push(`<b style="color:#fbbf24;">${m.bonus} Bonus</b>`);
+                    parts.push(`${m.bps} BPS`);
+                    statSummary = parts.join(' • ');
+                } else if (activeTab === 'bonus') {
+                    statSummary = `<b style="color:#fbbf24;">${m.bonus} Bonus Point${m.bonus > 1 ? 's' : ''}</b> (${m.bps} BPS)`;
+                }
+
+                return `
+                    <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:12px 16px;">
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <span style="background:rgba(255,255,255,0.08);color:#fff;font-family:var(--font-mono);font-size:11px;font-weight:800;padding:4px 8px;border-radius:6px;min-width:44px;text-align:center;">
+                                GW ${m.gw}
+                            </span>
+                            <div>
+                                <div style="font-size:13px;font-weight:800;color:#fff;">${m.vs} <span style="font-family:var(--font-mono);font-size:11px;color:#94a3b8;font-weight:400;margin-left:6px;">(${m.score})</span></div>
+                                <div style="font-size:11px;color:#94a3b8;font-family:var(--font-mono);margin-top:2px;">
+                                    ${m.minutes}' played • ${statSummary}
+                                </div>
+                            </div>
+                        </div>
+                        <div style="background:rgba(0,255,133,0.12);color:#00FF85;border:1px solid rgba(0,255,133,0.3);font-family:var(--font-mono);font-size:13px;font-weight:800;padding:4px 10px;border-radius:8px;">
+                            ${m.points} pts
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        modal.style.display = 'flex';
     },
 
     // ==================== RENDER: LEAGUE STANDINGS ====================

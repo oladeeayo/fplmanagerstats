@@ -144,6 +144,7 @@
                         <a href="/manager" class="sidebar-nav-item" data-tab="manager" onclick="event.preventDefault();FPL.navigateTo('manager')"><span class="material-symbols-outlined">groups</span> Manager Analysis</a>
                         <a href="/league" class="sidebar-nav-item" data-tab="league" onclick="event.preventDefault();FPL.navigateTo('league')"><span class="material-symbols-outlined">leaderboard</span> Standings</a>
                         <a href="/players" class="sidebar-nav-item" data-tab="players" onclick="event.preventDefault();FPL.navigateTo('players')"><span class="material-symbols-outlined">person_search</span> Player Stats</a>
+                        <a href="/player-advanced" class="sidebar-nav-item" data-tab="playeradvanced" onclick="event.preventDefault();FPL.navigateTo('playeradvanced')"><span class="material-symbols-outlined">analytics</span> Player Advanced Stats</a>
                     </div>
                 </div>
                 <div class="sidebar-section-group">
@@ -776,6 +777,86 @@
                                     <tr><td colspan="12" style="text-align:center;padding:32px;color:#8ba396;">Loading player data...</td></tr>
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PLAYER ADVANCED STATS -->
+                <div id="content-playeradvanced" class="tab-content">
+                    <div style="margin-bottom:24px;">
+                        <h1 style="font-size:32px;font-weight:700;margin:0 0 6px 0;display:flex;align-items:center;gap:12px;">
+                            <span class="material-symbols-outlined" style="font-size:32px;color:#00FF85;">analytics</span>
+                            Player Advanced Stats
+                        </h1>
+                        <p style="margin:0;color:var(--md-sys-color-on-surface-variant);font-size:14px;">
+                            Deep dive into DEFCON Hitters, Double-Digit Hauls, and Bonus Point leaders with match-by-match breakdowns.
+                        </p>
+                    </div>
+
+                    <!-- 3 Centered Navigation Tabs -->
+                    <div style="display:flex;justify-content:center;align-items:center;gap:12px;margin:20px 0 28px 0;flex-wrap:wrap;">
+                        <button type="button" class="adv-subtab-btn active" id="adv-tab-defcon" onclick="FPL.switchAdvancedTab('defcon')" style="display:flex;align-items:center;gap:8px;padding:10px 24px;border-radius:12px;font-family:var(--font-mono);font-size:13px;font-weight:800;cursor:pointer;transition:all 0.2s;background:rgba(0,255,133,0.15);color:#00FF85;border:1px solid #00FF85;">
+                            <span class="material-symbols-outlined" style="font-size:20px;">shield</span> DEFCON Hitter
+                        </button>
+                        <button type="button" class="adv-subtab-btn" id="adv-tab-haul" onclick="FPL.switchAdvancedTab('haul')" style="display:flex;align-items:center;gap:8px;padding:10px 24px;border-radius:12px;font-family:var(--font-mono);font-size:13px;font-weight:800;cursor:pointer;transition:all 0.2s;background:rgba(255,255,255,0.04);color:#94a3b8;border:1px solid rgba(255,255,255,0.08);">
+                            <span class="material-symbols-outlined" style="font-size:20px;">bolt</span> Haul Hitter
+                        </button>
+                        <button type="button" class="adv-subtab-btn" id="adv-tab-bonus" onclick="FPL.switchAdvancedTab('bonus')" style="display:flex;align-items:center;gap:8px;padding:10px 24px;border-radius:12px;font-family:var(--font-mono);font-size:13px;font-weight:800;cursor:pointer;transition:all 0.2s;background:rgba(255,255,255,0.04);color:#94a3b8;border:1px solid rgba(255,255,255,0.08);">
+                            <span class="material-symbols-outlined" style="font-size:20px;">stars</span> Bonus Hitter
+                        </button>
+                    </div>
+
+                    <!-- Filter Bar: Search, Position Filter & Stats Subtitle -->
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;margin-bottom:20px;background:rgba(255,255,255,0.02);padding:14px 18px;border-radius:14px;border:1px solid rgba(255,255,255,0.06);">
+                        <!-- Search Box -->
+                        <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:6px 14px;min-width:220px;">
+                            <span class="material-symbols-outlined" style="font-size:18px;color:#94a3b8;">search</span>
+                            <input type="text" id="adv-player-search" placeholder="Search player name..." oninput="FPL.renderPlayerAdvanced()" style="background:transparent;border:none;outline:none;color:#fff;font-family:var(--font-mono);font-size:13px;width:100%;" aria-label="Search players by name">
+                        </div>
+
+                        <!-- Position Pills -->
+                        <div style="display:flex;align-items:center;gap:6px;" id="adv-pos-filters">
+                            <button type="button" class="adv-pos-btn active" data-pos="all" onclick="FPL.filterAdvancedPos('all')" style="padding:6px 14px;border-radius:8px;font-family:var(--font-mono);font-size:11px;font-weight:800;cursor:pointer;background:#00FF85;color:#000;border:none;">ALL</button>
+                            <button type="button" class="adv-pos-btn" data-pos="GKP" onclick="FPL.filterAdvancedPos('GKP')" style="padding:6px 14px;border-radius:8px;font-family:var(--font-mono);font-size:11px;font-weight:800;cursor:pointer;background:rgba(255,255,255,0.05);color:#94a3b8;border:1px solid rgba(255,255,255,0.08);">GKP</button>
+                            <button type="button" class="adv-pos-btn" data-pos="DEF" onclick="FPL.filterAdvancedPos('DEF')" style="padding:6px 14px;border-radius:8px;font-family:var(--font-mono);font-size:11px;font-weight:800;cursor:pointer;background:rgba(255,255,255,0.05);color:#94a3b8;border:1px solid rgba(255,255,255,0.08);">DEF</button>
+                            <button type="button" class="adv-pos-btn" data-pos="MID" onclick="FPL.filterAdvancedPos('MID')" style="padding:6px 14px;border-radius:8px;font-family:var(--font-mono);font-size:11px;font-weight:800;cursor:pointer;background:rgba(255,255,255,0.05);color:#94a3b8;border:1px solid rgba(255,255,255,0.08);">MID</button>
+                            <button type="button" class="adv-pos-btn" data-pos="FWD" onclick="FPL.filterAdvancedPos('FWD')" style="padding:6px 14px;border-radius:8px;font-family:var(--font-mono);font-size:11px;font-weight:800;cursor:pointer;background:rgba(255,255,255,0.05);color:#94a3b8;border:1px solid rgba(255,255,255,0.08);">FWD</button>
+                        </div>
+
+                        <!-- Summary Count -->
+                        <div id="adv-summary-count" style="font-family:var(--font-mono);font-size:12px;font-weight:700;color:#00FF85;background:rgba(0,255,133,0.1);padding:5px 12px;border-radius:8px;border:1px solid rgba(0,255,133,0.2);">
+                            Loading stats...
+                        </div>
+                    </div>
+
+                    <!-- Data Table -->
+                    <div style="background:rgba(13,22,34,0.7);border-radius:16px;border:1px solid rgba(255,255,255,0.08);overflow-x:auto;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+                        <table style="width:100%;border-collapse:collapse;text-align:left;">
+                            <thead>
+                                <tr id="adv-table-header" style="background:rgba(255,255,255,0.03);border-bottom:1px solid rgba(255,255,255,0.08);font-family:var(--font-mono);font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">
+                                    <!-- Headers populated dynamically in common.js -->
+                                </tr>
+                            </thead>
+                            <tbody id="adv-table-body">
+                                <tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;font-family:var(--font-mono);">Loading player advanced stats data...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- MATCH DETAILS MODAL -->
+                <div id="adv-player-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(8px);z-index:9999;align-items:center;justify-content:center;padding:20px;">
+                    <div style="background:#0f172a;border:1px solid rgba(255,255,255,0.15);border-radius:20px;max-width:620px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 50px rgba(0,0,0,0.7);padding:24px;position:relative;">
+                        <button type="button" onclick="document.getElementById('adv-player-modal').style.display='none'" style="position:absolute;top:18px;right:18px;background:rgba(255,255,255,0.08);border:none;color:#94a3b8;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;" title="Close">
+                            <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+                        </button>
+
+                        <div id="adv-modal-header" style="margin-bottom:20px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:16px;">
+                            <!-- Modal Header populated dynamically -->
+                        </div>
+
+                        <div id="adv-modal-matches" style="display:flex;flex-direction:column;gap:10px;">
+                            <!-- Match rows populated dynamically -->
                         </div>
                     </div>
                 </div>
