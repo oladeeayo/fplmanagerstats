@@ -2342,15 +2342,15 @@ const FPL = {
 
             let tabSpecificCells = '';
             if (activeTab === 'defcon') {
-                tabSpecificCells = `<td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#00FF85;">${p.defconGames}</td>`;
+                tabSpecificCells = `<td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#00FF85;">${Number(p.defconGames) || 0}</td>`;
             } else if (activeTab === 'haul') {
-                tabSpecificCells = `<td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#38bdf8;">${p.haulGames}</td>`;
+                tabSpecificCells = `<td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#38bdf8;">${Number(p.haulGames) || 0}</td>`;
             } else if (activeTab === 'bonus') {
                 tabSpecificCells = `
-                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#fbbf24;">${p.bonus3Games}</td>
-                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#cbd5e1;">${p.bonus2Games}</td>
-                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#94a3b8;">${p.bonus1Games}</td>
-                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#fbbf24;">${p.totalBonus}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#fbbf24;">${Number(p.bonus3Games) || 0}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#cbd5e1;">${Number(p.bonus2Games) || 0}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#94a3b8;">${Number(p.bonus1Games) || 0}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#fbbf24;">${Number(p.totalBonus) || 0}</td>
                 `;
             }
 

@@ -3123,7 +3123,13 @@ function mergeAdvancedGWs(dbRows, bootstrap) {
 
   const merged = new Map();
   for (const row of dbRows) {
-    for (const gp of (row.players || [])) {
+    const rowPlayers = typeof row.players === 'string' ? JSON.parse(row.players) : row.players;
+    for (const gp of (Array.isArray(rowPlayers) ? rowPlayers : [])) {
+      const defconGames = Number(gp.defconGames) || 0;
+      const haulGames = Number(gp.haulGames) || 0;
+      const bonus3Games = Number(gp.bonus3Games) || 0;
+      const bonus2Games = Number(gp.bonus2Games) || 0;
+      const bonus1Games = Number(gp.bonus1Games) || 0;
       const existing = merged.get(gp.id);
       const bs = bsPlayerMap.get(gp.id);
       const ti = bs ? (teamMap[bs.team] || { name: 'Unknown', short: 'UNK', code: 0 }) : { name: gp.teamName || 'Unknown', short: gp.team || 'UNK', code: gp.teamCode || 0 };
@@ -3137,19 +3143,19 @@ function mergeAdvancedGWs(dbRows, bootstrap) {
           position: posNames[pt] || gp.position, elementType: pt,
           cost: (bs?.now_cost || 0) / 10, priceStr: `\u00a3${((bs?.now_cost || 0) / 10).toFixed(1)}m`,
           totalPoints: bs?.total_points || 0, minutes: bs?.minutes || 0,
-          defconGames: gp.defconGames || 0, defconMatches: [...(gp.defconMatches || [])],
-          haulGames: gp.haulGames || 0, haulMatches: [...(gp.haulMatches || [])],
-          bonus3Games: gp.bonus3Games || 0, bonus2Games: gp.bonus2Games || 0, bonus1Games: gp.bonus1Games || 0,
+          defconGames, defconMatches: [...(gp.defconMatches || [])],
+          haulGames, haulMatches: [...(gp.haulMatches || [])],
+          bonus3Games, bonus2Games, bonus1Games,
           totalBonus: bs?.bonus || 0, bonusMatches: [...(gp.bonusMatches || [])]
         });
       } else {
-        existing.defconGames += gp.defconGames || 0;
+        existing.defconGames += defconGames;
         existing.defconMatches.push(...(gp.defconMatches || []));
-        existing.haulGames += gp.haulGames || 0;
+        existing.haulGames += haulGames;
         existing.haulMatches.push(...(gp.haulMatches || []));
-        existing.bonus3Games += gp.bonus3Games || 0;
-        existing.bonus2Games += gp.bonus2Games || 0;
-        existing.bonus1Games += gp.bonus1Games || 0;
+        existing.bonus3Games += bonus3Games;
+        existing.bonus2Games += bonus2Games;
+        existing.bonus1Games += bonus1Games;
         existing.totalBonus = bs?.bonus ?? existing.totalBonus;
         existing.bonusMatches.push(...(gp.bonusMatches || []));
       }
