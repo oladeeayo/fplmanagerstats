@@ -3502,8 +3502,8 @@ const FPL = {
         ctx.fillStyle = '#162332';
         ctx.fill();
 
-        const statBoxW = 96;
-        const statBoxH = 38;
+        const statBoxW = 108;
+        const statBoxH = 44;
         const statBoxX = col1X + col1W - statBoxW - 14;
 
         ctx.font = '800 11px "Fira Code", monospace';
@@ -3512,28 +3512,21 @@ const FPL = {
         ctx.textBaseline = 'middle';
         ctx.fillText('Player', col1X + 16, col1Y + 22);
 
-        ctx.font = '800 10px "Fira Code", monospace';
+        ctx.font = '800 11px "Fira Code", monospace';
         ctx.fillStyle = '#00FF85';
         ctx.textAlign = 'center';
         ctx.fillText('CAPPED', statBoxX + (statBoxW / 2), col1Y + 22);
 
-        const rowH = 55;
-        const renderCaptains = topCaptains.slice(0, 15);
+        // Top 10 Captains layout with 78px row height for optimal spacing & visibility
+        const rowH = 78;
+        const renderCaptains = topCaptains.slice(0, 10);
 
-        const getCapBoxColor = (index) => {
-            const colors = [
-                { bg: '#1583b7', border: '#38bdf8', bar: '#1583b7' },
-                { bg: '#1475a5', border: '#38bdf8', bar: '#1475a5' },
-                { bg: '#136793', border: '#0ea5e9', bar: '#136793' },
-                { bg: '#125981', border: '#0ea5e9', bar: '#125981' },
-                { bg: '#114b6f', border: '#0284c7', bar: '#114b6f' },
-                { bg: '#104364', border: '#0284c7', bar: '#104364' },
-                { bg: '#0f3b59', border: '#1e40af', bar: '#0f3b59' },
-                { bg: '#0e334e', border: '#1e40af', bar: '#0e334e' },
-                { bg: '#0d2b43', border: '#1e3a8a', bar: '#0d2b43' },
-                { bg: '#0c2439', border: '#1e3a8a', bar: '#0c2439' }
-            ];
-            return colors[Math.min(index, colors.length - 1)];
+        const getCapGraphicColor = (index) => {
+            if (index === 0) return { fg: '#00FF85', bg: 'rgba(0, 255, 133, 0.18)', border: '#00FF85' };
+            if (index === 1) return { fg: '#00D1FF', bg: 'rgba(0, 209, 255, 0.18)', border: '#00D1FF' };
+            if (index === 2) return { fg: '#38BDF8', bg: 'rgba(56, 189, 248, 0.18)', border: '#38BDF8' };
+            if (index < 5) return { fg: '#FFA600', bg: 'rgba(255, 166, 0, 0.18)', border: '#FFA600' };
+            return { fg: '#FF5252', bg: 'rgba(255, 82, 82, 0.18)', border: '#FF5252' };
         };
 
         renderCaptains.forEach((item, idx) => {
@@ -3549,11 +3542,11 @@ const FPL = {
             ctx.lineTo(col1X + col1W - 12, rY + rowH);
             ctx.stroke();
 
-            const capStyle = getCapBoxColor(idx);
+            const capStyle = getCapGraphicColor(idx);
 
             // Rank #
-            ctx.font = '800 15px "Fira Code", monospace';
-            ctx.fillStyle = idx < 3 ? '#38bdf8' : '#7aa2c4';
+            ctx.font = '800 16px "Fira Code", monospace';
+            ctx.fillStyle = capStyle.fg;
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
             ctx.fillText(`${idx + 1}`, col1X + 16, rY + (rowH / 2));
@@ -3561,57 +3554,58 @@ const FPL = {
             // Team Badge
             const badgeImg = teamBadgeImgs[item.team];
             const badgeX = col1X + 44;
-            const badgeY = rY + (rowH / 2) - 13;
+            const badgeY = rY + (rowH / 2) - 15;
             if (badgeImg) {
-                ctx.drawImage(badgeImg, badgeX, badgeY, 26, 26);
+                ctx.drawImage(badgeImg, badgeX, badgeY, 30, 30);
             } else {
                 ctx.fillStyle = '#1e3a5f';
                 ctx.beginPath();
-                ctx.arc(badgeX + 13, badgeY + 13, 13, 0, Math.PI * 2);
+                ctx.arc(badgeX + 15, badgeY + 15, 15, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.font = '800 8px "Fira Code", monospace';
+                ctx.font = '800 9px "Fira Code", monospace';
                 ctx.fillStyle = '#7aa2c4';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText((item.team || '').substring(0, 3), badgeX + 13, badgeY + 13);
+                ctx.fillText((item.team || '').substring(0, 3), badgeX + 15, badgeY + 15);
             }
 
             // Player Name
-            ctx.font = '700 16px "Outfit", system-ui, sans-serif';
-            ctx.fillStyle = '#e2e8f0';
+            ctx.font = '800 17px "Outfit", system-ui, sans-serif';
+            ctx.fillStyle = '#ffffff';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
-            const pName = item.name || 'Player';
-            ctx.fillText(pName, col1X + 78, rY + (rowH / 2) - 2);
+            let pName = item.name || 'Player';
+            if (pName.length > 14) pName = pName.substring(0, 12) + '..';
+            ctx.fillText(pName, col1X + 82, rY + (rowH / 2) - 4);
 
             // Team short name below player name
-            ctx.font = '500 10px "Fira Code", monospace';
-            ctx.fillStyle = '#4a6a82';
-            ctx.fillText(item.team || '', col1X + 78, rY + (rowH / 2) + 14);
+            ctx.font = '600 11px "Fira Code", monospace';
+            ctx.fillStyle = '#64748b';
+            ctx.fillText(item.team || '', col1X + 82, rY + (rowH / 2) + 14);
 
-            // Stat Box: clean 4px ocean blue gradient box with pure white bold text
+            // Stat Box: Prominent 4px rectangular box closer to player name with large bold fonts
             const curStatBoxY = rY + (rowH / 2) - (statBoxH / 2);
             drawRoundedRect(statBoxX, curStatBoxY, statBoxW, statBoxH, 4);
 
             ctx.fillStyle = capStyle.bg;
             ctx.strokeStyle = capStyle.border;
             ctx.fill();
-            ctx.lineWidth = 1;
+            ctx.lineWidth = 1.5;
             ctx.stroke();
 
-            // Text inside stat box (Pure White)
+            // Text inside stat box
             const mCount = item.count ?? (item.pct != null && totalManagers ? Math.round((item.pct / 100) * totalManagers) : null);
             const pPct = item.pct ?? 0;
 
-            ctx.font = '800 13.5px "Fira Code", monospace';
-            ctx.fillStyle = '#ffffff';
+            ctx.font = '800 14.5px "Fira Code", monospace';
+            ctx.fillStyle = capStyle.fg;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(`${mCount ?? '--'} Caps`, statBoxX + (statBoxW / 2), curStatBoxY + 13);
+            ctx.fillText(`${mCount ?? '--'} Caps`, statBoxX + (statBoxW / 2), curStatBoxY + 14);
 
-            ctx.font = '700 10.5px "Fira Code", monospace';
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-            ctx.fillText(`${pPct}%`, statBoxX + (statBoxW / 2), curStatBoxY + 27);
+            ctx.font = '800 11.5px "Fira Code", monospace';
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(`${pPct}%`, statBoxX + (statBoxW / 2), curStatBoxY + 30);
         });
 
         // RIGHT COLUMN: Pitch & Tactical Formation
@@ -3721,9 +3715,9 @@ const FPL = {
 
         // Bench Area
         const benchX = col2X + 18;
-        const benchY = col2Y + 550;
+        const benchY = col2Y + 540;
         const benchW = col2W - 36;
-        const benchH = 160;
+        const benchH = 155;
 
         drawRoundedRect(benchX, benchY, benchW, benchH, 10);
         ctx.fillStyle = 'rgba(8, 14, 24, 0.92)';
@@ -3741,27 +3735,27 @@ const FPL = {
         const bStep = benchW / (benchPlayers.length + 1);
         benchPlayers.forEach((p, i) => {
             const bx = benchX + bStep * (i + 1);
-            drawPitchPlayer(p, bx, benchY + 48);
+            drawPitchPlayer(p, bx, benchY + 46);
         });
 
-        // Chips Breakdown Section below bench in Graphic Export Image
+        // Prominent, Highly Visible Chips Breakdown Section below bench in Graphic Export Image
         const chipsX = benchX;
-        const chipsY = benchY + benchH + 12;
+        const chipsY = benchY + benchH + 14;
         const chipsW = benchW;
-        const chipsH = 100;
+        const chipsH = 115;
 
-        drawRoundedRect(chipsX, chipsY, chipsW, chipsH, 10);
-        ctx.fillStyle = 'rgba(8, 14, 24, 0.92)';
+        drawRoundedRect(chipsX, chipsY, chipsW, chipsH, 12);
+        ctx.fillStyle = 'rgba(10, 20, 35, 0.96)';
         ctx.fill();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(0, 255, 133, 0.35)';
+        ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        ctx.font = '800 10.5px "Fira Code", monospace';
-        ctx.fillStyle = '#94a3b8';
+        ctx.font = '800 12px "Fira Code", monospace';
+        ctx.fillStyle = '#00FF85';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.fillText('ACTIVE GW CHIPS PLAYED IN LEAGUE', chipsX + (chipsW / 2), chipsY + 10);
+        ctx.fillText('⚡ ACTIVE GW CHIPS PLAYED IN LEAGUE', chipsX + (chipsW / 2), chipsY + 12);
 
         const rawChipList = standingsData.chipSummary || [];
         const activeChips = rawChipList.filter(c => c.key !== 'none' && c.count > 0);
@@ -3769,42 +3763,42 @@ const FPL = {
         if (activeChips.length > 0) {
             const chipStep = chipsW / (activeChips.length + 1);
             const chipColorMap = {
-                '3xc': { fg: '#00FF85', bg: 'rgba(0,255,133,0.18)', border: '#00FF85' },
-                'bboost': { fg: '#37DB59', bg: 'rgba(55,219,89,0.18)', border: '#37DB59' },
-                'freehit': { fg: '#FFA600', bg: 'rgba(255,166,0,0.18)', border: '#FFA600' },
-                'wildcard': { fg: '#00E5FF', bg: 'rgba(0,229,255,0.18)', border: '#00E5FF' }
+                '3xc': { fg: '#00FF85', bg: 'rgba(0,255,133,0.22)', border: '#00FF85' },
+                'bboost': { fg: '#37DB59', bg: 'rgba(55,219,89,0.22)', border: '#37DB59' },
+                'freehit': { fg: '#FFA600', bg: 'rgba(255,166,0,0.22)', border: '#FFA600' },
+                'wildcard': { fg: '#00E5FF', bg: 'rgba(0,229,255,0.22)', border: '#00E5FF' }
             };
 
             activeChips.forEach((chip, i) => {
                 const cx = chipsX + chipStep * (i + 1);
-                const cy = chipsY + 38;
-                const cWidth = Math.min(160, (chipsW / activeChips.length) - 20);
-                const cHeight = 44;
-                const style = chipColorMap[chip.key] || { fg: '#ffffff', bg: 'rgba(255,255,255,0.1)', border: '#ffffff' };
+                const cy = chipsY + 42;
+                const cWidth = Math.min(170, (chipsW / activeChips.length) - 20);
+                const cHeight = 52;
+                const style = chipColorMap[chip.key] || { fg: '#ffffff', bg: 'rgba(255,255,255,0.12)', border: '#ffffff' };
 
-                drawRoundedRect(cx - (cWidth / 2), cy, cWidth, cHeight, 6);
+                drawRoundedRect(cx - (cWidth / 2), cy, cWidth, cHeight, 8);
                 ctx.fillStyle = style.bg;
                 ctx.strokeStyle = style.border;
                 ctx.fill();
-                ctx.lineWidth = 1.5;
+                ctx.lineWidth = 2;
                 ctx.stroke();
 
-                ctx.font = '800 12px "Fira Code", monospace';
+                ctx.font = '900 15px "Fira Code", monospace';
                 ctx.fillStyle = style.fg;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(`${chip.code}`, cx, cy + 14);
+                ctx.fillText(`${chip.code}`, cx, cy + 17);
 
-                ctx.font = '700 11px "Fira Code", monospace';
+                ctx.font = '800 12px "Fira Code", monospace';
                 ctx.fillStyle = '#ffffff';
-                ctx.fillText(`${chip.count} Used (${chip.pct}%)`, cx, cy + 30);
+                ctx.fillText(`${chip.count} Used (${chip.pct}%)`, cx, cy + 35);
             });
         } else {
-            ctx.font = '600 11px "Fira Code", monospace';
-            ctx.fillStyle = '#64748b';
+            ctx.font = '700 12px "Fira Code", monospace';
+            ctx.fillStyle = '#94a3b8';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(`No active chips played in GW${currentGW}`, chipsX + (chipsW / 2), chipsY + 54);
+            ctx.fillText(`No active chips played in GW${currentGW}`, chipsX + (chipsW / 2), chipsY + 62);
         }
 
         // Canvas Footer
