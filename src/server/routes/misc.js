@@ -3111,9 +3111,51 @@ router.get('/match-analysis', async (req, res) => {
 });
 
 // ---- Player Advanced Stats ----
-// In-memory cache for the full player-advanced response
 const playerAdvancedCache = { data: null, timestamp: 0 };
-const PLAYER_ADVANCED_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+const PLAYER_ADVANCED_CACHE_TTL = 10 * 60 * 1000;
+
+function mergeAdvancedGWs(dbRows, bootstrap) {
+  const teamMap = {};
+  (bootstrap.teams || []).forEach(t => { teamMap[t.id] = { name: t.name, short: t.short_name, code: t.code }; });
+  const posNames = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+  const bsPlayerMap = new Map();
+  bootstrap.elements.forEach(p => bsPlayerMap.set(p.id, p));
+
+  const merged = new Map();
+  for (const row of dbRows) {
+    for (const gp of (row.players || [])) {
+      const existing = merged.get(gp.id);
+      const bs = bsPlayerMap.get(gp.id);
+      const ti = bs ? (teamMap[bs.team] || { name: 'Unknown', short: 'UNK', code: 0 }) : { name: gp.teamName || 'Unknown', short: gp.team || 'UNK', code: gp.teamCode || 0 };
+      const pt = bs ? bs.element_type : gp.elementType;
+
+      if (!existing) {
+        merged.set(gp.id, {
+          id: gp.id, code: bs?.code ?? gp.code, name: bs?.web_name ?? gp.name,
+          fullName: bs ? `${bs.first_name} ${bs.second_name}` : gp.fullName,
+          team: ti.short, teamName: ti.name, teamCode: ti.code,
+          position: posNames[pt] || gp.position, elementType: pt,
+          cost: (bs?.now_cost || 0) / 10, totalPoints: bs?.total_points || 0, minutes: bs?.minutes || 0,
+          defconGames: gp.defconGames || 0, defconMatches: [...(gp.defconMatches || [])],
+          haulGames: gp.haulGames || 0, haulMatches: [...(gp.haulMatches || [])],
+          bonus3Games: gp.bonus3Games || 0, bonus2Games: gp.bonus2Games || 0, bonus1Games: gp.bonus1Games || 0,
+          totalBonus: bs?.bonus || 0, bonusMatches: [...(gp.bonusMatches || [])]
+        });
+      } else {
+        existing.defconGames += gp.defconGames || 0;
+        existing.defconMatches.push(...(gp.defconMatches || []));
+        existing.haulGames += gp.haulGames || 0;
+        existing.haulMatches.push(...(gp.haulMatches || []));
+        existing.bonus3Games += gp.bonus3Games || 0;
+        existing.bonus2Games += gp.bonus2Games || 0;
+        existing.bonus1Games += gp.bonus1Games || 0;
+        existing.totalBonus = bs?.bonus ?? existing.totalBonus;
+        existing.bonusMatches.push(...(gp.bonusMatches || []));
+      }
+    }
+  }
+  return Array.from(merged.values());
+}
 
 router.get('/player-advanced', async (req, res) => {
   try {
@@ -3128,20 +3170,45 @@ router.get('/player-advanced', async (req, res) => {
 
     const currentGW = bootstrap.events?.find(e => e.is_current)?.id || bootstrap.events?.find(e => e.is_next)?.id || 1;
 
-    if (!sql) {
-      return res.status(500).json({ error: 'Database not available' });
+    if (sql) {
+      try {
+        const dbRows = await sql`SELECT gameweek, players FROM player_advanced_stats ORDER BY gameweek ASC`;
+        if (dbRows.length > 0) {
+          const playersData = mergeAdvancedGWs(dbRows, bootstrap);
+          const result = { players: playersData, totalPlayers: playersData.length, gameweek: currentGW, collectedGWs: dbRows.length };
+          playerAdvancedCache.data = result;
+          playerAdvancedCache.timestamp = Date.now();
+          return res.json(result);
+        }
+      } catch (e) {
+        logger.warn({ err: e }, 'Failed to read player_advanced_stats from DB');
+      }
     }
 
-    const dbResult = await sql`SELECT players, total_players FROM player_advanced_stats WHERE gameweek = ${currentGW} LIMIT 1`;
-    if (dbResult.length === 0) {
-      return res.json({ players: [], totalPlayers: 0, gameweek: currentGW, message: 'Data not yet collected for this gameweek' });
+    const finishedGWs = bootstrap.events.filter(e => e.finished).sort((a, b) => a.id - b.id);
+    if (finishedGWs.length > 0) {
+      const { collectAndStore } = require('../playerAdvancedCollector');
+      for (const gw of finishedGWs) {
+        await collectAndStore(gw.id);
+      }
+
+      if (sql) {
+        try {
+          const dbRows = await sql`SELECT gameweek, players FROM player_advanced_stats ORDER BY gameweek ASC`;
+          if (dbRows.length > 0) {
+            const playersData = mergeAdvancedGWs(dbRows, bootstrap);
+            const result = { players: playersData, totalPlayers: playersData.length, gameweek: currentGW, collectedGWs: dbRows.length };
+            playerAdvancedCache.data = result;
+            playerAdvancedCache.timestamp = Date.now();
+            return res.json(result);
+          }
+        } catch (e) {
+          logger.warn({ err: e }, 'Failed to read player_advanced_stats from DB after collection');
+        }
+      }
     }
 
-    const result = { players: dbResult[0].players, totalPlayers: dbResult[0].total_players, gameweek: currentGW };
-    playerAdvancedCache.data = result;
-    playerAdvancedCache.timestamp = Date.now();
-
-    res.json(result);
+    res.json({ players: [], totalPlayers: 0, gameweek: currentGW });
   } catch (e) {
     logger.error({ err: e }, 'Player advanced stats error');
     res.status(500).json({ error: 'Failed to fetch player advanced stats' });

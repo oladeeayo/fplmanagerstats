@@ -2,17 +2,16 @@ const logger = require('./logger');
 const { sql } = require('./db');
 const { getCachedApiData, BOOTSTRAP_URL, FIXTURES_URL, BOOTSTRAP_CACHE_TTL } = require('./cache');
 
-let isCollecting = false;
-
+const activeCollections = new Set();
 const FPL_LIVE_URL = 'https://fantasy.premierleague.com/api/event/{gw}/live/';
 
 async function collectAndStore(gwId) {
-  if (isCollecting) {
-    logger.info({ gwId }, 'Player advanced stats collection already in progress, skipping');
+  const collectingKey = `gw_${gwId}`;
+  if (activeCollections.has(collectingKey)) {
+    logger.info({ gwId }, 'Collection already in progress for this GW, skipping');
     return;
   }
-
-  isCollecting = true;
+  activeCollections.add(collectingKey);
   const startTime = Date.now();
   logger.info({ gwId }, 'Starting player advanced stats collection');
 
@@ -147,7 +146,7 @@ async function collectAndStore(gwId) {
   } catch (err) {
     logger.error({ err, gwId }, 'Player advanced stats collection failed');
   } finally {
-    isCollecting = false;
+    activeCollections.delete(collectingKey);
   }
 }
 
