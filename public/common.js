@@ -553,7 +553,7 @@ const FPL = {
     },
 
     navigateTo(tab) {
-        const validTabs = ['general', 'manager', 'decision', 'league', 'players', 'zones', 'fixtures', 'teamnews', 'captain', 'ownership', 'setpieces', 'aiteam'];
+        const validTabs = ['general', 'manager', 'decision', 'league', 'players', 'zones', 'fixtures', 'teamnews', 'captain', 'ownership', 'setpieces', 'aiteam', 'playeradvanced'];
         if (!validTabs.includes(tab)) tab = 'general';
         this.state.activeTab = tab;
 
@@ -2184,14 +2184,14 @@ const FPL = {
     async loadPlayerAdvanced() {
         const tbody = document.getElementById('adv-table-body');
         if (!this.state.advData) {
-            if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;font-family:var(--font-mono);">Fetching advanced player analytics...</td></tr>';
+            if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:#94a3b8;font-family:var(--font-mono);">Fetching advanced player analytics...</td></tr>';
             try {
                 const data = await this.apiFetch('/api/player-advanced');
                 if (data && Array.isArray(data.players)) {
                     this.state.advData = data;
                 }
             } catch (err) {
-                if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#ef4444;font-family:var(--font-mono);">Failed to load advanced player stats. Please try again.</td></tr>';
+                if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:#ef4444;font-family:var(--font-mono);">Failed to load advanced player stats. Please try again.</td></tr>';
                 return;
             }
         }
@@ -2317,11 +2317,13 @@ const FPL = {
                 <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('bonus2Games')">2 Bonus${sortArrow('bonus2Games')}</th>
                 <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('bonus1Games')">1 Bonus${sortArrow('bonus1Games')}</th>
                 <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('totalBonus')">Total Bonus Pts${sortArrow('totalBonus')}</th>
+                <th style="padding:12px 16px;text-align:center;">Match Details</th>
             `;
         }
 
         if (filtered.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:36px;color:#94a3b8;font-family:var(--font-mono);">No players match the criteria.</td></tr>`;
+            const colCount = activeTab === 'bonus' ? 8 : 5;
+            tbody.innerHTML = `<tr><td colspan="${colCount}" style="text-align:center;padding:36px;color:#94a3b8;font-family:var(--font-mono);">No players match the criteria.</td></tr>`;
             return;
         }
 
@@ -2358,6 +2360,9 @@ const FPL = {
                     <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#94a3b8;">${p.bonus1Games}</td>
                     <td style="text-align:center;font-family:var(--font-mono);font-size:14px;font-weight:800;color:#fbbf24;">
                         <span style="background:rgba(251,191,36,0.12);padding:4px 12px;border-radius:20px;border:1px solid rgba(251,191,36,0.25);">${p.totalBonus}</span>
+                    </td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:11px;color:#94a3b8;">
+                        <span style="color:#fbbf24;font-weight:700;">View bonus matches ➔</span>
                     </td>
                 `;
             }
