@@ -1716,7 +1716,7 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
     });
 
     // Fetch pages (up to 2000 managers) in parallel for template & captaincy analytics
-    const requestedLimit = Math.min(2000, Math.max(10, parseInt(req.query.limit || req.query.sampleLimit) || 300));
+    const requestedLimit = Math.min(2000, Math.max(10, parseInt(req.query.limit || req.query.sampleLimit) || 2000));
     const pagesCount = Math.min(40, Math.ceil(requestedLimit / 50));
     const pagesToFetch = Array.from({ length: pagesCount }, (_, i) => i + 1);
 
@@ -1818,7 +1818,8 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       'wildcard': 'WC'
     };
 
-    const managerEntries = results.slice(0, 50);
+    const pageSize = 100;
+    const managerEntries = topEntries.slice((page - 1) * pageSize, page * pageSize);
 
     const managers = managerEntries.map((entry, index) => {
       const mgrName = entry.player_name || [entry.player_first_name, entry.player_last_name].filter(Boolean).join(' ');
@@ -1856,7 +1857,7 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       }
 
       return {
-        rank: entry.rank || ((page - 1) * 50) + index + 1,
+        rank: entry.rank || ((page - 1) * pageSize) + index + 1,
         managerName: mgrName,
         entryName: entName,
         managerId: mId,
@@ -1977,7 +1978,7 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       leagueName: decodeHTMLEntities(leagueInfo.name) || `League ${leagueId}`,
       leagueType: leagueInfo.league_type === 'x' ? 'Classic League' : 'Public Global',
       page,
-      totalPages: isFullyLoaded ? Math.ceil(actualTotalManagers / 50) : page + 1,
+      totalPages: isFullyLoaded ? Math.ceil(actualTotalManagers / 100) : Math.ceil(topEntries.length / 100),
       totalEntries: actualTotalManagers,
       totalLeagueManagers: actualTotalManagers,
       hasMore: hasMoreFlag,

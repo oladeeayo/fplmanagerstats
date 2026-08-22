@@ -2201,7 +2201,7 @@ const FPL = {
             const cacheKey = `league-${leagueId}-${page}`;
             let data = this.getCachedTabData(cacheKey);
             if (!data) {
-                data = await this.apiFetch(`/api/leagues-classic/${leagueId}/standings?page=${page}`);
+                data = await this.apiFetch(`/api/leagues-classic/${leagueId}/standings?page=${page}&limit=2000`);
                 this.setCachedTabData(cacheKey, data);
             }
             this.state.standingsData = data;
@@ -2371,7 +2371,7 @@ const FPL = {
     renderStandingsPagination(data) {
         const page = data.page || 1;
         const totalPages = Math.max(1, data.totalPages || 1);
-        const startNum = (page - 1) * 50 + 1;
+        const startNum = (page - 1) * 100 + 1;
         const endNum = startNum + (data.managers?.length || 0) - 1;
         
         const countEl = document.getElementById('standings-showing-count');
@@ -2575,7 +2575,7 @@ const FPL = {
 
         const descEl = document.getElementById('league-chips-desc');
         if (descEl) {
-            descEl.textContent = `Active GW chips count analyzed across Top ${data.totalManagersAnalyzed || 300} managers.`;
+            descEl.textContent = `Active GW chips count analyzed across Top ${data.totalManagersAnalyzed || 2000} managers.`;
         }
 
         const chipList = data.chipSummary || [];
