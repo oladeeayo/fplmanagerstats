@@ -2547,32 +2547,32 @@ const FPL = {
             return;
         }
 
-        const getCapColor = (index, total) => {
-            if (index === 0) return { fg: '#00FF85', bg: 'rgba(0,255,133,0.15)', bar: 'linear-gradient(90deg, #00FF85 0%, #00CC6A 100%)' };
-            if (index === 1) return { fg: '#00D1FF', bg: 'rgba(0,209,255,0.15)', bar: 'linear-gradient(90deg, #00D1FF 0%, #0088FF 100%)' };
-            if (index === 2) return { fg: '#38bdf8', bg: 'rgba(56,189,248,0.15)', bar: 'linear-gradient(90deg, #38bdf8 0%, #0284c7 100%)' };
-            if (index < 5) return { fg: '#ffa600', bg: 'rgba(255,166,0,0.15)', bar: 'linear-gradient(90deg, #ffa600 0%, #d97706 100%)' };
-            return { fg: '#ff5252', bg: 'rgba(255,82,82,0.15)', bar: 'linear-gradient(90deg, #ff5252 0%, #dc2626 100%)' };
+        const getCapColor = (index) => {
+            if (index === 0) return { fg: '#00FF85', bg: 'rgba(0,255,133,0.15)', border: 'rgba(0,255,133,0.3)', bar: 'linear-gradient(90deg, #00FF85 0%, #00CC6A 100%)' };
+            if (index === 1) return { fg: '#00D1FF', bg: 'rgba(0,209,255,0.15)', border: 'rgba(0,209,255,0.3)', bar: 'linear-gradient(90deg, #00D1FF 0%, #0088FF 100%)' };
+            if (index === 2) return { fg: '#38bdf8', bg: 'rgba(56,189,248,0.15)', border: 'rgba(56,189,248,0.3)', bar: 'linear-gradient(90deg, #38bdf8 0%, #0284c7 100%)' };
+            if (index < 5) return { fg: '#ffa600', bg: 'rgba(255,166,0,0.15)', border: 'rgba(255,166,0,0.3)', bar: 'linear-gradient(90deg, #ffa600 0%, #d97706 100%)' };
+            return { fg: '#ff5252', bg: 'rgba(255,82,82,0.15)', border: 'rgba(255,82,82,0.3)', bar: 'linear-gradient(90deg, #ff5252 0%, #dc2626 100%)' };
         };
 
         container.innerHTML = captaincy.map((item, idx) => {
             const fotmobPhoto = this.playerPhotoUrl(item, '110x140', true);
             const plFallback = item.code ? `https://resources.premierleague.com/premierleague/photos/players/110x140/p${item.code}.png` : '';
             const photoUrl = fotmobPhoto || plFallback;
-            const capColor = getCapColor(idx, captaincy.length);
+            const capColor = getCapColor(idx);
             const statText = item.count != null ? `${item.count} Capped (${item.pct}%)` : `${item.pct}% Capped`;
 
-            return `<div onclick="FPL.showCaptaincyOwners(${item.id})" style="padding:10px 4px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:12px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='transparent'" title="Click to view managers who captained ${this.escapeHTML(item.name)}">
-                <div style="width:36px;height:42px;overflow:hidden;flex-shrink:0;">
+            return `<div onclick="FPL.showCaptaincyOwners(${item.id})" style="padding:10px 12px;margin-bottom:8px;background:var(--md-sys-color-surface-container-high);border:1px solid var(--md-sys-color-outline-variant);border-radius:4px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='${capColor.fg}'" onmouseout="this.style.borderColor='var(--md-sys-color-outline-variant)'" title="Click to view managers who captained ${this.escapeHTML(item.name)}">
+                <div style="width:36px;height:42px;overflow:hidden;flex-shrink:0;border-radius:2px;">
                     <img src="${photoUrl}" onerror="if(this.src!=='${plFallback}'&&'${plFallback}'){this.src='${plFallback}';}else{this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2236%22 height=%2242%22 viewBox=%220 0 24 24%22 fill=%22%23777%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E';}" style="width:100%;height:100%;object-fit:cover;object-position:top;" alt="${item.name}">
                 </div>
                 <div style="flex:1;min-width:0;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                        <div style="font-weight:700;font-size:12px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(item.name)} <span style="font-size:10px;color:var(--md-sys-color-on-surface-variant);font-weight:400;">(${item.team})</span></div>
-                        <div style="font-family:var(--font-mono);font-size:12px;font-weight:900;color:${capColor.fg};background:${capColor.bg};padding:3px 8px;border-radius:6px;border:1px solid ${capColor.fg}33;">${statText}</div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                        <div style="font-weight:700;font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(item.name)} <span style="font-size:10px;color:var(--md-sys-color-on-surface-variant);font-weight:500;">(${item.team})</span></div>
+                        <div style="font-family:var(--font-mono);font-size:12px;font-weight:900;color:${capColor.fg};background:${capColor.bg};padding:3px 8px;border-radius:4px;border:1px solid ${capColor.border};">${statText}</div>
                     </div>
-                    <div style="width:100%;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">
-                        <div style="width:${item.pct}%;height:100%;background:${capColor.bar};border-radius:3px;"></div>
+                    <div style="width:100%;height:6px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;">
+                        <div style="width:${item.pct}%;height:100%;background:${capColor.bar};border-radius:2px;"></div>
                     </div>
                 </div>
             </div>`;
@@ -2598,26 +2598,26 @@ const FPL = {
         }
 
         const chipColorMap = {
-            '3xc': { color: '#00FF85', bg: 'rgba(0,255,133,0.12)' },
-            'bboost': { color: '#37DB59', bg: 'rgba(55,219,89,0.12)' },
-            'freehit': { color: '#FFA600', bg: 'rgba(255,166,0,0.12)' },
-            'wildcard': { color: '#00E5FF', bg: 'rgba(0,229,255,0.12)' }
+            '3xc': { color: '#00FF85', bg: 'rgba(0,255,133,0.15)', border: 'rgba(0,255,133,0.3)' },
+            'bboost': { color: '#37DB59', bg: 'rgba(55,219,89,0.15)', border: 'rgba(55,219,89,0.3)' },
+            'freehit': { color: '#FFA600', bg: 'rgba(255,166,0,0.15)', border: 'rgba(255,166,0,0.3)' },
+            'wildcard': { color: '#00E5FF', bg: 'rgba(0,229,255,0.15)', border: 'rgba(0,229,255,0.3)' }
         };
 
         container.innerHTML = chipList.map(c => {
-            const styleInfo = chipColorMap[c.key] || { color: '#ffffff', bg: 'rgba(255,255,255,0.06)' };
+            const styleInfo = chipColorMap[c.key] || { color: '#ffffff', bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.2)' };
 
-            return `<div onclick="FPL.showChipUsers('${c.key}')" style="padding:10px 4px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:12px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='transparent'" title="Click to view managers with ${this.escapeHTML(c.name)}">
-                <span style="font-family:var(--font-mono);font-size:10px;font-weight:800;padding:4px 8px;border-radius:4px;background:${styleInfo.bg};color:${styleInfo.color};min-width:38px;text-align:center;flex-shrink:0;">${c.code}</span>
+            return `<div onclick="FPL.showChipUsers('${c.key}')" style="padding:10px 12px;margin-bottom:8px;background:var(--md-sys-color-surface-container-high);border:1px solid var(--md-sys-color-outline-variant);border-radius:4px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='${styleInfo.color}'" onmouseout="this.style.borderColor='var(--md-sys-color-outline-variant)'" title="Click to view managers with ${this.escapeHTML(c.name)}">
+                <span style="font-family:var(--font-mono);font-size:11px;font-weight:900;padding:4px 8px;border-radius:4px;background:${styleInfo.bg};color:${styleInfo.color};border:1px solid ${styleInfo.border};min-width:44px;text-align:center;flex-shrink:0;">${c.code}</span>
                 <div style="flex:1;min-width:0;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                        <span style="font-weight:700;font-size:12px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name}</span>
-                        <div style="font-family:var(--font-mono);font-size:12px;font-weight:900;color:${styleInfo.color};background:${styleInfo.bg};padding:3px 8px;border-radius:6px;border:1px solid ${styleInfo.color}33;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                        <span style="font-weight:700;font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name}</span>
+                        <div style="font-family:var(--font-mono);font-size:12px;font-weight:900;color:${styleInfo.color};background:${styleInfo.bg};padding:3px 8px;border-radius:4px;border:1px solid ${styleInfo.border};">
                             ${c.count} Used <span style="font-size:10px;font-weight:600;opacity:0.8;">(${c.pct}%)</span>
                         </div>
                     </div>
-                    <div style="width:100%;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">
-                        <div style="width:${c.pct}%;height:100%;background:${styleInfo.color};border-radius:3px;"></div>
+                    <div style="width:100%;height:6px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;">
+                        <div style="width:${c.pct}%;height:100%;background:${styleInfo.color};border-radius:2px;"></div>
                     </div>
                 </div>
             </div>`;
@@ -3491,18 +3491,18 @@ const FPL = {
         const col1W = 510;
         const col1H = 880;
 
-        drawRoundedRect(col1X, col1Y, col1W, col1H, 14);
+        drawRoundedRect(col1X, col1Y, col1W, col1H, 6);
         ctx.fillStyle = '#0f1923';
         ctx.fill();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
         ctx.lineWidth = 1;
         ctx.stroke();
 
-        drawRoundedRect(col1X, col1Y, col1W, 42, 14);
+        drawRoundedRect(col1X, col1Y, col1W, 42, 6);
         ctx.fillStyle = '#162332';
         ctx.fill();
 
-        const statBoxW = 88;
+        const statBoxW = 96;
         const statBoxH = 38;
         const statBoxX = col1X + col1W - statBoxW - 14;
 
@@ -3513,13 +3513,20 @@ const FPL = {
         ctx.fillText('Player', col1X + 16, col1Y + 22);
 
         ctx.font = '800 10px "Fira Code", monospace';
-        ctx.fillStyle = '#5a7a94';
+        ctx.fillStyle = '#00FF85';
         ctx.textAlign = 'center';
-        ctx.fillText('PROJ PTS', statBoxX + (statBoxW / 2), col1Y + 22);
+        ctx.fillText('CAPPED', statBoxX + (statBoxW / 2), col1Y + 22);
 
         const rowH = 55;
         const renderCaptains = topCaptains.slice(0, 15);
-        const topVal = renderCaptains[0]?.pct ?? renderCaptains[0]?.count ?? 1;
+
+        const getCapGraphicColor = (index) => {
+            if (index === 0) return { fg: '#00FF85', bg: 'rgba(0, 255, 133, 0.18)', border: '#00FF85' };
+            if (index === 1) return { fg: '#00D1FF', bg: 'rgba(0, 209, 255, 0.18)', border: '#00D1FF' };
+            if (index === 2) return { fg: '#38BDF8', bg: 'rgba(56, 189, 248, 0.18)', border: '#38BDF8' };
+            if (index < 5) return { fg: '#FFA600', bg: 'rgba(255, 166, 0, 0.18)', border: '#FFA600' };
+            return { fg: '#FF5252', bg: 'rgba(255, 82, 82, 0.18)', border: '#FF5252' };
+        };
 
         renderCaptains.forEach((item, idx) => {
             const rY = col1Y + 44 + (idx * rowH);
@@ -3527,16 +3534,18 @@ const FPL = {
             ctx.fillStyle = idx % 2 === 0 ? '#111d2b' : '#0d1822';
             ctx.fillRect(col1X + 1, rY, col1W - 2, rowH);
 
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(col1X + 12, rY + rowH);
             ctx.lineTo(col1X + col1W - 12, rY + rowH);
             ctx.stroke();
 
+            const capStyle = getCapGraphicColor(idx);
+
             // Rank #
             ctx.font = '800 15px "Fira Code", monospace';
-            ctx.fillStyle = idx < 3 ? '#38bdf8' : '#5a7a94';
+            ctx.fillStyle = capStyle.fg;
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
             ctx.fillText(`${idx + 1}`, col1X + 16, rY + (rowH / 2));
@@ -3572,44 +3581,29 @@ const FPL = {
             ctx.fillStyle = '#4a6a82';
             ctx.fillText(item.team || '', col1X + 78, rY + (rowH / 2) + 14);
 
-            // Stat Box: dark rounded rect with count
-            const itemVal = item.pct ?? item.count ?? 0;
-            const ratio = topVal > 0 ? Math.max(0.05, Math.min(1, itemVal / topVal)) : 0.05;
-
+            // Stat Box: clean 4px rectangle box with dynamic color scheme & bold visible numbers
             const curStatBoxY = rY + (rowH / 2) - (statBoxH / 2);
-            drawRoundedRect(statBoxX, curStatBoxY, statBoxW, statBoxH, 6);
+            drawRoundedRect(statBoxX, curStatBoxY, statBoxW, statBoxH, 4);
 
-            if (ratio > 0.6) {
-                ctx.fillStyle = '#0b2e4a';
-                ctx.strokeStyle = '#1e5a8a';
-            } else if (ratio > 0.3) {
-                ctx.fillStyle = '#0a2640';
-                ctx.strokeStyle = '#1a4a72';
-            } else if (ratio > 0.1) {
-                ctx.fillStyle = '#091f35';
-                ctx.strokeStyle = '#16405e';
-            } else {
-                ctx.fillStyle = '#081a2c';
-                ctx.strokeStyle = '#12344d';
-            }
-
+            ctx.fillStyle = capStyle.bg;
+            ctx.strokeStyle = capStyle.border;
             ctx.fill();
-            ctx.lineWidth = 1;
+            ctx.lineWidth = 1.5;
             ctx.stroke();
 
             // Text inside stat box
             const mCount = item.count ?? (item.pct != null && totalManagers ? Math.round((item.pct / 100) * totalManagers) : null);
             const pPct = item.pct ?? 0;
 
-            ctx.font = '800 14px "Fira Code", monospace';
-            ctx.fillStyle = '#38bdf8';
+            ctx.font = '800 13px "Fira Code", monospace';
+            ctx.fillStyle = capStyle.fg;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(`${mCount ?? '--'}`, statBoxX + (statBoxW / 2), curStatBoxY + 14);
+            ctx.fillText(`${mCount ?? '--'} Caps`, statBoxX + (statBoxW / 2), curStatBoxY + 13);
 
-            ctx.font = '600 9px "Fira Code", monospace';
-            ctx.fillStyle = '#5a8aaa';
-            ctx.fillText(`${pPct}%`, statBoxX + (statBoxW / 2), curStatBoxY + 28);
+            ctx.font = '700 10px "Fira Code", monospace';
+            ctx.fillStyle = capStyle.fg;
+            ctx.fillText(`${pPct}%`, statBoxX + (statBoxW / 2), curStatBoxY + 26);
         });
 
         // RIGHT COLUMN: Pitch & Tactical Formation
