@@ -1783,24 +1783,101 @@ const FPL = {
         if (squadTbody) {
             if (!team || team.length === 0) {
                 squadTbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:#8ba396;font-size:13px;">Connect your FPL ID to see squad performance data</td></tr>';
-                return;
+            } else {
+                squadTbody.innerHTML = team.map(p => `
+                    <tr style="border-bottom:1px solid #16251e;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                        <td style="padding:4px 6px;background:#141916;max-width:120px;overflow:hidden;display:flex;align-items:center;gap:6px;">
+                            <div class="player-photo-shell" style="width:24px;height:24px;border-radius:50%;border:1px solid #28392e;">${this.playerPhotoMarkup(p, `${p.webName || p.name} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}</div>
+                            <span style="font-weight:700;color:#ffffff;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.webName || p.name}</span>
+                        </td>
+                        <td style="text-align:center;color:#ffffff;font-family:var(--font-mono);font-size:11px;">${p.totalPoints || p.points || 0}</td>
+                        <td style="text-align:center;color:#8ba396;font-family:var(--font-mono);font-size:11px;">${p.gwApps || 28}</td>
+                        <td style="text-align:center;color:#8ba396;font-family:var(--font-mono);font-size:11px;">${p.starts || 27}</td>
+                        <td style="text-align:center;color:#8ba396;font-family:var(--font-mono);font-size:11px;">${p.captPts || 0}</td>
+                        <td style="text-align:center;color:#ffffff;font-family:var(--font-mono);font-size:11px;">${p.costStr || ('£' + ((p.nowCost || 100) / 10).toFixed(1) + 'm')}</td>
+                        <td style="text-align:center;font-weight:700;color:#00FF85;font-family:var(--font-mono);font-size:11px;">${p.ppg || ( (p.totalPoints || p.points || 0) / 28 ).toFixed(1)}</td>
+                    </tr>
+                `).join('');
             }
-            const playersToRender = team;
+        }
 
-            squadTbody.innerHTML = playersToRender.map(p => `
-                <tr style="border-bottom:1px solid #16251e;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
-                    <td style="padding:4px 6px;background:#141916;max-width:120px;overflow:hidden;display:flex;align-items:center;gap:6px;">
-                        <div class="player-photo-shell" style="width:24px;height:24px;border-radius:50%;border:1px solid #28392e;">${this.playerPhotoMarkup(p, `${p.webName || p.name} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}</div>
-                        <span style="font-weight:700;color:#ffffff;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.webName || p.name}</span>
-                    </td>
-                    <td style="text-align:center;color:#ffffff;font-family:var(--font-mono);font-size:11px;">${p.totalPoints || p.points || 0}</td>
-                    <td style="text-align:center;color:#8ba396;font-family:var(--font-mono);font-size:11px;">${p.gwApps || 28}</td>
-                    <td style="text-align:center;color:#8ba396;font-family:var(--font-mono);font-size:11px;">${p.starts || 27}</td>
-                    <td style="text-align:center;color:#8ba396;font-family:var(--font-mono);font-size:11px;">${p.captPts || 0}</td>
-                    <td style="text-align:center;color:#ffffff;font-family:var(--font-mono);font-size:11px;">${p.costStr || ('£' + ((p.nowCost || 100) / 10).toFixed(1) + 'm')}</td>
-                    <td style="text-align:center;font-weight:700;color:#00FF85;font-family:var(--font-mono);font-size:11px;">${p.ppg || ( (p.totalPoints || p.points || 0) / 28 ).toFixed(1)}</td>
-                </tr>
-            `).join('');
+        // Render Points Per Gameweek Chart
+        const ptsChartEl = document.getElementById('points-per-gw-chart');
+        const ptsSummaryEl = document.getElementById('points-gw-summary');
+        if (ptsChartEl) {
+            const weeklyPts = m?.weeklyPoints || [];
+            const weeklyBench = m?.weeklyPointsLostBench || [];
+            if (weeklyPts.length > 0) {
+                const maxPts = Math.max(...weeklyPts, 1);
+                const avgPts = (weeklyPts.reduce((a, b) => a + b, 0) / weeklyPts.length).toFixed(1);
+                const highestPts = Math.max(...weeklyPts);
+                
+                if (ptsSummaryEl) ptsSummaryEl.textContent = `Avg: ${avgPts} pts | Max: ${highestPts} pts`;
+
+                ptsChartEl.innerHTML = weeklyPts.map((pts, idx) => {
+                    const gw = idx + 1;
+                    const benchPts = weeklyBench[idx] || 0;
+                    const heightPct = Math.max(12, Math.round((pts / maxPts) * 100));
+                    const isHighest = pts === highestPts;
+                    const barBg = isHighest
+                        ? 'linear-gradient(to top, rgba(255,215,0,0.2), #FFD700)'
+                        : 'linear-gradient(to top, rgba(0,255,133,0.15), #00FF85)';
+                    const textColor = isHighest ? '#FFD700' : '#00FF85';
+                    const borderStyle = isHighest ? 'border:1px solid #FFD700;box-shadow:0 0 10px rgba(255,215,0,0.4);' : '';
+
+                    return `<div style="flex:1;min-width:28px;max-width:48px;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;position:relative;" title="GW${gw}: ${pts} pts (${benchPts} pts lost on bench)">
+                        <span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:${textColor};margin-bottom:4px;">${pts}</span>
+                        <div style="width:100%;height:${heightPct}%;background:${barBg};border-radius:4px 4px 0 0;${borderStyle}transition:all 0.2s;"></div>
+                        <span style="font-family:var(--font-mono);font-size:9px;color:#8ba396;margin-top:6px;">GW${gw}</span>
+                    </div>`;
+                }).join('');
+            } else {
+                if (ptsSummaryEl) ptsSummaryEl.textContent = '';
+                ptsChartEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:#8ba396;font-size:13px;">Connect your FPL ID to view Gameweek points history</div>';
+            }
+        }
+
+        // Render Rank History Chart
+        const rankChartEl = document.getElementById('rank-history-chart');
+        const rankSummaryEl = document.getElementById('rank-gw-summary');
+        if (rankChartEl) {
+            const weeklyRanks = m?.weeklyRanks || [];
+            if (weeklyRanks.length > 0) {
+                const currentRank = weeklyRanks[weeklyRanks.length - 1];
+                const bestRank = Math.min(...weeklyRanks);
+                const worstRank = Math.max(...weeklyRanks);
+
+                if (rankSummaryEl) rankSummaryEl.textContent = `Current: OR ${this.formatNumber(currentRank)} | Best: OR ${this.formatNumber(bestRank)}`;
+
+                rankChartEl.innerHTML = weeklyRanks.map((rank, idx) => {
+                    const gw = idx + 1;
+                    const prevRank = idx > 0 ? weeklyRanks[idx - 1] : rank;
+                    const isImproved = rank < prevRank; // lower rank is better
+                    const isWorse = rank > prevRank;
+                    
+                    const range = Math.max(1, worstRank - bestRank);
+                    const normalized = (rank - bestRank) / range;
+                    const heightPct = Math.max(15, Math.round((1 - normalized) * 85 + 15));
+                    
+                    const barBg = isImproved
+                        ? 'linear-gradient(to top, rgba(0,255,133,0.15), #00FF85)'
+                        : isWorse
+                        ? 'linear-gradient(to top, rgba(255,0,90,0.15), #FF005A)'
+                        : 'linear-gradient(to top, rgba(255,255,255,0.15), #8ba396)';
+                    const textColor = isImproved ? '#00FF85' : isWorse ? '#FF005A' : '#8ba396';
+                    
+                    const rankFormatted = rank >= 1000000 ? (rank / 1000000).toFixed(1) + 'M' : rank >= 1000 ? (rank / 1000).toFixed(0) + 'k' : rank;
+
+                    return `<div style="flex:1;min-width:28px;max-width:48px;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;position:relative;" title="GW${gw}: OR ${this.formatNumber(rank)}">
+                        <span style="font-family:var(--font-mono);font-size:9px;font-weight:700;color:${textColor};margin-bottom:4px;">${rankFormatted}</span>
+                        <div style="width:100%;height:${heightPct}%;background:${barBg};border-radius:4px 4px 0 0;transition:all 0.2s;"></div>
+                        <span style="font-family:var(--font-mono);font-size:9px;color:#8ba396;margin-top:6px;">GW${gw}</span>
+                    </div>`;
+                }).join('');
+            } else {
+                if (rankSummaryEl) rankSummaryEl.textContent = '';
+                rankChartEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:#8ba396;font-size:13px;">Connect your FPL ID to view Overall Rank history</div>';
+            }
         }
     },
 

@@ -42,6 +42,7 @@
       <label class="input-label" for="sort-by">Sort by</label>
       <select class="input" id="sort-by">
         <option value="points">Points</option>
+        <option value="ppm">PPM (Points/£m)</option>
         <option value="form">Form</option>
         <option value="price">Price</option>
         <option value="ownership">Ownership</option>
@@ -64,24 +65,24 @@
       <span class="stat-value">42.8</span>
     </div>
     <div class="stat-card">
-      <span class="stat-label">Highest Scorer</span>
-      <span class="stat-value">167</span>
+      <span class="stat-label">Top Scorer</span>
+      <span class="stat-value">M. Salah (167)</span>
     </div>
     <div class="stat-card">
       <span class="stat-label">Most Owned</span>
-      <span class="stat-value">87.3%</span>
+      <span class="stat-value">Erling Haaland</span>
     </div>
     <div class="stat-card">
-      <span class="stat-label">Most Transferred In</span>
-      <span class="stat-value">+248k</span>
+      <span class="stat-label">Best Value</span>
+      <span class="stat-value">C. Palmer</span>
     </div>
   </div>
 
-  <div class="card table-card">
+  <div class="card">
     <div class="card-header">
-      <h2>All Players</h2>
-      <div class="table-controls">
-        <span class="table-info">Showing 694 players</span>
+      <div>
+        <h2 class="card-title">All Players</h2>
+        <p class="card-subtitle">Showing top 50 players by total points</p>
       </div>
     </div>
     <div class="card-body">
@@ -94,6 +95,7 @@
               <th class="col-team" style="cursor:pointer" data-sort="team">Team</th>
               <th class="col-position" style="cursor:pointer" data-sort="position">Position</th>
               <th class="col-points" style="cursor:pointer" data-sort="points">Points</th>
+              <th class="col-ppm" style="cursor:pointer" data-sort="ppm">PPM</th>
               <th class="col-form" style="cursor:pointer" data-sort="form">Form</th>
               <th class="col-price" style="cursor:pointer" data-sort="price">Price</th>
               <th class="col-ownership" style="cursor:pointer" data-sort="ownership">Ownership</th>

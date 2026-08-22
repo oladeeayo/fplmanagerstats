@@ -488,6 +488,37 @@ router.get('/zone-analysis', async (req, res) => {
         if (weakness > maxWeakness) { maxWeakness = weakness; weakestDefence = z; }
       });
 
+      // Calculate 0-100 Defensive Vulnerability Rating per zone
+      DEFENSIVE_ZONES.concat(['gk', 'ldm', 'rdm']).forEach(z => {
+        const p = zoneStats[z]?.players?.[0];
+        if (!p) return;
+        const mins = Math.max(p.minutes, 90);
+        const xgc90 = (p.xGC * 90) / mins;
+        const defcon90 = ((p.defensiveContribution || 0) * 90) / mins;
+        const tackles90 = ((p.tackles || 0) * 90) / mins;
+        // Higher xGC + lower defensive output = higher vulnerability score (0-100)
+        const vulnScore = Math.round(Math.max(10, Math.min(99,
+          (xgc90 * 35) + (Math.max(0, 15 - defcon90) * 2.5) + (Math.max(0, 3 - tackles90) * 8)
+        )));
+        zoneStats[z].vulnerabilityScore = vulnScore;
+        if (p) p.vulnerabilityScore = vulnScore;
+      });
+
+      // Calculate 0-100 Attacking Strength Rating per zone
+      ATTACKING_ZONES.forEach(z => {
+        const p = zoneStats[z]?.players?.[0];
+        if (!p) return;
+        const mins = Math.max(p.minutes, 90);
+        const xg90 = (p.xG * 90) / mins;
+        const xa90 = (p.xA * 90) / mins;
+        const threat90 = (p.threat * 90) / mins;
+        const atkScore = Math.round(Math.max(10, Math.min(99,
+          (xg90 * 40) + (xa90 * 35) + (threat90 * 0.15) + (p.form * 4)
+        )));
+        zoneStats[z].attackScore = atkScore;
+        if (p) p.attackScore = atkScore;
+      });
+
       const topDef = [...defenders].sort((a, b) => b.influence - a.influence)[0];
 
       const totalGoals = active.reduce((s, p) => s + p.goals, 0);
@@ -895,10 +926,74 @@ router.get('/zone-analysis', async (req, res) => {
 
     allRecommendations.sort((a, b) => b.strength - a.strength);
 
+    // Predict best players to buy based on upcoming fixture zonal weaknesses
+    const transferRecommendations = [];
+    playersWithZones.filter(p => p.minutes >= 120 && p.status === 'a' && p.chanceOfPlaying !== 0).forEach(p => {
+      const upcomingFxs = fixtures.filter(f => (f.team_h === p.team || f.team_a === p.team) && f.event >= selectedGW && f.event <= selectedGW + 3);
+      if (!upcomingFxs.length) return;
+
+      let totalScore = 0;
+      const fixtureExplanations = [];
+
+      upcomingFxs.forEach(fx => {
+        const isHome = fx.team_h === p.team;
+        const oppTeamId = isHome ? fx.team_a : fx.team_h;
+        const oppAnalysis = teamAnalysisMap[oppTeamId];
+        if (!oppAnalysis) return;
+
+        const fdr = isHome ? fx.team_h_difficulty || 3 : fx.team_a_difficulty || 3;
+        const fdrMultiplier = (6 - fdr) * 0.25;
+
+        const oppWeakZone = oppAnalysis.weakestDefence;
+        const oppWeakScore = oppAnalysis.zoneStats[oppWeakZone]?.vulnerabilityScore || 50;
+
+        const isDirectMatch = attackTargetsWeakness(p.zone, oppWeakZone);
+        const zonalMultiplier = isDirectMatch ? 1.35 : 1.0;
+
+        const per90Minutes = Math.max(p.minutes, 90);
+        const xGI90 = ((p.expectedGoals + p.expectedAssists) * 90) / per90Minutes;
+        const formVal = parseFloat(p.form) || 0;
+
+        const fixtureScore = ((xGI90 * 4) + (oppWeakScore * 0.3) + (formVal * 1.5)) * fdrMultiplier * zonalMultiplier;
+        totalScore += fixtureScore;
+
+        if (isDirectMatch || oppWeakScore >= 60 || fdr <= 2) {
+          fixtureExplanations.push(`GW${fx.event} vs ${oppAnalysis.teamName} (${isHome ? 'H' : 'A'}): Attacks ${oppAnalysis.weakestDefenceZone} (${oppWeakScore}/100 Vuln)${isDirectMatch ? ' [Zonal Edge]' : ''}`);
+        }
+      });
+
+      const avgScore = totalScore / upcomingFxs.length;
+      const transferRating = Math.round(Math.max(10, Math.min(99, avgScore * 12)));
+
+      if (transferRating >= 50) {
+        transferRecommendations.push({
+          id: p.id,
+          name: p.name,
+          team: p.teamName,
+          code: p.code,
+          position: p.detailedPosition,
+          broadPosition: p.broadPosition,
+          zone: p.zone,
+          cost: p.nowCost,
+          form: p.form,
+          xGI: p.expectedGoalInvolvements,
+          totalPoints: p.totalPoints,
+          selectedByPercent: p.selectedByPercent,
+          transferRating,
+          upcomingCount: upcomingFxs.length,
+          explanations: fixtureExplanations.slice(0, 2),
+          tacticalReason: fixtureExplanations[0] || `Favorable zonal fixture run across next ${upcomingFxs.length} GWs.`
+        });
+      }
+    });
+
+    transferRecommendations.sort((a, b) => b.transferRating - a.transferRating);
+
     const responseData = {
       currentGW, selectedGW, nextGWs,
       matchBreakdowns,
       recommendations: allRecommendations.slice(0, 50),
+      topTransfersToBuy: transferRecommendations.slice(0, 20),
       teamAnalysis: Object.values(teamAnalysisMap).sort((a, b) => b.totalXG - a.totalXG),
       zoneLabels: ZONE_LABELS
     };
