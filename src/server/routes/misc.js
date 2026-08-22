@@ -3153,10 +3153,14 @@ router.get('/player-advanced', async (req, res) => {
 
     const activePlayers = bootstrap.elements.filter(p => (p.total_points || 0) > 0 || (p.minutes || 0) > 0);
 
+    // Only fetch history for top 150 players by total_points to avoid timeout
+    activePlayers.sort((a, b) => (b.total_points || 0) - (a.total_points || 0));
+    const topPlayers = activePlayers.slice(0, 150);
+
     const BATCH_SIZE = 50;
     const historyResults = new Map();
-    for (let i = 0; i < activePlayers.length; i += BATCH_SIZE) {
-      const batch = activePlayers.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < topPlayers.length; i += BATCH_SIZE) {
+      const batch = topPlayers.slice(i, i + BATCH_SIZE);
       await Promise.allSettled(batch.map(async p => {
         try {
           const ph = await getGlobalPlayerHistory(p.id);
@@ -3169,7 +3173,7 @@ router.get('/player-advanced', async (req, res) => {
       }));
     }
 
-    const playersData = activePlayers.map(p => {
+    const playersData = topPlayers.map(p => {
       const history = historyResults.get(p.id) || [];
       const teamInfo = teamMap[p.team] || { name: 'Unknown', short: 'UNK', code: 0 };
 

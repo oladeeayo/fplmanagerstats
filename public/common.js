@@ -2184,14 +2184,20 @@ const FPL = {
     async loadPlayerAdvanced() {
         const tbody = document.getElementById('adv-table-body');
         if (!this.state.advData) {
-            if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:#94a3b8;font-family:var(--font-mono);">Fetching advanced player analytics...</td></tr>';
+            if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#94a3b8;font-family:var(--font-mono);">Fetching advanced player analytics (first load may take a minute)...</td></tr>';
             try {
-                const data = await this.apiFetch('/api/player-advanced');
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 120000);
+                const res = await window.fetch('/api/player-advanced', { signal: controller.signal });
+                clearTimeout(timeout);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
                 if (data && Array.isArray(data.players)) {
                     this.state.advData = data;
                 }
             } catch (err) {
-                if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:#ef4444;font-family:var(--font-mono);">Failed to load advanced player stats. Please try again.</td></tr>';
+                console.error('Player advanced fetch error:', err);
+                if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#ef4444;font-family:var(--font-mono);">Failed to load. Please try again.</td></tr>';
                 return;
             }
         }
