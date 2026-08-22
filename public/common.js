@@ -2569,7 +2569,7 @@ const FPL = {
                 <div style="flex:1;min-width:0;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                         <div style="font-weight:700;font-size:12px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(item.name)} <span style="font-size:10px;color:var(--md-sys-color-on-surface-variant);font-weight:400;">(${item.team})</span></div>
-                        <div style="font-family:var(--font-mono);font-size:12px;font-weight:900;color:${capColor.fg};background:${capColor.bg};padding:3px 8px;border-radius:6px;border:1px solid ${capColor.fg}33;">${statText}</div>
+                        <div style="font-family:var(--font-mono);font-size:12px;font-weight:900;color:${capColor.fg};">${statText}</div>
                     </div>
                     <div style="width:100%;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">
                         <div style="width:${item.pct}%;height:100%;background:${capColor.bar};border-radius:3px;"></div>
@@ -2612,7 +2612,7 @@ const FPL = {
                 <div style="flex:1;min-width:0;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                         <span style="font-weight:700;font-size:12px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name}</span>
-                        <div style="font-family:var(--font-mono);font-size:12px;font-weight:900;color:${styleInfo.color};background:${styleInfo.bg};padding:3px 8px;border-radius:6px;border:1px solid ${styleInfo.color}33;">
+                        <div style="font-family:var(--font-mono);font-size:12px;font-weight:900;color:${styleInfo.color};">
                             ${c.count} Used <span style="font-size:10px;font-weight:600;opacity:0.8;">(${c.pct}%)</span>
                         </div>
                     </div>
