@@ -2547,22 +2547,32 @@ const FPL = {
             return;
         }
 
-        container.innerHTML = captaincy.map((item) => {
+        const getCapColor = (index, total) => {
+            if (index === 0) return { fg: '#00FF85', bg: 'rgba(0,255,133,0.15)', bar: 'linear-gradient(90deg, #00FF85 0%, #00CC6A 100%)' };
+            if (index === 1) return { fg: '#00D1FF', bg: 'rgba(0,209,255,0.15)', bar: 'linear-gradient(90deg, #00D1FF 0%, #0088FF 100%)' };
+            if (index === 2) return { fg: '#38bdf8', bg: 'rgba(56,189,248,0.15)', bar: 'linear-gradient(90deg, #38bdf8 0%, #0284c7 100%)' };
+            if (index < 5) return { fg: '#ffa600', bg: 'rgba(255,166,0,0.15)', bar: 'linear-gradient(90deg, #ffa600 0%, #d97706 100%)' };
+            return { fg: '#ff5252', bg: 'rgba(255,82,82,0.15)', bar: 'linear-gradient(90deg, #ff5252 0%, #dc2626 100%)' };
+        };
+
+        container.innerHTML = captaincy.map((item, idx) => {
             const fotmobPhoto = this.playerPhotoUrl(item, '110x140', true);
             const plFallback = item.code ? `https://resources.premierleague.com/premierleague/photos/players/110x140/p${item.code}.png` : '';
             const photoUrl = fotmobPhoto || plFallback;
-            const statText = item.count != null ? `${item.count} (${item.pct}%)` : `${item.pct}%`;
+            const capColor = getCapColor(idx, captaincy.length);
+            const statText = item.count != null ? `${item.count} Capped (${item.pct}%)` : `${item.pct}% Capped`;
+
             return `<div onclick="FPL.showCaptaincyOwners(${item.id})" style="padding:10px 4px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:12px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='transparent'" title="Click to view managers who captained ${this.escapeHTML(item.name)}">
                 <div style="width:36px;height:42px;overflow:hidden;flex-shrink:0;">
                     <img src="${photoUrl}" onerror="if(this.src!=='${plFallback}'&&'${plFallback}'){this.src='${plFallback}';}else{this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2236%22 height=%2242%22 viewBox=%220 0 24 24%22 fill=%22%23777%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E';}" style="width:100%;height:100%;object-fit:cover;object-position:top;" alt="${item.name}">
                 </div>
                 <div style="flex:1;min-width:0;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                         <div style="font-weight:700;font-size:12px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(item.name)} <span style="font-size:10px;color:var(--md-sys-color-on-surface-variant);font-weight:400;">(${item.team})</span></div>
-                        <div class="mono" style="font-size:11px;font-weight:800;color:var(--fdr-1);">${statText}</div>
+                        <div style="font-family:var(--font-mono);font-size:12px;font-weight:900;color:${capColor.fg};background:${capColor.bg};padding:3px 8px;border-radius:6px;border:1px solid ${capColor.fg}33;">${statText}</div>
                     </div>
-                    <div style="width:100%;height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;">
-                        <div style="width:${item.pct}%;height:100%;background:linear-gradient(90deg, #00FF85 0%, #00CC6A 100%);border-radius:2px;"></div>
+                    <div style="width:100%;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">
+                        <div style="width:${item.pct}%;height:100%;background:${capColor.bar};border-radius:3px;"></div>
                     </div>
                 </div>
             </div>`;
@@ -2578,9 +2588,12 @@ const FPL = {
             descEl.textContent = `Active GW chips count analyzed across Top ${data.totalManagersAnalyzed || 2000} managers.`;
         }
 
-        const chipList = data.chipSummary || [];
+        const rawChipList = data.chipSummary || [];
+        // Filter out 'none' or 0 count so ONLY active chips used are displayed!
+        const chipList = rawChipList.filter(c => c.key !== 'none' && c.count > 0);
+
         if (chipList.length === 0) {
-            container.innerHTML = `<div style="text-align:center;padding:30px;color:var(--md-sys-color-on-surface-variant);font-size:12px;">No chip usage data available.</div>`;
+            container.innerHTML = `<div style="text-align:center;padding:24px;color:var(--md-sys-color-on-surface-variant);font-size:12px;font-family:var(--font-mono);">No active chips used in this gameweek.</div>`;
             return;
         }
 
@@ -2588,8 +2601,7 @@ const FPL = {
             '3xc': { color: '#00FF85', bg: 'rgba(0,255,133,0.12)' },
             'bboost': { color: '#37DB59', bg: 'rgba(55,219,89,0.12)' },
             'freehit': { color: '#FFA600', bg: 'rgba(255,166,0,0.12)' },
-            'wildcard': { color: '#00E5FF', bg: 'rgba(0,229,255,0.12)' },
-            'none': { color: '#8ba396', bg: 'rgba(255,255,255,0.04)' }
+            'wildcard': { color: '#00E5FF', bg: 'rgba(0,229,255,0.12)' }
         };
 
         container.innerHTML = chipList.map(c => {
@@ -2600,12 +2612,12 @@ const FPL = {
                 <div style="flex:1;min-width:0;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                         <span style="font-weight:700;font-size:12px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name}</span>
-                        <div class="mono" style="font-size:11px;font-weight:800;color:var(--fdr-1);">
-                            ${c.count} <span style="font-size:10px;color:var(--md-sys-color-on-surface-variant);font-weight:400;">(${c.pct}%)</span>
+                        <div style="font-family:var(--font-mono);font-size:12px;font-weight:900;color:${styleInfo.color};background:${styleInfo.bg};padding:3px 8px;border-radius:6px;border:1px solid ${styleInfo.color}33;">
+                            ${c.count} Used <span style="font-size:10px;font-weight:600;opacity:0.8;">(${c.pct}%)</span>
                         </div>
                     </div>
-                    <div style="width:100%;height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;">
-                        <div style="width:${c.pct}%;height:100%;background:${styleInfo.color};border-radius:2px;"></div>
+                    <div style="width:100%;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">
+                        <div style="width:${c.pct}%;height:100%;background:${styleInfo.color};border-radius:3px;"></div>
                     </div>
                 </div>
             </div>`;
@@ -2622,7 +2634,7 @@ const FPL = {
 
         const totalAnalyzed = (item.managersWith?.length || 0) + (item.managersWithout?.length || 0);
         const subEl = document.getElementById('template-player-owners-sub');
-        if (subEl) subEl.textContent = `Captained by ${item.pct}% of league managers (${item.count}/${totalAnalyzed})`;
+        if (subEl) subEl.textContent = `Captained by ${item.pct}% of league managers (${item.count}/${totalAnalyzed} Capped)`;
 
         const bodyEl = document.getElementById('template-player-owners-body');
         if (!bodyEl) return;
@@ -2768,6 +2780,7 @@ const FPL = {
             const starting11 = data.starting11 || [];
             const bench = data.bench || [];
             const activeChip = data.activeChip ? data.activeChip.toUpperCase() : 'None';
+            const chipsUsed = data.chipsUsed || [];
             const squadVal = data.value ? `£${data.value}m` : '--';
             const bankVal = data.bank ? `£${data.bank}m` : '--';
 
@@ -2792,7 +2805,7 @@ const FPL = {
                 return `
                     <div style="display:flex;flex-direction:column;align-items:center;width:72px;position:relative;">
                         <div style="position:relative;width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid ${p.isCaptain ? '#00FF85' : 'rgba(255,255,255,0.15)'};overflow:visible;display:flex;align-items:center;justify-content:center;">
-                            <img src="${photoUrl}" onerror="if(this.src!=='${plFallback}'&&'${plFallback}'){this.src='${plFallback}';}else{this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2246%22 height=%2246%22 viewBox=%220 0 24 24%22 fill=%22%23777%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E';}" style="width:100%;height:100%;object-fit:cover;object-position:top;border-radius:50%;" alt="${p.name}">
+                            <img src="${photoUrl}" onerror="if(this.src!=='${plFallback}'&&'${plFallback}'){this.src='${plFallback}';}else{this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2246%22 height=%2246%22 viewBox=%220 0 24 24%22 fill=%22%23777%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E';}" style="width:100%;height:100%;object-fit:cover;object-position:top;border-radius:50%;" alt="${p.name}">
                             ${capBadge}
                         </div>
                         <div style="margin-top:4px;background:rgba(0,0,0,0.85);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:2px 4px;text-align:center;width:100%;">
@@ -2855,6 +2868,19 @@ const FPL = {
                             ${bench.map(p => renderBadge(p, true)).join('')}
                         </div>
                     </div>
+
+                    ${(chipsUsed && chipsUsed.length > 0) ? `
+                    <!-- Chips Used Section Below Bench -->
+                    <div style="background:rgba(0,0,0,0.75);border:1px solid rgba(0,255,133,0.25);padding:8px 12px;margin-top:6px;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;">
+                        <span style="font-size:10px;font-family:var(--font-mono);color:#8ba396;font-weight:800;letter-spacing:0.05em;">CHIPS USED:</span>
+                        ${chipsUsed.map(c => `
+                            <span style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:900;font-family:var(--font-mono);background:rgba(0,255,133,0.15);color:#00FF85;border:1px solid rgba(0,255,133,0.3);display:inline-flex;align-items:center;gap:4px;">
+                                <span class="material-symbols-outlined" style="font-size:13px;">bolt</span>
+                                ${this.escapeHTML(String(c.name || '').toUpperCase())} (GW${c.event})
+                            </span>
+                        `).join('')}
+                    </div>
+                    ` : ''}
                 </div>
             `;
         } catch (err) {

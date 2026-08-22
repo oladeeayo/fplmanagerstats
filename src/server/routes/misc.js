@@ -2058,9 +2058,10 @@ router.get('/manager-squad/:managerId', async (req, res) => {
     const bootstrap = await getCachedApiData(BOOTSTRAP_URL);
     const activeGW = gw || bootstrap.events?.find(e => e.is_current)?.id || bootstrap.events?.find(e => e.is_next)?.id || 1;
     
-    const [managerData, picksData] = await Promise.all([
+    const [managerData, picksData, historyData] = await Promise.all([
       getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/`),
-      getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${activeGW}/picks/`)
+      getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${activeGW}/picks/`).catch(() => ({})),
+      getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/history/`).catch(() => ({}))
     ]);
 
     const elementsMap = new Map((bootstrap.elements || []).map(p => [p.id, p]));
@@ -2068,6 +2069,11 @@ router.get('/manager-squad/:managerId', async (req, res) => {
 
     const activeChip = picksData?.active_chip || null;
     const picks = picksData?.picks || [];
+    const chipsUsed = (historyData?.chips || []).map(c => ({
+      name: c.name,
+      event: c.event,
+      time: c.time
+    }));
 
     const starting11 = [];
     const bench = [];
@@ -2109,6 +2115,7 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       value: (managerData.last_deadline_value / 10).toFixed(1),
       bank: (managerData.last_deadline_bank / 10).toFixed(1),
       activeChip,
+      chipsUsed,
       gw: activeGW,
       starting11,
       bench
