@@ -5826,6 +5826,181 @@ const FPL = {
             section.classList.toggle('active', active);
             section.hidden = !active;
         });
+
+        if (view === 'h2h') {
+            this.loadH2HMatchup();
+        }
+    },
+
+    async loadH2HMatchup(selectedLeagueId = null) {
+        const managerId = this.state.managerId;
+        const container = document.getElementById('decision-h2h');
+        if (!container) return;
+        if (!managerId) {
+            container.innerHTML = '<div class="decision-quiet" style="padding:40px;text-align:center;">Connect an FPL ID to view Head-to-Head matchup intelligence.</div>';
+            return;
+        }
+
+        container.innerHTML = '<div style="padding:40px;text-align:center;color:#8ba396;"><span class="material-symbols-outlined decision-spin" style="font-size:32px;color:#00FF85;">progress_activity</span><p style="margin-top:12px;font-family:var(--font-mono);font-size:13px;">Analyzing H2H Fixture & Opponent Squad...</p></div>';
+
+        try {
+            const url = `/api/v1/h2h-matchup/${managerId}${selectedLeagueId ? `?leagueId=${selectedLeagueId}` : ''}`;
+            const data = await this.apiFetch(url);
+            this.state.h2hData = data;
+            this.renderH2HMatchup(data);
+        } catch (e) {
+            container.innerHTML = '<div class="decision-quiet" style="padding:32px;text-align:center;">Failed to load H2H matchup. Ensure you are connected and participating in a Head-to-Head league.</div>';
+        }
+    },
+
+    switchH2HLeague(leagueId) {
+        if (leagueId) {
+            this.loadH2HMatchup(leagueId);
+        }
+    },
+
+    renderH2HMatchup(data) {
+        const container = document.getElementById('decision-h2h');
+        const selectEl = document.getElementById('h2h-league-select');
+        if (!container) return;
+
+        // Populate H2H League Select
+        if (selectEl && data.h2hLeagues?.length) {
+            selectEl.innerHTML = data.h2hLeagues.map(l => 
+                `<option value="${l.id}" ${l.id === data.selectedLeague?.id ? 'selected' : ''}>${this.escapeHTML(l.name)}</option>`
+            ).join('');
+            selectEl.style.display = 'inline-block';
+        }
+
+        if (!data.hasH2H) {
+            container.innerHTML = `<div class="decision-quiet" style="padding:40px;text-align:center;background:rgba(255,255,255,0.02);border-radius:14px;border:1px dashed rgba(255,255,255,0.08);">
+                <span class="material-symbols-outlined" style="font-size:40px;color:#8ba396;margin-bottom:12px;">sports_soccer</span>
+                <h3 style="margin:0;font-size:16px;color:#fff;">No H2H Leagues Found</h3>
+                <p style="margin:6px 0 0;font-size:13px;color:#8ba396;">${this.escapeHTML(data.message)}</p>
+            </div>`;
+            return;
+        }
+
+        if (!data.hasOpponent) {
+            container.innerHTML = `<div class="decision-quiet" style="padding:40px;text-align:center;background:rgba(255,255,255,0.02);border-radius:14px;border:1px dashed rgba(255,255,255,0.08);">
+                <span class="material-symbols-outlined" style="font-size:40px;color:#00FF85;margin-bottom:12px;">event_available</span>
+                <h3 style="margin:0;font-size:16px;color:#fff;">No Fixture Scheduled</h3>
+                <p style="margin:6px 0 0;font-size:13px;color:#8ba396;">${this.escapeHTML(data.message)}</p>
+            </div>`;
+            return;
+        }
+
+        const isPositive = data.xPtsDiff >= 0;
+        const diffColor = isPositive ? '#00FF85' : '#FF005A';
+        const diffSign = isPositive ? '+' : '';
+
+        const renderPlayerRow = (p, isCap) => `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);border-radius:8px;margin-bottom:6px;">
+                <div style="display:flex;align-items:center;gap:8px;overflow:hidden;">
+                    <div style="width:26px;height:26px;border-radius:50%;overflow:hidden;border:1px solid rgba(255,255,255,0.15);flex-shrink:0;">
+                        ${this.playerPhotoMarkup(p, p.name, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}
+                    </div>
+                    <div style="overflow:hidden;">
+                        <span style="font-weight:700;font-size:12px;color:#fff;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                            ${this.escapeHTML(p.name)} ${isCap ? `<span style="background:#FFD700;color:#000;font-size:9px;padding:1px 4px;border-radius:3px;font-weight:900;margin-left:4px;">${p.multiplier === 3 ? 'TC' : 'C'}</span>` : ''}
+                        </span>
+                        <small style="font-size:10px;color:#8ba396;font-family:var(--font-mono);">${p.team} · ${p.pos}</small>
+                    </div>
+                </div>
+                <strong style="font-family:var(--font-mono);font-size:12px;color:#00FF85;margin-left:8px;flex-shrink:0;">${p.xPts.toFixed(1)} xPts</strong>
+            </div>
+        `;
+
+        container.innerHTML = `
+            <div style="display:flex;flex-direction:column;gap:20px;margin-top:16px;">
+                <!-- Header Stats Summary -->
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:20px;">
+                    <div>
+                        <span style="font-size:11px;font-family:var(--font-mono);color:#8ba396;text-transform:uppercase;letter-spacing:0.5px;">YOUR SQUAD (${this.escapeHTML(data.user.teamName)})</span>
+                        <div style="font-size:24px;font-weight:900;color:#00FF85;font-family:var(--font-mono);margin-top:4px;">${data.user.squad.totalXPts.toFixed(1)} <span style="font-size:13px;font-weight:400;color:#8ba396;">xPts</span></div>
+                        <small style="font-size:11px;color:#fff;margin-top:2px;display:block;">${this.escapeHTML(data.user.name)}</small>
+                    </div>
+                    <div>
+                        <span style="font-size:11px;font-family:var(--font-mono);color:#8ba396;text-transform:uppercase;letter-spacing:0.5px;">PROJECTED SWING</span>
+                        <div style="font-size:24px;font-weight:900;color:${diffColor};font-family:var(--font-mono);margin-top:4px;">${diffSign}${data.xPtsDiff.toFixed(1)} <span style="font-size:13px;font-weight:400;color:#8ba396;">net xPts</span></div>
+                        <small style="font-size:11px;color:${diffColor};margin-top:2px;display:block;">${isPositive ? 'Favorable Matchup Edge' : 'Challenging Matchup Deficit'}</small>
+                    </div>
+                    <div>
+                        <span style="font-size:11px;font-family:var(--font-mono);color:#8ba396;text-transform:uppercase;letter-spacing:0.5px;">OPPONENT (${this.escapeHTML(data.opponent.teamName)})</span>
+                        <div style="font-size:24px;font-weight:900;color:#ffffff;font-family:var(--font-mono);margin-top:4px;">${data.opponent.squad.totalXPts.toFixed(1)} <span style="font-size:13px;font-weight:400;color:#8ba396;">xPts</span></div>
+                        <small style="font-size:11px;color:#8ba396;margin-top:2px;display:block;">${this.escapeHTML(data.opponent.name)}</small>
+                    </div>
+                </div>
+
+                <!-- 3-Column Matchup Grid -->
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:20px;">
+                    <!-- Column 1: Your XI -->
+                    <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(0,255,133,0.2);border-radius:14px;padding:16px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.08);">
+                            <div>
+                                <h3 style="margin:0;font-size:14px;font-weight:700;color:#00FF85;">Your Starting XI</h3>
+                                <small style="font-size:11px;color:#8ba396;">${data.user.squad.starting11.length} players starting</small>
+                            </div>
+                            <span style="font-family:var(--font-mono);font-size:13px;font-weight:900;color:#00FF85;">${data.user.squad.totalXPts.toFixed(1)} xPts</span>
+                        </div>
+                        ${data.user.squad.starting11.map(p => renderPlayerRow(p, p.isCaptain)).join('')}
+                    </div>
+
+                    <!-- Column 2: Differential Edges & Threats -->
+                    <div style="display:flex;flex-direction:column;gap:16px;">
+                        <!-- Differential Edges -->
+                        <div style="background:rgba(0,255,133,0.04);border:1px solid rgba(0,255,133,0.3);border-radius:14px;padding:16px;">
+                            <h4 style="margin:0 0 10px 0;font-size:13px;font-weight:700;color:#00FF85;display:flex;align-items:center;gap:6px;">
+                                <span class="material-symbols-outlined" style="font-size:16px;">trending_up</span> Your Differentials (${data.userEdges.length})
+                            </h4>
+                            ${data.userEdges.length ? data.userEdges.map(p => `
+                                <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px dashed rgba(255,255,255,0.06);">
+                                    <span style="color:#fff;font-weight:600;">${this.escapeHTML(p.name)} <small style="color:#8ba396;">(${p.team})</small></span>
+                                    <span style="font-family:var(--font-mono);color:#00FF85;font-weight:700;">+${p.xPts.toFixed(1)} xPts</span>
+                                </div>
+                            `).join('') : '<div style="font-size:12px;color:#8ba396;">No unique starting differentials.</div>'}
+                        </div>
+
+                        <!-- Opponent Threats -->
+                        <div style="background:rgba(255,0,90,0.04);border:1px solid rgba(255,0,90,0.3);border-radius:14px;padding:16px;">
+                            <h4 style="margin:0 0 10px 0;font-size:13px;font-weight:700;color:#FF005A;display:flex;align-items:center;gap:6px;">
+                                <span class="material-symbols-outlined" style="font-size:16px;">warning</span> Opponent Threats (${data.oppThreats.length})
+                            </h4>
+                            ${data.oppThreats.length ? data.oppThreats.map(p => `
+                                <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px dashed rgba(255,255,255,0.06);">
+                                    <span style="color:#fff;font-weight:600;">${this.escapeHTML(p.name)} <small style="color:#8ba396;">(${p.team})</small></span>
+                                    <span style="font-family:var(--font-mono);color:#FF005A;font-weight:700;">-${p.xPts.toFixed(1)} xPts</span>
+                                </div>
+                            `).join('') : '<div style="font-size:12px;color:#8ba396;">Opponent has no unique differentials.</div>'}
+                        </div>
+
+                        <!-- Overlap -->
+                        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:14px;">
+                            <h4 style="margin:0 0 8px 0;font-size:12px;font-weight:700;color:#8ba396;display:flex;align-items:center;gap:6px;">
+                                <span class="material-symbols-outlined" style="font-size:16px;">handshake</span> Common Starters (${data.overlap.length})
+                            </h4>
+                            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                                ${data.overlap.map(p => `
+                                    <span style="font-size:11px;background:rgba(255,255,255,0.06);padding:3px 8px;border-radius:6px;color:#fff;">${this.escapeHTML(p.name)}</span>
+                                `).join('') || '<span style="font-size:11px;color:#8ba396;">No overlapping starters</span>'}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Column 3: Opponent XI -->
+                    <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:16px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.08);">
+                            <div>
+                                <h3 style="margin:0;font-size:14px;font-weight:700;color:#ffffff;">${this.escapeHTML(data.opponent.name)}</h3>
+                                <small style="font-size:11px;color:#8ba396;">${this.escapeHTML(data.opponent.teamName)}</small>
+                            </div>
+                            <span style="font-family:var(--font-mono);font-size:13px;font-weight:900;color:#ffffff;">${data.opponent.squad.totalXPts.toFixed(1)} xPts</span>
+                        </div>
+                        ${data.opponent.squad.starting11.map(p => renderPlayerRow(p, p.isCaptain)).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
     },
 
     decisionPlayerRow(player, badge = '') {

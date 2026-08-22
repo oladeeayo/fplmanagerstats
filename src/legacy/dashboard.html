@@ -530,6 +530,7 @@
                         <button class="active" role="tab" aria-selected="true" data-decision-view="overview" onclick="FPL.setDecisionView('overview')">Overview</button>
                         <button role="tab" aria-selected="false" data-decision-view="transfers" onclick="FPL.setDecisionView('transfers')">Transfers</button>
                         <button role="tab" aria-selected="false" data-decision-view="lineup" onclick="FPL.setDecisionView('lineup')">Lineup</button>
+                        <button role="tab" aria-selected="false" data-decision-view="h2h" onclick="FPL.setDecisionView('h2h')">H2H Matchup</button>
                         <button role="tab" aria-selected="false" data-decision-view="compare" onclick="FPL.setDecisionView('compare')">Compare</button>
                         <button role="tab" aria-selected="false" data-decision-view="rivals" onclick="FPL.setDecisionView('rivals')">Rivals</button>
                         <button role="tab" aria-selected="false" data-decision-view="chips" onclick="FPL.setDecisionView('chips')">Chips</button>
@@ -541,6 +542,20 @@
                         <section class="decision-view active" data-view="overview"><div id="decision-summary"></div><div class="decision-grid"><div class="decision-panel"><div class="decision-panel-head"><h2>Priority actions</h2><span id="decision-model-stamp"></span></div><div id="decision-actions"></div></div><div class="decision-panel"><div class="decision-panel-head"><h2>Risk monitor</h2><span id="decision-alert-count"></span></div><div id="decision-alerts"></div></div></div><div id="decision-live"></div></section>
                         <section class="decision-view" data-view="transfers"><div class="decision-section-head"><div><h2>Transfer optimizer</h2><p>Legal moves ranked by hit-adjusted expected gain.</p></div></div><div id="decision-transfer-plans"></div><div class="decision-panel decision-optimal"><div class="decision-panel-head"><h2>Wildcard benchmark</h2><span id="decision-optimal-meta"></span></div><div id="decision-optimal-squad"></div></div></section>
                         <section class="decision-view" data-view="lineup"><div class="decision-section-head"><div><h2>Starting XI</h2><p>Formation-constrained lineup with captain and vice-captain.</p></div><strong id="decision-lineup-total"></strong></div><div id="decision-lineup"></div></section>
+                        <section class="decision-view" data-view="h2h">
+                            <div class="decision-section-head" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+                                <div>
+                                    <h2 style="margin:0;">Head-to-Head Opponent Matchup</h2>
+                                    <p style="margin:4px 0 0;color:var(--md-sys-color-on-surface-variant);font-size:13px;">Select your H2H league to inspect your next opponent, squad differences, and xPts swing.</p>
+                                </div>
+                                <div style="display:flex;gap:10px;align-items:center;">
+                                    <label style="font-size:12px;color:var(--md-sys-color-on-surface-variant);font-weight:700;">H2H League:</label>
+                                    <select id="h2h-league-select" style="font-family:var(--font-mono);font-size:13px;font-weight:700;background-color:rgba(0,255,133,0.06);color:#00FF85;border:1px solid rgba(0,255,133,0.3);border-radius:8px;padding:8px 12px;outline:none;" onchange="FPL.switchH2HLeague(this.value)">
+                                    </select>
+                                </div>
+                            </div>
+                            <div id="decision-h2h"></div>
+                        </section>
                         <section class="decision-view" data-view="compare"><div class="decision-section-head"><div><h2>Player comparison</h2><p>Compare projected return, range, minutes and value.</p></div><div class="decision-compare-controls"><select id="decision-compare-a" onchange="FPL.renderDecisionComparison()"></select><select id="decision-compare-b" onchange="FPL.renderDecisionComparison()"></select></div></div><div id="decision-comparison"></div></section>
                         <section class="decision-view" data-view="rivals"><div class="decision-section-head"><div><h2>Rival intelligence</h2><p>Add up to five manager IDs, separated by commas.</p></div><div class="decision-rival-input"><input id="decision-rival-ids" placeholder="12345, 67890"><button class="btn btn-primary btn-sm" onclick="FPL.loadDecisionCentre()">Analyze</button></div></div><div id="decision-rivals"></div></section>
                         <section class="decision-view" data-view="chips"><div class="decision-section-head"><div><h2>Chip calendar</h2><p>Incremental value based on your squad, not generic fixture counts.</p></div></div><div id="decision-chips"></div></section>
@@ -661,7 +676,7 @@
                             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
                                 <div>
                                     <h3 style="font-family:var(--font-mono);font-size:16px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0;">LEAGUE TEMPLATE SQUAD</h3>
-                                    <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:4px 0 0 0;">Top 15 most owned players across managers (2 GKPs, 5 DEFs, 5 MIDs, 3 FWDs). Click any player to view ownership list.</p>
+                                    <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:4px 0 0 0;">Top 15 most owned players analyzed across Top 300 managers (2 GKPs, 5 DEFs, 5 MIDs, 3 FWDs). Click any player to view ownership list.</p>
                                 </div>
                                 <button class="btn btn-primary" onclick="FPL.downloadLeagueGraphicPNG()" style="font-weight:700;display:inline-flex;align-items:center;gap:6px;padding:6px 14px;font-size:12px;white-space:nowrap;">
                                     <span class="material-symbols-outlined" style="font-size:18px;">image</span> Export Graphic PNG
@@ -676,7 +691,7 @@
                         <!-- Right: Captaincy Count Breakdown -->
                         <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;padding:20px;display:flex;flex-direction:column;">
                             <h3 style="font-family:var(--font-mono);font-size:16px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0 0 4px 0;">CAPTAIN PICK BREAKDOWN</h3>
-                            <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0 0 16px 0;">GW Captain distribution across league managers.</p>
+                            <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0 0 16px 0;">GW Captain distribution analyzed across Top 300 managers.</p>
 
                             <div id="league-captaincy-container" style="display:flex;flex-direction:column;gap:8px;max-height:480px;overflow-y:auto;padding-right:4px;">
                                 <div style="text-align:center;padding:40px;color:var(--md-sys-color-on-surface-variant);"><span class="material-symbols-outlined" style="font-size:32px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Loading captain picks...</p></div>
@@ -1287,6 +1302,7 @@
                         <option value="25">Top 25 Managers</option>
                         <option value="50" selected>Top 50 Managers</option>
                         <option value="100">Top 100 Managers</option>
+                        <option value="300">Top 300 Managers</option>
                     </select>
                 </div>
                 <div style="padding:12px;background:rgba(0,255,133,0.06);border:1px solid rgba(0,255,133,0.2);border-radius:8px;font-size:12px;color:#00FF85;display:flex;align-items:center;gap:8px;">

@@ -429,5 +429,173 @@ router.get('/understat/players', heavyEndpointLimiter, async (req, res) => {
   }
 });
 
+// Head-to-Head Matchup Intelligence Endpoint
+router.get('/v1/h2h-matchup/:managerId', heavyEndpointLimiter, async (req, res) => {
+  const managerId = parsePositiveId(req.params.managerId);
+  if (!managerId) return res.status(400).json({ error: 'Invalid manager ID' });
+  const requestedLeagueId = parsePositiveId(req.query.leagueId);
+
+  try {
+    const [bootstrap, managerData] = await Promise.all([
+      getCachedApiData(BOOTSTRAP_URL),
+      getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/`)
+    ]);
+
+    const h2hLeagues = (managerData.leagues?.h2h || []).map(l => ({
+      id: l.id,
+      name: l.name,
+      rank: l.entry_rank,
+      lastRank: l.entry_last_rank,
+      totalEntries: l.rank_count
+    }));
+
+    if (h2hLeagues.length === 0) {
+      return res.json({
+        hasH2H: false,
+        message: 'This manager is not currently participating in any Head-to-Head leagues.'
+      });
+    }
+
+    const selectedLeague = requestedLeagueId
+      ? h2hLeagues.find(l => l.id === requestedLeagueId) || h2hLeagues[0]
+      : h2hLeagues[0];
+
+    const currentGW = bootstrap.events.find(e => e.is_current)?.id || bootstrap.events.find(e => e.is_next)?.id || 1;
+    const targetGW = Math.max(1, Math.min(38, parseInt(req.query.gw) || currentGW));
+
+    // Fetch H2H match fixture for manager in this league and gameweek
+    const h2hData = await optionalApiGet(
+      `https://fantasy.premierleague.com/api/leagues-h2h-matches/league/${selectedLeague.id}/?entry=${managerId}&event=${targetGW}`
+    );
+
+    const matches = h2hData?.results || [];
+    const userMatch = matches.find(m => m.entry_1_entry === managerId || m.entry_2_entry === managerId) || matches[0];
+
+    if (!userMatch) {
+      return res.json({
+        hasH2H: true,
+        h2hLeagues,
+        selectedLeague,
+        targetGW,
+        hasOpponent: false,
+        message: `No H2H fixture scheduled for GW${targetGW} in ${selectedLeague.name}.`
+      });
+    }
+
+    const isEntry1 = userMatch.entry_1_entry === managerId;
+    const opponentId = isEntry1 ? userMatch.entry_2_entry : userMatch.entry_1_entry;
+    const opponentName = isEntry1 ? userMatch.entry_2_player_name : userMatch.entry_1_player_name;
+    const opponentTeam = isEntry1 ? userMatch.entry_2_name : userMatch.entry_1_name;
+
+    const userName = isEntry1 ? userMatch.entry_1_player_name : userMatch.entry_2_player_name;
+    const userTeam = isEntry1 ? userMatch.entry_1_name : userMatch.entry_2_name;
+
+    // Fetch picks for manager and opponent
+    const [userPicksData, oppPicksData, oppEntryData] = await Promise.all([
+      optionalApiGet(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${targetGW}/picks/`),
+      opponentId ? optionalApiGet(`https://fantasy.premierleague.com/api/entry/${opponentId}/event/${targetGW}/picks/`) : Promise.resolve(null),
+      opponentId ? optionalApiGet(`https://fantasy.premierleague.com/api/entry/${opponentId}/`) : Promise.resolve(null)
+    ]);
+
+    const elements = bootstrap.elements || [];
+    const teams = bootstrap.teams || [];
+    const getTeam = id => teams.find(t => t.id === id);
+
+    const elementMap = {};
+    elements.forEach(p => {
+      const xP = parseFloat(p.ep_next) || (parseFloat(p.form || 0) * 0.8 + parseFloat(p.points_per_game || 0) * 0.2);
+      elementMap[p.id] = {
+        id: p.id,
+        code: p.code,
+        webName: p.web_name,
+        name: `${p.first_name} ${p.second_name}`,
+        team: getTeam(p.team)?.short_name || 'FPL',
+        pos: POSITION_MAP[p.element_type - 1] || 'MID',
+        nowCost: p.now_cost,
+        form: p.form,
+        xP: Math.max(0, xP)
+      };
+    });
+
+    const processSquad = (picksData) => {
+      if (!picksData?.picks) return { starting11: [], bench: [], totalXPts: 0, captain: null, activeChip: null };
+      let totalXPts = 0;
+      let captain = null;
+      const starting11 = [];
+      const bench = [];
+      const activeChip = picksData.active_chip;
+
+      picksData.picks.forEach(pick => {
+        const el = elementMap[pick.element];
+        if (!el) return;
+        const isCap = pick.is_captain;
+        const isStarting = pick.position <= 11 || activeChip === 'bboost';
+        const mult = isCap ? (activeChip === '3xc' ? 3 : 2) : (isStarting ? 1 : 0);
+        const playerXPts = Math.round((el.xP * mult) * 10) / 10;
+
+        const pObj = {
+          ...el,
+          positionNum: pick.position,
+          isCaptain: pick.is_captain,
+          isViceCaptain: pick.is_vice_captain,
+          multiplier: mult,
+          xPts: playerXPts
+        };
+
+        if (isCap) captain = pObj;
+        if (isStarting) {
+          totalXPts += playerXPts;
+          starting11.push(pObj);
+        } else {
+          bench.push(pObj);
+        }
+      });
+
+      return { starting11, bench, totalXPts: Math.round(totalXPts * 10) / 10, captain, activeChip };
+    };
+
+    const userSquad = processSquad(userPicksData);
+    const oppSquad = processSquad(oppPicksData);
+
+    const userStartIds = new Set(userSquad.starting11.map(p => p.id));
+    const oppStartIds = new Set(oppSquad.starting11.map(p => p.id));
+
+    const overlap = userSquad.starting11.filter(p => oppStartIds.has(p.id));
+    const userEdges = userSquad.starting11.filter(p => !oppStartIds.has(p.id));
+    const oppThreats = oppSquad.starting11.filter(p => !userStartIds.has(p.id));
+
+    const xPtsDiff = Math.round((userSquad.totalXPts - oppSquad.totalXPts) * 10) / 10;
+
+    res.json({
+      hasH2H: true,
+      hasOpponent: true,
+      h2hLeagues,
+      selectedLeague,
+      targetGW,
+      user: {
+        id: managerId,
+        name: userName || `${managerData.player_first_name} ${managerData.player_last_name}`,
+        teamName: userTeam || managerData.name,
+        rank: managerData.summary_overall_rank,
+        squad: userSquad
+      },
+      opponent: {
+        id: opponentId,
+        name: opponentName || (oppEntryData ? `${oppEntryData.player_first_name} ${oppEntryData.player_last_name}` : 'Opponent'),
+        teamName: opponentTeam || oppEntryData?.name || 'Opponent Squad',
+        rank: oppEntryData?.summary_overall_rank || 0,
+        squad: oppSquad
+      },
+      xPtsDiff,
+      overlap,
+      userEdges,
+      oppThreats
+    });
+  } catch (error) {
+    logger.error({ err: error }, 'H2H matchup error');
+    res.status(500).json({ error: 'Failed to build H2H matchup' });
+  }
+});
+
 router.analyzeManager = analyzeManager;
 module.exports = router;

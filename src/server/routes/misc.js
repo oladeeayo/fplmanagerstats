@@ -114,8 +114,19 @@ router.get('/manager-leagues/:id', async (req, res) => {
       totalEntries: l.rank_count,
       admin: l.admin_entry === id,
     }));
+    const h2hLeagues = (data.leagues?.h2h || []).map(l => ({
+      id: l.id,
+      name: l.name,
+      rank: l.entry_rank,
+      lastRank: l.entry_last_rank,
+      percentileRank: l.entry_percentile_rank,
+      type: l.league_type === 'x' ? 'private' : 'system',
+      scoring: 'h2h',
+      totalEntries: l.rank_count,
+      admin: l.admin_entry === id,
+    }));
     const defaultLeague = leagues.find(league => league.type === 'private') || null;
-    res.json({ leagues, defaultLeagueId: defaultLeague?.id || null });
+    res.json({ leagues, h2hLeagues, defaultLeagueId: defaultLeague?.id || null });
   } catch (error) {
     const status = error.response?.status || 500;
     if (status === 404) return res.status(404).json({ error: 'Manager not found' });
@@ -1593,20 +1604,79 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       };
     });
 
-    const managerEntries = results.slice(0, 50);
-    const picksResults = await Promise.all(
-      managerEntries.map(e => e.entry ? getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/event/${currentGW}/picks/`).catch(() => null) : Promise.resolve(null))
+    // Fetch pages 1 to 6 (Top 300 managers) in parallel for template & captaincy analytics
+    const pagesToFetch = [1, 2, 3, 4, 5, 6];
+    const topPagesResults = await Promise.allSettled(
+      pagesToFetch.map(pNum =>
+        pNum === page
+          ? Promise.resolve(data)
+          : getCachedApiData(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/?page_standings=${pNum}&page_new_entries=${pNum}`).catch(() => null)
+      )
     );
+
+    const top300Entries = [];
+    topPagesResults.forEach(res => {
+      if (res.status === 'fulfilled' && res.value) {
+        const resStandings = res.value.standings?.results || res.value.new_entries?.results || [];
+        top300Entries.push(...resStandings);
+      }
+    });
+
+    const sampleEntries = top300Entries.slice(0, 300);
+
+    // Fetch picks in controlled batches for top 300 sample entries
+    const samplePicksMap = {};
+    const BATCH_SIZE = 12;
+    for (let i = 0; i < sampleEntries.length; i += BATCH_SIZE) {
+      const batch = sampleEntries.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map(async e => {
+          if (!e.entry) return;
+          try {
+            const picks = await getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/event/${currentGW}/picks/`);
+            samplePicksMap[e.entry] = picks;
+          } catch (err) {
+            samplePicksMap[e.entry] = null;
+          }
+        })
+      );
+    }
 
     const playerCounts = {};
     const captainCounts = {};
+
+    // Calculate template & captaincy across Top 300
+    sampleEntries.forEach(entry => {
+      const mgrName = entry.player_name || [entry.player_first_name, entry.player_last_name].filter(Boolean).join(' ');
+      const entName = entry.entry_name || 'Team';
+      const mId = entry.entry || null;
+      const picksData = samplePicksMap[mId];
+
+      if (picksData && Array.isArray(picksData.picks) && picksData.picks.length > 0) {
+        const activeChip = picksData.active_chip;
+        const capPick = picksData.picks.find(p => p.is_captain) || picksData.picks.find(p => p.is_vice_captain) || picksData.picks[0];
+
+        if (capPick && elementMap[capPick.element]) {
+          captainCounts[capPick.element] = captainCounts[capPick.element] || { element: capPick.element, count: 0 };
+          captainCounts[capPick.element].count++;
+        }
+
+        picksData.picks.forEach(p => {
+          playerCounts[p.element] = playerCounts[p.element] || { element: p.element, count: 0, managersWith: [] };
+          playerCounts[p.element].count++;
+          playerCounts[p.element].managersWith.push({ managerId: mId, managerName: mgrName, entryName: entName });
+        });
+      }
+    });
+
+    const managerEntries = results.slice(0, 50);
 
     const managers = managerEntries.map((entry, index) => {
       const mgrName = entry.player_name || [entry.player_first_name, entry.player_last_name].filter(Boolean).join(' ');
       const entName = entry.entry_name || 'Team';
       const mId = entry.entry || null;
+      const picksData = samplePicksMap[mId];
 
-      const picksData = picksResults[index];
       let xGWPts = null;
       let captainName = '--';
 
@@ -1617,9 +1687,6 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
         if (capPick && elementMap[capPick.element]) {
           const capEl = elementMap[capPick.element];
           captainName = `${capEl.webName} ${activeChip === '3xc' ? '(TC)' : '(C)'}`;
-
-          captainCounts[capPick.element] = captainCounts[capPick.element] || { element: capPick.element, count: 0 };
-          captainCounts[capPick.element].count++;
         }
 
         let totalXP = 0;
@@ -1630,10 +1697,6 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
           if (elObj && multiplier > 0) {
             totalXP += elObj.xP * multiplier;
           }
-
-          playerCounts[p.element] = playerCounts[p.element] || { element: p.element, count: 0, managersWith: [] };
-          playerCounts[p.element].count++;
-          playerCounts[p.element].managersWith.push({ managerId: mId, managerName: mgrName, entryName: entName });
         });
 
         xGWPts = Math.round(totalXP * 10) / 10;
@@ -1724,7 +1787,8 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       topScorerTeam: managers.find(manager => manager.eventTotal === Math.max(...eventScores))?.entryName || '',
       managers,
       leagueTemplate,
-      captaincyCount
+      captaincyCount,
+      totalManagersAnalyzed: sampleEntries.length || 300
     });
   } catch (e) {
     logger.error({ err: e }, 'League standings error');
