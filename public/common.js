@@ -2547,40 +2547,32 @@ const FPL = {
             return;
         }
 
-        const getCapColor = (index) => {
-            const colors = [
-                { bg: '#1583b7', border: '#38bdf8', bar: '#1583b7' },
-                { bg: '#1475a5', border: '#38bdf8', bar: '#1475a5' },
-                { bg: '#136793', border: '#0ea5e9', bar: '#136793' },
-                { bg: '#125981', border: '#0ea5e9', bar: '#125981' },
-                { bg: '#114b6f', border: '#0284c7', bar: '#114b6f' },
-                { bg: '#104364', border: '#0284c7', bar: '#104364' },
-                { bg: '#0f3b59', border: '#1e40af', bar: '#0f3b59' },
-                { bg: '#0e334e', border: '#1e40af', bar: '#0e334e' },
-                { bg: '#0d2b43', border: '#1e3a8a', bar: '#0d2b43' },
-                { bg: '#0c2439', border: '#1e3a8a', bar: '#0c2439' }
-            ];
-            return colors[Math.min(index, colors.length - 1)];
+        const getCapColor = (index, total) => {
+            if (index === 0) return { fg: '#00FF85', bg: 'rgba(0,255,133,0.15)', bar: 'linear-gradient(90deg, #00FF85 0%, #00CC6A 100%)' };
+            if (index === 1) return { fg: '#00D1FF', bg: 'rgba(0,209,255,0.15)', bar: 'linear-gradient(90deg, #00D1FF 0%, #0088FF 100%)' };
+            if (index === 2) return { fg: '#38bdf8', bg: 'rgba(56,189,248,0.15)', bar: 'linear-gradient(90deg, #38bdf8 0%, #0284c7 100%)' };
+            if (index < 5) return { fg: '#ffa600', bg: 'rgba(255,166,0,0.15)', bar: 'linear-gradient(90deg, #ffa600 0%, #d97706 100%)' };
+            return { fg: '#ff5252', bg: 'rgba(255,82,82,0.15)', bar: 'linear-gradient(90deg, #ff5252 0%, #dc2626 100%)' };
         };
 
         container.innerHTML = captaincy.map((item, idx) => {
             const fotmobPhoto = this.playerPhotoUrl(item, '110x140', true);
             const plFallback = item.code ? `https://resources.premierleague.com/premierleague/photos/players/110x140/p${item.code}.png` : '';
             const photoUrl = fotmobPhoto || plFallback;
-            const capColor = getCapColor(idx);
+            const capColor = getCapColor(idx, captaincy.length);
             const statText = item.count != null ? `${item.count} Capped (${item.pct}%)` : `${item.pct}% Capped`;
 
-            return `<div onclick="FPL.showCaptaincyOwners(${item.id})" style="padding:10px 12px;margin-bottom:8px;background:var(--md-sys-color-surface-container-high);border:1px solid var(--md-sys-color-outline-variant);border-radius:4px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='${capColor.border}'" onmouseout="this.style.borderColor='var(--md-sys-color-outline-variant)'" title="Click to view managers who captained ${this.escapeHTML(item.name)}">
-                <div style="width:36px;height:42px;overflow:hidden;flex-shrink:0;border-radius:2px;">
+            return `<div onclick="FPL.showCaptaincyOwners(${item.id})" style="padding:10px 4px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:12px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='transparent'" title="Click to view managers who captained ${this.escapeHTML(item.name)}">
+                <div style="width:36px;height:42px;overflow:hidden;flex-shrink:0;">
                     <img src="${photoUrl}" onerror="if(this.src!=='${plFallback}'&&'${plFallback}'){this.src='${plFallback}';}else{this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2236%22 height=%2242%22 viewBox=%220 0 24 24%22 fill=%22%23777%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E';}" style="width:100%;height:100%;object-fit:cover;object-position:top;" alt="${item.name}">
                 </div>
                 <div style="flex:1;min-width:0;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                        <div style="font-weight:700;font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(item.name)} <span style="font-size:10px;color:var(--md-sys-color-on-surface-variant);font-weight:500;">(${item.team})</span></div>
-                        <div style="font-family:var(--font-mono);font-size:12px;font-weight:900;color:#ffffff;background:${capColor.bg};padding:3px 8px;border-radius:4px;border:1px solid ${capColor.border};box-shadow:0 2px 6px rgba(0,0,0,0.3);">${statText}</div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                        <div style="font-weight:700;font-size:12px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(item.name)} <span style="font-size:10px;color:var(--md-sys-color-on-surface-variant);font-weight:400;">(${item.team})</span></div>
+                        <div style="font-family:var(--font-mono);font-size:12px;font-weight:900;color:${capColor.fg};background:${capColor.bg};padding:3px 8px;border-radius:6px;border:1px solid ${capColor.fg}33;">${statText}</div>
                     </div>
-                    <div style="width:100%;height:6px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;">
-                        <div style="width:${item.pct}%;height:100%;background:${capColor.bar};border-radius:2px;"></div>
+                    <div style="width:100%;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">
+                        <div style="width:${item.pct}%;height:100%;background:${capColor.bar};border-radius:3px;"></div>
                     </div>
                 </div>
             </div>`;
@@ -2606,26 +2598,26 @@ const FPL = {
         }
 
         const chipColorMap = {
-            '3xc': { color: '#00FF85', bg: 'rgba(0,255,133,0.15)', border: 'rgba(0,255,133,0.3)' },
-            'bboost': { color: '#37DB59', bg: 'rgba(55,219,89,0.15)', border: 'rgba(55,219,89,0.3)' },
-            'freehit': { color: '#FFA600', bg: 'rgba(255,166,0,0.15)', border: 'rgba(255,166,0,0.3)' },
-            'wildcard': { color: '#00E5FF', bg: 'rgba(0,229,255,0.15)', border: 'rgba(0,229,255,0.3)' }
+            '3xc': { color: '#00FF85', bg: 'rgba(0,255,133,0.12)' },
+            'bboost': { color: '#37DB59', bg: 'rgba(55,219,89,0.12)' },
+            'freehit': { color: '#FFA600', bg: 'rgba(255,166,0,0.12)' },
+            'wildcard': { color: '#00E5FF', bg: 'rgba(0,229,255,0.12)' }
         };
 
         container.innerHTML = chipList.map(c => {
-            const styleInfo = chipColorMap[c.key] || { color: '#ffffff', bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.2)' };
+            const styleInfo = chipColorMap[c.key] || { color: '#ffffff', bg: 'rgba(255,255,255,0.06)' };
 
-            return `<div onclick="FPL.showChipUsers('${c.key}')" style="padding:10px 12px;margin-bottom:8px;background:var(--md-sys-color-surface-container-high);border:1px solid var(--md-sys-color-outline-variant);border-radius:4px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='${styleInfo.color}'" onmouseout="this.style.borderColor='var(--md-sys-color-outline-variant)'" title="Click to view managers with ${this.escapeHTML(c.name)}">
-                <span style="font-family:var(--font-mono);font-size:11px;font-weight:900;padding:4px 8px;border-radius:4px;background:${styleInfo.bg};color:${styleInfo.color};border:1px solid ${styleInfo.border};min-width:44px;text-align:center;flex-shrink:0;">${c.code}</span>
+            return `<div onclick="FPL.showChipUsers('${c.key}')" style="padding:10px 4px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:12px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='transparent'" title="Click to view managers with ${this.escapeHTML(c.name)}">
+                <span style="font-family:var(--font-mono);font-size:10px;font-weight:800;padding:4px 8px;border-radius:4px;background:${styleInfo.bg};color:${styleInfo.color};min-width:38px;text-align:center;flex-shrink:0;">${c.code}</span>
                 <div style="flex:1;min-width:0;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                        <span style="font-weight:700;font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name}</span>
-                        <div style="font-family:var(--font-mono);font-size:12px;font-weight:900;color:${styleInfo.color};background:${styleInfo.bg};padding:3px 8px;border-radius:4px;border:1px solid ${styleInfo.border};">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                        <span style="font-weight:700;font-size:12px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name}</span>
+                        <div style="font-family:var(--font-mono);font-size:12px;font-weight:900;color:${styleInfo.color};background:${styleInfo.bg};padding:3px 8px;border-radius:6px;border:1px solid ${styleInfo.color}33;">
                             ${c.count} Used <span style="font-size:10px;font-weight:600;opacity:0.8;">(${c.pct}%)</span>
                         </div>
                     </div>
-                    <div style="width:100%;height:6px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;">
-                        <div style="width:${c.pct}%;height:100%;background:${styleInfo.color};border-radius:2px;"></div>
+                    <div style="width:100%;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">
+                        <div style="width:${c.pct}%;height:100%;background:${styleInfo.color};border-radius:3px;"></div>
                     </div>
                 </div>
             </div>`;
