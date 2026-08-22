@@ -1728,11 +1728,16 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       )
     );
 
+    let isLastPageReached = false;
     const topEntries = [];
     topPagesResults.forEach(res => {
       if (res.status === 'fulfilled' && res.value) {
         const resStandings = res.value.standings?.results || res.value.new_entries?.results || [];
         topEntries.push(...resStandings);
+        const standingsObj = res.value.standings || res.value.new_entries || {};
+        if (standingsObj.has_next === false) {
+          isLastPageReached = true;
+        }
       }
     });
 
@@ -1789,8 +1794,9 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
         const capPick = picksData.picks.find(p => p.is_captain) || picksData.picks.find(p => p.is_vice_captain) || picksData.picks[0];
 
         if (capPick && elementMap[capPick.element]) {
-          captainCounts[capPick.element] = captainCounts[capPick.element] || { element: capPick.element, count: 0 };
+          captainCounts[capPick.element] = captainCounts[capPick.element] || { element: capPick.element, count: 0, managersWith: [] };
           captainCounts[capPick.element].count++;
+          captainCounts[capPick.element].managersWith.push({ managerId: mId, managerName: mgrName, entryName: entName });
         }
 
         picksData.picks.forEach(p => {
@@ -1871,6 +1877,22 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       entryName: e.entry_name || 'Team'
     })).filter(m => m.managerId !== null);
 
+    // Track chip user lists
+    sampleEntries.forEach(entry => {
+      const mgrName = entry.player_name || [entry.player_first_name, entry.player_last_name].filter(Boolean).join(' ');
+      const entName = entry.entry_name || 'Team';
+      const mId = entry.entry || null;
+      const picksData = samplePicksMap[mId];
+      if (picksData && Array.isArray(picksData.picks) && picksData.picks.length > 0) {
+        const activeChip = picksData.active_chip;
+        const chipKey = (activeChip && activeChip !== 'manager') ? activeChip : 'none';
+        if (chipCounts[chipKey]) {
+          chipCounts[chipKey].managersWith = chipCounts[chipKey].managersWith || [];
+          chipCounts[chipKey].managersWith.push({ managerId: mId, managerName: mgrName, entryName: entName });
+        }
+      }
+    });
+
     // Build 15-player League Template (2 GKP, 5 DEF, 5 MID, 3 FWD)
     const getPosStr = pos => pos === 1 ? 'GKP' : pos === 2 ? 'DEF' : pos === 3 ? 'MID' : 'FWD';
     const playersByPosition = { 1: [], 2: [], 3: [], 4: [] };
@@ -1911,40 +1933,54 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
     const captaincyCount = Object.values(captainCounts)
       .map(item => {
         const elObj = elementMap[item.element];
+        const withSet = new Set((item.managersWith || []).map(m => m.managerId));
+        const managersWithout = allSampleManagerSummaries.filter(m => !withSet.has(m.managerId));
         return {
           id: item.element,
           code: elObj?.code || 0,
           name: elObj?.webName || 'Player',
           team: elObj?.team || 'FPL',
           count: item.count,
-          pct: Math.min(100, Math.round((item.count / totalManagersAnalyzed) * 100))
+          pct: Math.min(100, Math.round((item.count / totalManagersAnalyzed) * 100)),
+          managersWith: item.managersWith || [],
+          managersWithout
         };
       })
       .sort((a, b) => b.count - a.count);
 
     const chipSummary = Object.values(chipCounts)
-      .map(item => ({
-        key: item.key,
-        name: item.name,
-        code: item.code,
-        count: item.count,
-        pct: Math.min(100, Math.round((item.count / totalManagersAnalyzed) * 100))
-      }))
+      .map(item => {
+        const mgrsWith = item.managersWith || [];
+        const withSet = new Set(mgrsWith.map(m => m.managerId));
+        const managersWithout = allSampleManagerSummaries.filter(m => !withSet.has(m.managerId));
+        return {
+          key: item.key,
+          name: item.name,
+          code: item.code,
+          count: item.count,
+          pct: Math.min(100, Math.round((item.count / totalManagersAnalyzed) * 100)),
+          managersWith: mgrsWith,
+          managersWithout
+        };
+      })
       .sort((a, b) => b.count - a.count);
 
     const eventScores = managers.map(manager => manager.eventTotal);
 
-    const actualTotalManagers = leagueInfo.rank_count || leagueInfo.total_managers || (pagination.has_next ? results.length : ((page - 1) * 50) + results.length);
+    const knownTotalCount = leagueInfo.rank_count || leagueInfo.total_managers || topEntries.length;
+    const isFullyLoaded = isLastPageReached || (!pagination.has_next);
+    const hasMoreFlag = !isFullyLoaded;
+    const actualTotalManagers = knownTotalCount;
 
     return res.json({
       leagueId: parseInt(leagueId),
       leagueName: decodeHTMLEntities(leagueInfo.name) || `League ${leagueId}`,
       leagueType: leagueInfo.league_type === 'x' ? 'Classic League' : 'Public Global',
       page,
-      totalPages: pagination.has_next ? page + 1 : page,
+      totalPages: isFullyLoaded ? Math.ceil(actualTotalManagers / 50) : page + 1,
       totalEntries: actualTotalManagers,
       totalLeagueManagers: actualTotalManagers,
-      hasMore: Boolean(pagination.has_next),
+      hasMore: hasMoreFlag,
       noData: false,
       leagueAvgGW: eventScores.length ? Math.round(eventScores.reduce((sum, score) => sum + score, 0) / eventScores.length) : 0,
       topScoreGW: eventScores.length ? Math.max(...eventScores) : 0,

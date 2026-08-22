@@ -2355,6 +2355,9 @@ const FPL = {
                 </tr>`;
             }).join('');
 
+            this.state.currentCaptaincyCount = data.captaincyCount || [];
+            this.state.currentChipSummary = data.chipSummary || [];
+
             this.renderStandingsPagination(data);
             this.renderLeagueTemplatePitch(data);
             this.renderCaptaincyCount(data);
@@ -2549,7 +2552,7 @@ const FPL = {
             const plFallback = item.code ? `https://resources.premierleague.com/premierleague/photos/players/110x140/p${item.code}.png` : '';
             const photoUrl = fotmobPhoto || plFallback;
             const statText = item.count != null ? `${item.count} (${item.pct}%)` : `${item.pct}%`;
-            return `<div style="padding:10px 4px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:12px;">
+            return `<div onclick="FPL.showCaptaincyOwners(${item.id})" style="padding:10px 4px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:12px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='transparent'" title="Click to view managers who captained ${this.escapeHTML(item.name)}">
                 <div style="width:36px;height:42px;overflow:hidden;flex-shrink:0;">
                     <img src="${photoUrl}" onerror="if(this.src!=='${plFallback}'&&'${plFallback}'){this.src='${plFallback}';}else{this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2236%22 height=%2242%22 viewBox=%220 0 24 24%22 fill=%22%23777%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E';}" style="width:100%;height:100%;object-fit:cover;object-position:top;" alt="${item.name}">
                 </div>
@@ -2592,7 +2595,7 @@ const FPL = {
         container.innerHTML = chipList.map(c => {
             const styleInfo = chipColorMap[c.key] || { color: '#ffffff', bg: 'rgba(255,255,255,0.06)' };
 
-            return `<div style="padding:10px 4px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:12px;">
+            return `<div onclick="FPL.showChipUsers('${c.key}')" style="padding:10px 4px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:12px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='transparent'" title="Click to view managers with ${this.escapeHTML(c.name)}">
                 <span style="font-family:var(--font-mono);font-size:10px;font-weight:800;padding:4px 8px;border-radius:4px;background:${styleInfo.bg};color:${styleInfo.color};min-width:38px;text-align:center;flex-shrink:0;">${c.code}</span>
                 <div style="flex:1;min-width:0;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
@@ -2607,6 +2610,92 @@ const FPL = {
                 </div>
             </div>`;
         }).join('');
+    },
+
+    showCaptaincyOwners(playerId) {
+        const list = this.state.currentCaptaincyCount || [];
+        const item = list.find(p => p.id === playerId);
+        if (!item) return;
+
+        const titleEl = document.getElementById('template-player-owners-title');
+        if (titleEl) titleEl.textContent = `${item.name} (${item.team}) - Captain Pick`;
+
+        const totalAnalyzed = (item.managersWith?.length || 0) + (item.managersWithout?.length || 0);
+        const subEl = document.getElementById('template-player-owners-sub');
+        if (subEl) subEl.textContent = `Captained by ${item.pct}% of league managers (${item.count}/${totalAnalyzed})`;
+
+        const bodyEl = document.getElementById('template-player-owners-body');
+        if (!bodyEl) return;
+
+        const renderManagerRow = (m) => `
+            <div style="padding:8px 12px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;font-size:12px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span class="material-symbols-outlined" style="font-size:16px;color:#00FF85;">check_circle</span>
+                    <div>
+                        <strong style="color:#fff;">${this.escapeHTML(m.entryName)}</strong>
+                        <span style="color:var(--md-sys-color-on-surface-variant);margin-left:6px;">(${this.escapeHTML(m.managerName)})</span>
+                    </div>
+                </div>
+            </div>`;
+
+        const withList = item.managersWith || [];
+
+        bodyEl.innerHTML = `
+            <div>
+                <h4 style="font-family:var(--font-mono);font-size:13px;color:#00FF85;margin:0 0 10px 0;display:flex;align-items:center;gap:6px;">
+                    <span class="material-symbols-outlined" style="font-size:18px;">check</span> MANAGERS WHO CAPTAINED (${withList.length})
+                </h4>
+                ${withList.length > 0 
+                    ? withList.map(m => renderManagerRow(m)).join('')
+                    : '<div style="color:var(--md-sys-color-on-surface-variant);font-size:12px;">No managers captained this player</div>'
+                }
+            </div>
+        `;
+
+        this.showDialog('template-player-owners-dialog');
+    },
+
+    showChipUsers(chipKey) {
+        const list = this.state.currentChipSummary || [];
+        const item = list.find(c => c.key === chipKey);
+        if (!item) return;
+
+        const titleEl = document.getElementById('template-player-owners-title');
+        if (titleEl) titleEl.textContent = `${item.name} (${item.code})`;
+
+        const totalAnalyzed = (item.managersWith?.length || 0) + (item.managersWithout?.length || 0);
+        const subEl = document.getElementById('template-player-owners-sub');
+        if (subEl) subEl.textContent = `Active for ${item.pct}% of league managers (${item.count}/${totalAnalyzed})`;
+
+        const bodyEl = document.getElementById('template-player-owners-body');
+        if (!bodyEl) return;
+
+        const renderManagerRow = (m) => `
+            <div style="padding:8px 12px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;font-size:12px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span class="material-symbols-outlined" style="font-size:16px;color:#00FF85;">check_circle</span>
+                    <div>
+                        <strong style="color:#fff;">${this.escapeHTML(m.entryName)}</strong>
+                        <span style="color:var(--md-sys-color-on-surface-variant);margin-left:6px;">(${this.escapeHTML(m.managerName)})</span>
+                    </div>
+                </div>
+            </div>`;
+
+        const withList = item.managersWith || [];
+
+        bodyEl.innerHTML = `
+            <div>
+                <h4 style="font-family:var(--font-mono);font-size:13px;color:#00FF85;margin:0 0 10px 0;display:flex;align-items:center;gap:6px;">
+                    <span class="material-symbols-outlined" style="font-size:18px;">check</span> MANAGERS WITH CHIP ACTIVE (${withList.length})
+                </h4>
+                ${withList.length > 0 
+                    ? withList.map(m => renderManagerRow(m)).join('')
+                    : '<div style="color:var(--md-sys-color-on-surface-variant);font-size:12px;">No managers active with this chip</div>'
+                }
+            </div>
+        `;
+
+        this.showDialog('template-player-owners-dialog');
     },
 
     showTemplatePlayerOwners(playerId) {

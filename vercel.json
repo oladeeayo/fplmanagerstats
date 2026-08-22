@@ -13,6 +13,19 @@
       "use": "@vercel/node"
     }
   ],
+  "redirects": [
+    {
+      "has": [
+        {
+          "type": "host",
+          "value": "fplmanagerstats.vercel.app"
+        }
+      ],
+      "source": "/:path*",
+      "destination": "https://fplmanager.xyz/:path*",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/assets/(.*)",
