@@ -2329,8 +2329,7 @@ const FPL = {
                         '3XC': 'background:rgba(0,255,133,0.18);color:#00FF85;border:1px solid rgba(0,255,133,0.4);',
                         'BB': 'background:rgba(55,219,89,0.18);color:#37DB59;border:1px solid rgba(55,219,89,0.4);',
                         'FH': 'background:rgba(255,166,0,0.18);color:#FFA600;border:1px solid rgba(255,166,0,0.4);',
-                        'WC': 'background:rgba(0,229,255,0.18);color:#00E5FF;border:1px solid rgba(0,229,255,0.4);',
-                        'AM': 'background:rgba(255,0,90,0.18);color:#FF005A;border:1px solid rgba(255,0,90,0.4);'
+                        'WC': 'background:rgba(0,229,255,0.18);color:#00E5FF;border:1px solid rgba(0,229,255,0.4);'
                     };
                     const chipStyle = chipBgMap[m.activeChip] || 'background:rgba(255,255,255,0.1);color:#fff;';
                     chipBadge = `<span style="padding:2px 6px;border-radius:4px;font-weight:800;font-size:10px;font-family:var(--font-mono);${chipStyle}">${m.activeChip}</span>`;
@@ -2578,7 +2577,7 @@ const FPL = {
 
         const chipList = data.chipSummary || [];
         if (chipList.length === 0) {
-            container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--md-sys-color-on-surface-variant);font-size:12px;">No chip usage data available.</div>`;
+            container.innerHTML = `<div style="text-align:center;padding:30px;color:var(--md-sys-color-on-surface-variant);font-size:12px;">No chip usage data available.</div>`;
             return;
         }
 
@@ -2587,28 +2586,24 @@ const FPL = {
             'bboost': { color: '#37DB59', bg: 'rgba(55,219,89,0.12)' },
             'freehit': { color: '#FFA600', bg: 'rgba(255,166,0,0.12)' },
             'wildcard': { color: '#00E5FF', bg: 'rgba(0,229,255,0.12)' },
-            'manager': { color: '#FF005A', bg: 'rgba(255,0,90,0.12)' },
             'none': { color: '#8ba396', bg: 'rgba(255,255,255,0.04)' }
         };
 
-        const maxCount = Math.max(1, ...chipList.map(c => c.count));
-
         container.innerHTML = chipList.map(c => {
             const styleInfo = chipColorMap[c.key] || { color: '#ffffff', bg: 'rgba(255,255,255,0.06)' };
-            const barWidth = Math.max(4, Math.round((c.count / maxCount) * 100));
 
-            return `<div style="padding:10px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:10px;display:flex;flex-direction:column;gap:6px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;">
-                    <div style="display:flex;align-items:center;gap:8px;min-width:0;">
-                        <span style="font-family:var(--font-mono);font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px;background:${styleInfo.bg};color:${styleInfo.color};">${c.code}</span>
-                        <span style="font-weight:700;color:var(--md-sys-color-on-surface);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name}</span>
+            return `<div style="padding:10px 4px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:12px;">
+                <span style="font-family:var(--font-mono);font-size:10px;font-weight:800;padding:4px 8px;border-radius:4px;background:${styleInfo.bg};color:${styleInfo.color};min-width:38px;text-align:center;flex-shrink:0;">${c.code}</span>
+                <div style="flex:1;min-width:0;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                        <span style="font-weight:700;font-size:12px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name}</span>
+                        <div class="mono" style="font-size:11px;font-weight:800;color:var(--fdr-1);">
+                            ${c.count} <span style="font-size:10px;color:var(--md-sys-color-on-surface-variant);font-weight:400;">(${c.pct}%)</span>
+                        </div>
                     </div>
-                    <div style="font-family:var(--font-mono);font-weight:700;color:var(--md-sys-color-on-surface);font-size:12px;">
-                        ${c.count} <span style="font-size:10px;color:var(--md-sys-color-on-surface-variant);">(${c.pct}%)</span>
+                    <div style="width:100%;height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;">
+                        <div style="width:${c.pct}%;height:100%;background:${styleInfo.color};border-radius:2px;"></div>
                     </div>
-                </div>
-                <div style="width:100%;height:4px;background:rgba(255,255,255,0.06);border-radius:999px;overflow:hidden;">
-                    <div style="width:${barWidth}%;height:100%;background:${styleInfo.color};border-radius:999px;transition:width 0.4s ease;"></div>
                 </div>
             </div>`;
         }).join('');

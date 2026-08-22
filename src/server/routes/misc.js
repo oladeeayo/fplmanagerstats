@@ -1763,7 +1763,6 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       'bboost': { key: 'bboost', name: 'Bench Boost', code: 'BB', count: 0 },
       'freehit': { key: 'freehit', name: 'Free Hit', code: 'FH', count: 0 },
       'wildcard': { key: 'wildcard', name: 'Wildcard', code: 'WC', count: 0 },
-      'manager': { key: 'manager', name: 'Assistant Manager', code: 'AM', count: 0 },
       'none': { key: 'none', name: 'No Chip Active', code: '--', count: 0 }
     };
     let totalManagersAnalyzed = 0;
@@ -1778,11 +1777,13 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       if (picksData && Array.isArray(picksData.picks) && picksData.picks.length > 0) {
         totalManagersAnalyzed++;
         const activeChip = picksData.active_chip;
-        const chipKey = activeChip || 'none';
+        const chipKey = (activeChip && activeChip !== 'manager') ? activeChip : 'none';
         if (chipCounts[chipKey]) {
           chipCounts[chipKey].count++;
-        } else {
+        } else if (activeChip && activeChip !== 'manager') {
           chipCounts[chipKey] = { key: chipKey, name: chipKey.toUpperCase(), code: chipKey.toUpperCase(), count: 1 };
+        } else {
+          chipCounts['none'].count++;
         }
 
         const capPick = picksData.picks.find(p => p.is_captain) || picksData.picks.find(p => p.is_vice_captain) || picksData.picks[0];
@@ -1808,8 +1809,7 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       '3xc': '3XC',
       'bboost': 'BB',
       'freehit': 'FH',
-      'wildcard': 'WC',
-      'manager': 'AM'
+      'wildcard': 'WC'
     };
 
     const managerEntries = results.slice(0, 50);
@@ -1826,7 +1826,7 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
 
       if (picksData && Array.isArray(picksData.picks) && picksData.picks.length > 0) {
         const activeChip = picksData.active_chip;
-        if (activeChip) {
+        if (activeChip && activeChip !== 'manager') {
           activeChipCode = chipLabelMap[activeChip] || activeChip.toUpperCase();
         }
         const capPick = picksData.picks.find(p => p.is_captain) || picksData.picks.find(p => p.is_vice_captain) || picksData.picks[0];
@@ -1864,7 +1864,12 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       };
     });
 
-    const allManagerSummaries = managers.map(m => ({ managerId: m.managerId, managerName: m.managerName, entryName: m.entryName }));
+    // Build summaries across ALL analyzed sample entries to ensure consistent manager denominator
+    const allSampleManagerSummaries = sampleEntries.map(e => ({
+      managerId: e.entry || null,
+      managerName: e.player_name || [e.player_first_name, e.player_last_name].filter(Boolean).join(' '),
+      entryName: e.entry_name || 'Team'
+    })).filter(m => m.managerId !== null);
 
     // Build 15-player League Template (2 GKP, 5 DEF, 5 MID, 3 FWD)
     const getPosStr = pos => pos === 1 ? 'GKP' : pos === 2 ? 'DEF' : pos === 3 ? 'MID' : 'FWD';
@@ -1875,7 +1880,7 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       if (!elObj) return;
 
       const withSet = new Set(item.managersWith.map(m => m.managerId));
-      const managersWithout = allManagerSummaries.filter(m => !withSet.has(m.managerId));
+      const managersWithout = allSampleManagerSummaries.filter(m => !withSet.has(m.managerId));
 
       playersByPosition[elObj.pos].push({
         id: elObj.id,
@@ -1929,7 +1934,7 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
 
     const eventScores = managers.map(manager => manager.eventTotal);
 
-    const totalLeagueManagers = leagueInfo.rank_count || (pagination.has_next ? null : (results.length + (page - 1) * 50)) || null;
+    const actualTotalManagers = leagueInfo.rank_count || leagueInfo.total_managers || (pagination.has_next ? results.length : ((page - 1) * 50) + results.length);
 
     return res.json({
       leagueId: parseInt(leagueId),
@@ -1937,8 +1942,8 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       leagueType: leagueInfo.league_type === 'x' ? 'Classic League' : 'Public Global',
       page,
       totalPages: pagination.has_next ? page + 1 : page,
-      totalEntries: pagination.has_next ? Math.max(page * 50 + 1, managers.length) : ((page - 1) * 50) + managers.length,
-      totalLeagueManagers,
+      totalEntries: actualTotalManagers,
+      totalLeagueManagers: actualTotalManagers,
       hasMore: Boolean(pagination.has_next),
       noData: false,
       leagueAvgGW: eventScores.length ? Math.round(eventScores.reduce((sum, score) => sum + score, 0) / eventScores.length) : 0,
