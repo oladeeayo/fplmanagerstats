@@ -2268,6 +2268,12 @@ const FPL = {
         if (!tbody || !headerRow) return;
 
         const activeTab = this.state.advTab || 'defcon';
+
+        if (!data.players || data.players.length === 0) {
+            headerRow.innerHTML = '';
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:#8ba396;">Advanced stats are collected automatically after each gameweek ends. Data will appear here once available.</td></tr>`;
+            return;
+        }
         const posFilter = this.state.advPosFilter || 'all';
         const searchTerm = (document.getElementById('adv-player-search')?.value || '').toLowerCase().trim();
 

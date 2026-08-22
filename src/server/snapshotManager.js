@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const logger = require('./logger');
+const { checkAndCollect } = require('./playerAdvancedCollector');
 
 const SNAPSHOT_DIR = path.join(__dirname, 'data');
 const SNAPSHOT_FILE = path.join(SNAPSHOT_DIR, 'snapshot.json');
@@ -288,6 +289,7 @@ function initSnapshotManager(fetcher) {
   if (!intervalId) {
     intervalId = setInterval(() => {
       evaluateSnapshotState(fetcher).catch(() => {});
+      checkAndCollect().catch(() => {});
     }, 30 * 1000); // Evaluate every 30 seconds
     if (intervalId.unref) intervalId.unref();
   }

@@ -3117,198 +3117,47 @@ const PLAYER_ADVANCED_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
 router.get('/player-advanced', async (req, res) => {
   try {
-    // Serve from cache if fresh
     if (playerAdvancedCache.data && Date.now() - playerAdvancedCache.timestamp < PLAYER_ADVANCED_CACHE_TTL) {
       return res.json(playerAdvancedCache.data);
     }
 
     const bootstrap = await getCachedApiData(BOOTSTRAP_URL, BOOTSTRAP_CACHE_TTL);
-    if (!bootstrap || !bootstrap.elements) {
+    if (!bootstrap || !bootstrap.events) {
       return res.status(500).json({ error: 'Failed to fetch bootstrap data' });
     }
 
     const currentGW = bootstrap.events?.find(e => e.is_current)?.id || bootstrap.events?.find(e => e.is_next)?.id || 1;
 
-    // Try to load from database for current GW
-    if (sql) {
-      try {
-        const dbResult = await sql`SELECT players, total_players FROM player_advanced_stats WHERE gameweek = ${currentGW} LIMIT 1`;
-        if (dbResult.length > 0) {
-          const result = { players: dbResult[0].players, totalPlayers: dbResult[0].total_players, gameweek: currentGW };
-          playerAdvancedCache.data = result;
-          playerAdvancedCache.timestamp = Date.now();
-          return res.json(result);
-        }
-      } catch (e) {
-        logger.warn({ err: e }, 'Failed to read player_advanced_stats from DB');
-      }
+    if (!sql) {
+      return res.status(500).json({ error: 'Database not available' });
     }
 
-    const teamMap = {};
-    (bootstrap.teams || []).forEach(t => {
-      teamMap[t.id] = { name: t.name, short: t.short_name, code: t.code };
-    });
-
-    const posNames = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
-
-    const activePlayers = bootstrap.elements.filter(p => (p.total_points || 0) > 0 || (p.minutes || 0) > 0);
-
-    // Only fetch history for top 150 players by total_points to avoid timeout
-    activePlayers.sort((a, b) => (b.total_points || 0) - (a.total_points || 0));
-    const topPlayers = activePlayers.slice(0, 150);
-
-    const BATCH_SIZE = 50;
-    const historyResults = new Map();
-    for (let i = 0; i < topPlayers.length; i += BATCH_SIZE) {
-      const batch = topPlayers.slice(i, i + BATCH_SIZE);
-      await Promise.allSettled(batch.map(async p => {
-        try {
-          const ph = await getGlobalPlayerHistory(p.id);
-          if (ph && Array.isArray(ph.history)) {
-            historyResults.set(p.id, ph.history);
-          }
-        } catch (err) {
-          // ignore individual player history fetch failures
-        }
-      }));
+    const dbResult = await sql`SELECT players, total_players FROM player_advanced_stats WHERE gameweek = ${currentGW} LIMIT 1`;
+    if (dbResult.length === 0) {
+      return res.json({ players: [], totalPlayers: 0, gameweek: currentGW, message: 'Data not yet collected for this gameweek' });
     }
 
-    const playersData = topPlayers.map(p => {
-      const history = historyResults.get(p.id) || [];
-      const teamInfo = teamMap[p.team] || { name: 'Unknown', short: 'UNK', code: 0 };
-
-      let defconGames = 0;
-      let haulGames = 0;
-      let bonus3Games = 0;
-      let bonus2Games = 0;
-      let bonus1Games = 0;
-      let totalBonus = 0;
-
-      const defconMatches = [];
-      const haulMatches = [];
-      const bonusMatches = [];
-
-      history.forEach(h => {
-        if (!h.minutes || h.minutes === 0) return;
-
-        const oppTeam = teamMap[h.opponent_team] || { short: 'UNK' };
-        const oppShort = oppTeam.short;
-        const vsStr = h.was_home ? `vs ${oppShort} (H)` : `@ ${oppShort} (A)`;
-        const scoreStr = h.team_h_score != null && h.team_a_score != null
-          ? `${h.team_h_score} - ${h.team_a_score}`
-          : '-';
-
-        // DEFCON match check:
-        // Defensive contribution > 0 OR clearances_blocks_interceptions + tackles >= 8 OR clean sheet for DEF/GKP
-        const defVal = h.defensive_contribution || 0;
-        const cbi = h.clearances_blocks_interceptions || 0;
-        const tackles = h.tackles || 0;
-        const totalDefActions = cbi + tackles + (h.recoveries || 0);
-        const isDefcon = defVal > 0 || totalDefActions >= 8 || (h.clean_sheets > 0 && [1, 2].includes(p.element_type));
-
-        if (isDefcon) {
-          defconGames += 1;
-          defconMatches.push({
-            gw: h.round,
-            opponent: oppShort,
-            vs: vsStr,
-            wasHome: h.was_home,
-            score: scoreStr,
-            minutes: h.minutes,
-            defconVal: defVal || totalDefActions,
-            cleanSheets: h.clean_sheets,
-            points: h.total_points
-          });
-        }
-
-        // Haul match check: 10+ points
-        if (h.total_points >= 10) {
-          haulGames += 1;
-          haulMatches.push({
-            gw: h.round,
-            opponent: oppShort,
-            vs: vsStr,
-            wasHome: h.was_home,
-            score: scoreStr,
-            minutes: h.minutes,
-            goals: h.goals_scored,
-            assists: h.assists,
-            bonus: h.bonus,
-            bps: h.bps,
-            points: h.total_points
-          });
-        }
-
-        // Bonus match check (exact: each game counted once at its bonus level)
-        if (h.bonus > 0) {
-          if (h.bonus === 3) bonus3Games += 1;
-          else if (h.bonus === 2) bonus2Games += 1;
-          else if (h.bonus === 1) bonus1Games += 1;
-          totalBonus += h.bonus;
-
-          bonusMatches.push({
-            gw: h.round,
-            opponent: oppShort,
-            vs: vsStr,
-            wasHome: h.was_home,
-            score: scoreStr,
-            minutes: h.minutes,
-            bonus: h.bonus,
-            bps: h.bps,
-            points: h.total_points
-          });
-        }
-      });
-
-      return {
-        id: p.id,
-        code: p.code,
-        name: p.web_name,
-        fullName: `${p.first_name} ${p.second_name}`,
-        team: teamInfo.short,
-        teamName: teamInfo.name,
-        teamCode: teamInfo.code,
-        position: posNames[p.element_type] || 'MID',
-        elementType: p.element_type,
-        cost: (p.now_cost || 0) / 10,
-        priceStr: `£${((p.now_cost || 0) / 10).toFixed(1)}m`,
-        totalPoints: p.total_points || 0,
-        minutes: p.minutes || 0,
-        defconGames,
-        defconMatches,
-        haulGames,
-        haulMatches,
-        bonus3Games,
-        bonus2Games,
-        bonus1Games,
-        totalBonus: totalBonus || (p.bonus || 0),
-        bonusMatches
-      };
-    });
-
-    const result = {
-      players: playersData,
-      totalPlayers: playersData.length,
-      gameweek: currentGW
-    };
-
-    // Cache the full response
+    const result = { players: dbResult[0].players, totalPlayers: dbResult[0].total_players, gameweek: currentGW };
     playerAdvancedCache.data = result;
     playerAdvancedCache.timestamp = Date.now();
-
-    // Save to database for persistence across weeks
-    if (sql) {
-      try {
-        await sql`INSERT INTO player_advanced_stats (gameweek, players, total_players) VALUES (${currentGW}, ${JSON.stringify(playersData)}, ${playersData.length}) ON CONFLICT (gameweek) DO UPDATE SET players = ${JSON.stringify(playersData)}, total_players = ${playersData.length}`;
-      } catch (e) {
-        logger.warn({ err: e }, 'Failed to save player_advanced_stats to DB');
-      }
-    }
 
     res.json(result);
   } catch (e) {
     logger.error({ err: e }, 'Player advanced stats error');
     res.status(500).json({ error: 'Failed to fetch player advanced stats' });
+  }
+});
+
+router.post('/player-advanced/collect', async (req, res) => {
+  try {
+    const { collectAndStore } = require('../playerAdvancedCollector');
+    const bootstrap = await getCachedApiData(BOOTSTRAP_URL, BOOTSTRAP_CACHE_TTL);
+    const gwId = bootstrap?.events?.find(e => e.is_current)?.id || bootstrap?.events?.find(e => e.is_next)?.id || 1;
+    await collectAndStore(gwId);
+    res.json({ ok: true, gwId });
+  } catch (e) {
+    logger.error({ err: e }, 'Manual player advanced stats collection error');
+    res.status(500).json({ error: 'Collection failed' });
   }
 });
 
