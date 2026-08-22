@@ -1976,6 +1976,10 @@ const FPL = {
                 case 'goals': value = player.goals_scored || 0; break;
                 case 'own': return parseFloat(player.selected_by_percent || 0);
                 case 'ict': return parseFloat(player.ict_index || 0);
+                case 'ppm': {
+                    const priceM = (player.now_cost || 0) / 10;
+                    return priceM > 0 ? (player.total_points || 0) / priceM : 0;
+                }
                 case 'pts':
                 default: value = player.total_points || 0; break;
             }
@@ -1983,7 +1987,7 @@ const FPL = {
             return nineties > 0 ? value / nineties : 0;
         };
 
-        const sortIconIds = ['pts','mins','goals','xg','gxg','xa','xgi','xgi90','form','defcon'];
+        const sortIconIds = ['pts','ppm','mins','goals','xg','gxg','xa','xgi','xgi90','form','defcon'];
         sortIconIds.forEach(id => {
             const icon = document.getElementById('sort-icon-' + id);
             if (icon) {
@@ -2024,6 +2028,8 @@ const FPL = {
             const price = (p.now_cost / 10).toFixed(1);
             const mins = p.minutes || 0;
             const nineties = mins > 0 ? mins / 90 : 0;
+            const priceM = parseFloat(price);
+            const ppm = priceM > 0 ? (p.total_points / priceM).toFixed(1) : '0.0';
 
             const goalsRaw = p.goals_scored || 0;
             const xGRaw = parseFloat(p.expected_goals || 0);
@@ -2060,6 +2066,7 @@ const FPL = {
                         </div>
                     </td>
                     <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#00FF85;">${per90 && nineties > 0 ? (p.total_points / nineties).toFixed(1) : p.total_points}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#4FC3F7;">${ppm}</td>
                     <td style="text-align:center;font-family:var(--font-mono);font-size:11px;color:#B0B0B0;">${mins.toLocaleString()}</td>
                     <td style="text-align:center;font-family:var(--font-mono);font-size:12px;color:${goalsRaw > 0 ? '#E0E0E0' : '#666'};">${goals.toFixed(decimals)}</td>
                     <td style="text-align:center;font-family:var(--font-mono);font-size:12px;color:${xG >= (per90 ? 0.3 : 5) ? '#00FF85' : xG >= (per90 ? 0.15 : 2) ? '#FFA600' : '#B0B0B0'};">${xG.toFixed(decimals)}</td>
@@ -3073,34 +3080,34 @@ const FPL = {
         // LEFT COLUMN: Top Captains Table
         const col1X = 45;
         const col1Y = 105;
-        const col1W = 350;
+        const col1W = 510;
         const col1H = 880;
 
         drawRoundedRect(col1X, col1Y, col1W, col1H, 14);
-        ctx.fillStyle = '#0b1424';
+        ctx.fillStyle = '#0f1923';
         ctx.fill();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
         ctx.lineWidth = 1;
         ctx.stroke();
 
         drawRoundedRect(col1X, col1Y, col1W, 42, 14);
-        ctx.fillStyle = '#101d33';
+        ctx.fillStyle = '#162332';
         ctx.fill();
 
-        const statBoxW = 100;
-        const statBoxH = 40;
-        const statBoxX = col1X + col1W - statBoxW - 10;
-
-        ctx.font = '800 12px "Fira Code", monospace';
-        ctx.fillStyle = '#38bdf8';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('Player', col1X + 16, col1Y + 21);
+        const statBoxW = 88;
+        const statBoxH = 38;
+        const statBoxX = col1X + col1W - statBoxW - 14;
 
         ctx.font = '800 11px "Fira Code", monospace';
-        ctx.fillStyle = '#94a3b8';
+        ctx.fillStyle = '#7aa2c4';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Player', col1X + 16, col1Y + 22);
+
+        ctx.font = '800 10px "Fira Code", monospace';
+        ctx.fillStyle = '#5a7a94';
         ctx.textAlign = 'center';
-        ctx.fillText('CAPPED', statBoxX + (statBoxW / 2), col1Y + 21);
+        ctx.fillText('PROJ PTS', statBoxX + (statBoxW / 2), col1Y + 22);
 
         const rowH = 55;
         const renderCaptains = topCaptains.slice(0, 15);
@@ -3109,49 +3116,55 @@ const FPL = {
         renderCaptains.forEach((item, idx) => {
             const rY = col1Y + 44 + (idx * rowH);
 
-            ctx.fillStyle = idx % 2 === 1 ? 'rgba(255, 255, 255, 0.02)' : 'transparent';
+            ctx.fillStyle = idx % 2 === 0 ? '#111d2b' : '#0d1822';
             ctx.fillRect(col1X + 1, rY, col1W - 2, rowH);
 
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
             ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.moveTo(col1X + 16, rY + rowH);
-            ctx.lineTo(col1X + col1W - 16, rY + rowH);
+            ctx.moveTo(col1X + 12, rY + rowH);
+            ctx.lineTo(col1X + col1W - 12, rY + rowH);
             ctx.stroke();
 
             // Rank #
-            ctx.font = '800 13px "Fira Code", monospace';
-            ctx.fillStyle = '#64748b';
+            ctx.font = '800 15px "Fira Code", monospace';
+            ctx.fillStyle = idx < 3 ? '#38bdf8' : '#5a7a94';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
             ctx.fillText(`${idx + 1}`, col1X + 16, rY + (rowH / 2));
 
             // Team Badge
             const badgeImg = teamBadgeImgs[item.team];
-            const badgeX = col1X + 42;
+            const badgeX = col1X + 44;
             const badgeY = rY + (rowH / 2) - 13;
             if (badgeImg) {
                 ctx.drawImage(badgeImg, badgeX, badgeY, 26, 26);
             } else {
-                ctx.fillStyle = '#38bdf8';
+                ctx.fillStyle = '#1e3a5f';
                 ctx.beginPath();
-                ctx.arc(badgeX + 13, badgeY + 13, 12, 0, Math.PI * 2);
+                ctx.arc(badgeX + 13, badgeY + 13, 13, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.font = '800 9px sans-serif';
-                ctx.fillStyle = '#000000';
+                ctx.font = '800 8px "Fira Code", monospace';
+                ctx.fillStyle = '#7aa2c4';
                 ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
                 ctx.fillText((item.team || '').substring(0, 3), badgeX + 13, badgeY + 13);
             }
 
-            // Player Name (Enlarged 17px Outfit font)
-            ctx.font = '800 17px "Outfit", system-ui, sans-serif';
-            ctx.fillStyle = '#ffffff';
+            // Player Name
+            ctx.font = '700 16px "Outfit", system-ui, sans-serif';
+            ctx.fillStyle = '#e2e8f0';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
             const pName = item.name || 'Player';
-            ctx.fillText(pName, col1X + 74, rY + (rowH / 2));
+            ctx.fillText(pName, col1X + 78, rY + (rowH / 2) - 2);
 
-            // Stat Box with 15px Vertical Gap Spacing & Deeper-to-Lighter Color Shading
+            // Team short name below player name
+            ctx.font = '500 10px "Fira Code", monospace';
+            ctx.fillStyle = '#4a6a82';
+            ctx.fillText(item.team || '', col1X + 78, rY + (rowH / 2) + 14);
+
+            // Stat Box: dark rounded rect with count
             const itemVal = item.pct ?? item.count ?? 0;
             const ratio = topVal > 0 ? Math.max(0.05, Math.min(1, itemVal / topVal)) : 0.05;
 
@@ -3159,21 +3172,17 @@ const FPL = {
             drawRoundedRect(statBoxX, curStatBoxY, statBoxW, statBoxH, 6);
 
             if (ratio > 0.6) {
-                // Top ranks: Deep, rich vibrant blue
-                ctx.fillStyle = '#0284c7';
-                ctx.strokeStyle = '#38bdf8';
+                ctx.fillStyle = '#0b2e4a';
+                ctx.strokeStyle = '#1e5a8a';
             } else if (ratio > 0.3) {
-                // Mid ranks: Medium blue
-                ctx.fillStyle = '#0369a1';
-                ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
+                ctx.fillStyle = '#0a2640';
+                ctx.strokeStyle = '#1a4a72';
             } else if (ratio > 0.1) {
-                // Low ranks: Lighter cyan/teal
-                ctx.fillStyle = '#0e7490';
-                ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+                ctx.fillStyle = '#091f35';
+                ctx.strokeStyle = '#16405e';
             } else {
-                // Bottom ranks: Light subtle tint
-                ctx.fillStyle = 'rgba(14, 116, 144, 0.45)';
-                ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
+                ctx.fillStyle = '#081a2c';
+                ctx.strokeStyle = '#12344d';
             }
 
             ctx.fill();
@@ -3185,20 +3194,20 @@ const FPL = {
             const pPct = item.pct ?? 0;
 
             ctx.font = '800 14px "Fira Code", monospace';
-            ctx.fillStyle = '#ffffff';
+            ctx.fillStyle = '#38bdf8';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(`${mCount ?? '--'}`, statBoxX + (statBoxW / 2), curStatBoxY + 15);
+            ctx.fillText(`${mCount ?? '--'}`, statBoxX + (statBoxW / 2), curStatBoxY + 14);
 
-            ctx.font = '700 10px "Fira Code", monospace';
-            ctx.fillStyle = ratio > 0.6 ? '#e0f2fe' : '#7dd3fc';
-            ctx.fillText(`${pPct}%`, statBoxX + (statBoxW / 2), curStatBoxY + 29);
+            ctx.font = '600 9px "Fira Code", monospace';
+            ctx.fillStyle = '#5a8aaa';
+            ctx.fillText(`${pPct}%`, statBoxX + (statBoxW / 2), curStatBoxY + 28);
         });
 
         // RIGHT COLUMN: Pitch & Tactical Formation
-        const col2X = 405;
+        const col2X = 575;
         const col2Y = 105;
-        const col2W = 950;
+        const col2W = 780;
         const col2H = 880;
 
         drawRoundedRect(col2X, col2Y, col2W, col2H, 16);
@@ -5394,9 +5403,27 @@ const FPL = {
         if (!player) return '';
         const e = value => this.escapeHTML(value);
         const shirt = this.playerTeamShirtUrl(player);
-        return `<div class="tactics-player-card ${accent}${compact ? ' is-compact' : ''}" title="${e(player.name)}">
+        const pos = player.position || player.detailedPosition || '';
+        const vulnScore = player.vulnerabilityScore;
+        const atkScore = player.attackScore;
+        let scoreBadge = '';
+        if (vulnScore != null && ['LB', 'LCB', 'RCB', 'RB', 'GK', 'CDM'].includes(pos)) {
+            const isHighVuln = vulnScore >= 65;
+            const isMedVuln = vulnScore >= 45;
+            const badgeBg = isHighVuln ? 'rgba(239, 68, 68, 0.25)' : isMedVuln ? 'rgba(245, 158, 11, 0.25)' : 'rgba(16, 185, 129, 0.25)';
+            const badgeColor = isHighVuln ? '#ef4444' : isMedVuln ? '#f59e0b' : '#10b981';
+            scoreBadge = `<span style="font-size:9px;font-weight:800;padding:1px 4px;border-radius:3px;background:${badgeBg};color:${badgeColor};margin-top:2px;">${vulnScore} VULN</span>`;
+        } else if (atkScore != null && ['LW', 'RW', 'CAM', 'ST'].includes(pos)) {
+            scoreBadge = `<span style="font-size:9px;font-weight:800;padding:1px 4px;border-radius:3px;background:rgba(56, 189, 248, 0.25);color:#38bdf8;margin-top:2px;">${atkScore} ATK</span>`;
+        }
+
+        return `<div class="tactics-player-card ${accent}${compact ? ' is-compact' : ''}" title="${e(player.name)} (${pos})">
             <div class="tactics-player-shirt">${shirt ? `<img src="${shirt}" alt="" onerror="this.style.display='none'">` : ''}</div>
-            <div class="tactics-player-copy"><b>${e(player.name)}</b></div>
+            <div class="tactics-player-copy">
+                <span style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.7);text-transform:uppercase;">${e(pos)}</span>
+                <b>${e(player.name)}</b>
+                ${scoreBadge}
+            </div>
         </div>`;
     },
 
@@ -5459,42 +5486,67 @@ const FPL = {
     renderBestPicks(match) {
         const e = value => this.escapeHTML(value);
         const bestPicks = match.bestPicks || [];
+        const topTransfers = this.state.zoneData?.topTransfersToBuy || [];
         const panel = document.getElementById('home-picks-panel');
         if (!panel) return;
-        if (!bestPicks.length) {
-            panel.innerHTML = '<div class="tactics-inline-empty">No strong picks identified for this fixture.</div>';
-            return;
-        }
-        const fdrColor = fdr => fdr <= 2 ? '#00ff85' : fdr <= 3 ? '#f9d243' : '#ff5c72';
-        panel.innerHTML = `<div class="tactics-target-heading"><div><span class="tactics-kicker">BEST PICKS</span><h2>Top ${bestPicks.length} for this fixture</h2></div><span class="tactics-muted-label">${e(match.fixture.homeTeam)} vs ${e(match.fixture.awayTeam)}</span></div>
-            <div class="tactics-target-groups">${bestPicks.map((player, i) => {
+
+        let contentHtml = `<div class="tactics-target-heading"><div><span class="tactics-kicker">BEST PICKS</span><h2>Top ${bestPicks.length} for this fixture</h2></div><span class="tactics-muted-label">${e(match.fixture.homeTeam)} vs ${e(match.fixture.awayTeam)}</span></div>
+            <div class="tactics-target-list" style="display:flex;flex-direction:column;gap:0;">${bestPicks.map((player, i) => {
                 const teamBadge = this.getTeamLogo(player.team);
                 const posColor = { FWD: '#FF005A', MID: '#37DB59', DEF: '#6496ff', GKP: '#ffa600' }[player.position] || '#8ba396';
-                return `<section class="tactics-target-group" style="grid-column:span 2;border-top:1px solid var(--md-sys-color-outline-variant);padding-top:12px;">
-                    <article class="tactics-target-player" style="padding:8px 0;">
-                        <div style="display:flex;align-items:center;gap:12px;">
-                            <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;background:rgba(0,255,133,0.1);color:var(--md-sys-color-primary);font-family:var(--font-mono);font-weight:800;font-size:13px;">${i + 1}</span>
-                            ${teamBadge ? `<img src="${teamBadge}" style="width:22px;height:22px;object-fit:contain;">` : ''}
-                            <div style="flex:1;min-width:0;">
-                                <div style="display:flex;align-items:center;gap:8px;">
-                                    <b style="font-size:13px;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e(player.name)}</b>
-                                    <span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:${posColor}22;color:${posColor};">${e(player.position)}</span>
-                                    <span style="font-family:var(--font-mono);font-size:11px;color:#8ba396;">${e(player.team)}</span>
+                return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+                    <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:4px;background:rgba(0,255,133,0.1);color:var(--md-sys-color-primary);font-family:var(--font-mono);font-weight:800;font-size:12px;flex-shrink:0;">${i + 1}</span>
+                    ${teamBadge ? `<img src="${teamBadge}" style="width:20px;height:20px;object-fit:contain;flex-shrink:0;">` : ''}
+                    <div style="flex:1;min-width:0;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <b style="font-size:13px;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e(player.name)}</b>
+                            <span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:${posColor}22;color:${posColor};">${e(player.position)}</span>
+                            <span style="font-family:var(--font-mono);font-size:11px;color:#8ba396;">${e(player.team)}</span>
+                        </div>
+                        <p style="margin:3px 0 0;color:var(--md-sys-color-on-surface-variant);font-size:11px;line-height:1.4;">${e(player.reason)}</p>
+                        <div class="tactics-target-metrics" style="margin-top:4px;display:flex;gap:10px;">
+                            <span class="is-primary" style="font-size:12px;">${player.score || 0} pts</span>
+                            <span style="font-size:11px;">F ${Number(player.form || 0).toFixed(1)}</span>
+                            <span style="font-size:11px;">£${(Number(player.cost || 0) / 10).toFixed(1)}m</span>
+                            <span style="font-size:11px;">${player.goals || 0}G ${player.assists || 0}A</span>
+                            <span style="font-size:11px;">${player.minutesSecurity || 0}% min</span>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('')}</div>`;
+
+        if (topTransfers.length > 0) {
+            contentHtml += `<div class="tactics-target-heading" style="margin-top:24px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);">
+                <div><span class="tactics-kicker" style="color:#00ff85;">TRANSFER TARGETS</span><h2>Recommended Players to Buy (Zonal Flaws)</h2></div>
+                <span class="tactics-muted-label">Next ${topTransfers[0]?.upcomingCount || 3} GWs</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0;margin-top:8px;">
+                ${topTransfers.slice(0, 6).map((player, idx) => {
+                    const teamBadge = this.getTeamLogo(player.team);
+                    const posColor = { FWD: '#FF005A', MID: '#37DB59', DEF: '#6496ff', GKP: '#ffa600' }[player.position] || '#8ba396';
+                    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+                        <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1;">
+                            <span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:#00ff85;flex-shrink:0;">#${idx + 1}</span>
+                            ${teamBadge ? `<img src="${teamBadge}" style="width:20px;height:20px;object-fit:contain;flex-shrink:0;">` : ''}
+                            <div style="min-width:0;flex:1;">
+                                <div style="display:flex;align-items:center;gap:6px;">
+                                    <b style="color:#fff;font-size:13px;">${e(player.name)}</b>
+                                    <span style="font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;background:${posColor}22;color:${posColor};">${e(player.position)}</span>
+                                    <span style="color:#94a3b8;font-size:11px;">£${(Number(player.cost || 0) / 10).toFixed(1)}m</span>
                                 </div>
-                                <p style="margin:3px 0 0;color:var(--md-sys-color-on-surface-variant);font-size:11px;line-height:1.4;">${e(player.reason)}</p>
-                                <div class="tactics-target-metrics" style="margin-top:4px;">
-                                    <span class="is-primary" style="font-size:12px;">${player.score || 0} pts</span>
-                                    <span style="font-size:11px;">F ${Number(player.form || 0).toFixed(1)}</span>
-                                    <span style="font-size:11px;">£${(Number(player.cost || 0) / 10).toFixed(1)}m</span>
-                                    <span style="font-size:11px;">${player.goals || 0}G ${player.assists || 0}A</span>
-                                    <span style="font-size:11px;">${player.minutesSecurity || 0}% min</span>
-                                </div>
+                                <div style="color:#94a3b8;font-size:11px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e(player.tacticalReason)}</div>
                             </div>
                         </div>
-                    </article>
-                </section>`;
-            }).join('')}</div>`;
-        // Hide away panel when showing combined best picks
+                        <div style="text-align:right;flex-shrink:0;margin-left:12px;">
+                            <div style="font-family:var(--font-mono);font-size:13px;font-weight:800;color:#38bdf8;">${player.transferRating}/100</div>
+                            <div style="font-size:10px;color:#94a3b8;">Zonal Match</div>
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>`;
+        }
+
+        panel.innerHTML = contentHtml;
         const awayPanel = document.getElementById('away-picks-panel');
         if (awayPanel) awayPanel.style.display = 'none';
     },
@@ -5730,7 +5782,7 @@ const FPL = {
         const lineupTotal = document.getElementById('decision-lineup-total');
         if (lineupTotal) lineupTotal.textContent = `${data.lineup.expectedPoints.toFixed(1)} xPts`;
         const lineup = document.getElementById('decision-lineup');
-        if (lineup) lineup.innerHTML = `<div class="decision-pitch"><div class="decision-pitch-label">STARTING XI</div>${['GKP', 'DEF', 'MID', 'FWD'].map(position => `<div class="decision-pitch-line">${data.lineup.starters.filter(player => player.position === position).map(player => `<div class="decision-pitch-player"><span>${player === data.lineup.captain ? 'C' : player === data.lineup.viceCaptain ? 'V' : player.position}</span><b>${this.escapeHTML(player.name)}</b><small>${player.weekly[0].xPts.toFixed(1)} xPts</small></div>`).join('')}</div>`).join('')}</div><div class="decision-bench"><h3>Bench order</h3>${data.lineup.bench.map((player, index) => this.decisionPlayerRow(player, `· ${index + 1}`)).join('')}</div>`;
+        if (lineup) lineup.innerHTML = this.renderDecisionPitch(data.lineup);
 
         const pool = data.comparisonPool || [];
         const selectA = document.getElementById('decision-compare-a');
@@ -5750,6 +5802,90 @@ const FPL = {
         const warnings = document.getElementById('decision-warnings');
         if (warnings) warnings.innerHTML = data.meta.warnings.map(warning => `<div class="decision-assumption"><span class="material-symbols-outlined">info</span><p>${this.escapeHTML(warning)}</p></div>`).join('');
         this.setDecisionView(this.state.decisionView || 'overview');
+    },
+
+    renderDecisionPitch(lineup) {
+        if (!lineup || !lineup.starters) return '';
+        const gkps = lineup.starters.filter(p => p.position === 'GKP');
+        const defs = lineup.starters.filter(p => p.position === 'DEF');
+        const mids = lineup.starters.filter(p => p.position === 'MID');
+        const fwds = lineup.starters.filter(p => p.position === 'FWD');
+        const isCaptain = (p) => lineup.captain && p.id === lineup.captain.id;
+        const isVice = (p) => lineup.viceCaptain && p.id === lineup.viceCaptain.id;
+
+        const fdrColor = (fdr) => {
+            const colors = { 1: '#00FF85', 2: '#00FF85', 3: '#F9D243', 4: '#FF9400', 5: '#FF005A' };
+            return colors[fdr] || '#F9D243';
+        };
+
+        const renderCard = (p, isBench = false) => {
+            const cap = !isBench && isCaptain(p);
+            const vice = !isBench && isVice(p);
+            const capBadge = cap ? '<span class="aiteam-pitch-cap-badge is-cap" title="Captain">C</span>' : vice ? '<span class="aiteam-pitch-cap-badge is-vice" title="Vice-Captain">V</span>' : '';
+            const borderStyle = cap ? 'border:2px solid #FFD700;box-shadow:0 0 14px rgba(255,215,0,0.5);' : vice ? 'border:2px solid rgba(255,255,255,0.7);box-shadow:0 0 10px rgba(255,255,255,0.3);' : 'border:1px solid rgba(255,255,255,0.22);';
+            
+            const shirt = this.playerTeamShirtUrl(p);
+            const shirtImg = shirt ? `<img src="${shirt}" alt="" loading="lazy" decoding="async" onerror="this.closest('.tactics-player-shirt').classList.add('is-missing');this.remove();" style="width:100%;height:100%;object-fit:contain;">` : '';
+            
+            const xPts = p.weekly && p.weekly[0] ? p.weekly[0].xPts.toFixed(1) : (p.xPts ? p.xPts.toFixed(1) : '0.0');
+            const costVal = (p.cost || (p.now_cost ? p.now_cost / 10 : 0)).toFixed(1);
+            
+            let fixturePill = '';
+            if (p.weekly && p.weekly[0]) {
+                const w = p.weekly[0];
+                const col = fdrColor(w.fdr || 3);
+                const opp = w.opponent || '';
+                const oppLabel = opp ? (w.isHome ? `${opp}(H)` : `${opp}(A)`) : '';
+                if (oppLabel) {
+                    fixturePill = `<div class="aiteam-pitch-fixture-pill" style="background:${col};"><span class="aiteam-fixture-opp">${oppLabel}</span></div>`;
+                }
+            }
+
+            return `<div class="tactics-player-card ${isBench ? 'bench' : 'home'} aiteam-pitch-card" style="${borderStyle}">
+                <div class="tactics-player-shirt" style="display:grid;place-items:center;background:transparent;position:relative;">
+                    ${shirtImg}
+                    <span class="aiteam-shirt-fallback" aria-hidden="true">${this.escapeHTML(p.team || this.playerTeamShort(p))}</span>
+                    ${capBadge}
+                </div>
+                <div class="aiteam-pitch-name-tag">
+                    <span class="aiteam-pitch-name${cap ? ' is-captain' : ''}">${this.escapeHTML(p.name || p.web_name)}</span>
+                </div>
+                <div class="aiteam-pitch-metrics-tag">
+                    <span class="aiteam-pitch-cost">£${costVal}m</span>
+                    <span class="aiteam-pitch-xpts">${xPts} xPts</span>
+                </div>
+                <div class="aiteam-fixture-block">${fixturePill}</div>
+            </div>`;
+        };
+
+        const rows = [];
+        rows.push(`<div class="tactics-pitch-row" style="--players:${gkps.length};">${gkps.map(p => renderCard(p)).join('')}</div>`);
+        rows.push(`<div class="tactics-pitch-row" style="--players:${defs.length};">${defs.map(p => renderCard(p)).join('')}</div>`);
+        rows.push(`<div class="tactics-pitch-row" style="--players:${mids.length};">${mids.map(p => renderCard(p)).join('')}</div>`);
+        rows.push(`<div class="tactics-pitch-row" style="--players:${fwds.length};">${fwds.map(p => renderCard(p)).join('')}</div>`);
+
+        const startersPitchHtml = `<div class="aiteam-pitch-wrapper">
+            <div class="aiteam-pitch">
+                <div class="tactics-pitch">${rows.join('')}</div>
+            </div>
+        </div>`;
+
+        const benchHtml = `<div class="aiteam-bench" style="margin-top:16px;">
+            <div class="aiteam-bench-label"><span class="material-symbols-outlined">event_seat</span> BENCH / SUBSTITUTES</div>
+            <div class="aiteam-bench-players">
+                ${(lineup.bench || []).map((p, i) => `
+                    <div style="position:relative;">
+                        <div class="aiteam-bench-badges">
+                            <span class="aiteam-bench-order-badge">${i === 0 ? 'GK' : i}</span>
+                            <span class="aiteam-bench-pos-badge">${p.position}</span>
+                        </div>
+                        ${renderCard(p, true)}
+                    </div>
+                `).join('')}
+            </div>
+        </div>`;
+
+        return startersPitchHtml + benchHtml;
     },
 
     renderDecisionComparison() {
