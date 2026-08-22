@@ -3522,11 +3522,19 @@ const FPL = {
         const renderCaptains = topCaptains.slice(0, 10);
 
         const getCapGraphicColor = (index) => {
-            if (index === 0) return { fg: '#00FF85', bg: 'rgba(0, 255, 133, 0.18)', border: '#00FF85' };
-            if (index === 1) return { fg: '#00D1FF', bg: 'rgba(0, 209, 255, 0.18)', border: '#00D1FF' };
-            if (index === 2) return { fg: '#38BDF8', bg: 'rgba(56, 189, 248, 0.18)', border: '#38BDF8' };
-            if (index < 5) return { fg: '#FFA600', bg: 'rgba(255, 166, 0, 0.18)', border: '#FFA600' };
-            return { fg: '#FF5252', bg: 'rgba(255, 82, 82, 0.18)', border: '#FF5252' };
+            const colors = [
+                { bg: '#1583b7', border: '#38bdf8', bar: '#1583b7' },
+                { bg: '#1475a5', border: '#38bdf8', bar: '#1475a5' },
+                { bg: '#136793', border: '#0ea5e9', bar: '#136793' },
+                { bg: '#125981', border: '#0ea5e9', bar: '#125981' },
+                { bg: '#114b6f', border: '#0284c7', bar: '#114b6f' },
+                { bg: '#104364', border: '#0284c7', bar: '#104364' },
+                { bg: '#0f3b59', border: '#1e40af', bar: '#0f3b59' },
+                { bg: '#0e334e', border: '#1e40af', bar: '#0e334e' },
+                { bg: '#0d2b43', border: '#1e3a8a', bar: '#0d2b43' },
+                { bg: '#0c2439', border: '#1e3a8a', bar: '#0c2439' }
+            ];
+            return colors[Math.min(index, colors.length - 1)];
         };
 
         renderCaptains.forEach((item, idx) => {
@@ -3546,7 +3554,7 @@ const FPL = {
 
             // Rank #
             ctx.font = '800 16px "Fira Code", monospace';
-            ctx.fillStyle = capStyle.fg;
+            ctx.fillStyle = idx < 3 ? '#38bdf8' : '#7aa2c4';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
             ctx.fillText(`${idx + 1}`, col1X + 16, rY + (rowH / 2));
@@ -3583,7 +3591,7 @@ const FPL = {
             ctx.fillStyle = '#64748b';
             ctx.fillText(item.team || '', col1X + 82, rY + (rowH / 2) + 14);
 
-            // Stat Box: Prominent 4px rectangular box closer to player name with large bold fonts
+            // Stat Box: Prominent 4px rectangular ocean-blue gradient box closer to player name with large bold fonts
             const curStatBoxY = rY + (rowH / 2) - (statBoxH / 2);
             drawRoundedRect(statBoxX, curStatBoxY, statBoxW, statBoxH, 4);
 
@@ -3593,18 +3601,18 @@ const FPL = {
             ctx.lineWidth = 1.5;
             ctx.stroke();
 
-            // Text inside stat box
+            // Text inside stat box (Pure White)
             const mCount = item.count ?? (item.pct != null && totalManagers ? Math.round((item.pct / 100) * totalManagers) : null);
             const pPct = item.pct ?? 0;
 
             ctx.font = '800 14.5px "Fira Code", monospace';
-            ctx.fillStyle = capStyle.fg;
+            ctx.fillStyle = '#ffffff';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(`${mCount ?? '--'} Caps`, statBoxX + (statBoxW / 2), curStatBoxY + 14);
 
             ctx.font = '800 11.5px "Fira Code", monospace';
-            ctx.fillStyle = '#ffffff';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
             ctx.fillText(`${pPct}%`, statBoxX + (statBoxW / 2), curStatBoxY + 30);
         });
 
