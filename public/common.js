@@ -129,22 +129,29 @@ const FPL = {
         // The application shell is usable while base data hydrates in the background.
         this.hideLoading();
         this.state.playerFilter = 'all';
-        const setupDeadlineCountdown = (deadlineTime) => {
+        const setupDeadlineCountdown = (deadlineTime, gwNum) => {
             if (!deadlineTime) return false;
             const deadlineDate = new Date(deadlineTime);
             if (Number.isNaN(deadlineDate.getTime())) return false;
             localStorage.setItem('fplDeadlineTime', deadlineDate.toISOString());
+            if (gwNum) localStorage.setItem('fplDeadlineGW', String(gwNum));
+
+            const targetGW = gwNum || localStorage.getItem('fplDeadlineGW') || this.state.nextGW || this.state.currentGW || '';
             const dlEl = document.getElementById('deadline-time');
             if (dlEl) {
                 dlEl.textContent = deadlineDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+            }
+            const labelEl = document.getElementById('dash-deadline-label');
+            if (labelEl) {
+                labelEl.textContent = targetGW ? `DEADLINE FOR GW ${targetGW}` : 'DEADLINE';
             }
             this.startCountdown(deadlineDate);
             return true;
         };
 
-        setupDeadlineCountdown(localStorage.getItem('fplDeadlineTime'));
+        setupDeadlineCountdown(localStorage.getItem('fplDeadlineTime'), localStorage.getItem('fplDeadlineGW'));
         this.apiFetch(this.API.deadline)
-            .then(deadline => setupDeadlineCountdown(deadline?.deadlineTime))
+            .then(deadline => setupDeadlineCountdown(deadline?.deadlineTime, deadline?.deadlineGW || deadline?.nextGW))
             .catch(() => {});
 
         try {
@@ -181,15 +188,15 @@ const FPL = {
             });
 
             // Update deadline display and start countdown
-            if (!setupDeadlineCountdown(deadline.deadlineTime)) {
+            if (!setupDeadlineCountdown(deadline.deadlineTime, futureEvent?.id || nextEvent?.id || deadline.currentGW)) {
                 // Fallback: fetch deadline independently if initial load failed
-                this.apiFetch(this.API.deadline).then(dl => setupDeadlineCountdown(dl?.deadlineTime)).catch(() => {});
+                this.apiFetch(this.API.deadline).then(dl => setupDeadlineCountdown(dl?.deadlineTime, dl?.deadlineGW || dl?.nextGW)).catch(() => {});
             }
 
             // Refresh deadline every 5 minutes to stay accurate
             if (this._deadlineRefreshInterval) clearInterval(this._deadlineRefreshInterval);
             this._deadlineRefreshInterval = setInterval(() => {
-                this.apiFetch(this.API.deadline).then(dl => setupDeadlineCountdown(dl?.deadlineTime)).catch(() => {});
+                this.apiFetch(this.API.deadline).then(dl => setupDeadlineCountdown(dl?.deadlineTime, dl?.deadlineGW || dl?.nextGW)).catch(() => {});
             }, 5 * 60 * 1000);
 
             // Populate GW jump selector
@@ -1281,13 +1288,22 @@ const FPL = {
             this.state.dashboardData = data;
 
             const gwNumEl = document.getElementById('dash-gw-num');
-            if (gwNumEl) gwNumEl.textContent = data.gw || '24';
+            if (gwNumEl) gwNumEl.textContent = data.gw || '1';
             const gwAvgEl = document.getElementById('dash-gw-avg');
-            if (gwAvgEl) gwAvgEl.textContent = data.gwAverage || '--';
+            if (gwAvgEl) gwAvgEl.textContent = data.gwAverage ?? '--';
             const highestEl = document.getElementById('dash-highest-score');
-            if (highestEl) highestEl.textContent = data.highestScore || '--';
+            if (highestEl) highestEl.textContent = data.highestScore ?? '--';
             const transfersEl = document.getElementById('dash-total-transfers');
-            if (transfersEl) transfersEl.textContent = data.totalTransfers || '--';
+            if (transfersEl) transfersEl.textContent = data.totalTransfers ?? '--';
+
+            const deadlineGW = data.deadlineGW || data.nextGW || (data.gw ? data.gw + 1 : '');
+            const labelEl = document.getElementById('dash-deadline-label');
+            if (labelEl && deadlineGW) {
+                labelEl.textContent = `DEADLINE FOR GW ${deadlineGW}`;
+            }
+            if (data.deadlineTime) {
+                setupDeadlineCountdown(data.deadlineTime, deadlineGW);
+            }
 
             const fdrColors = {
                 1: 'background:#00FF85;color:#0a0f0d;',
@@ -2008,7 +2024,7 @@ const FPL = {
         const bootstrap = this.state.bootstrapData;
         if (!bootstrap) {
             const tbody = document.getElementById('players-table-body');
-            if (tbody) tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:32px;color:#8ba396;">Loading player data...</td></tr>';
+            if (tbody) tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:32px;color:#8ba396;">Loading player data...</td></tr>';
             return;
         }
 
@@ -4812,6 +4828,24 @@ const FPL = {
         const label = isBest ? 'BEST CAPTAIN' : `DIFFERENTIAL < ${player.threshold}%`;
         const icon = isBest ? 'stars' : 'trending_up';
         const rank = !isBest && player.overallRank ? `<span class="captaincy-overall-rank">#${player.overallRank} overall</span>` : '';
+
+        let actualBanner = '';
+        if (player.actualPts !== null && player.actualPts !== undefined && (player.isStarted || player.isFinished)) {
+            const hitTarget = player.actualPts >= player.xPts;
+            const badgeColor = hitTarget ? '#00FF85' : '#FF005A';
+            actualBanner = `
+                <div style="margin-top:14px;padding:10px 14px;background:rgba(255,255,255,0.03);border:1px solid ${hitTarget ? 'rgba(0,255,133,0.3)' : 'rgba(255,0,90,0.3)'};border-radius:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span class="material-symbols-outlined" style="color:${badgeColor};font-size:20px;">fact_check</span>
+                        <span style="font-size:12px;color:#fff;">Actual GW Result: <strong style="color:${badgeColor};font-size:14px;font-family:var(--font-mono);">${player.actualPts} pts</strong> (${player.captainActualPts} pts as Captain)</span>
+                    </div>
+                    <span style="font-size:11px;font-family:var(--font-mono);background:${hitTarget ? 'rgba(0,255,133,0.15)' : 'rgba(255,0,90,0.15)'};color:${badgeColor};padding:3px 8px;border-radius:4px;font-weight:700;">
+                        ${hitTarget ? '✓ Exceeded xPts' : 'Under xPts'}
+                    </span>
+                </div>
+            `;
+        }
+
         return `
             <div class="captaincy-spotlight-topline">
                 <span class="captaincy-pick-label"><span class="material-symbols-outlined">${icon}</span>${label}</span>
@@ -4826,9 +4860,10 @@ const FPL = {
                     <h2>${player.name}</h2>
                     <div class="captaincy-fixtures">${this.captainFixtureBadges(player.fixtures)}</div>
                 </div>
-                <div class="captaincy-xpts-block"><strong>${player.xPts.toFixed(1)}</strong><span>xPts</span></div>
+                <div class="captaincy-xpts-block"><strong>${player.xPts.toFixed(1)}</strong><span>Pre-deadline xPts</span></div>
             </div>
-            <p class="captaincy-explanation">${player.explanation}</p>
+            ${actualBanner}
+            <p class="captaincy-explanation" style="margin-top:12px;">${player.explanation}</p>
             <div class="captaincy-metrics">
                 <div><span>xMins</span><strong>${player.xMins}</strong></div>
                 <div><span>${player.formSource === 'form' ? 'Form' : 'PPG base'}</span><strong>${player.formUsed.toFixed(1)}</strong></div>
@@ -4841,7 +4876,7 @@ const FPL = {
 
     async renderCaptaincy() {
         const tbody = document.getElementById('captain-picks-body');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="captaincy-loading">Recalculating captaincy picks...</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="captaincy-loading">Recalculating captaincy picks...</td></tr>';
         try {
             const requestedGW = this.state.captainGW || '';
             const cacheKey = `captain-${requestedGW}`;
@@ -4879,7 +4914,7 @@ const FPL = {
             if (!tbody) return;
             const picks = data.topPicks || [];
             if (!picks.length) {
-                tbody.innerHTML = '<tr><td colspan="8" class="captaincy-empty">No eligible players have a fixture in this gameweek.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" class="captaincy-empty">No eligible players have a fixture in this gameweek.</td></tr>';
                 return;
             }
 
@@ -4889,6 +4924,14 @@ const FPL = {
                     player.rank === 1 ? '<span class="captaincy-row-label captaincy-row-label-best">BEST</span>' : '',
                     isDifferential ? '<span class="captaincy-row-label captaincy-row-label-diff">DIFF</span>' : ''
                 ].join('');
+
+                let actualCell = '<td class="mono" style="color:#8ba396;">--</td>';
+                if (player.actualPts !== null && player.actualPts !== undefined && (player.isStarted || player.isFinished)) {
+                    const isHit = player.actualPts >= player.xPts;
+                    const color = isHit ? '#00FF85' : '#FF005A';
+                    actualCell = `<td class="mono" style="font-weight:700;"><span style="color:${color};">${player.actualPts} pts</span> <small style="color:#8ba396;font-size:11px;">(${player.captainActualPts} (C))</small></td>`;
+                }
+
                 return `<tr class="${player.rank === 1 ? 'captaincy-row-best' : ''}" style="cursor:pointer;" onclick="FPL.showPlayerDetail(${player.id})">
                     <td><span class="captaincy-rank">${player.rank}</span></td>
                     <td>
@@ -4903,11 +4946,12 @@ const FPL = {
                     <td class="mono">${player.xGI90.toFixed(2)}</td>
                     <td class="mono">${player.ownership.toFixed(1)}%</td>
                     <td class="captaincy-table-xpts mono">${player.xPts.toFixed(1)}</td>
+                    ${actualCell}
                 </tr>`;
             }).join('');
         } catch (err) {
             console.error('Captaincy model render error:', err);
-            if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="captaincy-error">Failed to load captaincy picks: ${err.message}</td></tr>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="captaincy-error">Failed to load captaincy picks: ${err.message}</td></tr>`;
         }
     },
 
@@ -6193,21 +6237,58 @@ const FPL = {
         const val = input.value.trim();
         clearTimeout(this._managerSearchTimers[inputId]);
 
-        // Numeric ID lookup via FPL API
-        if (/^\d{3,}$/.test(val)) {
-            resultsEl.innerHTML = '<div style="padding:8px 12px;color:var(--md-sys-color-on-surface-variant);font-size:12px;">Searching...</div>';
+        // Numeric ID lookup via FPL API (support both League ID and Manager ID)
+        if (/^\d{1,}$/.test(val)) {
+            resultsEl.innerHTML = '<div style="padding:8px 12px;color:var(--md-sys-color-on-surface-variant);font-size:12px;">Searching League & Manager ID...</div>';
             resultsEl.style.display = 'block';
             this._managerSearchTimers[inputId] = setTimeout(async () => {
                 try {
-                    const data = await this.apiFetch(this.API.managerLookup(val));
-                    const name = data.name || 'Unknown Team';
-                    const owner = [data.playerFirstName, data.playerLastName].filter(Boolean).join(' ');
-                    const nameEsc = this.escapeHTML(name).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-                    const ownerEsc = this.escapeHTML(owner).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-                    resultsEl.innerHTML = `<div class="fpl-mgr-result" data-manager-id="${data.id}" style="padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;" onclick="event.stopPropagation();FPL.selectManagerAndLoadLeagues('${inputId}','${resultsId}',${data.id},'${nameEsc}','${ownerEsc}')"><span class="material-symbols-outlined" style="font-size:16px;color:#00FF85;">check_circle</span><div><div style="font-size:13px;font-weight:600;color:var(--md-sys-color-on-surface);">${this.escapeHTML(name)}</div><div style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">${this.escapeHTML(owner)} · ID: ${data.id}</div></div></div>`;
+                    const numId = parseInt(val, 10);
+                    const [leagueRes, managerRes] = await Promise.allSettled([
+                        this.apiFetch(`/api/leagues-classic/${numId}/standings?page=1`),
+                        this.apiFetch(this.API.managerLookup(numId))
+                    ]);
+
+                    const leagueData = leagueRes.status === 'fulfilled' ? leagueRes.value : null;
+                    const managerData = managerRes.status === 'fulfilled' ? managerRes.value : null;
+
+                    let html = '';
+
+                    // 1. League Result (prioritized when searching for leagues)
+                    if (leagueData && !leagueData.error && leagueData.leagueName) {
+                        const lName = this.escapeHTML(leagueData.leagueName);
+                        html += `<div class="fpl-league-result" style="padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,0.06);" onmouseover="this.style.background='rgba(0,255,133,0.1)'" onmouseout="this.style.background='transparent'" onclick="event.stopPropagation();FPL.selectLeague('${inputId}','${resultsId}',${numId})">
+                            <span class="material-symbols-outlined" style="font-size:16px;color:#00FF85;">shield</span>
+                            <div>
+                                <div style="font-size:13px;font-weight:600;color:var(--md-sys-color-on-surface);">${lName}</div>
+                                <div style="font-size:11px;color:#00FF85;font-weight:700;">League ID: ${numId} (Click to View Standings)</div>
+                            </div>
+                        </div>`;
+                    }
+
+                    // 2. Manager / Team Result
+                    if (managerData && !managerData.error && managerData.name) {
+                        const name = managerData.name || 'Unknown Team';
+                        const owner = [managerData.playerFirstName, managerData.playerLastName].filter(Boolean).join(' ');
+                        const nameEsc = this.escapeHTML(name).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                        const ownerEsc = this.escapeHTML(owner).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                        html += `<div class="fpl-mgr-result" data-manager-id="${managerData.id}" style="padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='transparent'" onclick="event.stopPropagation();FPL.selectManagerAndLoadLeagues('${inputId}','${resultsId}',${managerData.id},'${nameEsc}','${ownerEsc}')">
+                            <span class="material-symbols-outlined" style="font-size:16px;color:var(--md-sys-color-on-surface-variant);">person</span>
+                            <div>
+                                <div style="font-size:13px;font-weight:600;color:var(--md-sys-color-on-surface);">${this.escapeHTML(name)}</div>
+                                <div style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">${this.escapeHTML(owner)} · Manager ID: ${managerData.id}</div>
+                            </div>
+                        </div>`;
+                    }
+
+                    if (!html) {
+                        html = `<div style="padding:8px 12px;color:var(--md-sys-color-error,#f44336);font-size:12px;">No League or Manager found with ID ${numId}</div>`;
+                    }
+
+                    resultsEl.innerHTML = html;
                     resultsEl.style.display = 'block';
                 } catch {
-                    resultsEl.innerHTML = '<div style="padding:8px 12px;color:var(--md-sys-color-error,#f44336);font-size:12px;">Manager not found</div>';
+                    resultsEl.innerHTML = '<div style="padding:8px 12px;color:var(--md-sys-color-error,#f44336);font-size:12px;">Search failed. Please check the ID.</div>';
                     resultsEl.style.display = 'block';
                 }
             }, 300);

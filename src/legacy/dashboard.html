@@ -217,7 +217,7 @@
                                 <div class="dash-stat-value" id="dash-total-transfers">--</div>
                             </div>
                             <div class="dash-stat-item" style="text-align:center;padding:8px 4px;">
-                                <div class="dash-stat-label">DEADLINE</div>
+                                <div class="dash-stat-label" id="dash-deadline-label">DEADLINE</div>
                                 <div id="dash-countdown" class="dash-stat-value accent mono">--:--</div>
                             </div>
                         </div>
@@ -718,6 +718,7 @@
                                 <span class="material-symbols-outlined" style="font-size:20px;color:#B0B0B0;">sort</span>
                                 <select id="player-sort" aria-label="Sort player statistics" onchange="FPL.sortByPlayerMetric(this.value)" style="background-color:transparent;color:#E0E0E0;border:none;outline:none;font-family:var(--font-mono);font-size:12px;font-weight:700;cursor:pointer;padding-right:16px;">
                                     <option value="pts">Total Points</option>
+                                    <option value="ppm">PPM</option>
                                     <option value="xg">xG (T)</option>
                                     <option value="xa">xA (C)</option>
                                     <option value="form">Form</option>
@@ -744,6 +745,7 @@
                                     <tr>
                                         <th style="background:rgba(255,255,255,0.03);min-width:110px;position:sticky;left:0;z-index:2;">Player</th>
                                         <th id="th-pts" style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('pts')">Pts <span id="sort-icon-pts" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;">arrow_downward</span></th>
+                                        <th id="th-ppm" style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('ppm')">PPM <span id="sort-icon-ppm" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
                                         <th style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('mins')">Mins <span id="sort-icon-mins" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
                                         <th id="th-goals" style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('goals')">Goals <span id="sort-icon-goals" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
                                         <th id="th-xg" style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.togglePlayerSort('xg')">xG <span id="sort-icon-xg" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
@@ -756,7 +758,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="players-table-body" class="divide-y divide-pitch-line">
-                                    <tr><td colspan="11" style="text-align:center;padding:32px;color:#8ba396;">Loading player data...</td></tr>
+                                    <tr><td colspan="12" style="text-align:center;padding:32px;color:#8ba396;">Loading player data...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -913,11 +915,12 @@
                                         <th>xMINS</th>
                                         <th>xGI/90</th>
                                         <th>OWN</th>
-                                        <th>xPTS</th>
+                                        <th>PREDICTED xPTS</th>
+                                        <th>ACTUAL PTS (2x)</th>
                                     </tr>
                                 </thead>
                                 <tbody id="captain-picks-body">
-                                    <tr><td colspan="8" class="captaincy-loading">Loading captaincy model...</td></tr>
+                                    <tr><td colspan="9" class="captaincy-loading">Loading captaincy model...</td></tr>
                                 </tbody>
                             </table>
                         </div>

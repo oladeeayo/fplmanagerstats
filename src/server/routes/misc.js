@@ -1459,6 +1459,51 @@ router.get('/rolling-fdr', async (req, res) => {
   }
 });
 
+const fs = require('fs');
+const path = require('path');
+
+const CAPTAIN_SNAPSHOT_DIR = path.join(__dirname, '../../../data/captaincy_snapshots');
+if (!fs.existsSync(CAPTAIN_SNAPSHOT_DIR)) {
+  try {
+    fs.mkdirSync(CAPTAIN_SNAPSHOT_DIR, { recursive: true });
+  } catch (e) {
+    // Ignore if exists
+  }
+}
+
+function getOrSaveCaptainSnapshot(gw, rawModel) {
+  const filePath = path.join(CAPTAIN_SNAPSHOT_DIR, `gw_${gw}.json`);
+  if (fs.existsSync(filePath)) {
+    try {
+      const content = fs.readFileSync(filePath, 'utf8');
+      const saved = JSON.parse(content);
+      if (saved && saved.bestPick && Array.isArray(saved.topPicks) && saved.topPicks.length > 0) {
+        return saved;
+      }
+    } catch (e) {
+      logger.error({ err: e }, 'Failed reading captain snapshot');
+    }
+  }
+
+  const snapshot = {
+    gameweek: gw,
+    generatedAt: rawModel.generatedAt || new Date().toISOString(),
+    modelVersion: rawModel.modelVersion,
+    modelInputs: rawModel.modelInputs,
+    bestPick: rawModel.bestPick ? JSON.parse(JSON.stringify(rawModel.bestPick)) : null,
+    differentialPick: rawModel.differentialPick ? JSON.parse(JSON.stringify(rawModel.differentialPick)) : null,
+    topPicks: (rawModel.topPicks || []).map(p => JSON.parse(JSON.stringify(p)))
+  };
+
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(snapshot, null, 2), 'utf8');
+  } catch (e) {
+    logger.error({ err: e }, 'Failed writing captain snapshot');
+  }
+
+  return snapshot;
+}
+
 // ---- Captain Picks ----
 router.get('/captain-picks', async (req, res) => {
   try {
@@ -1466,7 +1511,73 @@ router.get('/captain-picks', async (req, res) => {
       getCachedApiData(BOOTSTRAP_URL),
       getCachedApiData(FIXTURES_URL)
     ]);
-    res.json(buildCaptaincyModel({ bootstrap, fixtures, selectedGW: req.query.gw }));
+    const rawModel = buildCaptaincyModel({ bootstrap, fixtures, selectedGW: req.query.gw });
+    const gw = rawModel.gameweek;
+
+    const snapshot = getOrSaveCaptainSnapshot(gw, rawModel);
+
+    // Baseline picks come directly from the pre-deadline snapshot!
+    const baseBestPick = snapshot.bestPick || rawModel.bestPick;
+    const baseDiffPick = snapshot.differentialPick || rawModel.differentialPick;
+    const baseTopPicks = (snapshot.topPicks && snapshot.topPicks.length) ? snapshot.topPicks : rawModel.topPicks;
+
+    const gwFixtures = (fixtures || []).filter(f => f.event === gw);
+    const isStarted = gwFixtures.some(f => f.started || f.finished);
+    const isFinished = gwFixtures.length > 0 && gwFixtures.every(f => f.finished);
+
+    let liveStatsMap = {};
+    if (isStarted) {
+      try {
+        const liveData = await getCachedApiData(`https://fantasy.premierleague.com/api/event/${gw}/live/`);
+        if (liveData && Array.isArray(liveData.elements)) {
+          liveData.elements.forEach(el => {
+            liveStatsMap[el.id] = el.stats;
+          });
+        }
+      } catch (err) {
+        // Fallback if live API is down
+      }
+    }
+
+    const enrichPick = (pick) => {
+      if (!pick) return null;
+      const stats = liveStatsMap[pick.id];
+      
+      let actualPts = null;
+      let captainActualPts = null;
+
+      if (isStarted) {
+        if (stats && typeof stats.total_points === 'number') {
+          actualPts = stats.total_points;
+        } else {
+          const bsEl = (bootstrap.elements || []).find(e => e.id === pick.id);
+          actualPts = bsEl?.event_points ?? 0;
+        }
+        captainActualPts = actualPts * 2;
+      }
+
+      return {
+        ...pick,
+        actualPts,
+        captainActualPts,
+        isStarted,
+        isFinished,
+        liveStats: stats || null
+      };
+    };
+
+    res.json({
+      ...rawModel,
+      generatedAt: snapshot.generatedAt || rawModel.generatedAt,
+      modelVersion: snapshot.modelVersion || rawModel.modelVersion,
+      modelInputs: snapshot.modelInputs || rawModel.modelInputs,
+      bestPick: enrichPick(baseBestPick),
+      differentialPick: enrichPick(baseDiffPick),
+      topPicks: (baseTopPicks || []).map(enrichPick),
+      hasSnapshot: Boolean(snapshot),
+      isStarted,
+      isFinished
+    });
   } catch (e) {
     logger.error({ err: e }, 'Captain picks error');
     res.status(500).json({ error: 'Failed to calculate captain picks' });
@@ -1958,8 +2069,14 @@ router.get('/dashboard/overview', async (req, res) => {
       };
     });
 
+    const futureEvent = events.find(e => e.deadline_time && new Date(e.deadline_time).getTime() > Date.now());
+    const deadlineEvent = futureEvent || nextEvent || currentEvent;
+
     res.json({
       gw: currentGW,
+      nextGW: nextEvent?.id || (currentGW + 1),
+      deadlineGW: deadlineEvent?.id || nextEvent?.id || (currentGW + 1),
+      deadlineTime: deadlineEvent?.deadline_time || null,
       gwAverage,
       highestScore,
       totalTransfers,
@@ -2529,18 +2646,21 @@ router.get('/xpts-projections', async (req, res) => {
 router.get('/deadline', async (req, res) => {
   try {
     const bs = await getCachedApiData(BOOTSTRAP_URL);
-    const events = bs.events;
+    const events = bs.events || [];
     const currentGW = events.find(e => e.is_current);
     const nextGW = events.find(e => e.is_next);
     const futureGW = events.find(e => e.deadline_time && new Date(e.deadline_time).getTime() > Date.now());
+    const deadlineEvent = futureGW || nextGW || currentGW;
     
     // Get deadline times
-    const deadlineTime = futureGW?.deadline_time || nextGW?.deadline_time || currentGW?.deadline_time;
+    const deadlineTime = deadlineEvent?.deadline_time;
     const deadlineDate = deadlineTime ? new Date(deadlineTime) : null;
     
     res.json({
       currentGW: currentGW?.id || 1,
-      nextGW: futureGW?.id || nextGW?.id || (currentGW?.id ? currentGW.id + 1 : 1),
+      nextGW: nextGW?.id || (currentGW?.id ? currentGW.id + 1 : 1),
+      deadlineGW: deadlineEvent?.id || nextGW?.id || currentGW?.id || 1,
+      deadlineName: deadlineEvent?.name || `Gameweek ${deadlineEvent?.id || 1}`,
       deadlineTime: deadlineDate?.toISOString() || null,
       deadlineTimestamp: deadlineDate?.getTime() || null,
       gameweekDeadline: deadlineTime || 'TBA',
