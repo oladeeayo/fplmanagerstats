@@ -3235,11 +3235,11 @@ router.get('/player-advanced', async (req, res) => {
           });
         }
 
-        // Bonus match check (cumulative: 3 bonus also counts for 2 and 1)
+        // Bonus match check (exact: each game counted once at its bonus level)
         if (h.bonus > 0) {
-          if (h.bonus >= 3) bonus3Games += 1;
-          if (h.bonus >= 2) bonus2Games += 1;
-          if (h.bonus >= 1) bonus1Games += 1;
+          if (h.bonus === 3) bonus3Games += 1;
+          else if (h.bonus === 2) bonus2Games += 1;
+          else if (h.bonus === 1) bonus1Games += 1;
           totalBonus += h.bonus;
 
           bonusMatches.push({

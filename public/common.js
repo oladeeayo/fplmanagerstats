@@ -2296,21 +2296,18 @@ const FPL = {
         if (activeTab === 'defcon') {
             headerRow.innerHTML = `
                 <th style="background:rgba(255,255,255,0.03);min-width:110px;position:sticky;left:0;z-index:2;">Player</th>
-                ${sortIcon('cost', 'Price')}
                 ${sortIcon('totalPoints', 'Pts')}
                 ${sortIcon('defconGames', 'DEFCON')}
             `;
         } else if (activeTab === 'haul') {
             headerRow.innerHTML = `
                 <th style="background:rgba(255,255,255,0.03);min-width:110px;position:sticky;left:0;z-index:2;">Player</th>
-                ${sortIcon('cost', 'Price')}
                 ${sortIcon('totalPoints', 'Pts')}
                 ${sortIcon('haulGames', 'Hauls')}
             `;
         } else if (activeTab === 'bonus') {
             headerRow.innerHTML = `
                 <th style="background:rgba(255,255,255,0.03);min-width:110px;position:sticky;left:0;z-index:2;">Player</th>
-                ${sortIcon('cost', 'Price')}
                 ${sortIcon('totalPoints', 'Pts')}
                 ${sortIcon('bonus3Games', '3 Bonus')}
                 ${sortIcon('bonus2Games', '2 Bonus')}
@@ -2320,7 +2317,7 @@ const FPL = {
         }
 
         if (filtered.length === 0) {
-            const colCount = activeTab === 'bonus' ? 7 : 4;
+            const colCount = activeTab === 'bonus' ? 6 : 3;
             tbody.innerHTML = `<tr><td colspan="${colCount}" style="text-align:center;padding:32px;color:#8ba396;">No players match the criteria.</td></tr>`;
             return;
         }
@@ -2363,7 +2360,6 @@ const FPL = {
                             </div>
                         </div>
                     </td>
-                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#B0B0B0;">${p.priceStr}</td>
                     <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#00FF85;">${p.totalPoints}</td>
                     ${tabSpecificCells}
                 </tr>
