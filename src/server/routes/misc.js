@@ -1566,6 +1566,54 @@ router.get('/captain-picks', async (req, res) => {
       };
     };
 
+    const eventObj = (bootstrap.events || []).find(e => e.id === gw);
+    let actualDeadlineCaptain = null;
+    let actualDeadlineViceCaptain = null;
+
+    if (eventObj && eventObj.most_captained) {
+      const capPlayer = (bootstrap.elements || []).find(e => e.id === eventObj.most_captained);
+      if (capPlayer) {
+        const teamObj = (bootstrap.teams || []).find(t => t.id === capPlayer.team);
+        const stats = liveStatsMap[capPlayer.id];
+        const pts = (stats && typeof stats.total_points === 'number') ? stats.total_points : (capPlayer.event_points ?? 0);
+        actualDeadlineCaptain = {
+          id: capPlayer.id,
+          name: capPlayer.web_name,
+          fullName: `${capPlayer.first_name} ${capPlayer.second_name}`,
+          code: capPlayer.code,
+          team: teamObj ? teamObj.short_name : 'FPL',
+          teamFull: teamObj ? teamObj.name : '',
+          position: capPlayer.element_type === 1 ? 'GKP' : capPlayer.element_type === 2 ? 'DEF' : capPlayer.element_type === 3 ? 'MID' : 'FWD',
+          cost: Number((capPlayer.now_cost / 10).toFixed(1)),
+          actualPts: pts,
+          captainActualPts: pts * 2,
+          selectedByPercent: parseFloat(capPlayer.selected_by_percent || 0)
+        };
+      }
+    }
+
+    if (eventObj && eventObj.most_vice_captained) {
+      const vcPlayer = (bootstrap.elements || []).find(e => e.id === eventObj.most_vice_captained);
+      if (vcPlayer) {
+        const teamObj = (bootstrap.teams || []).find(t => t.id === vcPlayer.team);
+        const stats = liveStatsMap[vcPlayer.id];
+        const pts = (stats && typeof stats.total_points === 'number') ? stats.total_points : (vcPlayer.event_points ?? 0);
+        actualDeadlineViceCaptain = {
+          id: vcPlayer.id,
+          name: vcPlayer.web_name,
+          fullName: `${vcPlayer.first_name} ${vcPlayer.second_name}`,
+          code: vcPlayer.code,
+          team: teamObj ? teamObj.short_name : 'FPL',
+          teamFull: teamObj ? teamObj.name : '',
+          position: vcPlayer.element_type === 1 ? 'GKP' : vcPlayer.element_type === 2 ? 'DEF' : vcPlayer.element_type === 3 ? 'MID' : 'FWD',
+          cost: Number((vcPlayer.now_cost / 10).toFixed(1)),
+          actualPts: pts,
+          captainActualPts: pts * 2,
+          selectedByPercent: parseFloat(vcPlayer.selected_by_percent || 0)
+        };
+      }
+    }
+
     res.json({
       ...rawModel,
       generatedAt: snapshot.generatedAt || rawModel.generatedAt,
@@ -1574,6 +1622,8 @@ router.get('/captain-picks', async (req, res) => {
       bestPick: enrichPick(baseBestPick),
       differentialPick: enrichPick(baseDiffPick),
       topPicks: (baseTopPicks || []).map(enrichPick),
+      actualDeadlineCaptain,
+      actualDeadlineViceCaptain,
       hasSnapshot: Boolean(snapshot),
       isStarted,
       isFinished
@@ -1743,9 +1793,9 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
 
     const sampleEntries = topEntries.slice(0, requestedLimit);
 
-    // Fetch picks in controlled batches for sample entries
+    // Fetch picks in controlled batches for sample entries with increased concurrency
     const samplePicksMap = {};
-    const BATCH_SIZE = 20;
+    const BATCH_SIZE = 50;
     for (let i = 0; i < sampleEntries.length; i += BATCH_SIZE) {
       const batch = sampleEntries.slice(i, i + BATCH_SIZE);
       await Promise.all(
@@ -1902,9 +1952,6 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       const elObj = elementMap[item.element];
       if (!elObj) return;
 
-      const withSet = new Set(item.managersWith.map(m => m.managerId));
-      const managersWithout = allSampleManagerSummaries.filter(m => !withSet.has(m.managerId));
-
       playersByPosition[elObj.pos].push({
         id: elObj.id,
         code: elObj.code,
@@ -1915,8 +1962,7 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
         posType: elObj.pos,
         count: item.count,
         ownershipPct: Math.min(100, Math.round((item.count / totalManagersAnalyzed) * 100)),
-        managersWith: item.managersWith,
-        managersWithout
+        managersWith: item.managersWith
       });
     });
 
@@ -1924,18 +1970,24 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       playersByPosition[posKey].sort((a, b) => b.count - a.count);
     });
 
+    const computeWithoutList = (mgrsWith) => {
+      const withSet = new Set((mgrsWith || []).map(m => m.managerId));
+      return allSampleManagerSummaries.filter(m => !withSet.has(m.managerId));
+    };
+
     const leagueTemplate = [
       ...playersByPosition[1].slice(0, 2),
       ...playersByPosition[2].slice(0, 5),
       ...playersByPosition[3].slice(0, 5),
       ...playersByPosition[4].slice(0, 3)
-    ];
+    ].map(p => ({
+      ...p,
+      managersWithout: computeWithoutList(p.managersWith)
+    }));
 
     const captaincyCount = Object.values(captainCounts)
       .map(item => {
         const elObj = elementMap[item.element];
-        const withSet = new Set((item.managersWith || []).map(m => m.managerId));
-        const managersWithout = allSampleManagerSummaries.filter(m => !withSet.has(m.managerId));
         return {
           id: item.element,
           code: elObj?.code || 0,
@@ -1944,7 +1996,7 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
           count: item.count,
           pct: Math.min(100, Math.round((item.count / totalManagersAnalyzed) * 100)),
           managersWith: item.managersWith || [],
-          managersWithout
+          managersWithout: computeWithoutList(item.managersWith)
         };
       })
       .sort((a, b) => b.count - a.count);
@@ -1952,8 +2004,6 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
     const chipSummary = Object.values(chipCounts)
       .map(item => {
         const mgrsWith = item.managersWith || [];
-        const withSet = new Set(mgrsWith.map(m => m.managerId));
-        const managersWithout = allSampleManagerSummaries.filter(m => !withSet.has(m.managerId));
         return {
           key: item.key,
           name: item.name,
@@ -1961,7 +2011,7 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
           count: item.count,
           pct: Math.min(100, Math.round((item.count / totalManagersAnalyzed) * 100)),
           managersWith: mgrsWith,
-          managersWithout
+          managersWithout: computeWithoutList(mgrsWith)
         };
       })
       .sort((a, b) => b.count - a.count);
@@ -1996,6 +2046,76 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
   } catch (e) {
     logger.error({ err: e }, 'League standings error');
     res.status(500).json({ error: 'Failed to fetch league standings' });
+  }
+});
+
+// ---- Manager Squad Pitch Endpoint ----
+router.get('/manager-squad/:managerId', async (req, res) => {
+  const managerId = parsePositiveId(req.params.managerId);
+  if (!managerId) return res.status(400).json({ error: 'Invalid manager ID' });
+  try {
+    const gw = parseInt(req.query.gw) || null;
+    const bootstrap = await getCachedApiData(BOOTSTRAP_URL);
+    const activeGW = gw || bootstrap.events?.find(e => e.is_current)?.id || bootstrap.events?.find(e => e.is_next)?.id || 1;
+    
+    const [managerData, picksData] = await Promise.all([
+      getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/`),
+      getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${activeGW}/picks/`)
+    ]);
+
+    const elementsMap = new Map((bootstrap.elements || []).map(p => [p.id, p]));
+    const teamsMap = new Map((bootstrap.teams || []).map(t => [t.id, t]));
+
+    const activeChip = picksData?.active_chip || null;
+    const picks = picksData?.picks || [];
+
+    const starting11 = [];
+    const bench = [];
+
+    picks.forEach(p => {
+      const el = elementsMap.get(p.element);
+      if (!el) return;
+      const team = teamsMap.get(el.team);
+      const playerObj = {
+        id: el.id,
+        code: el.code,
+        name: el.web_name,
+        fullName: `${el.first_name} ${el.second_name}`,
+        team: team?.short_name || 'FPL',
+        pos: el.element_type === 1 ? 'GKP' : el.element_type === 2 ? 'DEF' : el.element_type === 3 ? 'MID' : 'FWD',
+        posType: el.element_type,
+        cost: (el.now_cost / 10).toFixed(1),
+        xP: parseFloat(el.ep_next || el.form || 0),
+        isCaptain: p.is_captain,
+        isVice: p.is_vice_captain,
+        multiplier: p.multiplier,
+        position: p.position
+      };
+
+      if (p.position <= 11) {
+        starting11.push(playerObj);
+      } else {
+        bench.push(playerObj);
+      }
+    });
+
+    res.json({
+      managerId,
+      managerName: `${managerData.player_first_name || ''} ${managerData.player_last_name || ''}`.trim(),
+      entryName: managerData.name,
+      overallRank: managerData.summary_overall_rank,
+      overallPoints: managerData.summary_overall_points,
+      eventTotal: managerData.summary_event_points,
+      value: (managerData.last_deadline_value / 10).toFixed(1),
+      bank: (managerData.last_deadline_bank / 10).toFixed(1),
+      activeChip,
+      gw: activeGW,
+      starting11,
+      bench
+    });
+  } catch (err) {
+    logger.error({ err: err.message }, 'Manager squad error');
+    res.status(500).json({ error: 'Failed to fetch manager squad' });
   }
 });
 

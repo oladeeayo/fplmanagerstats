@@ -463,47 +463,58 @@ router.get('/v1/h2h-matchup/:managerId', heavyEndpointLimiter, async (req, res) 
     const currentGW = bootstrap.events?.find(e => e.is_current)?.id || bootstrap.events?.find(e => e.is_next)?.id || 1;
     const targetGW = Math.max(1, Math.min(38, parseInt(req.query.gw) || currentGW));
 
-    // Fetch H2H match fixture for manager in this league and gameweek
-    const h2hData = await optionalApiGet(
+    // Fetch H2H match fixtures for this manager in the selected league
+    let h2hData = await optionalApiGet(
       `https://fantasy.premierleague.com/api/leagues-h2h-matches/league/${selectedLeague.id}/?entry=${managerId}&event=${targetGW}`
     );
 
-    const matches = h2hData?.results || [];
+    let matches = h2hData?.results || [];
     const numManagerId = Number(managerId);
-    const userMatch = matches.find(m => Number(m.entry_1_entry) === numManagerId || Number(m.entry_2_entry) === numManagerId) || matches[0];
 
+    // If query with event didn't return user match, try fetching all entry matches for this league
+    let userMatch = matches.find(m => Number(m.entry_1_entry) === numManagerId || Number(m.entry_2_entry) === numManagerId);
     if (!userMatch) {
+      h2hData = await optionalApiGet(
+        `https://fantasy.premierleague.com/api/leagues-h2h-matches/league/${selectedLeague.id}/?entry=${managerId}`
+      );
+      matches = h2hData?.results || [];
+      userMatch = matches.find(m => (m.event === targetGW) && (Number(m.entry_1_entry) === numManagerId || Number(m.entry_2_entry) === numManagerId));
+    }
+
+    let opponentId = null;
+    let opponentName = 'Opponent';
+    let opponentTeam = 'Opponent Squad';
+    let userName = `${managerData.player_first_name || ''} ${managerData.player_last_name || ''}`.trim() || 'You';
+    let userTeam = managerData.name || 'Your Squad';
+
+    if (userMatch && !userMatch.is_bye) {
+      const e1 = Number(userMatch.entry_1_entry);
+      const e2 = Number(userMatch.entry_2_entry);
+
+      if (e1 === numManagerId && e2 && e2 !== numManagerId) {
+        opponentId = e2;
+        opponentName = userMatch.entry_2_player_name || 'Opponent';
+        opponentTeam = userMatch.entry_2_name || 'Opponent Squad';
+        if (userMatch.entry_1_player_name) userName = userMatch.entry_1_player_name;
+        if (userMatch.entry_1_name) userTeam = userMatch.entry_1_name;
+      } else if (e2 === numManagerId && e1 && e1 !== numManagerId) {
+        opponentId = e1;
+        opponentName = userMatch.entry_1_player_name || 'Opponent';
+        opponentTeam = userMatch.entry_1_name || 'Opponent Squad';
+        if (userMatch.entry_2_player_name) userName = userMatch.entry_2_player_name;
+        if (userMatch.entry_2_name) userTeam = userMatch.entry_2_name;
+      }
+    }
+
+    if (!userMatch || !opponentId) {
       return res.json({
         hasH2H: true,
         h2hLeagues,
         selectedLeague,
         targetGW,
         hasOpponent: false,
-        message: `No H2H fixture scheduled for GW${targetGW} in ${selectedLeague.name}.`
+        message: `No active H2H opponent scheduled for GW${targetGW} in ${selectedLeague.name} (BYE or unassigned fixture).`
       });
-    }
-
-    const isEntry1 = Number(userMatch.entry_1_entry) === numManagerId;
-    const isEntry2 = Number(userMatch.entry_2_entry) === numManagerId;
-
-    let opponentId = null;
-    let opponentName = 'Opponent';
-    let opponentTeam = 'Opponent Squad';
-    let userName = 'Your Team';
-    let userTeam = 'Your Squad';
-
-    if (isEntry1) {
-      opponentId = userMatch.entry_2_entry;
-      opponentName = userMatch.entry_2_player_name || 'Opponent';
-      opponentTeam = userMatch.entry_2_name || 'Opponent Squad';
-      userName = userMatch.entry_1_player_name || 'You';
-      userTeam = userMatch.entry_1_name || 'Your Squad';
-    } else if (isEntry2) {
-      opponentId = userMatch.entry_1_entry;
-      opponentName = userMatch.entry_1_player_name || 'Opponent';
-      opponentTeam = userMatch.entry_1_name || 'Opponent Squad';
-      userName = userMatch.entry_2_player_name || 'You';
-      userTeam = userMatch.entry_2_name || 'Your Squad';
     }
 
     async function getLatestPicks(mId, requestedGW, activeGW) {
@@ -615,8 +626,10 @@ router.get('/v1/h2h-matchup/:managerId', heavyEndpointLimiter, async (req, res) 
       },
       opponent: {
         id: opponentId,
-        name: opponentName || (oppEntryData ? `${oppEntryData.player_first_name} ${oppEntryData.player_last_name}` : 'Opponent'),
-        teamName: opponentTeam || oppEntryData?.name || 'Opponent Squad',
+        name: (oppEntryData && (oppEntryData.player_first_name || oppEntryData.player_last_name))
+          ? `${oppEntryData.player_first_name || ''} ${oppEntryData.player_last_name || ''}`.trim()
+          : opponentName,
+        teamName: oppEntryData?.name || opponentTeam,
         rank: oppEntryData?.summary_overall_rank || 0,
         squad: oppSquad
       },

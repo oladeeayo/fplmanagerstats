@@ -2741,6 +2741,133 @@ const FPL = {
         this.showDialog('template-player-owners-dialog');
     },
 
+    async showManagerDetail(managerId, managerName, entryName, rank, eventTotal, total, rankDiff, diffCount) {
+        if (!managerId) return;
+
+        const titleEl = document.getElementById('manager-detail-title');
+        if (titleEl) titleEl.textContent = this.decodeHTML(entryName || 'Manager Squad');
+
+        const subEl = document.getElementById('manager-detail-sub');
+        if (subEl) subEl.textContent = `Manager: ${this.decodeHTML(managerName || 'FPL Manager')} • Rank #${rank ? rank.toLocaleString() : '--'} • Total: ${total ? total.toLocaleString() : '--'} pts`;
+
+        const bodyEl = document.getElementById('manager-detail-body');
+        if (!bodyEl) return;
+
+        bodyEl.innerHTML = `
+            <div style="text-align:center;padding:50px 20px;color:var(--md-sys-color-on-surface-variant);">
+                <span class="material-symbols-outlined" style="font-size:36px;color:#00FF85;animation:spin 1s linear infinite;">sync</span>
+                <p style="margin-top:12px;font-family:var(--font-mono);font-size:13px;color:#fff;">Loading manager squad & pitch tactics...</p>
+            </div>
+        `;
+
+        this.showDialog('manager-detail-dialog');
+
+        try {
+            const data = await this.apiFetch(`/api/manager-squad/${managerId}`);
+            
+            const starting11 = data.starting11 || [];
+            const bench = data.bench || [];
+            const activeChip = data.activeChip ? data.activeChip.toUpperCase() : 'None';
+            const squadVal = data.value ? `£${data.value}m` : '--';
+            const bankVal = data.bank ? `£${data.bank}m` : '--';
+
+            // Group starting XI into pitch rows: GKP, DEF, MID, FWD
+            const gkps = starting11.filter(p => p.posType === 1);
+            const defs = starting11.filter(p => p.posType === 2);
+            const mids = starting11.filter(p => p.posType === 3);
+            const fwds = starting11.filter(p => p.posType === 4);
+
+            const renderBadge = (p, isBench = false) => {
+                const fotmobPhoto = this.playerPhotoUrl(p, '110x140', true);
+                const plFallback = p.code ? `https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png` : '';
+                const photoUrl = fotmobPhoto || plFallback;
+                
+                let capBadge = '';
+                if (p.isCaptain) {
+                    capBadge = `<span style="position:absolute;top:-4px;right:-4px;background:#00FF85;color:#000;font-weight:900;font-size:9px;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.6);">${activeChip === '3XC' ? 'TC' : 'C'}</span>`;
+                } else if (p.isVice) {
+                    capBadge = `<span style="position:absolute;top:-4px;right:-4px;background:#00E5FF;color:#000;font-weight:900;font-size:9px;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.6);">V</span>`;
+                }
+
+                return `
+                    <div style="display:flex;flex-direction:column;align-items:center;width:72px;position:relative;">
+                        <div style="position:relative;width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid ${p.isCaptain ? '#00FF85' : 'rgba(255,255,255,0.15)'};overflow:visible;display:flex;align-items:center;justify-content:center;">
+                            <img src="${photoUrl}" onerror="if(this.src!=='${plFallback}'&&'${plFallback}'){this.src='${plFallback}';}else{this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2246%22 height=%2246%22 viewBox=%220 0 24 24%22 fill=%22%23777%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E';}" style="width:100%;height:100%;object-fit:cover;object-position:top;border-radius:50%;" alt="${p.name}">
+                            ${capBadge}
+                        </div>
+                        <div style="margin-top:4px;background:rgba(0,0,0,0.85);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:2px 4px;text-align:center;width:100%;">
+                            <div style="font-weight:700;font-size:10px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(p.name)}</div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;font-size:8px;margin-top:1px;">
+                                <span style="color:#8ba396;">${p.team}</span>
+                                <span style="color:#00FF85;font-weight:800;font-family:var(--font-mono);">£${p.cost}m</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            };
+
+            const renderRow = (players) => `
+                <div style="display:flex;justify-content:space-around;align-items:center;width:100%;">
+                    ${players.map(p => renderBadge(p, false)).join('')}
+                </div>
+            `;
+
+            bodyEl.innerHTML = `
+                <!-- Manager Summary Metric Cards -->
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(100px, 1fr));gap:10px;margin-bottom:16px;">
+                    <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px;text-align:center;">
+                        <span style="font-size:10px;color:#8ba396;display:block;font-family:var(--font-mono);">GW${data.gw || ''} PTS</span>
+                        <strong style="font-size:16px;color:#00FF85;font-family:var(--font-mono);">${data.eventTotal != null ? data.eventTotal : (eventTotal || '--')}</strong>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px;text-align:center;">
+                        <span style="font-size:10px;color:#8ba396;display:block;font-family:var(--font-mono);">OVERALL RANK</span>
+                        <strong style="font-size:16px;color:#fff;font-family:var(--font-mono);">#${data.overallRank ? data.overallRank.toLocaleString() : (rank || '--')}</strong>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px;text-align:center;">
+                        <span style="font-size:10px;color:#8ba396;display:block;font-family:var(--font-mono);">TOTAL PTS</span>
+                        <strong style="font-size:16px;color:var(--fdr-1);font-family:var(--font-mono);">${data.overallPoints ? data.overallPoints.toLocaleString() : (total || '--')}</strong>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px;text-align:center;">
+                        <span style="font-size:10px;color:#8ba396;display:block;font-family:var(--font-mono);">SQUAD VALUE</span>
+                        <strong style="font-size:15px;color:#fff;font-family:var(--font-mono);">${squadVal}</strong>
+                        <span style="font-size:9px;color:#8ba396;display:block;">(Bank: ${bankVal})</span>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px;text-align:center;">
+                        <span style="font-size:10px;color:#8ba396;display:block;font-family:var(--font-mono);">ACTIVE CHIP</span>
+                        <strong style="font-size:14px;color:${activeChip !== 'NONE' ? '#00FF85' : '#8ba396'};font-family:var(--font-mono);">${activeChip}</strong>
+                    </div>
+                </div>
+
+                <!-- Manager Tactical Football Pitch -->
+                <div style="position:relative;background:linear-gradient(180deg, #0b1f15 0%, #06110b 100%);border:1px solid rgba(0,255,133,0.25);border-radius:16px;padding:20px 14px;min-height:500px;display:flex;flex-direction:column;justify-content:space-between;gap:14px;overflow:hidden;box-shadow:inset 0 0 40px rgba(0,255,133,0.05);">
+                    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:130px;height:130px;border:1px solid rgba(0,255,133,0.12);border-radius:50%;pointer-events:none;"></div>
+                    <div style="position:absolute;top:0;left:0;right:0;bottom:0;border:1px dashed rgba(0,255,133,0.12);pointer-events:none;margin:10px;border-radius:10px;"></div>
+
+                    ${renderRow(fwds)}
+                    ${renderRow(mids)}
+                    ${renderRow(defs)}
+                    ${renderRow(gkps)}
+
+                    <!-- Bench Squad -->
+                    <div style="background:rgba(0,0,0,0.65);border-top:1px solid rgba(0,255,133,0.25);padding:10px;margin-top:8px;border-radius:10px;display:flex;flex-direction:column;gap:6px;">
+                        <div style="font-size:10px;font-family:var(--font-mono);color:#8ba396;font-weight:700;letter-spacing:0.05em;text-align:center;">BENCH PLAYERS</div>
+                        <div style="display:flex;justify-content:space-around;align-items:center;">
+                            ${bench.map(p => renderBadge(p, true)).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        } catch (err) {
+            console.error('Error fetching manager squad details:', err);
+            bodyEl.innerHTML = `
+                <div style="text-align:center;padding:40px;color:var(--md-sys-color-error);">
+                    <span class="material-symbols-outlined" style="font-size:32px;">error</span>
+                    <p style="margin-top:8px;">Failed to load manager squad details.</p>
+                </div>
+            `;
+        }
+    },
+
     openExportLeagueModal() {
         this.showDialog('export-league-dialog');
     },
@@ -3119,7 +3246,7 @@ const FPL = {
             img.src = getProxiedUrl(src);
         });
 
-        const topCaptains = captaincy.slice(0, 15);
+        const topCaptains = captaincy.slice(0, 10);
         
         // 1. Preload team badges for left column
         await Promise.all(topCaptains.map(async item => {
@@ -5134,6 +5261,45 @@ const FPL = {
             if (bestCard) bestCard.innerHTML = this.renderCaptainSpotlight(data.bestPick, 'best');
             const differentialCard = document.getElementById('cap-differential-card');
             if (differentialCard) differentialCard.innerHTML = this.renderCaptainSpotlight(data.differentialPick, 'differential');
+
+            const actualDeadlineCard = document.getElementById('cap-actual-deadline-card');
+            if (actualDeadlineCard) {
+                if (data.actualDeadlineCaptain && (data.isStarted || data.isFinished)) {
+                    const cap = data.actualDeadlineCaptain;
+                    const vc = data.actualDeadlineViceCaptain;
+                    const capPhoto = this.playerPhotoMarkup(cap, cap.name, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;');
+                    
+                    actualDeadlineCard.style.display = 'block';
+                    actualDeadlineCard.innerHTML = `
+                        <div style="background:linear-gradient(135deg, rgba(0,255,133,0.12) 0%, rgba(20,25,22,0.95) 100%);border:1px solid rgba(0,255,133,0.35);border-radius:14px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+                            <div style="display:flex;align-items:center;gap:14px;min-width:0;">
+                                <div style="width:52px;height:52px;border-radius:50%;border:2px solid #00FF85;overflow:hidden;background:#1a1a1a;flex-shrink:0;">
+                                    ${capPhoto}
+                                </div>
+                                <div style="min-width:0;">
+                                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                                        <span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;font-family:var(--font-mono);background:#00FF85;color:#000;letter-spacing:0.05em;">ACTUAL DEADLINE #1 CAPTAIN</span>
+                                        <span style="font-size:11px;color:#8ba396;font-family:var(--font-mono);">Gameweek ${data.gameweek} Official FPL Data</span>
+                                    </div>
+                                    <h3 style="font-size:18px;font-weight:800;color:#fff;margin:2px 0 0 0;display:flex;align-items:center;gap:8px;">
+                                        ${this.escapeHTML(cap.name)}
+                                        <span style="font-size:12px;font-weight:600;color:#8ba396;">${cap.team} · ${cap.position}</span>
+                                    </h3>
+                                    <div style="font-size:11px;color:#8ba396;margin-top:4px;">${cap.selectedByPercent}% Global Ownership ${vc ? `· #1 Vice Captain: <strong style="color:#fff;">${this.escapeHTML(vc.name)}</strong> (${vc.team})` : ''}</div>
+                                </div>
+                            </div>
+                            <div style="text-align:right;flex-shrink:0;background:rgba(0,0,0,0.4);border:1px solid rgba(0,255,133,0.25);padding:10px 16px;border-radius:10px;">
+                                <div style="font-size:10px;font-family:var(--font-mono);color:#8ba396;text-transform:uppercase;">Deadline Match Pts</div>
+                                <div style="font-size:22px;font-weight:900;color:#00FF85;font-family:var(--font-mono);">${cap.actualPts} pts</div>
+                                <div style="font-size:11px;font-weight:700;color:#fff;font-family:var(--font-mono);">${cap.captainActualPts} pts (2x Captain)</div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    actualDeadlineCard.style.display = 'none';
+                    actualDeadlineCard.innerHTML = '';
+                }
+            }
 
             if (!tbody) return;
             const picks = data.topPicks || [];
