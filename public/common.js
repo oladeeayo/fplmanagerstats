@@ -2183,12 +2183,12 @@ const FPL = {
     // ==================== RENDER: PLAYER ADVANCED STATS ====================
     async loadPlayerAdvanced() {
         const tbody = document.getElementById('adv-table-body');
-        if (!this.state.advData) {
+        if (!this.state.advData || !Array.isArray(this.state.advData.players) || this.state.advData.players.length === 0) {
             if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#94a3b8;font-family:var(--font-mono);">Fetching advanced player analytics (first load may take a minute)...</td></tr>';
             try {
                 const controller = new AbortController();
                 const timeout = setTimeout(() => controller.abort(), 300000);
-                const res = await window.fetch('/api/player-advanced', { signal: controller.signal });
+                const res = await window.fetch(`/api/player-advanced?refresh=${Date.now()}`, { signal: controller.signal });
                 clearTimeout(timeout);
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const data = await res.json();
@@ -2358,7 +2358,7 @@ const FPL = {
                 <tr style="border-bottom:1px solid #1A2E28;transition:background 0.2s;${isEven ? 'background:rgba(49,54,51,0.15);' : ''}cursor:pointer;" onclick="FPL.showPlayerMatchDetails(${p.id})" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='${isEven ? 'rgba(49,54,51,0.15)' : 'transparent'}'">
                     <td style="padding:4px 6px;background:${isEven ? '#1E1E1E' : '#1A1A1A'};max-width:110px;overflow:hidden;">
                         <div style="display:flex;align-items:center;gap:6px;">
-                            <div class="player-photo-shell" style="width:28px;height:28px;border-radius:50%;border:1px solid #333;">${this.playerPhotoMarkup(p, `${this.escapeHTML(p.name)} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}</div>
+                            <div class="player-photo-shell" style="width:28px;height:28px;border-radius:50%;border:1px solid #333;">${this.playerPhotoMarkup({ ...p, fotmobId: p.fotmobId || this.state.fotmobPlayerIds?.[String(p.code)] }, `${this.escapeHTML(p.name)} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;', true)}</div>
                             <div style="min-width:0;overflow:hidden;">
                                 <div style="font-weight:700;font-size:11px;color:#E0E0E0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(p.name)}</div>
                                 <div class="players-table-player-meta" style="display:flex;align-items:center;gap:3px;font-size:9px;color:#8ba396;white-space:nowrap;">

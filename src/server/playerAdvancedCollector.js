@@ -6,7 +6,8 @@ const activeCollections = new Set();
 const FPL_LIVE_URL = 'https://fantasy.premierleague.com/api/event/{gw}/live/';
 
 async function fetchLiveGW(gwId) {
-  const url = FPL_LIVE_URL.replace('{gw}', gwId);
+  // A zero TTL must bypass any Redis value left from an earlier partial GW.
+  const url = `${FPL_LIVE_URL.replace('{gw}', gwId)}?refresh=${Date.now()}`;
   return getCachedApiData(url, 0);
 }
 

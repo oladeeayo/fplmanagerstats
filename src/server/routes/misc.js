@@ -3112,7 +3112,7 @@ router.get('/match-analysis', async (req, res) => {
 
 // ---- Player Advanced Stats ----
 const playerAdvancedCache = { data: null, timestamp: 0 };
-const PLAYER_ADVANCED_CACHE_TTL = 10 * 60 * 1000;
+const PLAYER_ADVANCED_CACHE_TTL = 30 * 1000;
 
 function mergeAdvancedGWs(dbRows, bootstrap) {
   const teamMap = {};
@@ -3131,11 +3131,12 @@ function mergeAdvancedGWs(dbRows, bootstrap) {
 
       if (!existing) {
         merged.set(gp.id, {
-          id: gp.id, code: bs?.code ?? gp.code, name: bs?.web_name ?? gp.name,
+          id: gp.id, code: bs?.code ?? gp.code, fotmobId: bs?.fotmobId ?? gp.fotmobId ?? null, name: bs?.web_name ?? gp.name,
           fullName: bs ? `${bs.first_name} ${bs.second_name}` : gp.fullName,
           team: ti.short, teamName: ti.name, teamCode: ti.code,
           position: posNames[pt] || gp.position, elementType: pt,
-          cost: (bs?.now_cost || 0) / 10, totalPoints: bs?.total_points || 0, minutes: bs?.minutes || 0,
+          cost: (bs?.now_cost || 0) / 10, priceStr: `\u00a3${((bs?.now_cost || 0) / 10).toFixed(1)}m`,
+          totalPoints: bs?.total_points || 0, minutes: bs?.minutes || 0,
           defconGames: gp.defconGames || 0, defconMatches: [...(gp.defconMatches || [])],
           haulGames: gp.haulGames || 0, haulMatches: [...(gp.haulMatches || [])],
           bonus3Games: gp.bonus3Games || 0, bonus2Games: gp.bonus2Games || 0, bonus1Games: gp.bonus1Games || 0,
@@ -3159,7 +3160,7 @@ function mergeAdvancedGWs(dbRows, bootstrap) {
 
 router.get('/player-advanced', async (req, res) => {
   try {
-    if (playerAdvancedCache.data && Date.now() - playerAdvancedCache.timestamp < PLAYER_ADVANCED_CACHE_TTL) {
+    if (!req.query.refresh && playerAdvancedCache.data && Date.now() - playerAdvancedCache.timestamp < PLAYER_ADVANCED_CACHE_TTL) {
       return res.json(playerAdvancedCache.data);
     }
 
@@ -3181,29 +3182,20 @@ router.get('/player-advanced', async (req, res) => {
       }
     }
 
-    // Check if current GW is in DB already
-    const hasCurrentGW = dbRows.some(r => r.gameweek === currentGW);
-
-    // If current GW not in DB, collect it now
-    if (!hasCurrentGW) {
-      try {
-        const { computeAdvancedFromLive } = require('../playerAdvancedCollector');
-        const livePlayers = await computeAdvancedFromLive(bootstrap, fixtures, currentGW);
-        if (livePlayers && livePlayers.length > 0) {
-          // Save to DB
-          if (sql) {
-            try {
-              await sql`INSERT INTO player_advanced_stats (gameweek, players, total_players) VALUES (${currentGW}, ${JSON.stringify(livePlayers)}, ${livePlayers.length}) ON CONFLICT (gameweek) DO UPDATE SET players = ${JSON.stringify(livePlayers)}, total_players = ${livePlayers.length}`;
-            } catch (e) {
-              logger.warn({ err: e }, 'Failed to save current GW advanced stats to DB');
-            }
-          }
-          // Add to dbRows for merging
-          dbRows.push({ gameweek: currentGW, players: livePlayers });
+    // Always refresh the current GW. Its live data changes during the GW, so an
+    // existing DB row may contain an earlier partial snapshot with zero counts.
+    try {
+      const { computeAdvancedFromLive } = require('../playerAdvancedCollector');
+      const livePlayers = await computeAdvancedFromLive(bootstrap, fixtures, currentGW);
+      if (livePlayers && livePlayers.length > 0) {
+        if (sql) {
+          await sql`INSERT INTO player_advanced_stats (gameweek, players, total_players) VALUES (${currentGW}, ${JSON.stringify(livePlayers)}, ${livePlayers.length}) ON CONFLICT (gameweek) DO UPDATE SET players = ${JSON.stringify(livePlayers)}, total_players = ${livePlayers.length}`;
+          dbRows = dbRows.filter(row => Number(row.gameweek) !== Number(currentGW));
         }
-      } catch (e) {
-        logger.warn({ err: e }, 'Failed to compute current GW advanced stats from live endpoint');
+        dbRows.push({ gameweek: currentGW, players: livePlayers });
       }
+    } catch (e) {
+      logger.warn({ err: e, currentGW }, 'Failed to refresh current GW advanced stats from live endpoint');
     }
 
     if (dbRows.length > 0) {
