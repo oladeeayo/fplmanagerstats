@@ -3111,8 +3111,17 @@ router.get('/match-analysis', async (req, res) => {
 });
 
 // ---- Player Advanced Stats ----
+// In-memory cache for the full player-advanced response
+const playerAdvancedCache = { data: null, timestamp: 0 };
+const PLAYER_ADVANCED_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
 router.get('/player-advanced', async (req, res) => {
   try {
+    // Serve from cache if fresh
+    if (playerAdvancedCache.data && Date.now() - playerAdvancedCache.timestamp < PLAYER_ADVANCED_CACHE_TTL) {
+      return res.json(playerAdvancedCache.data);
+    }
+
     const bootstrap = await getCachedApiData(BOOTSTRAP_URL, BOOTSTRAP_CACHE_TTL);
     if (!bootstrap || !bootstrap.elements) {
       return res.status(500).json({ error: 'Failed to fetch bootstrap data' });
@@ -3127,12 +3136,12 @@ router.get('/player-advanced', async (req, res) => {
 
     const activePlayers = bootstrap.elements.filter(p => (p.total_points || 0) > 0 || (p.minutes || 0) > 0);
 
-    // Concurrency-limited history fetching in batches of 20
-    const BATCH_SIZE = 20;
+    // Concurrency-limited history fetching in batches of 50
+    const BATCH_SIZE = 50;
     const historyResults = new Map();
     for (let i = 0; i < activePlayers.length; i += BATCH_SIZE) {
       const batch = activePlayers.slice(i, i + BATCH_SIZE);
-      await Promise.all(batch.map(async p => {
+      await Promise.allSettled(batch.map(async p => {
         try {
           const ph = await getGlobalPlayerHistory(p.id);
           if (ph && Array.isArray(ph.history)) {
@@ -3257,10 +3266,16 @@ router.get('/player-advanced', async (req, res) => {
       };
     });
 
-    res.json({
+    const result = {
       players: playersData,
       totalPlayers: playersData.length
-    });
+    };
+
+    // Cache the full response
+    playerAdvancedCache.data = result;
+    playerAdvancedCache.timestamp = Date.now();
+
+    res.json(result);
   } catch (e) {
     logger.error({ err: e }, 'Player advanced stats error');
     res.status(500).json({ error: 'Failed to fetch player advanced stats' });

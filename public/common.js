@@ -2204,10 +2204,12 @@ const FPL = {
             const btn = document.getElementById(`adv-tab-${t}`);
             if (btn) {
                 const isActive = t === tab;
-                btn.className = `adv-subtab-btn ${isActive ? 'active' : ''}`;
-                btn.style.background = isActive ? 'rgba(0,255,133,0.15)' : 'rgba(255,255,255,0.04)';
-                btn.style.color = isActive ? '#00FF85' : '#94a3b8';
-                btn.style.border = isActive ? '1px solid #00FF85' : '1px solid rgba(255,255,255,0.08)';
+                btn.className = `fixture-tab-item ${isActive ? 'active' : ''}`;
+                btn.style.background = isActive ? 'rgba(0,255,133,0.06)' : 'transparent';
+                btn.style.borderBottom = isActive ? '3px solid #00FF85' : '3px solid transparent';
+                btn.style.color = isActive ? '#00FF85' : 'var(--md-sys-color-on-surface-variant)';
+                btn.style.opacity = isActive ? '1' : '0.75';
+                btn.style.fontWeight = isActive ? '700' : '600';
             }
         });
 
@@ -2215,6 +2217,15 @@ const FPL = {
         else if (tab === 'haul') this.state.advSortKey = 'haulGames';
         else if (tab === 'bonus') this.state.advSortKey = 'totalBonus';
         this.state.advSortDir = -1;
+
+        const descEl = document.getElementById('adv-subview-desc-text');
+        if (descEl) {
+            descEl.textContent = tab === 'defcon'
+                ? 'Players who recorded a defensive contribution in a match - price, total points, and number of DEFCON games.'
+                : tab === 'haul'
+                ? 'Players who scored 10+ points in a single gameweek - price, total points, and number of double-digit hauls.'
+                : 'Players who earned bonus points - breakdown of 3-bonus, 2-bonus, and 1-bonus game counts with total bonus points.';
+        }
 
         this.renderPlayerAdvanced();
     },
@@ -2225,9 +2236,8 @@ const FPL = {
         if (btnGroup) {
             btnGroup.querySelectorAll('button').forEach(btn => {
                 const isMatch = btn.dataset.pos === pos;
-                btn.style.background = isMatch ? '#00FF85' : 'rgba(255,255,255,0.05)';
-                btn.style.color = isMatch ? '#000' : '#94a3b8';
-                btn.style.border = isMatch ? 'none' : '1px solid rgba(255,255,255,0.08)';
+                btn.style.background = isMatch ? 'rgba(0,255,133,0.16)' : 'transparent';
+                btn.style.color = isMatch ? '#00FF85' : '#B0B0B0';
             });
         }
         this.renderPlayerAdvanced();
@@ -2249,14 +2259,12 @@ const FPL = {
 
         const tbody = document.getElementById('adv-table-body');
         const headerRow = document.getElementById('adv-table-header');
-        const summaryCount = document.getElementById('adv-summary-count');
         if (!tbody || !headerRow) return;
 
         const activeTab = this.state.advTab || 'defcon';
         const posFilter = this.state.advPosFilter || 'all';
         const searchTerm = (document.getElementById('adv-player-search')?.value || '').toLowerCase().trim();
 
-        // 1. Filter players
         let filtered = data.players.filter(p => {
             if (posFilter !== 'all' && p.position !== posFilter) return false;
             if (searchTerm) {
@@ -2269,7 +2277,6 @@ const FPL = {
             return true;
         });
 
-        // 2. Sort players
         const sortKey = this.state.advSortKey || (activeTab === 'defcon' ? 'defconGames' : activeTab === 'haul' ? 'haulGames' : 'totalBonus');
         const sortDir = this.state.advSortDir || -1;
 
@@ -2280,111 +2287,84 @@ const FPL = {
             return (b.totalPoints - a.totalPoints);
         });
 
-        // 3. Update summary badge
-        if (summaryCount) {
-            const tabName = activeTab === 'defcon' ? 'DEFCON Hitters' : activeTab === 'haul' ? 'Haul Hitters (10+ pts)' : 'Bonus Hitters';
-            summaryCount.textContent = `Showing ${filtered.length} ${tabName}`;
-        }
-
-        // 4. Render headers
-        const sortArrow = (key) => {
-            if (sortKey !== key) return '';
-            return sortDir === -1 ? ' <span style="font-size:10px;">▼</span>' : ' <span style="font-size:10px;">▲</span>';
+        const sortIcon = (key, label) => {
+            const isActive = sortKey === key;
+            const arrow = isActive ? (sortDir === -1 ? 'arrow_downward' : 'arrow_upward') : '';
+            return `<th style="padding:8px 10px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('${key}')">${label} <span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;${isActive ? '' : 'display:none;'}">${arrow}</span></th>`;
         };
 
         if (activeTab === 'defcon') {
             headerRow.innerHTML = `
-                <th style="padding:12px 16px;">Player</th>
-                <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('cost')">Price${sortArrow('cost')}</th>
-                <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('totalPoints')">Total Pts${sortArrow('totalPoints')}</th>
-                <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('defconGames')">DEFCON Games${sortArrow('defconGames')}</th>
-                <th style="padding:12px 16px;text-align:center;">Match Details</th>
+                <th style="background:rgba(255,255,255,0.03);min-width:110px;position:sticky;left:0;z-index:2;">Player</th>
+                ${sortIcon('cost', 'Price')}
+                ${sortIcon('totalPoints', 'Pts')}
+                ${sortIcon('defconGames', 'DEFCON')}
             `;
         } else if (activeTab === 'haul') {
             headerRow.innerHTML = `
-                <th style="padding:12px 16px;">Player</th>
-                <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('cost')">Price${sortArrow('cost')}</th>
-                <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('totalPoints')">Total Pts${sortArrow('totalPoints')}</th>
-                <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('haulGames')">Double Digit Hauls${sortArrow('haulGames')}</th>
-                <th style="padding:12px 16px;text-align:center;">Match Details</th>
+                <th style="background:rgba(255,255,255,0.03);min-width:110px;position:sticky;left:0;z-index:2;">Player</th>
+                ${sortIcon('cost', 'Price')}
+                ${sortIcon('totalPoints', 'Pts')}
+                ${sortIcon('haulGames', 'Hauls')}
             `;
         } else if (activeTab === 'bonus') {
             headerRow.innerHTML = `
-                <th style="padding:12px 16px;">Player</th>
-                <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('cost')">Price${sortArrow('cost')}</th>
-                <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('totalPoints')">Total Pts${sortArrow('totalPoints')}</th>
-                <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('bonus3Games')">3 Bonus${sortArrow('bonus3Games')}</th>
-                <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('bonus2Games')">2 Bonus${sortArrow('bonus2Games')}</th>
-                <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('bonus1Games')">1 Bonus${sortArrow('bonus1Games')}</th>
-                <th style="padding:12px 16px;text-align:center;cursor:pointer;" onclick="FPL.sortAdvancedBy('totalBonus')">Total Bonus Pts${sortArrow('totalBonus')}</th>
-                <th style="padding:12px 16px;text-align:center;">Match Details</th>
+                <th style="background:rgba(255,255,255,0.03);min-width:110px;position:sticky;left:0;z-index:2;">Player</th>
+                ${sortIcon('cost', 'Price')}
+                ${sortIcon('totalPoints', 'Pts')}
+                ${sortIcon('bonus3Games', '3 Bonus')}
+                ${sortIcon('bonus2Games', '2 Bonus')}
+                ${sortIcon('bonus1Games', '1 Bonus')}
+                ${sortIcon('totalBonus', 'Total Bonus')}
             `;
         }
 
         if (filtered.length === 0) {
-            const colCount = activeTab === 'bonus' ? 8 : 5;
-            tbody.innerHTML = `<tr><td colspan="${colCount}" style="text-align:center;padding:36px;color:#94a3b8;font-family:var(--font-mono);">No players match the criteria.</td></tr>`;
+            const colCount = activeTab === 'bonus' ? 7 : 4;
+            tbody.innerHTML = `<tr><td colspan="${colCount}" style="text-align:center;padding:32px;color:#8ba396;">No players match the criteria.</td></tr>`;
             return;
         }
 
         const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
 
-        // 5. Render body
-        tbody.innerHTML = filtered.slice(0, 100).map((p, idx) => {
+        tbody.innerHTML = filtered.slice(0, 50).map((p, idx) => {
             const isEven = idx % 2 === 1;
             const posColor = posColors[p.position] || '#4FC3F7';
 
             let tabSpecificCells = '';
             if (activeTab === 'defcon') {
-                tabSpecificCells = `
-                    <td style="text-align:center;font-family:var(--font-mono);font-size:14px;font-weight:800;color:#00FF85;">
-                        <span style="background:rgba(0,255,133,0.12);padding:4px 12px;border-radius:20px;border:1px solid rgba(0,255,133,0.25);">${p.defconGames}</span>
-                    </td>
-                    <td style="text-align:center;font-family:var(--font-mono);font-size:11px;color:#94a3b8;">
-                        <span style="color:#00FF85;font-weight:700;">View ${p.defconGames} DEFCON games ➔</span>
-                    </td>
-                `;
+                tabSpecificCells = `<td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#00FF85;">${p.defconGames}</td>`;
             } else if (activeTab === 'haul') {
-                tabSpecificCells = `
-                    <td style="text-align:center;font-family:var(--font-mono);font-size:14px;font-weight:800;color:#38bdf8;">
-                        <span style="background:rgba(56,189,248,0.12);padding:4px 12px;border-radius:20px;border:1px solid rgba(56,189,248,0.25);">${p.haulGames}</span>
-                    </td>
-                    <td style="text-align:center;font-family:var(--font-mono);font-size:11px;color:#94a3b8;">
-                        <span style="color:#38bdf8;font-weight:700;">View ${p.haulGames} hauls ➔</span>
-                    </td>
-                `;
+                tabSpecificCells = `<td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#38bdf8;">${p.haulGames}</td>`;
             } else if (activeTab === 'bonus') {
                 tabSpecificCells = `
                     <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#fbbf24;">${p.bonus3Games}</td>
                     <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#cbd5e1;">${p.bonus2Games}</td>
                     <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#94a3b8;">${p.bonus1Games}</td>
-                    <td style="text-align:center;font-family:var(--font-mono);font-size:14px;font-weight:800;color:#fbbf24;">
-                        <span style="background:rgba(251,191,36,0.12);padding:4px 12px;border-radius:20px;border:1px solid rgba(251,191,36,0.25);">${p.totalBonus}</span>
-                    </td>
-                    <td style="text-align:center;font-family:var(--font-mono);font-size:11px;color:#94a3b8;">
-                        <span style="color:#fbbf24;font-weight:700;">View bonus matches ➔</span>
-                    </td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#fbbf24;">${p.totalBonus}</td>
                 `;
             }
 
             return `
-                <tr style="border-bottom:1px solid rgba(255,255,255,0.05);transition:background 0.2s;${isEven ? 'background:rgba(255,255,255,0.015);' : ''}cursor:pointer;" onclick="FPL.showPlayerMatchDetails(${p.id})" onmouseover="this.style.background='rgba(0,255,133,0.05)'" onmouseout="this.style.background='${isEven ? 'rgba(255,255,255,0.015)' : 'transparent'}'">
-                    <td style="padding:10px 16px;">
-                        <div style="display:flex;align-items:center;gap:10px;">
-                            <div style="width:34px;height:34px;border-radius:50%;overflow:hidden;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.4);flex-shrink:0;">
+                <tr style="border-bottom:1px solid #1A2E28;transition:background 0.2s;${isEven ? 'background:rgba(49,54,51,0.15);' : ''}cursor:pointer;" onclick="FPL.showPlayerMatchDetails(${p.id})" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='${isEven ? 'rgba(49,54,51,0.15)' : 'transparent'}'">
+                    <td style="padding:4px 6px;background:${isEven ? '#1E1E1E' : '#1A1A1A'};max-width:110px;overflow:hidden;">
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <div class="player-photo-shell" style="width:28px;height:28px;border-radius:50%;border:1px solid #333;">
                                 <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" alt="${this.escapeHTML(p.name)}" style="width:100%;height:100%;object-fit:cover;object-position:50% 15%;" onerror="this.src='https://fantasy.premierleague.com/static/libs/default-player.png'">
                             </div>
-                            <div>
-                                <div style="font-weight:800;font-size:13px;color:#fff;">${this.escapeHTML(p.name)}</div>
-                                <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-family:var(--font-mono);margin-top:2px;">
-                                    <span style="padding:1px 4px;border-radius:3px;font-weight:800;background:${posColor}20;color:${posColor};">${p.position}</span>
-                                    <span style="color:#94a3b8;font-weight:700;">${p.team}</span>
+                            <div style="min-width:0;overflow:hidden;">
+                                <div style="font-weight:700;font-size:11px;color:#E0E0E0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(p.name)}</div>
+                                <div class="players-table-player-meta" style="display:flex;align-items:center;gap:3px;font-size:9px;color:#8ba396;white-space:nowrap;">
+                                    <span style="padding:1px 3px;border-radius:2px;font-weight:700;background:${posColor}20;color:${posColor};font-size:8px;">${p.position}</span>
+                                    <span>${p.team}</span>
+                                    <span class="players-table-price-separator" style="color:#444;">·</span>
+                                    <span class="players-table-price" style="font-family:var(--font-mono);color:#B0B0B0;">${p.priceStr}</span>
                                 </div>
                             </div>
                         </div>
                     </td>
-                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#e2e8f0;">${p.priceStr}</td>
-                    <td style="text-align:center;font-family:var(--font-mono);font-size:13px;font-weight:800;color:#00FF85;">${p.totalPoints}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#B0B0B0;">${p.priceStr}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#00FF85;">${p.totalPoints}</td>
                     ${tabSpecificCells}
                 </tr>
             `;
