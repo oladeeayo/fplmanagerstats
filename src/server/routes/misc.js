@@ -3169,43 +3169,49 @@ router.get('/player-advanced', async (req, res) => {
     }
 
     const currentGW = bootstrap.events?.find(e => e.is_current)?.id || bootstrap.events?.find(e => e.is_next)?.id || 1;
+    const fixtures = await getCachedApiData(FIXTURES_URL, BOOTSTRAP_CACHE_TTL);
 
+    // Read all previously collected GWs from DB
+    let dbRows = [];
     if (sql) {
       try {
-        const dbRows = await sql`SELECT gameweek, players FROM player_advanced_stats ORDER BY gameweek ASC`;
-        if (dbRows.length > 0) {
-          const playersData = mergeAdvancedGWs(dbRows, bootstrap);
-          const result = { players: playersData, totalPlayers: playersData.length, gameweek: currentGW, collectedGWs: dbRows.length };
-          playerAdvancedCache.data = result;
-          playerAdvancedCache.timestamp = Date.now();
-          return res.json(result);
-        }
+        dbRows = await sql`SELECT gameweek, players FROM player_advanced_stats ORDER BY gameweek ASC`;
       } catch (e) {
         logger.warn({ err: e }, 'Failed to read player_advanced_stats from DB');
       }
     }
 
-    const finishedGWs = bootstrap.events.filter(e => e.finished).sort((a, b) => a.id - b.id);
-    if (finishedGWs.length > 0) {
-      const { collectAndStore } = require('../playerAdvancedCollector');
-      for (const gw of finishedGWs) {
-        await collectAndStore(gw.id);
-      }
+    // Check if current GW is in DB already
+    const hasCurrentGW = dbRows.some(r => r.gameweek === currentGW);
 
-      if (sql) {
-        try {
-          const dbRows = await sql`SELECT gameweek, players FROM player_advanced_stats ORDER BY gameweek ASC`;
-          if (dbRows.length > 0) {
-            const playersData = mergeAdvancedGWs(dbRows, bootstrap);
-            const result = { players: playersData, totalPlayers: playersData.length, gameweek: currentGW, collectedGWs: dbRows.length };
-            playerAdvancedCache.data = result;
-            playerAdvancedCache.timestamp = Date.now();
-            return res.json(result);
+    // If current GW not in DB, collect it now
+    if (!hasCurrentGW) {
+      try {
+        const { computeAdvancedFromLive } = require('../playerAdvancedCollector');
+        const livePlayers = await computeAdvancedFromLive(bootstrap, fixtures, currentGW);
+        if (livePlayers && livePlayers.length > 0) {
+          // Save to DB
+          if (sql) {
+            try {
+              await sql`INSERT INTO player_advanced_stats (gameweek, players, total_players) VALUES (${currentGW}, ${JSON.stringify(livePlayers)}, ${livePlayers.length}) ON CONFLICT (gameweek) DO UPDATE SET players = ${JSON.stringify(livePlayers)}, total_players = ${livePlayers.length}`;
+            } catch (e) {
+              logger.warn({ err: e }, 'Failed to save current GW advanced stats to DB');
+            }
           }
-        } catch (e) {
-          logger.warn({ err: e }, 'Failed to read player_advanced_stats from DB after collection');
+          // Add to dbRows for merging
+          dbRows.push({ gameweek: currentGW, players: livePlayers });
         }
+      } catch (e) {
+        logger.warn({ err: e }, 'Failed to compute current GW advanced stats from live endpoint');
       }
+    }
+
+    if (dbRows.length > 0) {
+      const playersData = mergeAdvancedGWs(dbRows, bootstrap);
+      const result = { players: playersData, totalPlayers: playersData.length, gameweek: currentGW, collectedGWs: dbRows.length };
+      playerAdvancedCache.data = result;
+      playerAdvancedCache.timestamp = Date.now();
+      return res.json(result);
     }
 
     res.json({ players: [], totalPlayers: 0, gameweek: currentGW });
