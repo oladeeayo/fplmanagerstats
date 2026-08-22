@@ -2216,6 +2216,20 @@ const FPL = {
             const typeEl = document.getElementById('standings-league-type');
             if (typeEl) typeEl.textContent = data.leagueType || 'Classic League';
 
+            const totalMgrsEl = document.getElementById('standings-total-managers-badge');
+            if (totalMgrsEl) {
+                if (data.totalLeagueManagers) {
+                    totalMgrsEl.textContent = `👥 ${this.formatNumber(data.totalLeagueManagers)} Managers`;
+                    totalMgrsEl.style.display = 'inline-block';
+                } else if (data.totalEntries) {
+                    const hasMorePlus = data.hasMore ? '+' : '';
+                    totalMgrsEl.textContent = `👥 ${this.formatNumber(data.totalEntries)}${hasMorePlus} Managers`;
+                    totalMgrsEl.style.display = 'inline-block';
+                } else {
+                    totalMgrsEl.style.display = 'none';
+                }
+            }
+
             // Handle no-data state (season not started or no league data)
             if (data.noData) {
                 const avgEl = document.getElementById('standings-league-avg');
@@ -2309,6 +2323,18 @@ const FPL = {
                 const managerIdArg = m.managerId ? m.managerId : 'null';
                 const xGWPtsVal = m.xGWPts != null ? Number(m.xGWPts).toFixed(1) : '--';
                 const captainDisp = m.captainName || '--';
+                let chipBadge = '<span style="color:#666;font-size:11px;">--</span>';
+                if (m.activeChip) {
+                    const chipBgMap = {
+                        '3XC': 'background:rgba(0,255,133,0.18);color:#00FF85;border:1px solid rgba(0,255,133,0.4);',
+                        'BB': 'background:rgba(55,219,89,0.18);color:#37DB59;border:1px solid rgba(55,219,89,0.4);',
+                        'FH': 'background:rgba(255,166,0,0.18);color:#FFA600;border:1px solid rgba(255,166,0,0.4);',
+                        'WC': 'background:rgba(0,229,255,0.18);color:#00E5FF;border:1px solid rgba(0,229,255,0.4);',
+                        'AM': 'background:rgba(255,0,90,0.18);color:#FF005A;border:1px solid rgba(255,0,90,0.4);'
+                    };
+                    const chipStyle = chipBgMap[m.activeChip] || 'background:rgba(255,255,255,0.1);color:#fff;';
+                    chipBadge = `<span style="padding:2px 6px;border-radius:4px;font-weight:800;font-size:10px;font-family:var(--font-mono);${chipStyle}">${m.activeChip}</span>`;
+                }
 
                 return `<tr class="data-row" style="border-bottom:1px solid rgba(255,255,255,0.05);transition:background 0.2s;${rowBg}cursor:pointer;" onclick="FPL.showManagerDetail(${managerIdArg}, '${this.escapeHTML(m.managerName || '').replace(/'/g, "\\'")}', '${this.escapeHTML(m.entryName || '').replace(/'/g, "\\'")}', ${m.rank}, ${m.eventTotal}, ${m.total}, ${m.rankDiff}, ${m.diffCount})" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='${isEven ? 'rgba(255,255,255,0.03)' : 'transparent'}'" title="Click to view manager details">
                     <td style="padding:4px 6px;position:relative;font-weight:700;color:var(--md-sys-color-on-surface);width:36px;background:${isEven ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.05)'};">
@@ -2322,6 +2348,7 @@ const FPL = {
                     <td class="mono" style="padding:4px 6px;text-align:center;color:#00FF85;font-weight:700;">${xGWPtsVal}</td>
                     <td class="mono" style="padding:4px 6px;text-align:center;color:var(--fdr-1);font-weight:800;">${this.formatNumber(m.total)}</td>
                     <td class="desktop-only" style="padding:4px 6px;text-align:center;font-size:11px;color:var(--md-sys-color-on-surface);font-weight:600;">${this.escapeHTML(captainDisp)}</td>
+                    <td style="padding:4px 6px;text-align:center;">${chipBadge}</td>
                     <td style="padding:4px 6px;text-align:center;">${diffArrow}</td>
                     <td style="padding:4px 6px;text-align:center;">
                         <span class="mono" style="background:var(--md-sys-color-surface-variant);color:var(--md-sys-color-on-surface);font-size:10px;padding:2px 6px;border-radius:3px;font-weight:700;display:inline-block;">${this.formatNumber(m.diffCount)}</span>
@@ -2332,9 +2359,10 @@ const FPL = {
             this.renderStandingsPagination(data);
             this.renderLeagueTemplatePitch(data);
             this.renderCaptaincyCount(data);
+            this.renderChipCount(data);
         } catch (err) {
             console.error('League standings error:', err);
-            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:var(--space-lg);color:var(--md-sys-color-error);">Failed to load standings: ${err.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:var(--space-lg);color:var(--md-sys-color-error);">Failed to load standings: ${err.message}</td></tr>`;
         }
     },
 
@@ -2346,8 +2374,10 @@ const FPL = {
         
         const countEl = document.getElementById('standings-showing-count');
         if (countEl) {
-            const total = data.hasMore ? `${data.totalEntries}+` : data.totalEntries;
-            countEl.textContent = `Showing ${startNum}-${endNum} of ${total} managers`;
+            const totalDisplay = data.totalLeagueManagers
+                ? this.formatNumber(data.totalLeagueManagers)
+                : (data.hasMore ? `${this.formatNumber(data.totalEntries)}+` : this.formatNumber(data.totalEntries));
+            countEl.textContent = `Showing ${startNum}-${endNum} of ${totalDisplay} managers`;
         }
 
         const controlsEl = document.getElementById('standings-pagination-controls');
@@ -2391,7 +2421,7 @@ const FPL = {
     },
 
     updateStandingsSortIcons() {
-        const keys = ['rank', 'team', 'eventTotal', 'xGWPts', 'total', 'captainName', 'rankDiff', 'diffCount'];
+        const keys = ['rank', 'team', 'eventTotal', 'xGWPts', 'total', 'captainName', 'activeChip', 'rankDiff', 'diffCount'];
         keys.forEach(key => {
             const iconEl = document.getElementById(`standings-sort-icon-${key}`);
             if (iconEl) {
@@ -2532,6 +2562,53 @@ const FPL = {
                     <div style="width:100%;height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;">
                         <div style="width:${item.pct}%;height:100%;background:linear-gradient(90deg, #00FF85 0%, #00CC6A 100%);border-radius:2px;"></div>
                     </div>
+                </div>
+            </div>`;
+        }).join('');
+    },
+
+    renderChipCount(data) {
+        const container = document.getElementById('league-chips-container');
+        if (!container) return;
+
+        const descEl = document.getElementById('league-chips-desc');
+        if (descEl) {
+            descEl.textContent = `Active GW chips count analyzed across Top ${data.totalManagersAnalyzed || 300} managers.`;
+        }
+
+        const chipList = data.chipSummary || [];
+        if (chipList.length === 0) {
+            container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--md-sys-color-on-surface-variant);font-size:12px;">No chip usage data available.</div>`;
+            return;
+        }
+
+        const chipColorMap = {
+            '3xc': { color: '#00FF85', bg: 'rgba(0,255,133,0.12)' },
+            'bboost': { color: '#37DB59', bg: 'rgba(55,219,89,0.12)' },
+            'freehit': { color: '#FFA600', bg: 'rgba(255,166,0,0.12)' },
+            'wildcard': { color: '#00E5FF', bg: 'rgba(0,229,255,0.12)' },
+            'manager': { color: '#FF005A', bg: 'rgba(255,0,90,0.12)' },
+            'none': { color: '#8ba396', bg: 'rgba(255,255,255,0.04)' }
+        };
+
+        const maxCount = Math.max(1, ...chipList.map(c => c.count));
+
+        container.innerHTML = chipList.map(c => {
+            const styleInfo = chipColorMap[c.key] || { color: '#ffffff', bg: 'rgba(255,255,255,0.06)' };
+            const barWidth = Math.max(4, Math.round((c.count / maxCount) * 100));
+
+            return `<div style="padding:10px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:10px;display:flex;flex-direction:column;gap:6px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;">
+                    <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+                        <span style="font-family:var(--font-mono);font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px;background:${styleInfo.bg};color:${styleInfo.color};">${c.code}</span>
+                        <span style="font-weight:700;color:var(--md-sys-color-on-surface);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name}</span>
+                    </div>
+                    <div style="font-family:var(--font-mono);font-weight:700;color:var(--md-sys-color-on-surface);font-size:12px;">
+                        ${c.count} <span style="font-size:10px;color:var(--md-sys-color-on-surface-variant);">(${c.pct}%)</span>
+                    </div>
+                </div>
+                <div style="width:100%;height:4px;background:rgba(255,255,255,0.06);border-radius:999px;overflow:hidden;">
+                    <div style="width:${barWidth}%;height:100%;background:${styleInfo.color};border-radius:999px;transition:width 0.4s ease;"></div>
                 </div>
             </div>`;
         }).join('');
@@ -3629,28 +3706,90 @@ const FPL = {
 
     switchLeague(leagueId) {
         if (!leagueId) return;
-        this.state.selectedLeagueId = Number(leagueId);
-        this.state.leagueId = String(leagueId);
-        localStorage.setItem('fplLeagueId', String(leagueId));
+        const numId = Number(leagueId);
+        this.state.selectedLeagueId = numId;
+        this.state.leagueId = String(numId);
+        localStorage.setItem('fplLeagueId', String(numId));
         this.state.standingsPage = 1;
+        this.invalidateTabCache();
+        this.renderLeagueSelector();
         const select = document.getElementById('league-select');
         if (select) select.value = String(this.state.selectedLeagueId);
         void this.renderLeague();
     },
 
-    loadCustomLeague() {
+    async loadCustomLeague() {
         const input = document.getElementById('league-id-input');
         const val = input?.value?.trim();
-        if (!/^\d+$/.test(val || '') || Number(val) < 1) {
-            this.showError('Enter a valid League ID or select a manager and league');
+
+        // 1. If a league item was selected in the live search dropdown
+        const selectedLid = this._selectedLeagueId['league-id-input'];
+        if (selectedLid) {
+            this.switchLeague(selectedLid);
+            if (input) input.value = '';
+            const resultsEl = document.getElementById('league-search-results');
+            if (resultsEl) {
+                resultsEl.innerHTML = '';
+                resultsEl.style.display = 'none';
+            }
             return;
         }
-        this.switchLeague(parseInt(val));
-        if (input) input.value = '';
-        const resultsEl = document.getElementById('league-search-results');
-        if (resultsEl) {
-            resultsEl.innerHTML = '';
-            resultsEl.style.display = 'none';
+
+        if (!val || (!/^\d+$/.test(val) && val.length < 2)) {
+            this.showError('Enter a valid League ID, Manager ID, or select from search results');
+            return;
+        }
+
+        // If numeric ID entered
+        if (/^\d+$/.test(val)) {
+            const numId = parseInt(val, 10);
+            this.showLoading();
+            try {
+                // Check if it's a valid League ID first
+                const leagueData = await this.apiFetch(`/api/leagues-classic/${numId}/standings?page=1`);
+                if (leagueData && !leagueData.error && !leagueData.noData && Array.isArray(leagueData.managers) && leagueData.managers.length > 0) {
+                    this.switchLeague(numId);
+                    if (input) input.value = '';
+                    const resultsEl = document.getElementById('league-search-results');
+                    if (resultsEl) {
+                        resultsEl.innerHTML = '';
+                        resultsEl.style.display = 'none';
+                    }
+                    return;
+                }
+
+                // If not a direct league, try as Manager ID to load their joined leagues
+                const managerLeagues = await this.apiFetch(this.API.managerLeagues(numId));
+                const leagues = managerLeagues?.leagues || [];
+                if (leagues.length > 0) {
+                    this.state.managerLeagues = leagues;
+                    const targetLeague = leagues.find(l => l.type === 'private') || leagues[0];
+                    if (targetLeague) {
+                        this.switchLeague(targetLeague.id);
+                        if (input) input.value = '';
+                        const resultsEl = document.getElementById('league-search-results');
+                        if (resultsEl) {
+                            resultsEl.innerHTML = '';
+                            resultsEl.style.display = 'none';
+                        }
+                        return;
+                    }
+                }
+
+                // Fallback: switch directly to numId
+                this.switchLeague(numId);
+                if (input) input.value = '';
+                const resultsEl = document.getElementById('league-search-results');
+                if (resultsEl) {
+                    resultsEl.innerHTML = '';
+                    resultsEl.style.display = 'none';
+                }
+            } catch {
+                this.switchLeague(numId);
+                if (input) input.value = '';
+            } finally {
+                this.hideLoading();
+            }
         }
     },
 

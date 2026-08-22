@@ -1758,6 +1758,14 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
 
     const playerCounts = {};
     const captainCounts = {};
+    const chipCounts = {
+      '3xc': { key: '3xc', name: 'Triple Captain', code: '3XC', count: 0 },
+      'bboost': { key: 'bboost', name: 'Bench Boost', code: 'BB', count: 0 },
+      'freehit': { key: 'freehit', name: 'Free Hit', code: 'FH', count: 0 },
+      'wildcard': { key: 'wildcard', name: 'Wildcard', code: 'WC', count: 0 },
+      'manager': { key: 'manager', name: 'Assistant Manager', code: 'AM', count: 0 },
+      'none': { key: 'none', name: 'No Chip Active', code: '--', count: 0 }
+    };
     let totalManagersAnalyzed = 0;
 
     // Calculate template & captaincy across sampleEntries
@@ -1770,6 +1778,13 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       if (picksData && Array.isArray(picksData.picks) && picksData.picks.length > 0) {
         totalManagersAnalyzed++;
         const activeChip = picksData.active_chip;
+        const chipKey = activeChip || 'none';
+        if (chipCounts[chipKey]) {
+          chipCounts[chipKey].count++;
+        } else {
+          chipCounts[chipKey] = { key: chipKey, name: chipKey.toUpperCase(), code: chipKey.toUpperCase(), count: 1 };
+        }
+
         const capPick = picksData.picks.find(p => p.is_captain) || picksData.picks.find(p => p.is_vice_captain) || picksData.picks[0];
 
         if (capPick && elementMap[capPick.element]) {
@@ -1789,6 +1804,14 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       totalManagersAnalyzed = Math.max(1, sampleEntries.length);
     }
 
+    const chipLabelMap = {
+      '3xc': '3XC',
+      'bboost': 'BB',
+      'freehit': 'FH',
+      'wildcard': 'WC',
+      'manager': 'AM'
+    };
+
     const managerEntries = results.slice(0, 50);
 
     const managers = managerEntries.map((entry, index) => {
@@ -1799,9 +1822,13 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
 
       let xGWPts = null;
       let captainName = '--';
+      let activeChipCode = null;
 
       if (picksData && Array.isArray(picksData.picks) && picksData.picks.length > 0) {
         const activeChip = picksData.active_chip;
+        if (activeChip) {
+          activeChipCode = chipLabelMap[activeChip] || activeChip.toUpperCase();
+        }
         const capPick = picksData.picks.find(p => p.is_captain) || picksData.picks.find(p => p.is_vice_captain) || picksData.picks[0];
         
         if (capPick && elementMap[capPick.element]) {
@@ -1832,7 +1859,8 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
         rankDiff: entry.rank ? (entry.last_rank || entry.rank) - entry.rank : 0,
         diffCount: Math.max(0, leaderTotal - (entry.total || 0)),
         xGWPts,
-        captainName
+        captainName,
+        activeChip: activeChipCode
       };
     });
 
@@ -1889,7 +1917,19 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       })
       .sort((a, b) => b.count - a.count);
 
+    const chipSummary = Object.values(chipCounts)
+      .map(item => ({
+        key: item.key,
+        name: item.name,
+        code: item.code,
+        count: item.count,
+        pct: Math.min(100, Math.round((item.count / totalManagersAnalyzed) * 100))
+      }))
+      .sort((a, b) => b.count - a.count);
+
     const eventScores = managers.map(manager => manager.eventTotal);
+
+    const totalLeagueManagers = leagueInfo.rank_count || (pagination.has_next ? null : (results.length + (page - 1) * 50)) || null;
 
     return res.json({
       leagueId: parseInt(leagueId),
@@ -1898,6 +1938,7 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       page,
       totalPages: pagination.has_next ? page + 1 : page,
       totalEntries: pagination.has_next ? Math.max(page * 50 + 1, managers.length) : ((page - 1) * 50) + managers.length,
+      totalLeagueManagers,
       hasMore: Boolean(pagination.has_next),
       noData: false,
       leagueAvgGW: eventScores.length ? Math.round(eventScores.reduce((sum, score) => sum + score, 0) / eventScores.length) : 0,
@@ -1907,6 +1948,7 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       managers,
       leagueTemplate,
       captaincyCount,
+      chipSummary,
       totalManagersAnalyzed
     });
   } catch (e) {

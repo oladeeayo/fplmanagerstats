@@ -602,9 +602,10 @@
                                 <div style="font-size:0.6875rem;font-weight:700;color:var(--md-sys-color-on-surface-variant);letter-spacing:0.05em;font-family:var(--font-mono);margin-bottom:4px;">LEAGUE NAME</div>
                                 <div id="standings-league-name" style="font-family:var(--font-display);font-size:1.5rem;font-weight:800;color:var(--md-sys-color-on-surface);">Overall Top 50k</div>
                             </div>
-                            <div style="margin-top:var(--space-md);position:relative;z-index:1;display:flex;align-items:center;gap:8px;">
+                            <div style="margin-top:var(--space-md);position:relative;z-index:1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                                 <span id="standings-league-id-badge" class="mono" style="font-size:0.75rem;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(0,255,133,0.12);color:var(--fdr-1);">ID: 314</span>
                                 <span id="standings-league-type" style="font-size:0.75rem;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);">Public Global</span>
+                                <span id="standings-total-managers-badge" class="mono" style="font-size:0.75rem;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,0.06);color:var(--md-sys-color-on-surface);border:1px solid rgba(255,255,255,0.1);display:none;"></span>
                             </div>
                         </div>
 
@@ -650,12 +651,13 @@
                                         <th style="text-align:center;cursor:pointer;" onclick="FPL.toggleStandingsSort('xGWPts')" title="Sort by Expected GW Points">xGW-PTS <span id="standings-sort-icon-xGWPts" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
                                         <th style="text-align:center;cursor:pointer;" onclick="FPL.toggleStandingsSort('total')" title="Sort by Total Points">TOTAL PTS <span id="standings-sort-icon-total" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
                                         <th style="text-align:center;cursor:pointer;" class="desktop-only" onclick="FPL.toggleStandingsSort('captainName')" title="Sort by Captain">CAPTAIN <span id="standings-sort-icon-captainName" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th style="text-align:center;cursor:pointer;" onclick="FPL.toggleStandingsSort('activeChip')" title="Sort by Chip Used">CHIP <span id="standings-sort-icon-activeChip" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
                                         <th style="text-align:center;cursor:pointer;" onclick="FPL.toggleStandingsSort('rankDiff')" title="Sort by Rank Movement">RANK DIFF <span id="standings-sort-icon-rankDiff" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
                                         <th style="text-align:center;cursor:pointer;" onclick="FPL.toggleStandingsSort('diffCount')" title="Sort by Points Behind Leader">DIFF COUNT <span id="standings-sort-icon-diffCount" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
                                     </tr>
                                 </thead>
                                 <tbody id="league-standings-body">
-                                    <tr><td colspan="8" style="text-align:center;padding:var(--space-xl);"><div style="display:flex;justify-content:center;padding:16px;"><div class="pixel-loader-container"><span class="pixel-grid" aria-hidden="true"><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span></span><span class="pixel-loader-label">Loading league standings...</span></div></div></td></tr>
+                                    <tr><td colspan="9" style="text-align:center;padding:var(--space-xl);"><div style="display:flex;justify-content:center;padding:16px;"><div class="pixel-loader-container"><span class="pixel-grid" aria-hidden="true"><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span></span><span class="pixel-loader-label">Loading league standings...</span></div></div></td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -669,7 +671,7 @@
                         </div>
                     </div>
 
-                    <!-- League Template & Captaincy Breakdown -->
+                    <!-- League Template, Captaincy & Chip Usage Breakdown -->
                     <div class="league-analytics-grid" style="display:grid;grid-template-columns:1fr 340px;gap:24px;margin-top:32px;">
                         <!-- Left: League Template Pitch -->
                         <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;padding:20px;display:flex;flex-direction:column;">
@@ -688,13 +690,26 @@
                             </div>
                         </div>
 
-                        <!-- Right: Captaincy Count Breakdown -->
-                        <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;padding:20px;display:flex;flex-direction:column;">
-                            <h3 style="font-family:var(--font-mono);font-size:16px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0 0 4px 0;">CAPTAIN PICK BREAKDOWN</h3>
-                            <p id="league-captaincy-desc" style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0 0 16px 0;">GW Captain distribution analyzed across league managers.</p>
+                        <!-- Right: Captaincy & Chip Usage Breakdown -->
+                        <div style="display:flex;flex-direction:column;gap:24px;">
+                            <!-- Captaincy Count Breakdown -->
+                            <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;padding:20px;display:flex;flex-direction:column;">
+                                <h3 style="font-family:var(--font-mono);font-size:16px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0 0 4px 0;">CAPTAIN PICK BREAKDOWN</h3>
+                                <p id="league-captaincy-desc" style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0 0 16px 0;">GW Captain distribution analyzed across league managers.</p>
 
-                            <div id="league-captaincy-container" style="display:flex;flex-direction:column;gap:8px;max-height:480px;overflow-y:auto;padding-right:4px;">
-                                <div style="text-align:center;padding:40px;color:var(--md-sys-color-on-surface-variant);"><span class="material-symbols-outlined" style="font-size:32px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Loading captain picks...</p></div>
+                                <div id="league-captaincy-container" style="display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto;padding-right:4px;">
+                                    <div style="text-align:center;padding:30px;color:var(--md-sys-color-on-surface-variant);"><span class="material-symbols-outlined" style="font-size:28px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Loading captain picks...</p></div>
+                                </div>
+                            </div>
+
+                            <!-- Chip Usage Breakdown -->
+                            <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;padding:20px;display:flex;flex-direction:column;">
+                                <h3 style="font-family:var(--font-mono);font-size:16px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0 0 4px 0;">CHIP USAGE BREAKDOWN</h3>
+                                <p id="league-chips-desc" style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0 0 16px 0;">Active GW chips count across analyzed managers.</p>
+
+                                <div id="league-chips-container" style="display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto;padding-right:4px;">
+                                    <div style="text-align:center;padding:30px;color:var(--md-sys-color-on-surface-variant);"><span class="material-symbols-outlined" style="font-size:28px;animation:spin 1s linear infinite;">sync</span><p style="margin-top:8px;">Loading chips count...</p></div>
+                                </div>
                             </div>
                         </div>
                     </div>
