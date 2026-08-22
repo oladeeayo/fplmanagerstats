@@ -3,7 +3,6 @@ const { sql } = require('./db');
 const { getCachedApiData, BOOTSTRAP_URL, BOOTSTRAP_CACHE_TTL, getGlobalPlayerHistory } = require('./cache');
 
 let isCollecting = false;
-let lastCollectedGW = null;
 
 async function collectAndStore(gwId) {
   if (isCollecting) {
@@ -76,7 +75,12 @@ async function collectAndStore(gwId) {
         const cbi = h.clearances_blocks_interceptions || 0;
         const tackles = h.tackles || 0;
         const totalDefActions = cbi + tackles + (h.recoveries || 0);
-        const isDefcon = defVal > 0 || totalDefActions >= 8 || (h.clean_sheets > 0 && [1, 2].includes(p.element_type));
+        const defconScore = defVal || totalDefActions;
+
+        // DEFCON thresholds by position: DEF/GKP >= 10, MID/FWD >= 12
+        const posType = p.element_type;
+        const defconThreshold = (posType === 1 || posType === 2) ? 10 : 12;
+        const isDefcon = defconScore >= defconThreshold;
 
         if (isDefcon) {
           defconGames += 1;
@@ -127,7 +131,6 @@ async function collectAndStore(gwId) {
       await sql`INSERT INTO player_advanced_stats (gameweek, players, total_players) VALUES (${gwId}, ${JSON.stringify(playersData)}, ${playersData.length}) ON CONFLICT (gameweek) DO UPDATE SET players = ${JSON.stringify(playersData)}, total_players = ${playersData.length}`;
     }
 
-    lastCollectedGW = gwId;
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     logger.info({ gwId, playerCount: playersData.length, elapsed }, 'Player advanced stats collection complete');
   } catch (err) {
@@ -142,22 +145,18 @@ async function checkAndCollect() {
     const bootstrap = await getCachedApiData(BOOTSTRAP_URL, BOOTSTRAP_CACHE_TTL);
     if (!bootstrap || !bootstrap.events) return;
 
-    const finishedGW = bootstrap.events.filter(e => e.finished).sort((a, b) => b.id - a.id)[0];
-    if (!finishedGW) return;
+    const finishedGWs = bootstrap.events.filter(e => e.finished).sort((a, b) => a.id - b.id);
 
-    const gwId = finishedGW.id;
-    if (lastCollectedGW === gwId) return;
+    if (!sql) return;
 
-    if (sql) {
-      const existing = await sql`SELECT id FROM player_advanced_stats WHERE gameweek = ${gwId} LIMIT 1`;
-      if (existing.length > 0) {
-        lastCollectedGW = gwId;
-        return;
-      }
+    const existing = await sql`SELECT gameweek FROM player_advanced_stats`;
+    const collectedGWs = new Set(existing.map(r => r.gameweek));
+
+    for (const gw of finishedGWs) {
+      if (collectedGWs.has(gw.id)) continue;
+      logger.info({ gwId: gw.id }, 'GW finished but no advanced stats in DB, triggering collection');
+      await collectAndStore(gw.id);
     }
-
-    logger.info({ gwId }, 'GW finished but no advanced stats in DB, triggering collection');
-    await collectAndStore(gwId);
   } catch (err) {
     logger.warn({ err }, 'Error checking for advanced stats collection');
   }
