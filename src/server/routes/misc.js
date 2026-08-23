@@ -1471,7 +1471,23 @@ if (!fs.existsSync(CAPTAIN_SNAPSHOT_DIR)) {
   }
 }
 
-function getOrSaveCaptainSnapshot(gw, rawModel) {
+async function getOrSaveCaptainSnapshot(gw, rawModel) {
+  // Try database first (works on Vercel serverless)
+  if (sql) {
+    try {
+      const rows = await sql`SELECT data FROM captain_snapshots WHERE gameweek = ${gw} LIMIT 1`;
+      if (rows.length > 0 && rows[0].data) {
+        const saved = typeof rows[0].data === 'string' ? JSON.parse(rows[0].data) : rows[0].data;
+        if (saved && saved.bestPick && Array.isArray(saved.topPicks) && saved.topPicks.length > 0) {
+          return saved;
+        }
+      }
+    } catch (e) {
+      logger.warn({ err: e }, 'Failed reading captain snapshot from DB');
+    }
+  }
+
+  // Fallback to filesystem (local dev)
   const filePath = path.join(CAPTAIN_SNAPSHOT_DIR, `gw_${gw}.json`);
   if (fs.existsSync(filePath)) {
     try {
@@ -1495,6 +1511,16 @@ function getOrSaveCaptainSnapshot(gw, rawModel) {
     topPicks: (rawModel.topPicks || []).map(p => JSON.parse(JSON.stringify(p)))
   };
 
+  // Save to database
+  if (sql) {
+    try {
+      await sql`INSERT INTO captain_snapshots (gameweek, data) VALUES (${gw}, ${JSON.stringify(snapshot)}) ON CONFLICT (gameweek) DO UPDATE SET data = ${JSON.stringify(snapshot)}`;
+    } catch (e) {
+      logger.warn({ err: e }, 'Failed saving captain snapshot to DB');
+    }
+  }
+
+  // Also save to filesystem (local dev fallback)
   try {
     fs.writeFileSync(filePath, JSON.stringify(snapshot, null, 2), 'utf8');
   } catch (e) {
@@ -3176,7 +3202,6 @@ router.get('/player-advanced', async (req, res) => {
     }
 
     const currentGW = bootstrap.events?.find(e => e.is_current)?.id || bootstrap.events?.find(e => e.is_next)?.id || 1;
-    const fixtures = await getCachedApiData(FIXTURES_URL, BOOTSTRAP_CACHE_TTL);
 
     // Read all previously collected GWs from DB
     let dbRows = [];
@@ -3188,13 +3213,12 @@ router.get('/player-advanced', async (req, res) => {
       }
     }
 
-    // Always refresh the current GW. Its live data changes during the GW, so an
-    // existing DB row may contain an earlier partial snapshot with zero counts.
+    // Always refresh the current GW from FPL-Core-Insights
     try {
-      const { computeAdvancedFromLive } = require('../playerAdvancedCollector');
-      const livePlayers = await computeAdvancedFromLive(bootstrap, fixtures, currentGW);
+      const { computeAdvancedFromInsights } = require('../playerAdvancedCollector');
+      const livePlayers = await computeAdvancedFromInsights(bootstrap, currentGW);
       if (livePlayers && livePlayers.length > 0) {
-        // Return the fresh live calculation even if persistence is unavailable.
+        // Return fresh data immediately
         dbRows = dbRows.filter(row => Number(row.gameweek) !== Number(currentGW));
         dbRows.push({ gameweek: currentGW, players: livePlayers });
 
@@ -3202,12 +3226,12 @@ router.get('/player-advanced', async (req, res) => {
           try {
             await sql`INSERT INTO player_advanced_stats (gameweek, players, total_players) VALUES (${currentGW}, ${JSON.stringify(livePlayers)}, ${livePlayers.length}) ON CONFLICT (gameweek) DO UPDATE SET players = ${JSON.stringify(livePlayers)}, total_players = ${livePlayers.length}`;
           } catch (dbError) {
-            logger.error({ err: dbError, currentGW, playerCount: livePlayers.length }, 'Failed to persist refreshed current GW advanced stats');
+            logger.error({ err: dbError, currentGW, playerCount: livePlayers.length }, 'Failed to persist current GW advanced stats');
           }
         }
       }
     } catch (e) {
-      logger.warn({ err: e, currentGW }, 'Failed to refresh current GW advanced stats from live endpoint');
+      logger.warn({ err: e, currentGW }, 'Failed to refresh current GW from FPL-Core-Insights');
     }
 
     if (dbRows.length > 0) {
@@ -3231,7 +3255,7 @@ router.post('/player-advanced/collect', async (req, res) => {
     const bootstrap = await getCachedApiData(BOOTSTRAP_URL, BOOTSTRAP_CACHE_TTL);
     const gwId = bootstrap?.events?.find(e => e.is_current)?.id || bootstrap?.events?.find(e => e.is_next)?.id || 1;
     await collectAndStore(gwId);
-    res.json({ ok: true, gwId });
+    res.json({ ok: true, gwId, source: 'FPL-Core-Insights' });
   } catch (e) {
     logger.error({ err: e }, 'Manual player advanced stats collection error');
     res.status(500).json({ error: 'Collection failed' });

@@ -146,7 +146,16 @@ async function initDatabase() {
       `.then(async () => {
         await sql`CREATE INDEX IF NOT EXISTS idx_pas_gameweek ON player_advanced_stats(gameweek)`;
         await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_pas_gameweek_unique ON player_advanced_stats(gameweek)`;
-      })
+      }),
+
+      sql`
+        CREATE TABLE IF NOT EXISTS captain_snapshots (
+          id SERIAL PRIMARY KEY,
+          gameweek INT UNIQUE NOT NULL,
+          data JSONB NOT NULL,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `
     ]);
 
     logger.info('Database initialized successfully');
