@@ -12,7 +12,9 @@ const FDR_MULTIPLIER = { 1: 1.18, 2: 1.08, 3: 1.0, 4: 0.90, 5: 0.80 };
 const ROLE_BOOSTS = { penalty: 0.5, setPiece: 0.3, captain: 0.2 };
 
 function getDecayFactor(currentGW) {
-  return Math.min(currentGW / 5, 1);
+  if (currentGW <= 5) return 0;
+  if (currentGW >= 10) return 1;
+  return (currentGW - 5) / 5;
 }
 
 // Enhanced models (imported lazily to avoid circular deps)
@@ -418,6 +420,27 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
 
   const officialProjection = useOfficialProjection ? number(player.ep_next) : 0;
   const roles = describeRole(player);
+
+  const allOpponentHistory = {};
+  if (historical?.opponents) {
+    for (const [, oppData] of Object.entries(historical.opponents)) {
+      for (const opp of oppData) {
+        const key = opp.opponentTeamId;
+        if (!allOpponentHistory[key]) {
+          allOpponentHistory[key] = { appearances: 0, points: 0, xGI: 0, bonus: 0, hauls: 0, homeAppearances: 0, awayAppearances: 0, homePoints: 0, awayPoints: 0 };
+        }
+        const e = allOpponentHistory[key];
+        e.appearances += opp.appearances;
+        e.points += opp.points;
+        e.xGI += opp.xGI;
+        e.bonus += opp.bonus;
+        e.hauls += opp.hauls;
+        if (opp.wasHome) { e.homeAppearances += opp.appearances; e.homePoints += opp.points; }
+        else { e.awayAppearances += opp.appearances; e.awayPoints += opp.points; }
+      }
+    }
+  }
+
   const fixtures = playerFixtures.map((fixture, fixtureIndex) => {
     const projection = projectFixture({
       player,
@@ -432,12 +455,31 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
       officialProjection,
       historical,
     });
-    const opponent = teamsById.get(projection.opponentId);
+
+    const opponentId = projection.opponentId;
+    const oppHist = allOpponentHistory[opponentId];
+    let opponentBoost = 0;
+    if (oppHist && oppHist.appearances >= 2) {
+      const oppPPG90 = oppHist.minutes > 0 ? (oppHist.points * 90 / oppHist.minutes) : 0;
+      const oppXGIPer90 = oppHist.minutes > 0 ? (oppHist.xGI * 90 / oppHist.minutes) : 0;
+      const oppHaulRate = oppHist.appearances > 0 ? oppHist.hauls / oppHist.appearances : 0;
+      const isHome = projection.venue === 'H';
+      const venuePPG90 = isHome && oppHist.homeAppearances > 0
+        ? oppHist.homePoints * 90 / (oppHist.homeAppearances * 90)
+        : !isHome && oppHist.awayAppearances > 0
+          ? oppHist.awayPoints * 90 / (oppHist.awayAppearances * 90)
+          : oppPPG90;
+      const sampleConfidence = Math.min(1, oppHist.appearances / 4);
+      opponentBoost = (venuePPG90 * 0.3 + oppXGIPer90 * 2 * 0.4 + oppHaulRate * 3 * 0.3) * sampleConfidence * (1 - decay);
+    }
+
     return {
       ...projection,
-      opponent: opponent?.short_name || '?',
-      opponentFull: opponent?.name || 'Opponent',
-      label: `${opponent?.short_name || '?'} (${projection.venue})`,
+      xPts: round(projection.xPts + opponentBoost),
+      opponent: teamsById.get(opponentId)?.short_name || '?',
+      opponentFull: teamsById.get(opponentId)?.name || 'Opponent',
+      label: `${teamsById.get(opponentId)?.short_name || '?'} (${projection.venue})`,
+      oppHistAppearances: oppHist?.appearances || 0,
     };
   });
 
