@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const logger = require('./logger');
-const { checkAndCollect, collectHistoricalStats } = require('./playerAdvancedCollector');
+const { checkAndCollect } = require('./playerAdvancedCollector');
 const { collectAllHistoricalStats } = require('./historicalCollector');
 
 const SNAPSHOT_DIR = path.join(__dirname, 'data');
