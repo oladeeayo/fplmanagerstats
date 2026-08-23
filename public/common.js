@@ -1846,22 +1846,22 @@ const FPL = {
 
                 if (displayLeagues.length > 0) {
                     top10Container.innerHTML = `
-                        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;">
-                            <div style="max-height:148px;overflow-y:auto;scrollbar-width:thin;">
+                        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;width:100%;">
+                            <div style="max-height:220px;overflow-y:auto;scrollbar-width:thin;">
                                 <table style="width:100%;border-collapse:collapse;text-align:left;font-size:13px;">
                                     <thead>
                                         <tr style="border-bottom:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:#8ba396;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">
-                                            <th style="padding:10px 14px;font-weight:600;">League</th>
-                                            <th style="padding:10px 14px;font-weight:600;text-align:center;">Type</th>
-                                            <th style="padding:10px 14px;font-weight:600;text-align:right;">Position</th>
+                                            <th style="padding:12px 16px;font-weight:600;">League</th>
+                                            <th style="padding:12px 16px;font-weight:600;text-align:center;">Type</th>
+                                            <th style="padding:12px 16px;font-weight:600;text-align:right;">Position</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         ${displayLeagues.map(l => `
                                             <tr style="border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='rgba(0,255,133,0.08)'" onmouseout="this.style.background='transparent'" onclick="FPL.switchLeague(${l.id})">
-                                                <td style="padding:10px 14px;font-weight:700;color:#ffffff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;">${this.escapeHTML(l.name)}</td>
-                                                <td style="padding:10px 14px;color:#8ba396;text-align:center;font-size:11px;">${l.type === 'private' ? 'Private' : 'Classic'}</td>
-                                                <td style="padding:10px 14px;text-align:right;font-family:var(--font-mono);font-weight:800;color:${l.rank <= 10 ? '#00FF85' : '#ffffff'};">#${l.rank}</td>
+                                                <td style="padding:12px 16px;font-weight:700;color:#ffffff;">${this.escapeHTML(l.name)}</td>
+                                                <td style="padding:12px 16px;color:#8ba396;text-align:center;font-size:11px;white-space:nowrap;">${l.type === 'private' ? 'Private' : 'Classic'}</td>
+                                                <td style="padding:12px 16px;text-align:right;font-family:var(--font-mono);font-weight:800;color:${l.rank <= 10 ? '#00FF85' : '#ffffff'};white-space:nowrap;">#${l.rank}</td>
                                             </tr>
                                         `).join('')}
                                     </tbody>
