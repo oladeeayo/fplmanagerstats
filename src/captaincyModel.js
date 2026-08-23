@@ -317,9 +317,13 @@ function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form
 
   const historicAverageMinutes = clamp(number(player.minutes) / Math.max(number(player.total_points) / Math.max(ppg, 0.1), 1), 45, 90);
   const roleMinutesRatio = clamp(fixtureXmins / historicAverageMinutes, 0, 1.2);
-  const formProjection = form * roleMinutesRatio * formModifier;
-  const ppgProjection = ppg * roleMinutesRatio * formModifier;
-  let projectedPoints = (eventProjection * 0.68) + (formProjection * 0.2) + (ppgProjection * 0.12);
+  
+  // Form & PPG act as a calibrated scaling modifier (0.88x to 1.12x) on the event projection
+  const playerBasePPG = ppg > 0 ? ppg : (POSITION_BENCHMARKS[position] || 4.5);
+  const formDeltaRatio = form > 0 ? (form / playerBasePPG) : 1.0;
+  const formModifierScaled = Math.max(0.88, Math.min(1.12, formDeltaRatio * roleMinutesRatio * formModifier));
+  
+  let projectedPoints = eventProjection * formModifierScaled;
 
   if (officialProjection > 0 && fixtureIndex === 0) {
     const preseason = number(player.minutes) === 0 && number(player.total_points) === 0;
@@ -393,7 +397,7 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
     effectivePPG = ppg > 0 ? ppg : posBenchmark;
   }
 
-  const playingTimeFactor = cs ? Math.min(1.2, 0.8 + (cs.minutesReliability || 0.7) * 0.4) : 0.9;
+  const playingTimeFactor = cs ? Math.min(1.0, 0.85 + (cs.minutesReliability || 0.7) * 0.15) : 0.92;
 
   const eliteBonus = hasFullHistory ? (consistency * 0.4 + histHaulRate * 3 + Math.min(histXGI90, 1.0) * 0.8) : 0;
 
@@ -462,30 +466,18 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
 
     const opponentId = projection.opponentId;
     const oppHist = allOpponentHistory[opponentId] || historical?.opponentsCombined?.[opponentId] || null;
-    let opponentBoost = 0;
+    let opponentMultiplier = 1.0;
     if (oppHist && oppHist.appearances >= 1) {
       const oppPPG90 = oppHist.minutes > 0 ? (oppHist.points * 90 / oppHist.minutes) : (oppHist.points / oppHist.appearances);
-      const oppXGIPer90 = oppHist.minutes > 0 ? (oppHist.xGI * 90 / oppHist.minutes) : 0;
-      const oppHaulRate = oppHist.appearances > 0 ? oppHist.hauls / oppHist.appearances : 0;
-      const isHome = projection.venue === 'H';
-      const venuePPG90 = isHome && oppHist.homeAppearances > 0
-        ? oppHist.homePoints * 90 / Math.max(oppHist.homeAppearances * 90, 1)
-        : !isHome && oppHist.awayAppearances > 0
-          ? oppHist.awayPoints * 90 / Math.max(oppHist.awayAppearances * 90, 1)
-          : oppPPG90;
-      const sampleConfidence = Math.min(1.2, oppHist.appearances / 3);
-
-      // Paramount consideration for historical performance in equivalent fixtures against upcoming opponent
-      if (oppPPG90 >= 5.5 || oppXGIPer90 >= 0.4 || oppHaulRate >= 0.25) {
-        opponentBoost = (venuePPG90 * 0.4 + oppXGIPer90 * 2.5 * 0.35 + oppHaulRate * 4 * 0.25) * sampleConfidence;
-      } else if (oppPPG90 < 3.5 && oppHist.appearances >= 2) {
-        opponentBoost = -(4.0 - oppPPG90) * 0.3 * sampleConfidence;
-      }
+      const sampleConfidence = Math.min(1.0, oppHist.appearances / 3);
+      // Calibrated H2H adjustment: -10% to +10% scaling based on historical record vs opponent
+      const h2hDelta = (oppPPG90 - 4.5) * 0.025;
+      opponentMultiplier = 1.0 + clamp(h2hDelta, -0.10, 0.10) * sampleConfidence;
     }
 
     return {
       ...projection,
-      xPts: round(projection.xPts + opponentBoost),
+      xPts: round(projection.xPts * opponentMultiplier),
       opponent: teamsById.get(opponentId)?.short_name || '?',
       opponentFull: teamsById.get(opponentId)?.name || 'Opponent',
       label: `${teamsById.get(opponentId)?.short_name || '?'} (${projection.venue})`,
@@ -501,14 +493,14 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
   const hasSustainedExcellence = gamesPlayedThisSeason >= 9 && (effectiveForm >= 6.5 || ppg >= 6.0);
 
   // Captaincy Elite Weighting:
-  // Top 20 Captaincy Elite receive 1.15x boost above others
+  // Top 20 Captaincy Elite receive 1.06x boost above others
   // Historical Elite receive 1.0x baseline
-  // Non-elite candidates without 9-10 GWs sustained form receive 0.78x penalty
+  // Non-elite candidates without 9-10 GWs sustained form receive 0.85x penalty
   let elitePoolFactor = 1.0;
   if (isTop20CaptaincyElite) {
-    elitePoolFactor = 1.15;
+    elitePoolFactor = 1.06;
   } else if (!isHistoricalElite && !hasSustainedExcellence) {
-    elitePoolFactor = 0.78;
+    elitePoolFactor = 0.85;
   }
 
   const totalXptsRaw = fixtures.reduce((sum, fixture) => sum + fixture.xPts, 0);
