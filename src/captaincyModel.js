@@ -11,9 +11,11 @@ const PRESEASON_POSITION_PRIOR = { GKP: 3.4, DEF: 3.25, MID: 3.45, FWD: 3.35 };
 let opponentModel = null;
 let bookingRiskModel = null;
 let priceModel = null;
+let fplInsightsData = null;
 function getOpponentModel() { return opponentModel || (opponentModel = require('./server/opponentModel')); }
 function getBookingRiskModel() { return bookingRiskModel || (bookingRiskModel = require('./server/bookingRiskModel')); }
 function getPriceModel() { return priceModel || (priceModel = require('./server/priceModel')); }
+function getFplInsightsData() { return fplInsightsData || (fplInsightsData = require('./server/fplInsightsData')); }
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -267,7 +269,9 @@ function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form
   const goalPoints = xG90 * minuteShare * attackModifier * GOAL_POINTS[position];
   const assistPoints = xA90 * minuteShare * attackModifier * 3;
   const cleanSheetPoints = CLEAN_SHEET_POINTS[position] * csProb * sixtyMinuteProbability;
-  const bonusPer90 = number(player.bonus) * 90 / Math.max(number(player.minutes), 900);
+  const bonusPer90 = historical?.prevSeason?.bonusPer90 > 0 && number(player.minutes) < 500
+    ? (number(player.bonus) * 90 / Math.max(number(player.minutes), 900)) * 0.6 + historical.prevSeason.bonusPer90 * 0.4
+    : number(player.bonus) * 90 / Math.max(number(player.minutes), 900);
   const bonusPoints = clamp(bonusPer90, 0, 1.25) * minuteShare * (0.9 + (attackModifier * 0.1));
   const setPiecePoints = (
     (number(player.penalties_order) === 1 ? 0.12 : 0) +
@@ -334,7 +338,7 @@ function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form
   };
 }
 
-function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, baselines, useNextRoundChance, useOfficialProjection, teamExperience, teamPositionCosts }) {
+function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, baselines, useNextRoundChance, useOfficialProjection, teamExperience, teamPositionCosts, historicalData }) {
   const availability = availabilityFor(player, useNextRoundChance);
   const xMins = estimateExpectedMinutes(player, referenceMatches, availability, { teamExperience, position: POSITION_MAP[player.element_type - 1] });
   if (!playerFixtures.length || xMins < 20) return null;
@@ -347,8 +351,16 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
   const form = number(player.form);
   const ppg = number(player.points_per_game);
   const effectiveForm = form > 0 ? form : ppg;
-  const xG90 = shrunkRate(player, 'expected_goals_per_90', baselines[player.element_type].xG90);
-  const xA90 = shrunkRate(player, 'expected_assists_per_90', baselines[player.element_type].xA90);
+  let xG90 = shrunkRate(player, 'expected_goals_per_90', baselines[player.element_type].xG90);
+  let xA90 = shrunkRate(player, 'expected_assists_per_90', baselines[player.element_type].xA90);
+
+  const historical = historicalData?.get(player.id) || null;
+  if (historical?.prevSeason?.minutes > 1000 && number(player.minutes) < 500) {
+    const histWeight = 0.3;
+    xG90 = xG90 * (1 - histWeight) + (historical.prevSeason.goalsPer90 || 0) * histWeight;
+    xA90 = xA90 * (1 - histWeight) + (historical.prevSeason.assistsPer90 || 0) * histWeight;
+  }
+
   const officialProjection = useOfficialProjection ? number(player.ep_next) : 0;
   const roles = describeRole(player);
   const fixtures = playerFixtures.map((fixture, fixtureIndex) => {
@@ -392,6 +404,13 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
       : `${number(player.clean_sheets)} clean sheets`;
   const confidence = xMins >= 78 && availability === 1 ? 'High' : xMins >= 60 && availability >= 0.75 ? 'Medium' : 'Managed risk';
 
+  const histData = historicalData?.get(player.id) || null;
+  const consistencyScore = histData?.consistencyScore ?? 0;
+  const improvementRatio = histData?.improvementRatio ?? 1;
+  const minutesReliability = histData?.minutesReliability ?? 0;
+  const prevSeasonXGI90 = histData?.prevSeason?.xGIPer90 ?? 0;
+  const hasMultiSeasonData = !!(histData?.prevSeason?.minutes > 0 && histData?.currentSeason?.minutes > 0);
+
   return {
     id: player.id,
     name: player.web_name,
@@ -422,7 +441,12 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
     fixtures,
     fixtureSummary,
     upside,
-    reason: `${fixtureDetail}. ${totalXmins} xMins, ${profileText} and ${formText} produce ${totalXpts.toFixed(1)} xPts.${roleText}`,
+    consistencyScore: round(consistencyScore, 2),
+    improvementRatio: round(improvementRatio, 2),
+    minutesReliability: round(minutesReliability, 2),
+    prevSeasonXGI90: round(prevSeasonXGI90, 2),
+    hasMultiSeasonData,
+    reason: `${fixtureDetail}. ${totalXmins} xMins, ${profileText} and ${formText} produce ${totalXpts.toFixed(1)} xPts.${roleText}${hasMultiSeasonData ? ` Multi-season consistency: ${round(consistencyScore * 100)}%.` : ''}`,
   };
 }
 
@@ -445,7 +469,7 @@ function buildPickExplanation(pick, bestPick, isDifferential) {
   return `${pick.name} leads the model at ${pick.xPts.toFixed(1)} xPts. ${fixtureText}. ${pick.xMins} xMins limits appearance risk, while ${profile} and a ${pick.formUsed.toFixed(1)} ${pick.formSource} rating provide the strongest overall points profile.${roleText}`;
 }
 
-function buildCaptaincyModel({ bootstrap, fixtures, selectedGW }) {
+async function buildCaptaincyModel({ bootstrap, fixtures, selectedGW }) {
   const events = bootstrap.events || [];
   const elements = bootstrap.elements || [];
   const teams = bootstrap.teams || [];
@@ -478,6 +502,14 @@ function buildCaptaincyModel({ bootstrap, fixtures, selectedGW }) {
   const teamExperience = buildTeamExperience(elements);
   const teamPositionCosts = buildTeamPositionCosts(elements);
 
+  let historicalData = null;
+  try {
+    const insights = getFplInsightsData();
+    if (insights.getHistoricalPlayerStats) {
+      historicalData = await insights.getHistoricalPlayerStats();
+    }
+  } catch { /* ignore */ }
+
   const candidates = elements
     .filter(player => fixturesByTeam.has(player.team) && player.special !== true)
     .map(player => buildCandidate({
@@ -492,9 +524,15 @@ function buildCaptaincyModel({ bootstrap, fixtures, selectedGW }) {
       useOfficialProjection,
       teamExperience,
       teamPositionCosts,
+      historicalData,
     }))
     .filter(Boolean)
-    .sort((a, b) => b.xPts - a.xPts || b.upside - a.upside || b.xMins - a.xMins);
+    .sort((a, b) => {
+      const aWeighted = a.xPts * (1 + (a.consistencyScore - 0.5) * 0.15);
+      const bWeighted = b.xPts * (1 + (b.consistencyScore - 0.5) * 0.15);
+      if (Math.abs(aWeighted - bWeighted) > 0.3) return bWeighted - aWeighted;
+      return b.xPts - a.xPts || b.upside - a.upside || b.xMins - a.xMins;
+    });
 
   const bestPick = candidates[0] || null;
   const topPicks = candidates.slice(0, 5).map((candidate, index) => ({ ...candidate, rank: index + 1 }));
@@ -539,7 +577,7 @@ function buildCaptaincyModel({ bootstrap, fixtures, selectedGW }) {
   };
 }
 
-function buildPlayerProjections({ bootstrap, fixtures, startGW, horizon = 5 }) {
+async function buildPlayerProjections({ bootstrap, fixtures, startGW, horizon = 5 }) {
   const events = bootstrap.events || [];
   const elements = bootstrap.elements || [];
   const teams = bootstrap.teams || [];
@@ -559,6 +597,14 @@ function buildPlayerProjections({ bootstrap, fixtures, startGW, horizon = 5 }) {
   const teamExperience = buildTeamExperience(elements);
   const teamPositionCosts = buildTeamPositionCosts(elements);
 
+  let historicalData = null;
+  try {
+    const insights = getFplInsightsData();
+    if (insights.getHistoricalPlayerStats) {
+      historicalData = await insights.getHistoricalPlayerStats();
+    }
+  } catch { /* ignore */ }
+
   const projections = elements.map(player => {
     const buildForGameweek = gameweek => {
       const playerFixtures = fixtures
@@ -577,6 +623,7 @@ function buildPlayerProjections({ bootstrap, fixtures, startGW, horizon = 5 }) {
         useOfficialProjection: gameweek === nextGW,
         teamExperience,
         teamPositionCosts,
+        historicalData,
       });
     };
     const candidates = gameweeks.map(buildForGameweek);

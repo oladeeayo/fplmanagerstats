@@ -64,7 +64,7 @@ const bootstrap = {
   ],
 };
 
-const result = buildCaptaincyModel({ bootstrap, fixtures, selectedGW: 10 });
+const result = await buildCaptaincyModel({ bootstrap, fixtures, selectedGW: 10 });
 assert.equal(result.gameweek, 10);
 assert.equal(result.topPicks.length, 4);
 assert.equal(result.bestPick.name, 'Favourite', 'home FDR 1 should outrank the same profile away at FDR 5');
@@ -78,7 +78,7 @@ const doubtfulMinutes = estimateExpectedMinutes(player({ status: 'd' }), 38, 0.7
 const availableMinutes = estimateExpectedMinutes(player(), 38, 1);
 assert.ok(doubtfulMinutes < availableMinutes, 'availability must reduce expected minutes');
 
-const blank = buildCaptaincyModel({ bootstrap, fixtures, selectedGW: 11 });
+const blank = await buildCaptaincyModel({ bootstrap, fixtures, selectedGW: 11 });
 assert.equal(blank.bestPick, null);
 assert.deepEqual(blank.topPicks, []);
 

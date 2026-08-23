@@ -13,9 +13,11 @@ function normalizeStrategy(value) {
 }
 
 function adjustedScore(player, strategy) {
-  if (strategy === 'protect') return player.totalXpts + Math.min(player.ownership, 50) * 0.025 + player.availability * 0.006;
-  if (strategy === 'chase') return player.totalXpts + (100 - Math.min(player.ownership, 80)) * 0.018 + (player.range.high - player.totalXpts) * 0.22;
-  return player.totalXpts + player.xPtsPerMillion * 0.04;
+  const consistencyBoost = (player.consistencyScore || 0) * 2;
+  const improvementBoost = (player.improvementRatio || 1) > 1 ? (player.improvementRatio - 1) * 5 : 0;
+  if (strategy === 'protect') return player.totalXpts + Math.min(player.ownership, 50) * 0.025 + player.availability * 0.006 + consistencyBoost;
+  if (strategy === 'chase') return player.totalXpts + (100 - Math.min(player.ownership, 80)) * 0.018 + (player.range.high - player.totalXpts) * 0.22 + improvementBoost;
+  return player.totalXpts + player.xPtsPerMillion * 0.04 + consistencyBoost * 0.5;
 }
 
 function validSquad(players) {
@@ -70,7 +72,7 @@ function buildTransferPlans({ squad, allPlayers, bank, freeTransfers, strategy }
           bankAfter: round(bank + (outgoing.sellingPrice ?? outgoing.cost) - incoming.cost),
           breakEvenProbability: Math.round(Math.max(8, Math.min(92, 50 + netGain * 5 - (100 - incoming.availability) * 0.22))),
           risk: incoming.confidence === 'High' ? 'Low' : incoming.availability < 75 ? 'High' : 'Medium',
-          rationale: `${incoming.name} adds ${netGain.toFixed(1)} hit-adjusted xPts over ${outgoing.name} across the next ${incoming.weekly.length} gameweeks.`,
+          rationale: `${incoming.name} adds ${netGain.toFixed(1)} hit-adjusted xPts over ${outgoing.name} across the next ${incoming.weekly.length} gameweeks.${incoming.hasMultiSeasonData ? ` Multi-season consistency: ${Math.round((incoming.consistencyScore || 0) * 100)}%.` : ''}${incoming.improvementRatio > 1 ? ` ${Math.round((incoming.improvementRatio - 1) * 100)}% xGI improvement vs last season.` : ''}`,
         });
       });
   }
@@ -233,9 +235,9 @@ function buildLiveAnalysis(picks, liveData, projectionMap, manager) {
   };
 }
 
-function buildDecisionCentre({ bootstrap, fixtures, manager, picks, history, rivals = [], liveData = null, options = {} }) {
+async function buildDecisionCentre({ bootstrap, fixtures, manager, picks, history, rivals = [], liveData = null, options = {} }) {
   const strategy = normalizeStrategy(options.strategy);
-  const projectionData = buildPlayerProjections({ bootstrap, fixtures, startGW: options.targetGW, horizon: options.horizon });
+  const projectionData = await buildPlayerProjections({ bootstrap, fixtures, startGW: options.targetGW, horizon: options.horizon });
   const projectionMap = new Map(projectionData.projections.map(player => [player.id, player]));
   const squad = picks.picks.map(pick => ({ ...projectionMap.get(pick.element), pickPosition: pick.position, purchasePrice: pick.purchase_price ? pick.purchase_price / 10 : null, sellingPrice: pick.selling_price ? pick.selling_price / 10 : null })).filter(player => player.id);
   const bank = Number.isFinite(Number(options.bank)) ? Number(options.bank) : Number(picks.entry_history?.bank || 0) / 10;

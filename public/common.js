@@ -2227,7 +2227,7 @@ const FPL = {
         const descEl = document.getElementById('adv-subview-desc-text');
         if (descEl) {
             descEl.textContent = tab === 'defcon'
-                ? 'Players who recorded a defensive contribution in a match - price, total points, and number of DEFCON games.'
+                ? 'Players who hit their DEFCON threshold - total defensive contribution points, matches with DEFCON, and opponent fixtures.'
                 : tab === 'haul'
                 ? 'Players who scored 10+ points in a single gameweek - price, total points, and number of double-digit hauls.'
                 : 'Players who earned bonus points - breakdown of 3-bonus, 2-bonus, and 1-bonus game counts with total bonus points.';
@@ -2289,7 +2289,7 @@ const FPL = {
             return true;
         });
 
-        const sortKey = this.state.advSortKey || (activeTab === 'defcon' ? 'defconGames' : activeTab === 'haul' ? 'haulGames' : 'totalBonus');
+        const sortKey = this.state.advSortKey || (activeTab === 'defcon' ? 'totalDefcon' : activeTab === 'haul' ? 'haulGames' : 'totalBonus');
         const sortDir = this.state.advSortDir || -1;
 
         filtered.sort((a, b) => {
@@ -2309,7 +2309,8 @@ const FPL = {
             headerRow.innerHTML = `
                 <th style="background:rgba(255,255,255,0.03);min-width:110px;position:sticky;left:0;z-index:2;">Player</th>
                 ${sortIcon('totalPoints', 'Pts')}
-                ${sortIcon('defconGames', 'DEFCON')}
+                ${sortIcon('totalDefcon', 'Total DEFCON')}
+                ${sortIcon('defconGames', 'Matches')}
             `;
         } else if (activeTab === 'haul') {
             headerRow.innerHTML = `
@@ -2329,7 +2330,7 @@ const FPL = {
         }
 
         if (filtered.length === 0) {
-            const colCount = activeTab === 'bonus' ? 6 : 3;
+            const colCount = activeTab === 'bonus' ? 6 : activeTab === 'defcon' ? 4 : 3;
             tbody.innerHTML = `<tr><td colspan="${colCount}" style="text-align:center;padding:32px;color:#8ba396;">No players match the criteria.</td></tr>`;
             return;
         }
@@ -2342,7 +2343,10 @@ const FPL = {
 
             let tabSpecificCells = '';
             if (activeTab === 'defcon') {
-                tabSpecificCells = `<td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#00FF85;">${Number(p.defconGames) || 0}</td>`;
+                tabSpecificCells = `
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#00FF85;">${Number(p.totalDefcon) || 0}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#00FF85;">${Number(p.defconGames) || 0}</td>
+                `;
             } else if (activeTab === 'haul') {
                 tabSpecificCells = `<td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#38bdf8;">${Number(p.haulGames) || 0}</td>`;
             } else if (activeTab === 'bonus') {

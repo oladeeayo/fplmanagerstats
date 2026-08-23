@@ -1,6 +1,6 @@
 const logger = require('./logger');
 const { sql } = require('./db');
-const { getSeasonData, getAllFinishedGWStats, parseNum, getSeasonLabel } = require('./fplInsightsData');
+const { getSeasonData, getGameweekPlayerStatsWithOpponents, getAllFinishedGWStats, parseNum, getSeasonLabel } = require('./fplInsightsData');
 const { getCachedApiData, BOOTSTRAP_URL, BOOTSTRAP_CACHE_TTL } = require('./cache');
 
 const activeCollections = new Set();
@@ -14,10 +14,10 @@ async function collectAndStore(gwId) {
   try {
     const [seasonData, gwStats] = await Promise.all([
       getSeasonData(),
-      getAllFinishedGWStats([gwId])
+      getGameweekPlayerStatsWithOpponents(gwId)
     ]);
 
-    const gwPlayers = gwStats.get(gwId);
+    const gwPlayers = gwStats;
     if (!gwPlayers || gwPlayers.length === 0) {
       logger.warn({ gwId }, 'No gameweek data available from FPL-Core-Insights');
       return;
@@ -43,22 +43,34 @@ async function collectAndStore(gwId) {
       const isDefcon = stat.defensiveContribution >= defconThreshold;
       const isHaul = stat.totalPoints >= 10;
 
-      const oppShort = 'TBD';
-      const vsStr = 'TBD';
-      const scoreStr = '-';
+      const playerTeamId = bs.team;
+      const opp = stat.opponent;
+      let oppShort = 'TBD';
+      let vsStr = 'TBD';
+      let scoreStr = '-';
+      let wasHome = null;
+
+      if (opp) {
+        wasHome = opp.homeTeamId === playerTeamId;
+        oppShort = wasHome ? opp.awayShort : opp.homeShort;
+        const homeShort = opp.homeShort;
+        const awayShort = opp.awayShort;
+        vsStr = wasHome ? `vs ${oppShort}` : `@ ${oppShort}`;
+        scoreStr = `${opp.teamGoalsConceded === 0 ? 'CS' : ''}`;
+      }
 
       const defconMatches = [];
       const haulMatches = [];
       const bonusMatches = [];
 
       if (isDefcon) {
-        defconMatches.push({ gw: gwId, opponent: oppShort, vs: vsStr, wasHome: null, score: scoreStr, minutes: stat.minutes, defconVal: stat.defensiveContribution, cleanSheets: stat.cleanSheets, points: stat.totalPoints });
+        defconMatches.push({ gw: gwId, opponent: oppShort, vs: vsStr, wasHome, score: scoreStr, minutes: stat.minutes, defconVal: stat.defensiveContribution, cleanSheets: stat.cleanSheets, points: stat.totalPoints });
       }
       if (isHaul) {
-        haulMatches.push({ gw: gwId, opponent: oppShort, vs: vsStr, wasHome: null, score: scoreStr, minutes: stat.minutes, goals: stat.goalsScored, assists: stat.assists, bonus: stat.bonus, bps: stat.bps, points: stat.totalPoints });
+        haulMatches.push({ gw: gwId, opponent: oppShort, vs: vsStr, wasHome, score: scoreStr, minutes: stat.minutes, goals: stat.goalsScored, assists: stat.assists, bonus: stat.bonus, bps: stat.bps, points: stat.totalPoints });
       }
       if (stat.bonus > 0) {
-        bonusMatches.push({ gw: gwId, opponent: oppShort, vs: vsStr, wasHome: null, score: scoreStr, minutes: stat.minutes, bonus: stat.bonus, bps: stat.bps, points: stat.totalPoints });
+        bonusMatches.push({ gw: gwId, opponent: oppShort, vs: vsStr, wasHome, score: scoreStr, minutes: stat.minutes, bonus: stat.bonus, bps: stat.bps, points: stat.totalPoints });
       }
 
       playersData.push({
@@ -120,8 +132,7 @@ async function checkAndCollect() {
 }
 
 async function computeAdvancedFromInsights(bootstrap, gwId) {
-  const gwStats = await getAllFinishedGWStats([gwId]);
-  const gwPlayers = gwStats.get(gwId);
+  const gwPlayers = await getGameweekPlayerStatsWithOpponents(gwId);
   if (!gwPlayers || gwPlayers.length === 0) return null;
 
   const bsPlayerMap = new Map();
@@ -139,6 +150,20 @@ async function computeAdvancedFromInsights(bootstrap, gwId) {
     const isDefcon = stat.defensiveContribution >= defconThreshold;
     const isHaul = stat.totalPoints >= 10;
 
+    const playerTeamId = bs.team;
+    const opp = stat.opponent;
+    let oppShort = 'TBD';
+    let vsStr = 'TBD';
+    let scoreStr = '-';
+    let wasHome = null;
+
+    if (opp) {
+      wasHome = opp.homeTeamId === playerTeamId;
+      oppShort = wasHome ? opp.awayShort : opp.homeShort;
+      vsStr = wasHome ? `vs ${oppShort}` : `@ ${oppShort}`;
+      scoreStr = `${opp.teamGoalsConceded === 0 ? 'CS' : ''}`;
+    }
+
     return {
       id: bs.id, code: bs.code, name: bs.web_name,
       fullName: `${bs.first_name} ${bs.second_name}`,
@@ -148,14 +173,14 @@ async function computeAdvancedFromInsights(bootstrap, gwId) {
       totalPoints: bs.total_points || 0, minutes: bs.minutes || 0,
       gwPoints: stat.totalPoints,
       defconGames: isDefcon ? 1 : 0,
-      defconMatches: isDefcon ? [{ gw: gwId, opponent: 'TBD', vs: 'TBD', wasHome: null, score: '-', minutes: stat.minutes, defconVal: stat.defensiveContribution, cleanSheets: stat.cleanSheets, points: stat.totalPoints }] : [],
+      defconMatches: isDefcon ? [{ gw: gwId, opponent: oppShort, vs: vsStr, wasHome, score: scoreStr, minutes: stat.minutes, defconVal: stat.defensiveContribution, cleanSheets: stat.cleanSheets, points: stat.totalPoints }] : [],
       haulGames: isHaul ? 1 : 0,
-      haulMatches: isHaul ? [{ gw: gwId, opponent: 'TBD', vs: 'TBD', wasHome: null, score: '-', minutes: stat.minutes, goals: stat.goalsScored, assists: stat.assists, bonus: stat.bonus, bps: stat.bps, points: stat.totalPoints }] : [],
+      haulMatches: isHaul ? [{ gw: gwId, opponent: oppShort, vs: vsStr, wasHome, score: scoreStr, minutes: stat.minutes, goals: stat.goalsScored, assists: stat.assists, bonus: stat.bonus, bps: stat.bps, points: stat.totalPoints }] : [],
       bonus3Games: stat.bonus === 3 ? 1 : 0,
       bonus2Games: stat.bonus === 2 ? 1 : 0,
       bonus1Games: stat.bonus === 1 ? 1 : 0,
       totalBonus: stat.bonus || 0,
-      bonusMatches: stat.bonus > 0 ? [{ gw: gwId, opponent: 'TBD', vs: 'TBD', wasHome: null, score: '-', minutes: stat.minutes, bonus: stat.bonus, bps: stat.bps, points: stat.totalPoints }] : [],
+      bonusMatches: stat.bonus > 0 ? [{ gw: gwId, opponent: oppShort, vs: vsStr, wasHome, score: scoreStr, minutes: stat.minutes, bonus: stat.bonus, bps: stat.bps, points: stat.totalPoints }] : [],
       expectedGoals: stat.expectedGoals, expectedAssists: stat.expectedAssists,
       defensiveContribution: stat.defensiveContribution,
       xGI: stat.expectedGoalInvolvements

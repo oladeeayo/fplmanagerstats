@@ -183,7 +183,7 @@ router.post('/', heavyEndpointLimiter, async (req, res) => {
     }
 
     // Build full player projections across the horizon
-    const projectionData = buildPlayerProjections({ bootstrap, fixtures, startGW: nextGW, horizon });
+    const projectionData = await buildPlayerProjections({ bootstrap, fixtures, startGW: nextGW, horizon });
     const allPlayers = projectionData.projections;
 
     // Enrich with bootstrap data

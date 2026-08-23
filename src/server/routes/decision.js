@@ -298,7 +298,7 @@ router.post('/v1/decision-centre', heavyEndpointLimiter, async (req, res) => {
       return { id, name: `${entry.player_first_name} ${entry.player_last_name}`.trim(), teamName: entry.name, rank: entry.summary_overall_rank, picks: rivalPicks.picks };
     }))).filter(Boolean);
 
-    res.json(buildDecisionCentre({ bootstrap, fixtures, manager: { ...manager, id: managerId }, picks, history, rivals, liveData, options: { ...req.body, targetGW: req.body?.targetGW || nextGW, horizon } }));
+    res.json(await buildDecisionCentre({ bootstrap, fixtures, manager: { ...manager, id: managerId }, picks, history, rivals, liveData, options: { ...req.body, targetGW: req.body?.targetGW || nextGW, horizon } }));
   } catch (error) {
     logger.error({ err: error }, 'Decision centre error');
     const status = error.response?.status === 404 ? 404 : 500;
@@ -354,7 +354,7 @@ router.post('/optimal-squad', heavyEndpointLimiter, async (req, res) => {
       templateStyle: req.body.templateStyle || 'balanced',
       horizon: req.body.horizon || 5,
     };
-    const projections = buildPlayerProjections({ bootstrap, fixtures, startGW: options.startGW, horizon: options.horizon });
+    const projections = await buildPlayerProjections({ bootstrap, fixtures, startGW: options.startGW, horizon: options.horizon });
     const result = buildOptimalSquad(projections.projections, options);
     res.json({
       meta: { modelVersion: 'Squad Optimizer 2.0', generatedAt: new Date().toISOString() },
@@ -377,7 +377,7 @@ router.post('/optimize-transfers', heavyEndpointLimiter, async (req, res) => {
       getCachedApiData(BOOTSTRAP_URL),
       getCachedApiData(FIXTURES_URL),
     ]);
-    const projections = buildPlayerProjections({ bootstrap, fixtures, horizon: horizon || 5 });
+    const projections = await buildPlayerProjections({ bootstrap, fixtures, horizon: horizon || 5 });
     const projectionMap = new Map(projections.projections.map(p => [p.id, p]));
     const squad = playerIds.map(id => projectionMap.get(id)).filter(Boolean);
     if (squad.length < 15) return res.status(400).json({ error: 'Some player IDs could not be found' });

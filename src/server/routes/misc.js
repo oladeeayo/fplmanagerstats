@@ -1537,7 +1537,7 @@ router.get('/captain-picks', async (req, res) => {
       getCachedApiData(BOOTSTRAP_URL),
       getCachedApiData(FIXTURES_URL)
     ]);
-    const rawModel = buildCaptaincyModel({ bootstrap, fixtures, selectedGW: req.query.gw });
+    const rawModel = await buildCaptaincyModel({ bootstrap, fixtures, selectedGW: req.query.gw });
     const gw = rawModel.gameweek;
 
     const snapshot = getOrSaveCaptainSnapshot(gw, rawModel);
@@ -2819,7 +2819,7 @@ router.get('/xpts-projections', async (req, res) => {
 
     // Route through the shared captaincy projection engine so the team builder uses
     // the same starter-aware xPts model as the decision centre and AI team.
-    const projectionData = buildPlayerProjections({ bootstrap: bs, fixtures, startGW: currentGW, horizon: 8 });
+    const projectionData = await buildPlayerProjections({ bootstrap: bs, fixtures, startGW: currentGW, horizon: 8 });
     const projections = projectionData.projections.map(p => {
       const raw = elements.find(element => element.id === p.id) || {};
       const nextFixtures = p.weekly.map(week => {
@@ -3170,6 +3170,7 @@ function mergeAdvancedGWs(dbRows, bootstrap) {
           cost: (bs?.now_cost || 0) / 10, priceStr: `\u00a3${((bs?.now_cost || 0) / 10).toFixed(1)}m`,
           totalPoints: bs?.total_points || 0, minutes: bs?.minutes || 0,
           defconGames, defconMatches: [...(gp.defconMatches || [])],
+          totalDefcon: (gp.defconMatches || []).reduce((s, m) => s + (Number(m.defconVal) || 0), 0),
           haulGames, haulMatches: [...(gp.haulMatches || [])],
           bonus3Games, bonus2Games, bonus1Games,
           totalBonus: bs?.bonus || 0, bonusMatches: [...(gp.bonusMatches || [])]
@@ -3177,6 +3178,7 @@ function mergeAdvancedGWs(dbRows, bootstrap) {
       } else {
         existing.defconGames += defconGames;
         existing.defconMatches.push(...(gp.defconMatches || []));
+        existing.totalDefcon += (gp.defconMatches || []).reduce((s, m) => s + (Number(m.defconVal) || 0), 0);
         existing.haulGames += haulGames;
         existing.haulMatches.push(...(gp.haulMatches || []));
         existing.bonus3Games += bonus3Games;

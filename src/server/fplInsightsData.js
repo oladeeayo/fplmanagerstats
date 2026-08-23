@@ -7,6 +7,11 @@ let cachedSeason = null;
 let lastFetch = 0;
 const CACHE_TTL = 4 * 60 * 60 * 1000;
 
+let historicalCache = null;
+let historicalSeason = null;
+let lastHistoricalFetch = 0;
+const HISTORICAL_CACHE_TTL = 12 * 60 * 60 * 1000;
+
 function parseCSV(text) {
   const lines = text.split('\n').filter(l => l.trim());
   if (lines.length < 2) return [];
@@ -71,6 +76,29 @@ async function fetchPlayerStats(season) {
   const url = `${REPO_BASE}/${season}/playerstats.csv`;
   const text = await fetchCSV(url);
   return parseCSV(text);
+}
+
+async function fetchPlayerMatchStats(season, gw) {
+  const url = `${REPO_BASE}/${season}/By%20Gameweek/GW${gw}/playermatchstats.csv`;
+  const text = await fetchCSV(url);
+  return parseCSV(text);
+}
+
+function parseMatchId(matchId) {
+  if (!matchId) return null;
+  const parts = matchId.split('-vs-');
+  if (parts.length !== 2) return null;
+  const left = parts[0];
+  const right = parts[1];
+  const dashIdx = left.lastIndexOf('-');
+  if (dashIdx < 0) return null;
+  const homeName = left.substring(dashIdx + 1).replace(/-/g, ' ');
+  const awayName = right.replace(/-/g, ' ');
+  return { homeName, awayName };
+}
+
+function slugToTeamName(slug) {
+  return slug.replace(/-/g, ' ');
 }
 
 async function getSeasonData(forceRefresh = false) {
@@ -193,6 +221,124 @@ async function getGameweekPlayerStats(gwId) {
   }));
 }
 
+async function getGameweekPlayerStatsWithOpponents(gwId) {
+  const season = getSeasonLabel();
+  const [rows, matchStats] = await Promise.all([
+    fetchGameweekStats(season, gwId),
+    fetchPlayerMatchStats(season, gwId).catch(() => [])
+  ]);
+
+  const teamData = await getSeasonData();
+  const teamMap = teamData.teamMap;
+
+  const teamNameToId = new Map();
+  for (const [id, t] of teamMap) {
+    teamNameToId.set(t.name.toLowerCase(), id);
+    if (t.shortName) teamNameToId.set(t.shortName.toLowerCase(), id);
+  }
+
+  const playerTeamMap = new Map();
+  for (const ms of matchStats) {
+    const pid = Number(ms.player_id || ms.id);
+    const mid = ms.match_id;
+    if (!pid || !mid) continue;
+    const parsed = parseMatchId(mid);
+    if (!parsed) continue;
+    const homeId = teamNameToId.get(parsed.homeName.toLowerCase());
+    const awayId = teamNameToId.get(parsed.awayName.toLowerCase());
+    if (!homeId || !awayId) continue;
+    const matchMinutes = parseNum(ms.minutes_played);
+    if (matchMinutes > 0) {
+      const teamGoalsConceded = parseNum(ms.team_goals_conceded);
+      if (!playerTeamMap.has(pid)) {
+        playerTeamMap.set(pid, []);
+      }
+      playerTeamMap.get(pid).push({
+        matchId: mid,
+        homeTeamId: homeId,
+        awayTeamId: awayId,
+        homeTeamName: teamMap.get(homeId)?.name || parsed.homeName,
+        awayTeamName: teamMap.get(awayId)?.name || parsed.awayName,
+        homeShort: teamMap.get(homeId)?.shortName || parsed.homeName,
+        awayShort: teamMap.get(awayId)?.shortName || parsed.awayName,
+        minutes: matchMinutes,
+        teamGoalsConceded,
+        defensiveContributions: parseNum(ms.defensive_contributions),
+        goals: parseNum(ms.goals),
+        assists: parseNum(ms.assists),
+        bonus: parseNum(ms.bonus) || 0,
+        cleanSheet: teamGoalsConceded === 0
+      });
+    }
+  }
+
+  const rowsByPlayer = new Map();
+  rows.forEach(r => {
+    const pid = Number(r.id || r.player_id);
+    if (!pid) return;
+    if (!rowsByPlayer.has(pid)) rowsByPlayer.set(pid, []);
+    rowsByPlayer.get(pid).push(r);
+  });
+
+  const results = [];
+  for (const [pid, playerRows] of rowsByPlayer) {
+    const matchInfos = playerTeamMap.get(pid) || [];
+    const totalMinutes = playerRows.reduce((s, r) => s + parseNum(r.minutes), 0);
+    if (totalMinutes === 0) continue;
+
+    const stat = playerRows[0];
+    const matchInfo = matchInfos[0] || null;
+
+    results.push({
+      playerId: pid,
+      gameweek: gwId,
+      minutes: totalMinutes,
+      goalsScored: playerRows.reduce((s, r) => s + parseNum(r.goals_scored), 0),
+      assists: playerRows.reduce((s, r) => s + parseNum(r.assists), 0),
+      cleanSheets: playerRows.reduce((s, r) => s + parseNum(r.clean_sheets), 0),
+      goalsConceded: playerRows.reduce((s, r) => s + parseNum(r.goals_conceded), 0),
+      ownGoals: playerRows.reduce((s, r) => s + parseNum(r.own_goals), 0),
+      penaltiesSaved: playerRows.reduce((s, r) => s + parseNum(r.penalties_saved), 0),
+      penaltiesMissed: playerRows.reduce((s, r) => s + parseNum(r.penalties_missed), 0),
+      yellowCards: playerRows.reduce((s, r) => s + parseNum(r.yellow_cards), 0),
+      redCards: playerRows.reduce((s, r) => s + parseNum(r.red_cards), 0),
+      saves: playerRows.reduce((s, r) => s + parseNum(r.saves), 0),
+      bonus: playerRows.reduce((s, r) => s + parseNum(r.bonus), 0),
+      bps: playerRows.reduce((s, r) => s + parseNum(r.bps), 0),
+      influence: parseNum(stat.influence),
+      creativity: parseNum(stat.creativity),
+      threat: parseNum(stat.threat),
+      ictIndex: parseNum(stat.ict_index),
+      expectedGoals: playerRows.reduce((s, r) => s + parseNum(r.expected_goals), 0),
+      expectedAssists: playerRows.reduce((s, r) => s + parseNum(r.expected_assists), 0),
+      expectedGoalInvolvements: playerRows.reduce((s, r) => s + parseNum(r.expected_goal_involvements), 0),
+      expectedGoalsConceded: parseNum(stat.expected_goals_conceded),
+      defensiveContribution: playerRows.reduce((s, r) => s + parseNum(r.defensive_contribution), 0),
+      totalPoints: playerRows.reduce((s, r) => s + parseNum(r.total_points), 0),
+      starts: playerRows.reduce((s, r) => s + parseNum(r.starts), 0),
+      nowCost: parseNum(stat.now_cost),
+      selectedByPercent: parseNum(stat.selected_by_percent),
+      form: parseNum(stat.form),
+      epNext: parseNum(stat.ep_next),
+      epThis: parseNum(stat.ep_this),
+      transfersInEvent: parseNum(stat.transfers_in_event),
+      transfersOutEvent: parseNum(stat.transfers_out_event),
+      opponent: matchInfo ? {
+        homeTeamId: matchInfo.homeTeamId,
+        awayTeamId: matchInfo.awayTeamId,
+        homeTeamName: matchInfo.homeTeamName,
+        awayTeamName: matchInfo.awayTeamName,
+        homeShort: matchInfo.homeShort,
+        awayShort: matchInfo.awayShort,
+        teamGoalsConceded: matchInfo.teamGoalsConceded,
+        cleanSheet: matchInfo.cleanSheet
+      } : null
+    });
+  }
+
+  return results;
+}
+
 async function getAllFinishedGWStats(finishedGWIds) {
   const results = new Map();
   const BATCH = 5;
@@ -210,10 +356,126 @@ async function getAllFinishedGWStats(finishedGWIds) {
   return results;
 }
 
+async function getHistoricalPlayerStats(forceRefresh = false) {
+  const currentSeason = getSeasonLabel();
+  const now = Date.now();
+
+  if (!forceRefresh && historicalCache && historicalSeason === currentSeason && (now - lastHistoricalFetch) < HISTORICAL_CACHE_TTL) {
+    return historicalCache;
+  }
+
+  const parts = currentSeason.split('-');
+  const prevYear = Number(parts[0]) - 1;
+  const prevSeason = `${prevYear}-${prevYear + 1}`;
+
+  logger.info({ currentSeason, prevSeason }, 'Fetching historical player stats from FPL-Core-Insights');
+
+  try {
+    const [currentStats, prevStats] = await Promise.all([
+      fetchPlayerStats(currentSeason).catch(() => []),
+      fetchPlayerStats(prevSeason).catch(() => [])
+    ]);
+
+    const historicalMap = new Map();
+
+    for (const ps of prevStats) {
+      const pid = Number(ps.id);
+      if (!pid) continue;
+      historicalMap.set(pid, {
+        prevSeason: {
+          appearances: parseNum(ps.appearances) || parseNum(ps.games) || 0,
+          minutes: parseNum(ps.minutes),
+          goals: parseNum(ps.goals_scored),
+          assists: parseNum(ps.assists),
+          cleanSheets: parseNum(ps.clean_sheets),
+          bonus: parseNum(ps.bonus),
+          bps: parseNum(ps.bps),
+          totalPoints: parseNum(ps.total_points),
+          expectedGoals: parseNum(ps.expected_goals),
+          expectedAssists: parseNum(ps.expected_assists),
+          xGI: parseNum(ps.expected_goal_involvements),
+          form: parseNum(ps.form),
+          defensiveContribution: parseNum(ps.defensive_contribution),
+          goalsPer90: parseNum(ps.minutes) > 0 ? (parseNum(ps.goals_scored) * 90 / parseNum(ps.minutes)) : 0,
+          assistsPer90: parseNum(ps.minutes) > 0 ? (parseNum(ps.assists) * 90 / parseNum(ps.minutes)) : 0,
+          xGIPer90: parseNum(ps.minutes) > 0 ? (parseNum(ps.expected_goal_involvements) * 90 / parseNum(ps.minutes)) : 0,
+          bonusPer90: parseNum(ps.minutes) > 0 ? (parseNum(ps.bonus) * 90 / parseNum(ps.minutes)) : 0,
+        }
+      });
+    }
+
+    for (const ps of currentStats) {
+      const pid = Number(ps.id);
+      if (!pid) continue;
+      const existing = historicalMap.get(pid) || {};
+      existing.currentSeason = {
+        appearances: parseNum(ps.appearances) || parseNum(ps.games) || 0,
+        minutes: parseNum(ps.minutes),
+        goals: parseNum(ps.goals_scored),
+        assists: parseNum(ps.assists),
+        cleanSheets: parseNum(ps.clean_sheets),
+        bonus: parseNum(ps.bonus),
+        bps: parseNum(ps.bps),
+        totalPoints: parseNum(ps.total_points),
+        expectedGoals: parseNum(ps.expected_goals),
+        expectedAssists: parseNum(ps.expected_assists),
+        xGI: parseNum(ps.expected_goal_involvements),
+        form: parseNum(ps.form),
+        defensiveContribution: parseNum(ps.defensive_contribution),
+        goalsPer90: parseNum(ps.minutes) > 0 ? (parseNum(ps.goals_scored) * 90 / parseNum(ps.minutes)) : 0,
+        assistsPer90: parseNum(ps.minutes) > 0 ? (parseNum(ps.assists) * 90 / parseNum(ps.minutes)) : 0,
+        xGIPer90: parseNum(ps.minutes) > 0 ? (parseNum(ps.expected_goal_involvements) * 90 / parseNum(ps.minutes)) : 0,
+        bonusPer90: parseNum(ps.minutes) > 0 ? (parseNum(ps.bonus) * 90 / parseNum(ps.minutes)) : 0,
+      };
+      historicalMap.set(pid, existing);
+    }
+
+    for (const [pid, data] of historicalMap) {
+      const prev = data.prevSeason;
+      const curr = data.currentSeason;
+      if (prev && curr && prev.minutes > 0 && curr.minutes > 0) {
+        const consistencyScore = (
+          (Math.min(prev.appearances, 38) / 38) * 0.3 +
+          (Math.min(curr.appearances, 38) / 38) * 0.3 +
+          (prev.minutes > 1500 ? 0.2 : prev.minutes / 1500 * 0.2) +
+          (curr.minutes > 1500 ? 0.2 : curr.minutes / 1500 * 0.2)
+        );
+        const improvementRatio = curr.xGIPer90 > 0 && prev.xGIPer90 > 0
+          ? Math.min(curr.xGIPer90 / prev.xGIPer90, 2)
+          : 1;
+        data.consistencyScore = Math.round(consistencyScore * 100) / 100;
+        data.improvementRatio = Math.round(improvementRatio * 100) / 100;
+        data.minutesReliability = Math.round(((prev.minutes / (38 * 90)) + (curr.minutes / (38 * 90))) / 2 * 100) / 100;
+      } else if (prev && prev.minutes > 0) {
+        data.consistencyScore = Math.round((prev.minutes / (38 * 90)) * 100) / 100;
+        data.improvementRatio = 1;
+        data.minutesReliability = Math.round((prev.minutes / (38 * 90)) * 100) / 100;
+      } else {
+        data.consistencyScore = 0;
+        data.improvementRatio = 1;
+        data.minutesReliability = 0;
+      }
+    }
+
+    historicalCache = historicalMap;
+    historicalSeason = currentSeason;
+    lastHistoricalFetch = now;
+
+    logger.info({ prevSeason, playerCount: historicalMap.size }, 'Historical player stats loaded');
+    return historicalMap;
+  } catch (err) {
+    logger.error({ err, prevSeason }, 'Failed to fetch historical player stats');
+    if (historicalCache) return historicalCache;
+    return new Map();
+  }
+}
+
 module.exports = {
   getSeasonData,
   getGameweekPlayerStats,
+  getGameweekPlayerStatsWithOpponents,
   getAllFinishedGWStats,
+  getHistoricalPlayerStats,
   parseNum,
   getSeasonLabel
 };
