@@ -1,7 +1,9 @@
 const logger = require('./logger');
 const { sql } = require('./db');
-const { getSeasonData, getGameweekPlayerStatsWithOpponents, getAllFinishedGWStats, parseNum, getSeasonLabel, fetchPlayerStats } = require('./fplInsightsData');
+const { getSeasonData, getGameweekPlayerStatsWithOpponents, getAllFinishedGWStats, parseNum, getSeasonLabel } = require('./fplInsightsData');
 const { getCachedApiData, BOOTSTRAP_URL, BOOTSTRAP_CACHE_TTL } = require('./cache');
+
+const OWN_REPO_BASE = 'https://raw.githubusercontent.com/oladeeayo/fplmanagerstats/main/data/historical';
 
 const activeCollections = new Set();
 
@@ -68,9 +70,32 @@ async function collectHistoricalStats() {
     const prevYear = Number(parts[0]) - 1;
     const prevSeason = `${prevYear}-${prevYear + 1}`;
 
+    const fetchOwnRepoCSV = async (seasonLabel) => {
+      const url = `${OWN_REPO_BASE}/${seasonLabel}_playerstats.csv`;
+      const res = await fetch(url, { headers: { 'User-Agent': 'FPLManagerStats/1.0' } });
+      if (!res.ok) throw new Error(`Own repo fetch failed: ${res.status}`);
+      const text = await res.text();
+      const lines = text.split('\n').filter(l => l.trim());
+      if (lines.length < 2) return [];
+      const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+      return lines.slice(1).map(line => {
+        const vals = [];
+        let current = '';
+        for (let i = 0; i < line.length; i++) {
+          if (line[i] === '"') { i++; while (i < line.length && line[i] !== '"') { current += line[i]; i++; } continue; }
+          if (line[i] === ',') { vals.push(current.trim()); current = ''; continue; }
+          current += line[i];
+        }
+        vals.push(current.trim());
+        const row = {};
+        headers.forEach((h, idx) => { row[h] = vals[idx] || ''; });
+        return row;
+      });
+    };
+
     const [currentRows, prevRows] = await Promise.all([
-      fetchPlayerStats(season).catch(() => []),
-      fetchPlayerStats(prevSeason).catch(() => [])
+      fetchOwnRepoCSV(season).catch(() => []),
+      fetchOwnRepoCSV(prevSeason).catch(() => [])
     ]);
 
     const currentAgg = buildSeasonAggregates(currentRows);
