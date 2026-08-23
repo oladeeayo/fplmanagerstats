@@ -1475,8 +1475,26 @@ async function getOrSaveCaptainSnapshot(gw, rawModel, bootstrapEvents) {
   const filePath = path.join(CAPTAIN_SNAPSHOT_DIR, `gw_${gw}.json`);
   let existingSnapshot = null;
 
-  // Try database first (works on Vercel serverless)
-  if (sql) {
+  // Prioritize repository disk file snapshot if present
+  if (fs.existsSync(filePath)) {
+    try {
+      const content = fs.readFileSync(filePath, 'utf8');
+      const diskSnapshot = JSON.parse(content);
+      if (diskSnapshot && diskSnapshot.bestPick && Array.isArray(diskSnapshot.topPicks) && diskSnapshot.topPicks.length > 0) {
+        existingSnapshot = diskSnapshot;
+        if (sql) {
+          try {
+            await sql`INSERT INTO captain_snapshots (gameweek, data) VALUES (${gw}, ${JSON.stringify(diskSnapshot)}) ON CONFLICT (gameweek) DO UPDATE SET data = ${JSON.stringify(diskSnapshot)}`;
+          } catch (e) { /* ignore */ }
+        }
+      }
+    } catch (e) {
+      logger.error({ err: e }, 'Failed reading captain snapshot from disk');
+    }
+  }
+
+  // Fallback to database if no disk file exists
+  if (!existingSnapshot && sql) {
     try {
       const rows = await sql`SELECT data FROM captain_snapshots WHERE gameweek = ${gw} LIMIT 1`;
       if (rows.length > 0 && rows[0].data) {
@@ -1484,16 +1502,6 @@ async function getOrSaveCaptainSnapshot(gw, rawModel, bootstrapEvents) {
       }
     } catch (e) {
       logger.warn({ err: e }, 'Failed reading captain snapshot from DB');
-    }
-  }
-
-  // Fallback to filesystem (local dev)
-  if (!existingSnapshot && fs.existsSync(filePath)) {
-    try {
-      const content = fs.readFileSync(filePath, 'utf8');
-      existingSnapshot = JSON.parse(content);
-    } catch (e) {
-      logger.error({ err: e }, 'Failed reading captain snapshot');
     }
   }
 
