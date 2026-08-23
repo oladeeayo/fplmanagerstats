@@ -1685,9 +1685,9 @@ router.get('/captain-picks', async (req, res) => {
 
     res.json({
       ...rawModel,
-      generatedAt: snapshot.generatedAt || rawModel.generatedAt,
-      modelVersion: snapshot.modelVersion || rawModel.modelVersion,
-      modelInputs: snapshot.modelInputs || rawModel.modelInputs,
+      generatedAt: snapshot?.generatedAt || rawModel.generatedAt,
+      modelVersion: snapshot?.modelVersion || rawModel.modelVersion,
+      modelInputs: snapshot?.modelInputs || rawModel.modelInputs,
       bestPick: enrichPick(baseBestPick),
       differentialPick: enrichPick(baseDiffPick),
       topPicks: (baseTopPicks || []).map(enrichPick).filter(Boolean),

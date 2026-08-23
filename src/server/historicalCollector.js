@@ -611,8 +611,39 @@ async function collectAllHistoricalStats() {
 
     results.sort((a, b) => (b.crossSeason.totalPoints || 0) - (a.crossSeason.totalPoints || 0));
 
-    if (results.length > 0 && sql) {
-      await sql`INSERT INTO player_historical_stats (season, players, total_players) VALUES (${season}, ${JSON.stringify(results)}, ${results.length}) ON CONFLICT (season) DO UPDATE SET players = ${JSON.stringify(results)}, total_players = ${results.length}`;
+    // Strip GW-level detail to fit within Neon's 64MB limit
+    const stripped = results.map(r => {
+      const seasons = {};
+      for (const [s, profile] of Object.entries(r.seasons || {})) {
+        seasons[s] = {
+          appearances: profile.appearances, minutes: profile.minutes,
+          goals: profile.goals, assists: profile.assists,
+          expectedGoals: profile.expectedGoals, expectedAssists: profile.expectedAssists,
+          expectedGoalInvolvements: profile.expectedGoalInvolvements,
+          bonus: profile.bonus, totalPoints: profile.totalPoints,
+          cleanSheets: profile.cleanSheets,
+          xGIPer90: profile.xGIPer90, pointsPer90: profile.pointsPer90,
+          bonusPer90: profile.bonusPer90, hauls: profile.hauls,
+          haulRate: profile.haulRate, home: profile.home, away: profile.away,
+        };
+      }
+      return {
+        id: r.id, element: r.element, name: r.name,
+        webName: r.webName, webNameLower: r.webNameLower,
+        position: r.position, team: r.team, latestSeasonTeam: r.latestSeasonTeam,
+        seasons, opponents: r.opponents, opponentsCombined: r.opponentsCombined,
+        crossSeason: r.crossSeason,
+        isHistoricalElite: r.isHistoricalElite, isTop20CaptaincyElite: r.isTop20CaptaincyElite,
+        captaincyEliteRank: r.captaincyEliteRank, eliteScore: r.eliteScore,
+        top30Seasons: r.top30Seasons,
+      };
+    });
+
+    const payload = JSON.stringify(stripped);
+    if (payload.length > 60 * 1024 * 1024) {
+      logger.warn({ season, size: payload.length }, 'Historical payload too large, skipping DB save');
+    } else if (stripped.length > 0 && sql) {
+      await sql`INSERT INTO player_historical_stats (season, players, total_players) VALUES (${season}, ${payload}, ${stripped.length}) ON CONFLICT (season) DO UPDATE SET players = ${payload}, total_players = ${stripped.length}`;
     }
 
     const resultMap = new Map();
