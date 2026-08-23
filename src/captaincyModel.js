@@ -388,11 +388,15 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
   const consistency = cs?.consistencyScore || 0;
 
   const rawForm = form > 0 ? form : ppg;
-  const dampenedForm = hasHistory
-    ? Math.min(rawForm, histPPG90 * 2.5)
-    : Math.min(rawForm, posBenchmark * 2);
-  let effectiveForm = dampenedForm * decay + histPPG90 * (1 - decay);
-  let effectivePPG = ppg * decay + histPPG90 * (1 - decay);
+  let effectiveForm, effectivePPG;
+  if (hasHistory) {
+    const dampenedForm = Math.min(rawForm, histPPG90 * 2.5);
+    effectiveForm = dampenedForm * decay + histPPG90 * (1 - decay);
+    effectivePPG = ppg * decay + histPPG90 * (1 - decay);
+  } else {
+    effectiveForm = rawForm;
+    effectivePPG = ppg > 0 ? ppg : posBenchmark;
+  }
 
   const playingTimeFactor = cs ? Math.min(1.2, 0.8 + (cs.minutesReliability || 0.7) * 0.4) : 0.9;
 
@@ -413,9 +417,13 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
       xG90 *= (1 - penalty);
       xA90 *= (1 - penalty);
     }
-  } else {
-    xG90 = xG90 * decay + (posBenchmark * 0.12 / 90) * (1 - decay);
-    xA90 = xA90 * decay + (posBenchmark * 0.06 / 90) * (1 - decay);
+  }
+  const fplXGI90 = xG90 + xA90;
+  const finalXGI90 = Math.max(fplXGI90, histXGI90 * (1 - decay) + fplXGI90 * decay);
+  if (finalXGI90 > fplXGI90) {
+    const ratio = finalXGI90 / Math.max(fplXGI90, 0.001);
+    xG90 *= ratio;
+    xA90 *= ratio;
   }
 
   const officialProjection = useOfficialProjection ? number(player.ep_next) : 0;
