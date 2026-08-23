@@ -459,8 +459,21 @@ async function getHistoricalPlayerStats(forceRefresh = false) {
         logger.info({ season: currentSeason, playerCount: dbData.size }, 'Historical stats loaded from DB');
         return historicalCache;
       }
-    } catch { /* fall through to CSV */ }
+    } catch { /* fall through */ }
   }
+
+  try {
+    const { collectAllHistoricalStats } = require('./historicalCollector');
+    await collectAllHistoricalStats();
+    const retryData = await loadHistoricalFromDB(currentSeason);
+    if (retryData && retryData.size > 0) {
+      historicalCache = retryData;
+      historicalSeason = currentSeason;
+      lastHistoricalFetch = now;
+      logger.info({ season: currentSeason, playerCount: retryData.size }, 'Historical stats loaded from DB after forced collection');
+      return historicalCache;
+    }
+  } catch { /* fall through */ }
 
   if (historicalCache) return historicalCache;
   return new Map();

@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const logger = require('./logger');
 const { checkAndCollect } = require('./playerAdvancedCollector');
-const { collectAllHistoricalStats } = require('./historicalCollector');
+// historicalCollector is lazily required in initSnapshotManager to prevent circular dependency with cache.js
 
 const SNAPSHOT_DIR = path.join(__dirname, 'data');
 const SNAPSHOT_FILE = path.join(SNAPSHOT_DIR, 'snapshot.json');
@@ -286,7 +286,10 @@ function setForceMode(mode) {
 function initSnapshotManager(fetcher) {
   loadSnapshotFromDisk();
   evaluateSnapshotState(fetcher).catch(() => {});
-  collectAllHistoricalStats().catch(() => {});
+  try {
+    const { collectAllHistoricalStats } = require('./historicalCollector');
+    collectAllHistoricalStats().catch(() => {});
+  } catch { /* ignore if not available */ }
 
   if (!intervalId) {
     intervalId = setInterval(() => {

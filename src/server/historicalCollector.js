@@ -1,7 +1,6 @@
 const logger = require('./logger');
 const { sql } = require('./db');
 const { getSeasonLabel } = require('./fplInsightsData');
-const { getCachedApiData, BOOTSTRAP_URL, BOOTSTRAP_CACHE_TTL } = require('./cache');
 
 const OWN_REPO_BASE = 'https://raw.githubusercontent.com/oladeeayo/fplmanagerstats/main/data/historical';
 
@@ -35,6 +34,16 @@ function parseCSV(text) {
 }
 
 async function fetchCSV(season, filename) {
+  const fs = require('fs');
+  const path = require('path');
+  const localPath = path.join(__dirname, '..', '..', 'data', 'historical', season, filename);
+  try {
+    if (fs.existsSync(localPath)) {
+      const text = fs.readFileSync(localPath, 'utf8');
+      return parseCSV(text);
+    }
+  } catch { /* fall through to remote */ }
+
   const url = `${OWN_REPO_BASE}/${season}/${filename}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
@@ -426,7 +435,13 @@ async function collectAllHistoricalStats() {
 
     let bootstrap = null;
     try {
-      bootstrap = await getCachedApiData(BOOTSTRAP_URL, BOOTSTRAP_CACHE_TTL);
+      const cache = require('./cache');
+      if (typeof cache?.getCachedApiData === 'function') {
+        bootstrap = await cache.getCachedApiData(
+          cache.BOOTSTRAP_URL || 'https://fantasy.premierleague.com/api/bootstrap-static/',
+          cache.BOOTSTRAP_CACHE_TTL || 30 * 60 * 1000,
+        );
+      }
     } catch { /* continue without IDs */ }
 
     const bsByName = new Map();
