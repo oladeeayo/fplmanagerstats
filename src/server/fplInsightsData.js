@@ -1,6 +1,7 @@
 const logger = require('./logger');
 
 const REPO_BASE = 'https://raw.githubusercontent.com/olbauday/FPL-Core-Insights/main/data';
+const FPL_BASE = 'https://fantasy.premierleague.com/api';
 
 let cachedData = null;
 let cachedSeason = null;
@@ -221,55 +222,61 @@ async function getGameweekPlayerStats(gwId) {
   }));
 }
 
+async function getFPLFixtures() {
+  const url = `${FPL_BASE}/fixtures/`;
+  const res = await fetch(url, { headers: { 'User-Agent': 'FPLManagerStats/1.0' } });
+  if (!res.ok) throw new Error(`Failed to fetch FPL fixtures: ${res.status}`);
+  return res.json();
+}
+
+async function getFPLBootstrap() {
+  const url = `${FPL_BASE}/bootstrap-static/`;
+  const res = await fetch(url, { headers: { 'User-Agent': 'FPLManagerStats/1.0' } });
+  if (!res.ok) throw new Error(`Failed to fetch FPL bootstrap: ${res.status}`);
+  return res.json();
+}
+
 async function getGameweekPlayerStatsWithOpponents(gwId) {
   const season = getSeasonLabel();
-  const [rows, matchStats] = await Promise.all([
+  const [rows, fplFixtures, fplBootstrap] = await Promise.all([
     fetchGameweekStats(season, gwId),
-    fetchPlayerMatchStats(season, gwId).catch(() => [])
+    getFPLFixtures().catch(() => []),
+    getFPLBootstrap().catch(() => ({ elements: [], teams: [] }))
   ]);
 
-  const teamData = await getSeasonData();
-  const teamMap = teamData.teamMap;
-
-  const teamNameToId = new Map();
-  for (const [id, t] of teamMap) {
-    teamNameToId.set(t.name.toLowerCase(), id);
-    if (t.shortName) teamNameToId.set(t.shortName.toLowerCase(), id);
-  }
+  const teamMap = new Map();
+  (fplBootstrap.teams || []).forEach(t => {
+    teamMap.set(t.id, { id: t.id, name: t.name, short: t.short_name, code: t.code });
+  });
 
   const playerTeamMap = new Map();
-  for (const ms of matchStats) {
-    const pid = Number(ms.player_id || ms.id);
-    const mid = ms.match_id;
-    if (!pid || !mid) continue;
-    const parsed = parseMatchId(mid);
-    if (!parsed) continue;
-    const homeId = teamNameToId.get(parsed.homeName.toLowerCase());
-    const awayId = teamNameToId.get(parsed.awayName.toLowerCase());
-    if (!homeId || !awayId) continue;
-    const matchMinutes = parseNum(ms.minutes_played);
-    if (matchMinutes > 0) {
-      const teamGoalsConceded = parseNum(ms.team_goals_conceded);
-      if (!playerTeamMap.has(pid)) {
-        playerTeamMap.set(pid, []);
-      }
-      playerTeamMap.get(pid).push({
-        matchId: mid,
-        homeTeamId: homeId,
-        awayTeamId: awayId,
-        homeTeamName: teamMap.get(homeId)?.name || parsed.homeName,
-        awayTeamName: teamMap.get(awayId)?.name || parsed.awayName,
-        homeShort: teamMap.get(homeId)?.shortName || parsed.homeName,
-        awayShort: teamMap.get(awayId)?.shortName || parsed.awayName,
-        minutes: matchMinutes,
-        teamGoalsConceded,
-        defensiveContributions: parseNum(ms.defensive_contributions),
-        goals: parseNum(ms.goals),
-        assists: parseNum(ms.assists),
-        bonus: parseNum(ms.bonus) || 0,
-        cleanSheet: teamGoalsConceded === 0
-      });
-    }
+  (fplBootstrap.elements || []).forEach(p => {
+    playerTeamMap.set(p.id, { teamId: p.team, webName: p.web_name });
+  });
+
+  const gwFixtures = (fplFixtures || []).filter(f => f.event === gwId);
+  const fixturesByTeam = new Map();
+  for (const fix of gwFixtures) {
+    if (!fixturesByTeam.has(fix.team_h)) fixturesByTeam.set(fix.team_h, []);
+    if (!fixturesByTeam.has(fix.team_a)) fixturesByTeam.set(fix.team_a, []);
+    fixturesByTeam.get(fix.team_h).push({
+      opponentId: fix.team_a,
+      isHome: true,
+      teamHDiff: fix.team_h_difficulty,
+      teamADiff: fix.team_a_difficulty,
+      teamHGwScore: fix.team_h_score,
+      teamAGwScore: fix.team_a_score,
+      finished: fix.finished
+    });
+    fixturesByTeam.get(fix.team_a).push({
+      opponentId: fix.team_h,
+      isHome: false,
+      teamHDiff: fix.team_h_difficulty,
+      teamADiff: fix.team_a_difficulty,
+      teamHGwScore: fix.team_h_score,
+      teamAGwScore: fix.team_a_score,
+      finished: fix.finished
+    });
   }
 
   const rowsByPlayer = new Map();
@@ -282,12 +289,31 @@ async function getGameweekPlayerStatsWithOpponents(gwId) {
 
   const results = [];
   for (const [pid, playerRows] of rowsByPlayer) {
-    const matchInfos = playerTeamMap.get(pid) || [];
     const totalMinutes = playerRows.reduce((s, r) => s + parseNum(r.minutes), 0);
     if (totalMinutes === 0) continue;
 
+    const playerInfo = playerTeamMap.get(pid);
+    const playerTeamId = playerInfo?.teamId;
+    if (!playerTeamId) continue;
+
+    const teamFixtures = fixturesByTeam.get(playerTeamId) || [];
+    const fixture = teamFixtures[0] || null;
+
     const stat = playerRows[0];
-    const matchInfo = matchInfos[0] || null;
+    const oppTeam = fixture ? teamMap.get(fixture.opponentId) : null;
+    const oppShort = oppTeam?.short || 'TBD';
+    const wasHome = fixture?.isHome ?? null;
+
+    let teamGoalsConceded = 0;
+    let cleanSheet = false;
+    if (fixture && fixture.finished) {
+      if (wasHome) {
+        teamGoalsConceded = fixture.teamAGwScore ?? 0;
+      } else {
+        teamGoalsConceded = fixture.teamHGwScore ?? 0;
+      }
+      cleanSheet = teamGoalsConceded === 0;
+    }
 
     results.push({
       playerId: pid,
@@ -323,15 +349,15 @@ async function getGameweekPlayerStatsWithOpponents(gwId) {
       epThis: parseNum(stat.ep_this),
       transfersInEvent: parseNum(stat.transfers_in_event),
       transfersOutEvent: parseNum(stat.transfers_out_event),
-      opponent: matchInfo ? {
-        homeTeamId: matchInfo.homeTeamId,
-        awayTeamId: matchInfo.awayTeamId,
-        homeTeamName: matchInfo.homeTeamName,
-        awayTeamName: matchInfo.awayTeamName,
-        homeShort: matchInfo.homeShort,
-        awayShort: matchInfo.awayShort,
-        teamGoalsConceded: matchInfo.teamGoalsConceded,
-        cleanSheet: matchInfo.cleanSheet
+      opponent: fixture ? {
+        homeTeamId: wasHome ? playerTeamId : fixture.opponentId,
+        awayTeamId: wasHome ? fixture.opponentId : playerTeamId,
+        homeTeamName: teamMap.get(wasHome ? playerTeamId : fixture.opponentId)?.name || 'Unknown',
+        awayTeamName: teamMap.get(wasHome ? fixture.opponentId : playerTeamId)?.name || 'Unknown',
+        homeShort: teamMap.get(wasHome ? playerTeamId : fixture.opponentId)?.short || 'TBD',
+        awayShort: teamMap.get(wasHome ? fixture.opponentId : playerTeamId)?.short || 'TBD',
+        teamGoalsConceded,
+        cleanSheet
       } : null
     });
   }

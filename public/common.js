@@ -2417,7 +2417,7 @@ const FPL = {
         modalHeader.innerHTML = `
             <div style="display:flex;align-items:center;gap:14px;">
                 <div style="width:54px;height:54px;border-radius:50%;overflow:hidden;border:2px solid ${badgeColor};background:rgba(0,0,0,0.5);flex-shrink:0;">
-                    <img src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${player.code}.png" alt="${this.escapeHTML(player.name)}" style="width:100%;height:100%;object-fit:cover;object-position:50% 15%;" onerror="this.src='https://fantasy.premierleague.com/static/libs/default-player.png'">
+                    ${this.playerPhotoMarkup({ ...player, fotmobId: player.fotmobId || this.state.fotmobPlayerIds?.[String(player.code)] }, `${this.escapeHTML(player.name)} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;', true)}
                 </div>
                 <div>
                     <h2 style="margin:0;font-size:20px;font-weight:800;color:#fff;">${this.escapeHTML(player.fullName || player.name)}</h2>
