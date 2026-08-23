@@ -1,7 +1,6 @@
 /**
  * Elite Top 20 Captaincy Candidates for FPL
  *
- * These are the players that should be ranked highest for captaincy consideration.
  * Curated from historical FPL data: expected goal involvement, bonus points, penalty
  * duties, haul rate, and multi-season consistency.
  *
@@ -14,20 +13,11 @@
  *   - seasonsAsElite: how many of the last 3 seasons they were top-20 in xGI
  *
  * Formula integration:
- *   eliteScore feeds into captaincyScore as a 0.12 weight component
+ *   eliteScore feeds into captaincyScore as an 0.08 weight component
  *   transferPenalty is applied when historicalTeam !== currentTeam
  *   H2H bonus uses historical opponent data when available
  */
 const ELITE_CAPTAINCY_PLAYERS = [
-  {
-    webName: 'Salah',
-    historicalTeam: 'Liverpool',
-    position: 'MID',
-    eliteScore: 97,
-    keyFactors: ['Penalties', 'Consistent hauler', 'Highest xGI midfielder', 'Multi-season elite'],
-    seasonsAsElite: 4,
-    previousTeams: [],
-  },
   {
     webName: 'Haaland',
     historicalTeam: 'Man City',
@@ -65,15 +55,6 @@ const ELITE_CAPTAINCY_PLAYERS = [
     previousTeams: [],
   },
   {
-    webName: 'Son Heung-min',
-    historicalTeam: 'Tottenham',
-    position: 'MID',
-    eliteScore: 86,
-    keyFactors: ['Penalties (when on)', 'High xGI', 'Explosive hauls', 'Home dominance'],
-    seasonsAsElite: 3,
-    previousTeams: [],
-  },
-  {
     webName: 'Watkins',
     historicalTeam: 'Aston Villa',
     position: 'FWD',
@@ -84,30 +65,21 @@ const ELITE_CAPTAINCY_PLAYERS = [
   },
   {
     webName: 'Isak',
-    historicalTeam: 'Newcastle',
+    historicalTeam: 'Liverpool',
     position: 'FWD',
     eliteScore: 82,
     keyFactors: ['High xG', 'Clinical finisher', 'Bonus threat', 'Home dominance'],
     seasonsAsElite: 2,
-    previousTeams: [],
+    previousTeams: ['Newcastle'],
   },
   {
     webName: 'Mbeumo',
-    historicalTeam: 'Brentford',
+    historicalTeam: 'Man Utd',
     position: 'FWD',
     eliteScore: 79,
     keyFactors: ['Penalties', 'High xGI', 'Bonus magnet', 'Team talisman', 'Set-pieces'],
     seasonsAsElite: 3,
-    previousTeams: [],
-  },
-  {
-    webName: 'Bowen',
-    historicalTeam: 'West Ham',
-    position: 'MID',
-    eliteScore: 76,
-    keyFactors: ['Penalties', 'High xGI', 'Consistent hauls', 'Set-pieces'],
-    seasonsAsElite: 3,
-    previousTeams: [],
+    previousTeams: ['Brentford'],
   },
   {
     webName: 'Gibbs-White',
@@ -137,11 +109,74 @@ const ELITE_CAPTAINCY_PLAYERS = [
     previousTeams: ['Bournemouth'],
   },
   {
+    webName: 'Gakpo',
+    historicalTeam: 'Liverpool',
+    position: 'MID',
+    eliteScore: 76,
+    keyFactors: ['High xGI', 'Explosive hauls', 'Versatile attacker', 'Home dominance'],
+    seasonsAsElite: 2,
+    previousTeams: [],
+  },
+  {
+    webName: 'Cherki',
+    historicalTeam: 'Man City',
+    position: 'MID',
+    eliteScore: 75,
+    keyFactors: ['Highest xGI/90 in PL', 'Creative genius', 'Set-piece threat', 'Bonus potential'],
+    seasonsAsElite: 1,
+    previousTeams: [],
+  },
+  {
     webName: 'Martinelli',
     historicalTeam: 'Arsenal',
     position: 'MID',
     eliteScore: 72,
     keyFactors: ['High xGI', 'Explosive pace', 'Bonus threat', 'Home dominance'],
+    seasonsAsElite: 2,
+    previousTeams: [],
+  },
+  {
+    webName: 'Wood',
+    historicalTeam: 'Nott\'m Forest',
+    position: 'FWD',
+    eliteScore: 75,
+    keyFactors: ['Penalties', 'High xGI', 'Aerial threat', 'Consistent hauls'],
+    seasonsAsElite: 2,
+    previousTeams: [],
+  },
+  {
+    webName: 'Madueke',
+    historicalTeam: 'Arsenal',
+    position: 'MID',
+    eliteScore: 71,
+    keyFactors: ['High xGI', 'Goal threat', 'Bonus potential', 'Explosive winger'],
+    seasonsAsElite: 2,
+    previousTeams: ['Chelsea'],
+  },
+  {
+    webName: 'Neto',
+    historicalTeam: 'Chelsea',
+    position: 'MID',
+    eliteScore: 70,
+    keyFactors: ['High xGI', 'Creative output', 'Set-piece threat', 'Explosive potential'],
+    seasonsAsElite: 2,
+    previousTeams: ['Wolves', 'Bournemouth'],
+  },
+  {
+    webName: 'Johnson',
+    historicalTeam: 'Everton',
+    position: 'MID',
+    eliteScore: 68,
+    keyFactors: ['High xGI', 'Goal threat', 'Bonus potential', 'Versatile attacker'],
+    seasonsAsElite: 2,
+    previousTeams: ['Tottenham', 'Nott\'m Forest'],
+  },
+  {
+    webName: 'Szoboszlai',
+    historicalTeam: 'Liverpool',
+    position: 'MID',
+    eliteScore: 69,
+    keyFactors: ['High xGI', 'Set-piece taker', 'Box-to-box threat', 'Consistent starter'],
     seasonsAsElite: 2,
     previousTeams: [],
   },
@@ -155,39 +190,11 @@ const ELITE_CAPTAINCY_PLAYERS = [
     previousTeams: ['West Ham'],
   },
   {
-    webName: 'Neto',
-    historicalTeam: 'Chelsea',
+    webName: 'Ødegaard',
+    historicalTeam: 'Arsenal',
     position: 'MID',
     eliteScore: 70,
-    keyFactors: ['High xGI', 'Creative output', 'Set-piece threat', 'Explosive potential'],
-    seasonsAsElite: 2,
-    previousTeams: ['Wolves', 'Bournemouth'],
-  },
-  {
-    webName: 'Madueke',
-    historicalTeam: 'Chelsea',
-    position: 'MID',
-    eliteScore: 71,
-    keyFactors: ['High xGI', 'Goal threat', 'Bonus potential', 'Explosive winger'],
-    seasonsAsElite: 2,
-    previousTeams: [],
-  },
-  {
-    webName: 'Johnson',
-    historicalTeam: 'Tottenham',
-    position: 'MID',
-    eliteScore: 68,
-    keyFactors: ['High xGI', 'Goal threat', 'Bonus potential', 'Versatile attacker'],
-    seasonsAsElite: 2,
-    previousTeams: ['Nott\'m Forest'],
-  },
-
-  {
-    webName: 'Wood',
-    historicalTeam: 'Nott\'m Forest',
-    position: 'FWD',
-    eliteScore: 75,
-    keyFactors: ['Penalties', 'High xGI', 'Aerial threat', 'Consistent hauls'],
+    keyFactors: ['Free-kicks', 'Corners', 'Creative hub', 'Consistent xGI', 'Bonus collector'],
     seasonsAsElite: 2,
     previousTeams: [],
   },
@@ -199,16 +206,12 @@ const ELITE_CAPTAINCY_PLAYERS = [
  *
  * @param {string} historicalTeam - team in historical data
  * @param {string|null} currentTeam - current FPL team (short name)
- * @returns {number} penalty factor (0.75 = 25% penalty, 1.0 = no penalty)
+ * @returns {number} penalty factor (0.78 = 22% penalty, 1.0 = no penalty)
  */
 function getTransferPenalty(historicalTeam, currentTeam) {
   if (!currentTeam || !historicalTeam) return 1.0;
-  // Normalize team names for comparison
   const normalize = (t) => (t || '').toLowerCase().replace(/[^a-z]/g, '');
   if (normalize(historicalTeam) === normalize(currentTeam)) return 1.0;
-
-  // Player transferred: penalty depends on position
-  // MID/FWD transfers are more impactful (different systems, roles)
   return 0.78; // 22% penalty for changing clubs
 }
 
@@ -229,13 +232,13 @@ function getEliteEntry(webName) {
  * Compute the captaincy score for a player using the new weighted formula:
  *
  * captaincyScore =
- *   xPtsComponent    (0.25 weight) - expected points for the fixture
- *   formComponent    (0.20 weight) - current form relative to position
- *   xGI90Component   (0.15 weight) - expected goal involvement rate
- *   fixtureComponent (0.12 weight) - fixture difficulty
- *   eliteComponent   (0.15 weight) - historical captaincy pedigree
+ *   xPtsComponent    (0.30 weight) - expected points for the fixture
+ *   formComponent    (0.18 weight) - current form relative to position
+ *   fixtureComponent (0.18 weight) - fixture difficulty
+ *   xGI90Component   (0.12 weight) - expected goal involvement rate
+ *   eliteComponent   (0.08 weight) - historical captaincy pedigree
  *   h2hComponent     (0.08 weight) - historical record vs opponent
- *   roleComponent    (0.05 weight) - set piece / penalty duties
+ *   roleComponent    (0.06 weight) - set piece / penalty duties
  *
  * All components normalized to 0-100 scale.
  */
@@ -280,12 +283,9 @@ function computeCaptaincyScore({
   // 6. H2H component (0-100): based on historical record vs this opponent
   let h2hComponent = 50; // neutral if no data
   if (h2hAppearances >= 2) {
-    // Scale: PPG of 4 = 40, PPG of 8 = 80, PPG of 12 = 100
     h2hComponent = Math.min(100, Math.max(0, (h2hPointsPerGame / 12) * 100));
-    // Haul rate bonus: extra 15 points if > 30% haul rate
     if (h2hHaulRate > 0.3) h2hComponent = Math.min(100, h2hComponent + 15);
   } else if (h2hAppearances === 1) {
-    // Single appearance: use it but with less weight
     h2hComponent = Math.min(100, Math.max(25, (h2hPointsPerGame / 12) * 100));
   }
 

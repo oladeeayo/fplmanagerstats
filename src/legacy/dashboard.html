@@ -989,12 +989,20 @@
                         </div>
                     </div>
 
-                    <div id="cap-actual-deadline-card" style="display:none;margin-bottom:12px;"></div>
+                    <div class="captaincy-spotlights">
+                        <div id="cap-actual-deadline-card" style="display:none;grid-column:1 / -1;margin-bottom:12px;"></div>
+                        <article id="cap-best-card" class="captaincy-spotlight captaincy-spotlight-best">
+                            <div class="captaincy-loading">Calculating the best captain...</div>
+                        </article>
+                        <article id="cap-differential-card" class="captaincy-spotlight captaincy-spotlight-differential">
+                            <div class="captaincy-loading">Finding the differential...</div>
+                        </article>
+                    </div>
 
                     <section class="captaincy-rankings" aria-labelledby="cap-table-title">
                         <div class="captaincy-rankings-header">
                             <div>
-                                <div class="captaincy-kicker">CAPTAINCY MODEL</div>
+                                <div class="captaincy-kicker">SHORTLIST</div>
                                 <h2 id="cap-table-title">Top 5 Captain Picks</h2>
                             </div>
                             <div id="cap-model-inputs" class="captaincy-model-inputs"></div>
