@@ -373,30 +373,34 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
   const prevSeasonData = historical?.previousSeason || null;
 
   const decay = getDecayFactor(currentGW);
-  const histWeight = 1 - decay;
-  const currWeight = decay;
-
-  let effectiveForm = form > 0 ? form : ppg;
-  let effectivePPG = ppg;
   const positionName = POSITION_MAP[player.element_type - 1];
   const posBenchmark = POSITION_BENCHMARKS[positionName] || 4.5;
 
-  if (cs && cs.totalMinutes > 500) {
-    const histPPG90 = cs.pointsPer90Career || latestSeason?.pointsPer90 || posBenchmark;
-    effectiveForm = effectiveForm * currWeight + histPPG90 * histWeight;
-    effectivePPG = ppg * currWeight + histPPG90 * histWeight;
-  } else if (!cs) {
-    effectiveForm = effectiveForm * currWeight + posBenchmark * histWeight;
-    effectivePPG = ppg * currWeight + posBenchmark * histWeight;
-  }
+  const hasHistory = cs && cs.totalMinutes > 1000;
+  const hasFullHistory = cs && cs.fullSeasons >= 2 && cs.totalMinutes > 3000;
 
-  const playingTimeFactor = cs ? Math.min(1.2, 0.8 + (cs.minutesReliability || 0.7) * 0.4) : 1;
+  const histXGI90 = cs?.xGIPer90Career || latestSeason?.xGIPer90 || 0;
+  const histPPG90 = cs?.pointsPer90Career || latestSeason?.pointsPer90 || posBenchmark;
+  const histBonusPer90 = cs?.bonusPer90Career || 0;
+  const histHaulRate = cs?.haulRateCareer || 0;
+  const consistency = cs?.consistencyScore || 0;
 
-  if (cs && cs.totalMinutes > 500) {
-    const careerGoalsPer90 = cs.xGIPer90Career * 0.65;
-    const careerAssistsPer90 = cs.xGIPer90Career * 0.35;
-    xG90 = xG90 * currWeight + careerGoalsPer90 * histWeight;
-    xA90 = xA90 * currWeight + careerAssistsPer90 * histWeight;
+  const rawForm = form > 0 ? form : ppg;
+  const dampenedForm = hasHistory
+    ? Math.min(rawForm, histPPG90 * 2.5)
+    : Math.min(rawForm, posBenchmark * 2);
+  let effectiveForm = dampenedForm * decay + histPPG90 * (1 - decay);
+  let effectivePPG = ppg * decay + histPPG90 * (1 - decay);
+
+  const playingTimeFactor = cs ? Math.min(1.2, 0.8 + (cs.minutesReliability || 0.7) * 0.4) : 0.9;
+
+  const eliteBonus = hasFullHistory ? (consistency * 0.4 + histHaulRate * 3 + Math.min(histXGI90, 1.0) * 0.8) : 0;
+
+  if (hasHistory) {
+    const careerGoalsPer90 = histXGI90 * 0.65;
+    const careerAssistsPer90 = histXGI90 * 0.35;
+    xG90 = xG90 * decay + careerGoalsPer90 * (1 - decay);
+    xA90 = xA90 * decay + careerAssistsPer90 * (1 - decay);
 
     if (cs.xGITrend > 0.05) {
       const boost = Math.min(cs.xGITrend * 0.2, 0.12);
@@ -407,9 +411,9 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
       xG90 *= (1 - penalty);
       xA90 *= (1 - penalty);
     }
-  } else if (!cs) {
-    xG90 = xG90 * currWeight + (posBenchmark * 0.15 / 90) * histWeight;
-    xA90 = xA90 * currWeight + (posBenchmark * 0.08 / 90) * histWeight;
+  } else {
+    xG90 = xG90 * decay + (posBenchmark * 0.12 / 90) * (1 - decay);
+    xA90 = xA90 * decay + (posBenchmark * 0.06 / 90) * (1 - decay);
   }
 
   const officialProjection = useOfficialProjection ? number(player.ep_next) : 0;
@@ -438,7 +442,7 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
   });
 
   const totalXptsRaw = fixtures.reduce((sum, fixture) => sum + fixture.xPts, 0);
-  const consistencyBonus = (cs?.consistencyScore || 0) * 0.8 + (cs?.minutesReliability || 0) * 0.5 + (cs?.haulRateCareer || 0) * 2;
+  const consistencyBonus = (cs?.consistencyScore || 0) * 0.8 + (cs?.minutesReliability || 0) * 0.5 + (cs?.haulRateCareer || 0) * 2 + eliteBonus;
   const roleBoost = (number(player.penalties_order) === 1 ? ROLE_BOOSTS.penalty : 0) +
     (number(player.direct_freekicks_order) === 1 || number(player.corners_and_indirect_freekicks_order) === 1 ? ROLE_BOOSTS.setPiece : 0);
   const totalXpts = round((totalXptsRaw + consistencyBonus + roleBoost) * playingTimeFactor);
@@ -585,9 +589,9 @@ async function buildCaptaincyModel({ bootstrap, fixtures, selectedGW }) {
     }))
     .filter(Boolean)
     .sort((a, b) => {
-      const aWeighted = a.xPts * (1 + (a.consistencyScore - 0.5) * 0.15);
-      const bWeighted = b.xPts * (1 + (b.consistencyScore - 0.5) * 0.15);
-      if (Math.abs(aWeighted - bWeighted) > 0.3) return bWeighted - aWeighted;
+      const aWeighted = a.xPts * (1 + (a.consistencyScore - 0.3) * 0.4);
+      const bWeighted = b.xPts * (1 + (b.consistencyScore - 0.3) * 0.4);
+      if (Math.abs(aWeighted - bWeighted) > 0.2) return bWeighted - aWeighted;
       return b.xPts - a.xPts || b.upside - a.upside || b.xMins - a.xMins;
     });
 
