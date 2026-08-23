@@ -494,13 +494,22 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
     };
   });
 
-  // Historical Elite Pool Guard (Top 30 players from previous seasons)
-  const isHistoricalElite = Boolean(historical?.isHistoricalElite || (cs && (cs.totalPoints >= 380 || cs.fullSeasons >= 2)));
+  // Historical Elite Pool Guard & Top 20 Captaincy Elite Tier
+  const isTop20CaptaincyElite = Boolean(historical?.isTop20CaptaincyElite);
+  const isHistoricalElite = Boolean(historical?.isHistoricalElite || isTop20CaptaincyElite || (cs && (cs.totalPoints >= 380 || cs.fullSeasons >= 2)));
   const gamesPlayedThisSeason = Math.max(number(player.starts), Math.floor(number(player.minutes) / 80));
   const hasSustainedExcellence = gamesPlayedThisSeason >= 9 && (effectiveForm >= 6.5 || ppg >= 6.0);
 
-  // Non-elite candidates without 9-10 GWs sustained form receive non-elite penalty
-  const elitePoolFactor = (!isHistoricalElite && !hasSustainedExcellence) ? 0.78 : 1.0;
+  // Captaincy Elite Weighting:
+  // Top 20 Captaincy Elite receive 1.15x boost above others
+  // Historical Elite receive 1.0x baseline
+  // Non-elite candidates without 9-10 GWs sustained form receive 0.78x penalty
+  let elitePoolFactor = 1.0;
+  if (isTop20CaptaincyElite) {
+    elitePoolFactor = 1.15;
+  } else if (!isHistoricalElite && !hasSustainedExcellence) {
+    elitePoolFactor = 0.78;
+  }
 
   const totalXptsRaw = fixtures.reduce((sum, fixture) => sum + fixture.xPts, 0);
   const totalXpts = round(totalXptsRaw * playingTimeFactor * elitePoolFactor);
@@ -564,6 +573,9 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
     minutesReliability: round(minutesReliability, 2),
     prevSeasonXGI90: round(prevSeasonXGI90, 2),
     hasMultiSeasonData,
+    isTop20CaptaincyElite,
+    captaincyEliteRank: historical?.captaincyEliteRank || null,
+    isHistoricalElite,
     reason: `${fixtureDetail}. ${totalXmins} xMins, ${profileText} and ${formText} produce ${totalXpts.toFixed(1)} xPts.${roleText}${hasMultiSeasonData ? ` Multi-season consistency: ${round(consistencyScore * 100)}%.` : ''}`,
   };
 }

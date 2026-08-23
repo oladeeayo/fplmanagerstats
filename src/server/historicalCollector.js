@@ -592,6 +592,22 @@ async function collectAllHistoricalStats() {
       });
     });
 
+    // Flag Top 20 Captaincy Elite based on Average Points per Season
+    const top20CaptaincyElite = [...results]
+      .filter(r => r.crossSeason && r.crossSeason.totalPoints > 0 && Object.keys(r.seasons || {}).length > 0)
+      .map(r => {
+        const count = Object.keys(r.seasons || {}).length;
+        const avgPts = (r.crossSeason.totalPoints || 0) / count;
+        return { entry: r, avgPts, totalPts: r.crossSeason.totalPoints };
+      })
+      .sort((a, b) => (b.avgPts !== a.avgPts ? b.avgPts - a.avgPts : b.totalPts - a.totalPts))
+      .slice(0, 20);
+
+    top20CaptaincyElite.forEach((item, idx) => {
+      item.entry.isTop20CaptaincyElite = true;
+      item.entry.captaincyEliteRank = idx + 1;
+    });
+
     results.sort((a, b) => (b.crossSeason.totalPoints || 0) - (a.crossSeason.totalPoints || 0));
 
     if (results.length > 0 && sql) {
