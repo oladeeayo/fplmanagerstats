@@ -242,7 +242,7 @@ function starterTierFor(score) {
   return 'Unknown role';
 }
 
-function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form, ppg, position, officialProjection }) {
+function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form, ppg, position, officialProjection, historical }) {
   const difficulty = getFixtureDifficulty(fixture, player.team);
   const isHome = fixture.team_h === player.team;
   const opponentId = isHome ? fixture.team_a : fixture.team_h;
@@ -398,6 +398,7 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
       ppg,
       position,
       officialProjection,
+      historical,
     });
     const opponent = teamsById.get(projection.opponentId);
     return {
