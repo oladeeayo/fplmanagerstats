@@ -1,3 +1,5 @@
+const { getEliteEntry, getTransferPenalty, computeCaptaincyScore, ELITE_CAPTAINCY_PLAYERS } = require('../data/elite_top20_captaincy');
+
 const POSITION_MAP = ['GKP', 'DEF', 'MID', 'FWD'];
 
 const GOAL_POINTS = { GKP: 10, DEF: 6, MID: 5, FWD: 4 };
@@ -28,6 +30,119 @@ function getFplInsightsData() { return fplInsightsData || (fplInsightsData = req
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+// ---- Rotation Risk Detection ----
+// Analyzes fixture schedule to detect midweek games, short rest, and congestion.
+// Returns a penalty factor (0.72 = 28% penalty, 1.0 = no risk).
+function detectRotationRisk(teamId, targetGW, allFixtures, teamsById) {
+  const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  // Get all fixtures for this team across the season, sorted by kickoff
+  const teamFixtures = allFixtures
+    .filter(f => (f.team_h === teamId || f.team_a === teamId) && f.kickoff_time)
+    .sort((a, b) => String(a.kickoff_time).localeCompare(String(b.kickoff_time)));
+
+  if (teamFixtures.length === 0) return { penalty: 1.0, reasons: [], restDays: null, isMidweek: false };
+
+  // Find the target GW fixture
+  const targetFixtures = teamFixtures.filter(f => f.event === targetGW);
+  if (targetFixtures.length === 0) return { penalty: 1.0, reasons: [], restDays: null, isMidweek: false };
+
+  const targetFix = targetFixtures[0];
+  const targetDate = new Date(targetFix.kickoff_time);
+  const targetDay = targetDate.getUTCDay();
+  const isMidweek = targetDay >= 2 && targetDay <= 4; // Tue=2, Wed=3, Thu=4
+
+  // Find the previous fixture for this team
+  const prevFixtures = teamFixtures.filter(f => f.event < targetGW && f.kickoff_time);
+  let restDays = null;
+  if (prevFixtures.length > 0) {
+    const prevFix = prevFixtures[prevFixtures.length - 1];
+    const prevDate = new Date(prevFix.kickoff_time);
+    restDays = (targetDate - prevDate) / (1000 * 60 * 60 * 24);
+  }
+
+  // Find the next fixture after this GW
+  const nextFixtures = teamFixtures.filter(f => f.event > targetGW && f.kickoff_time);
+  let daysUntilNext = null;
+  if (nextFixtures.length > 0) {
+    const nextFix = nextFixtures[0];
+    const nextDate = new Date(nextFix.kickoff_time);
+    daysUntilNext = (nextDate - targetDate) / (1000 * 60 * 60 * 24);
+  }
+
+  // GW congestion: check if 2 gameweeks fall within a 5-day window
+  let gwCongestion = false;
+  if (nextFixtures.length > 0 && daysUntilNext !== null) {
+    gwCongestion = daysUntilNext < 4.5;
+  }
+
+  // Previous GW was midweek (team played Tue/Wed/Thu in the last GW)
+  let prevWasMidweek = false;
+  if (prevFixtures.length > 0) {
+    const prevDay = new Date(prevFixtures[prevFixtures.length - 1].kickoff_time).getUTCDay();
+    prevWasMidweek = prevDay >= 2 && prevDay <= 4;
+  }
+
+  // European competition indicator: if the team plays in midweek AND the previous
+  // or next GW is also midweek, they likely have European fixtures (CL/EL)
+  const hasEuropeanSchedule = (isMidweek && prevWasMidweek) ||
+    (isMidweek && gwCongestion) ||
+    (prevWasMidweek && gwCongestion);
+
+  // Compute rotation risk factors
+  let penalty = 1.0;
+  const reasons = [];
+
+  // Factor 1: Short rest (< 3.5 days) = high rotation risk
+  if (restDays !== null && restDays < 3.5) {
+    const severity = restDays < 2.5 ? 0.18 : 0.10;
+    penalty -= severity;
+    reasons.push(`Short rest: ${restDays.toFixed(1)} days since last match`);
+  }
+
+  // Factor 2: Midweek fixture = elevated rotation risk
+  if (isMidweek) {
+    penalty -= 0.08;
+    reasons.push('Midweek fixture — increased rotation likelihood');
+  }
+
+  // Factor 3: GW congestion (next GW < 4.5 days away)
+  if (gwCongestion) {
+    penalty -= 0.06;
+    reasons.push(`Congested schedule — next GW in ${daysUntilNext?.toFixed(1)} days`);
+  }
+
+  // Factor 4: Previous GW was midweek (fatigue from compressed schedule)
+  if (prevWasMidweek && !isMidweek) {
+    penalty -= 0.04;
+    reasons.push('Played midweek in previous GW — recovery window compressed');
+  }
+
+  // Factor 5: European schedule compounding (CL/EL teams)
+  if (hasEuropeanSchedule) {
+    penalty -= 0.05;
+    reasons.push('European competition schedule — squad rotation expected');
+  }
+
+  // Factor 6: Very long rest (> 9 days) can indicate postponement/rearrangement
+  // which sometimes means a double GW is incoming — slightly boost (less rotation)
+  if (restDays !== null && restDays > 9) {
+    penalty += 0.03;
+    reasons.push('Extended rest period — fresh for this fixture');
+  }
+
+  return {
+    penalty: clamp(penalty, 0.72, 1.03),
+    reasons,
+    restDays: restDays !== null ? Math.round(restDays * 10) / 10 : null,
+    isMidweek,
+    gwCongestion,
+    prevWasMidweek,
+    hasEuropeanSchedule,
+    daysUntilNext: daysUntilNext !== null ? Math.round(daysUntilNext * 10) / 10 : null,
+  };
 }
 
 function number(value, fallback = 0) {
@@ -346,10 +461,13 @@ function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form
   };
 }
 
-function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, baselines, useNextRoundChance, useOfficialProjection, teamExperience, teamPositionCosts, historicalData, currentGW }) {
+function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, baselines, useNextRoundChance, useOfficialProjection, teamExperience, teamPositionCosts, historicalData, currentGW, allFixtures }) {
   const availability = availabilityFor(player, useNextRoundChance);
   const xMins = estimateExpectedMinutes(player, referenceMatches, availability, { teamExperience, position: POSITION_MAP[player.element_type - 1] });
   if (!playerFixtures.length || xMins < 20) return null;
+
+  // Detect rotation risk from fixture schedule
+  const rotationRisk = detectRotationRisk(player.team, currentGW, allFixtures || [], teamsById);
 
   const position = POSITION_MAP[player.element_type - 1];
   const avgFdr = playerFixtures.length
@@ -487,24 +605,48 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
   });
 
   // Historical Elite Pool Guard & Top 20 Captaincy Elite Tier
-  const isTop20CaptaincyElite = Boolean(historical?.isTop20CaptaincyElite);
+  // Use curated elite list instead of auto-generated rankings
+  const eliteEntry = getEliteEntry(player.web_name);
+  const isTop20CaptaincyElite = Boolean(eliteEntry);
   const isHistoricalElite = Boolean(historical?.isHistoricalElite || isTop20CaptaincyElite || (cs && (cs.totalPoints >= 380 || cs.fullSeasons >= 2)));
   const gamesPlayedThisSeason = Math.max(number(player.starts), Math.floor(number(player.minutes) / 80));
   const hasSustainedExcellence = gamesPlayedThisSeason >= 9 && (effectiveForm >= 6.5 || ppg >= 6.0);
 
-  // Captaincy Elite Weighting:
-  // Top 20 Captaincy Elite receive 1.06x boost above others
-  // Historical Elite receive 1.0x baseline
-  // Non-elite candidates without 9-10 GWs sustained form receive 0.85x penalty
-  let elitePoolFactor = 1.0;
-  if (isTop20CaptaincyElite) {
-    elitePoolFactor = 1.06;
-  } else if (!isHistoricalElite && !hasSustainedExcellence) {
-    elitePoolFactor = 0.85;
+  // Club-change penalty: players who moved to a new club get reduced weight
+  // because their historical data is from a different system/role/tactical setup
+  const currentTeamName = teamsById?.get(player.team)?.name || '';
+  const historicalTeamName = eliteEntry?.historicalTeam || historical?.team || '';
+  let transferPenalty = 1.0;
+  if (eliteEntry && historicalTeamName && currentTeamName) {
+    const normalize = (t) => (t || '').toLowerCase().replace(/[^a-z]/g, '');
+    if (normalize(historicalTeamName) !== normalize(currentTeamName)) {
+      transferPenalty = 0.78; // 22% penalty for changing clubs
+    }
+  } else if ((historical?.latestSeasonTeam || historical?.team) && currentTeamName) {
+    const histTeam = historical.latestSeasonTeam || historical.team;
+    const normalize = (t) => (t || '').toLowerCase().replace(/[^a-z]/g, '');
+    if (normalize(histTeam) !== normalize(currentTeamName)) {
+      transferPenalty = 0.78;
+    }
   }
 
+  // Captaincy Elite Weighting:
+  // Curated Top 20 Captaincy Elite receive 1.12x boost
+  // Historical Elite receive 1.04x baseline
+  // Non-elite candidates without sustained form receive 0.82x penalty
+  let elitePoolFactor = 1.0;
+  if (isTop20CaptaincyElite) {
+    elitePoolFactor = 1.12;
+  } else if (isHistoricalElite || hasSustainedExcellence) {
+    elitePoolFactor = 1.04;
+  } else {
+    elitePoolFactor = 0.82;
+  }
+  // Apply transfer penalty to elite factor
+  elitePoolFactor *= transferPenalty;
+
   const totalXptsRaw = fixtures.reduce((sum, fixture) => sum + fixture.xPts, 0);
-  const totalXpts = round(totalXptsRaw * playingTimeFactor * elitePoolFactor);
+  const totalXpts = round(totalXptsRaw * playingTimeFactor * elitePoolFactor * rotationRisk.penalty);
   const totalXmins = fixtures.reduce((sum, fixture) => sum + fixture.xMins, 0);
   const attackingXpts = fixtures.reduce((sum, fixture) => sum + fixture.attackingXPts, 0);
   const ownership = number(player.selected_by_percent);
@@ -568,7 +710,48 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
     isTop20CaptaincyElite,
     captaincyEliteRank: historical?.captaincyEliteRank || null,
     isHistoricalElite,
-    reason: `${fixtureDetail}. ${totalXmins} xMins, ${profileText} and ${formText} produce ${totalXpts.toFixed(1)} xPts.${roleText}${hasMultiSeasonData ? ` Multi-season consistency: ${round(consistencyScore * 100)}%.` : ''}`,
+    transferPenalty,
+    eliteEntryScore: eliteEntry?.eliteScore || 0,
+    // Captaincy score: weighted combination of all factors
+    captaincyScore: (() => {
+      const avgFdr = fixtures.length > 0 ? fixtures.reduce((s, f) => s + f.fdr, 0) / fixtures.length : 3;
+      const isHome = fixtures.length > 0 ? fixtures[0].isHome : true;
+      const firstOppId = fixtures.length > 0 ? fixtures[0].opponentId : null;
+      const oppHist = firstOppId ? (allOpponentHistory[firstOppId] || null) : null;
+      const baseScore = computeCaptaincyScore({
+        xPts: totalXpts,
+        form: effectiveForm,
+        ppg: effectivePPG,
+        xGI90: xG90 + xA90,
+        position,
+        fdr: avgFdr,
+        isHome,
+        eliteScore: eliteEntry?.eliteScore || (isHistoricalElite ? 60 : 0),
+        h2hAppearances: oppHist?.appearances || 0,
+        h2hPointsPerGame: oppHist ? (oppHist.points / Math.max(oppHist.appearances, 1)) : 0,
+        h2hHaulRate: oppHist ? (oppHist.hauls / Math.max(oppHist.appearances, 1)) : 0,
+        hasPenalties: number(player.penalties_order) === 1,
+        hasFreeKicks: number(player.direct_freekicks_order) === 1,
+        hasCorners: number(player.corners_and_indirect_freekicks_order) === 1,
+        minutesReliability: cs?.minutesReliability || 0,
+        consistencyScore: cs?.consistencyScore || 0,
+        transferPenalty,
+      });
+      // Apply rotation risk penalty to captaincy score
+      return { ...baseScore, finalScore: Math.round(baseScore.finalScore * rotationRisk.penalty * 10) / 10 };
+    })(),
+    // Rotation risk from fixture schedule analysis
+    rotationRisk: {
+      penalty: rotationRisk.penalty,
+      reasons: rotationRisk.reasons,
+      restDays: rotationRisk.restDays,
+      isMidweek: rotationRisk.isMidweek,
+      gwCongestion: rotationRisk.gwCongestion,
+      daysUntilNext: rotationRisk.daysUntilNext,
+    },
+    // Is this player a viable captaincy candidate from the curated elite list
+    isEliteCaptaincyCandidate: isTop20CaptaincyElite,
+    reason: `${fixtureDetail}. ${totalXmins} xMins, ${profileText} and ${formText} produce ${totalXpts.toFixed(1)} xPts.${roleText}${hasMultiSeasonData ? ` Multi-season consistency: ${round(consistencyScore * 100)}%.` : ''}${transferPenalty < 1 ? ' Club change reduces historical weight.' : ''}${rotationRisk.reasons.length > 0 ? ` Rotation risk: ${rotationRisk.reasons[0]}.` : ''}`,
   };
 }
 
@@ -648,15 +831,26 @@ async function buildCaptaincyModel({ bootstrap, fixtures, selectedGW }) {
       teamPositionCosts,
       historicalData,
       currentGW: gameweek,
+      allFixtures: fixtures,
     }))
     .filter(Boolean)
     .filter(candidate => {
       // Must be active and available to play
       if (candidate.availability <= 0 || candidate.xMinsPerFixture < 45) return false;
-      // Must be an elite captaincy asset (Top 20 captaincy elite, historical elite, sustained performer, or top projected asset)
-      return candidate.isTop20CaptaincyElite || candidate.isHistoricalElite || candidate.hasSustainedExcellence || candidate.xPts >= 4.5;
+      // Include: curated elite, historical elite, sustained performers, or any player with meaningful xPts
+      // Lowered threshold from 4.5 to 3.0 so captaincy always has results for upcoming GWs
+      return candidate.isTop20CaptaincyElite || candidate.isHistoricalElite || candidate.hasSustainedExcellence || candidate.xPts >= 3.0;
     })
-    .sort((a, b) => b.xPts - a.xPts || b.upside - a.upside || b.xMins - a.xMins);
+    .sort((a, b) => {
+      // Primary sort: captaincyScore (the new weighted formula)
+      const aScore = a.captaincyScore?.finalScore || a.xPts;
+      const bScore = b.captaincyScore?.finalScore || b.xPts;
+      if (bScore !== aScore) return bScore - aScore;
+      // Secondary: xPts for tiebreak
+      if (b.xPts !== a.xPts) return b.xPts - a.xPts;
+      // Tertiary: upside
+      return b.upside - a.upside;
+    });
 
   const bestPick = candidates[0] || null;
   const topPicks = candidates.slice(0, 5).map((candidate, index) => ({ ...candidate, rank: index + 1 }));
@@ -682,6 +876,113 @@ async function buildCaptaincyModel({ bootstrap, fixtures, selectedGW }) {
     ? { ...differentialPick, overallRank: candidates.findIndex(candidate => candidate.id === differentialPick.id) + 1 }
     : null;
 
+  // Build side-by-side comparison between best pick and differential pick
+  function buildComparison(best, diff) {
+    if (!best || !diff) return null;
+
+    // H2H fixture comparison
+    const fixtureCompare = best.fixtures.map((bf, i) => {
+      const df = diff.fixtures[i];
+      return {
+        best: { label: bf.label, fdr: bf.fdr, venue: bf.venue, xPts: bf.xPts, opponentFull: bf.opponentFull, tone: bf.tone },
+        diff: df ? { label: df.label, fdr: df.fdr, venue: df.venue, xPts: df.xPts, opponentFull: df.opponentFull, tone: df.tone } : null,
+      };
+    });
+
+    // Form comparison
+    const formDelta = round(diff.formUsed - best.formUsed, 2);
+    const formWinner = formDelta > 0 ? 'diff' : formDelta < 0 ? 'best' : 'tie';
+
+    // xGI comparison
+    const xgiDelta = round(diff.xGI90 - best.xGI90, 2);
+    const xgiWinner = xgiDelta > 0 ? 'diff' : xgiDelta < 0 ? 'best' : 'tie';
+
+    // xPts comparison
+    const xptsDelta = round(diff.xPts - best.xPts, 2);
+    const xptsWinner = xptsDelta > 0 ? 'diff' : xptsDelta < 0 ? 'best' : 'tie';
+
+    // Ownership differential
+    const ownershipGap = round(best.ownership - diff.ownership, 1);
+
+    // Fixture difficulty comparison
+    const bestAvgFdr = best.fixtures.length > 0 ? round(best.fixtures.reduce((s, f) => s + f.fdr, 0) / best.fixtures.length, 1) : 3;
+    const diffAvgFdr = diff.fixtures.length > 0 ? round(diff.fixtures.reduce((s, f) => s + f.fdr, 0) / diff.fixtures.length, 1) : 3;
+
+    // Rotation risk comparison
+    const bestRotation = best.rotationRisk || {};
+    const diffRotation = diff.rotationRisk || {};
+
+    // Set-piece / role comparison
+    const bestRoles = best.roles || [];
+    const diffRoles = diff.roles || [];
+
+    // Historical H2H vs upcoming opponent
+    const bestOppHist = best.fixtures[0] ? { appearances: best.fixtures[0].oppHistAppearances || 0, ppg: best.fixtures[0].oppHistPPG || 0 } : { appearances: 0, ppg: 0 };
+    const diffOppHist = diff.fixtures[0] ? { appearances: diff.fixtures[0].oppHistAppearances || 0, ppg: diff.fixtures[0].oppHistPPG || 0 } : { appearances: 0, ppg: 0 };
+
+    // Head-to-head summary
+    const advantages = [];
+    if (xptsDelta > 0.3) advantages.push({ player: 'diff', reason: `${diff.xPts.toFixed(1)} vs ${best.xPts.toFixed(1)} xPts` });
+    else if (xptsDelta < -0.3) advantages.push({ player: 'best', reason: `${best.xPts.toFixed(1)} vs ${diff.xPts.toFixed(1)} xPts` });
+    if (formDelta > 0.3) advantages.push({ player: 'diff', reason: `Better form (${diff.formUsed.toFixed(1)} vs ${best.formUsed.toFixed(1)})` });
+    else if (formDelta < -0.3) advantages.push({ player: 'best', reason: `Better form (${best.formUsed.toFixed(1)} vs ${diff.formUsed.toFixed(1)})` });
+    if (xgiDelta > 0.05) advantages.push({ player: 'diff', reason: `Higher xGI (${diff.xGI90.toFixed(2)} vs ${best.xGI90.toFixed(2)} /90)` });
+    else if (xgiDelta < -0.05) advantages.push({ player: 'best', reason: `Higher xGI (${best.xGI90.toFixed(2)} vs ${diff.xGI90.toFixed(2)} /90)` });
+    if (diffAvgFdr < bestAvgFdr - 0.3) advantages.push({ player: 'diff', reason: `Easier fixture (FDR ${diffAvgFdr} vs ${bestAvgFdr})` });
+    else if (bestAvgFdr < diffAvgFdr - 0.3) advantages.push({ player: 'best', reason: `Easier fixture (FDR ${bestAvgFdr} vs ${diffAvgFdr})` });
+    if (diffRoles.length > bestRoles.length) advantages.push({ player: 'diff', reason: `More set-piece duties (${diffRoles.join(', ')})` });
+    if (diffOppHist.appearances >= 2 && diffOppHist.ppg > bestOppHist.ppg + 1) advantages.push({ player: 'diff', reason: `Better H2H record vs opponent (${diffOppHist.ppg.toFixed(1)} vs ${bestOppHist.ppg.toFixed(1)} PPG)` });
+
+    return {
+      bestPick: {
+        name: best.name,
+        team: best.team,
+        position: best.position,
+        cost: best.cost,
+        xPts: best.xPts,
+        formUsed: best.formUsed,
+        xGI90: best.xGI90,
+        ownership: best.ownership,
+        xMins: best.xMins,
+        confidence: best.confidence,
+        fixtures: fixtureCompare.map(f => f.best),
+        rotationPenalty: bestRotation.penalty,
+        rotationReasons: bestRotation.reasons || [],
+        roles: bestRoles,
+        captaincyScore: best.captaincyScore?.finalScore || 0,
+        oppHistAppearances: bestOppHist.appearances,
+        oppHistPPG: bestOppHist.ppg,
+      },
+      diffPick: {
+        name: diff.name,
+        team: diff.team,
+        position: diff.position,
+        cost: diff.cost,
+        xPts: diff.xPts,
+        formUsed: diff.formUsed,
+        xGI90: diff.xGI90,
+        ownership: diff.ownership,
+        xMins: diff.xMins,
+        confidence: diff.confidence,
+        fixtures: fixtureCompare.map(f => f.diff),
+        rotationPenalty: diffRotation.penalty,
+        rotationReasons: diffRotation.reasons || [],
+        roles: diffRoles,
+        captaincyScore: diff.captaincyScore?.finalScore || 0,
+        oppHistAppearances: diffOppHist.appearances,
+        oppHistPPG: diffOppHist.ppg,
+      },
+      deltas: {
+        xPts: xptsDelta,
+        form: formDelta,
+        xGI90: xgiDelta,
+        ownership: ownershipGap,
+        avgFdr: round(bestAvgFdr - diffAvgFdr, 1),
+      },
+      advantages,
+    };
+  }
+
   return {
     gameweek,
     selectedGW: gameweek,
@@ -689,13 +990,14 @@ async function buildCaptaincyModel({ bootstrap, fixtures, selectedGW }) {
     nextGW,
     availableGameweeks,
     generatedAt: new Date().toISOString(),
-    modelVersion: 'Captaincy xPts 2.0',
+    modelVersion: 'Captaincy Score v3.0 - Elite Pool + H2H + Transfer Detection',
     modelInputs: ['fixtures', 'form', 'xMins', 'xG', 'xA', 'PPG', 'availability', 'set pieces', 'bonus'],
     bestPick: bestPick ? { ...bestPick, explanation: buildPickExplanation(bestPick, bestPick, false) } : null,
     differentialPick: rankedDifferential ? {
       ...rankedDifferential,
       threshold: differentialThreshold,
       explanation: buildPickExplanation(rankedDifferential, bestPick, true),
+      comparison: buildComparison(bestPick, rankedDifferential),
     } : null,
     topPicks,
   };
@@ -749,6 +1051,7 @@ async function buildPlayerProjections({ bootstrap, fixtures, startGW, horizon = 
         teamPositionCosts,
         historicalData,
         currentGW: gameweek,
+        allFixtures: fixtures,
       });
     };
     const candidates = gameweeks.map(buildForGameweek);
@@ -807,4 +1110,5 @@ module.exports = {
   estimateExpectedMinutes,
   estimateStarterScore,
   starterTierFor,
+  detectRotationRisk,
 };

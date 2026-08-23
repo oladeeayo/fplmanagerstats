@@ -561,6 +561,10 @@ async function collectAllHistoricalStats() {
 
       const opponentsCombined = computeCombinedOpponents(seasonsData);
 
+      // Get the most recent season team for transfer detection
+      const seasonKeys = Object.keys(seasonsData).sort();
+      const latestSeasonTeam = seasonKeys.length > 0 ? (playerMeta.get(name)?.team || 'Unknown') : 'Unknown';
+
       results.push({
         id: fplId,
         element: meta.element || fplId,
@@ -569,6 +573,7 @@ async function collectAllHistoricalStats() {
         webNameLower: webName.toLowerCase(),
         position: meta.position || 'MID',
         team: meta.team || 'Unknown',
+        latestSeasonTeam: latestSeasonTeam,
         seasons: Object.fromEntries(Object.entries(seasonsData).map(([s, d]) => [s, d.profile])),
         opponents: Object.fromEntries(Object.entries(seasonsData).map(([s, d]) => [s, d.opponents])),
         opponentsCombined,
@@ -592,21 +597,17 @@ async function collectAllHistoricalStats() {
       });
     });
 
-    // Flag Top 20 Captaincy Elite based on Average Points per Season
-    const top20CaptaincyElite = [...results]
-      .filter(r => r.crossSeason && r.crossSeason.totalPoints > 0 && Object.keys(r.seasons || {}).length > 0)
-      .map(r => {
-        const count = Object.keys(r.seasons || {}).length;
-        const avgPts = (r.crossSeason.totalPoints || 0) / count;
-        return { entry: r, avgPts, totalPts: r.crossSeason.totalPoints };
-      })
-      .sort((a, b) => (b.avgPts !== a.avgPts ? b.avgPts - a.avgPts : b.totalPts - a.totalPts))
-      .slice(0, 20);
-
-    top20CaptaincyElite.forEach((item, idx) => {
-      item.entry.isTop20CaptaincyElite = true;
-      item.entry.captaincyEliteRank = idx + 1;
-    });
+    // Use curated elite captaincy list instead of auto-generating from average points
+    // This ensures only attack-minded players (MID/FWD) with proven captaincy pedigree are flagged
+    const { ELITE_CAPTAINCY_PLAYERS: curatedElite } = require('../../data/elite_top20_captaincy');
+    for (const entry of results) {
+      const curatedMatch = curatedElite.find(e => e.webName.toLowerCase() === (entry.webName || '').toLowerCase());
+      if (curatedMatch) {
+        entry.isTop20CaptaincyElite = true;
+        entry.captaincyEliteRank = curatedElite.indexOf(curatedMatch) + 1;
+        entry.eliteScore = curatedMatch.eliteScore;
+      }
+    }
 
     results.sort((a, b) => (b.crossSeason.totalPoints || 0) - (a.crossSeason.totalPoints || 0));
 

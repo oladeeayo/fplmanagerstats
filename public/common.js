@@ -5647,6 +5647,143 @@ const FPL = {
         `).join('');
     },
 
+    renderCaptainComparison(comparison) {
+        if (!comparison) return '';
+        const { bestPick: b, diffPick: d, deltas, advantages } = comparison;
+
+        const winner = (a, b2) => a > b2 ? 'best' : a < b2 ? 'diff' : 'tie';
+        const fmt = (v, suffix = '') => v > 0 ? `+${v}${suffix}` : `${v}${suffix}`;
+        const bar = (val, max, color) => {
+            const pct = Math.min(100, Math.max(0, (val / max) * 100));
+            return `<div style="background:rgba(255,255,255,0.06);border-radius:3px;height:6px;width:100%;position:relative;"><div style="background:${color};height:100%;border-radius:3px;width:${pct}%;transition:width 0.4s ease;"></div></div>`;
+        };
+
+        const fdrColor = (fdr) => fdr <= 2 ? '#00FF85' : fdr <= 3 ? '#FFD700' : '#FF4444';
+        const winColor = (w) => w === 'best' ? '#00BFFF' : w === 'diff' ? '#FF6B9D' : '#8ba396';
+
+        const comparisonRows = [
+            { label: 'xPts', best: b.xPts.toFixed(1), diff: d.xPts.toFixed(1), w: winner(d.xPts, b.xPts), max: Math.max(b.xPts, d.xPts, 1) * 1.2 },
+            { label: 'Captaincy Score', best: b.captaincyScore.toFixed(0), diff: d.captaincyScore.toFixed(0), w: winner(d.captaincyScore, b.captaincyScore), max: Math.max(b.captaincyScore, d.captaincyScore, 1) * 1.2 },
+            { label: 'Form', best: b.formUsed.toFixed(1), diff: d.formUsed.toFixed(1), w: winner(d.formUsed, b.formUsed), max: Math.max(b.formUsed, d.formUsed, 1) * 1.3 },
+            { label: 'xGI / 90', best: b.xGI90.toFixed(2), diff: d.xGI90.toFixed(2), w: winner(d.xGI90, b.xGI90), max: Math.max(b.xGI90, d.xGI90, 0.1) * 1.5 },
+            { label: 'xMins', best: b.xMins, diff: d.xMins, w: winner(d.xMins, b.xMins), max: 90 },
+            { label: 'Ownership', best: b.ownership.toFixed(1) + '%', diff: d.ownership.toFixed(1) + '%', w: 'tie', max: 100 },
+        ];
+
+        const fixtureRows = b.fixtures.map((bf, i) => {
+            const df = d.fixtures[i];
+            return { best: bf, diff: df };
+        });
+
+        const advantageHtml = advantages.length > 0
+            ? advantages.map(a => `<div style="display:flex;align-items:center;gap:6px;font-size:11px;"><span style="width:8px;height:8px;border-radius:50%;background:${a.player === 'diff' ? '#FF6B9D' : '#00BFFF'};flex-shrink:0;"></span><span style="color:#ccc;">${a.reason}</span></div>`).join('')
+            : '<div style="font-size:11px;color:#8ba396;">Both picks are evenly matched</div>';
+
+        return `
+            <div class="captaincy-comparison">
+                <div class="captaincy-comparison-header">
+                    <span class="material-symbols-outlined" style="font-size:18px;color:#FF6B9D;">balance</span>
+                    <h3 style="margin:0;font-size:14px;font-weight:700;">Head-to-Head: Best vs Differential</h3>
+                </div>
+
+                <!-- Player headers -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0;">
+                    <div style="padding:10px 12px;background:rgba(0,191,255,0.08);border:1px solid rgba(0,191,255,0.25);border-radius:10px;">
+                        <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:#00BFFF;font-weight:700;margin-bottom:4px;">BEST CAPTAIN</div>
+                        <div style="font-size:15px;font-weight:800;color:#fff;">${b.name}</div>
+                        <div style="font-size:11px;color:#8ba396;">${b.team} · ${b.position} · £${b.cost.toFixed(1)}m</div>
+                    </div>
+                    <div style="padding:10px 12px;background:rgba(255,107,157,0.08);border:1px solid rgba(255,107,157,0.25);border-radius:10px;">
+                        <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:#FF6B9D;font-weight:700;margin-bottom:4px;">DIFFERENTIAL < ${player.threshold}%</div>
+                        <div style="font-size:15px;font-weight:800;color:#fff;">${d.name}</div>
+                        <div style="font-size:11px;color:#8ba396;">${d.team} · ${d.position} · £${d.cost.toFixed(1)}m</div>
+                    </div>
+                </div>
+
+                <!-- Fixture comparison -->
+                <div style="margin:12px 0;">
+                    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#8ba396;font-weight:700;margin-bottom:6px;">FIXTURE COMPARISON</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                        ${fixtureRows.map(fr => `
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                                <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:rgba(0,191,255,0.06);border-radius:8px;border:1px solid rgba(0,191,255,0.15);">
+                                    <span style="font-size:11px;font-weight:700;color:#00BFFF;">${fr.best.label}</span>
+                                    <span style="font-size:9px;padding:2px 5px;border-radius:4px;font-weight:700;background:${fdrColor(fr.best.fdr)}22;color:${fdrColor(fr.best.fdr)};">FDR ${fr.best.fdr}</span>
+                                </div>
+                                <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:rgba(255,107,157,0.06);border-radius:8px;border:1px solid rgba(255,107,157,0.15);">
+                                    ${fr.diff ? `<span style="font-size:11px;font-weight:700;color:#FF6B9D;">${fr.diff.label}</span><span style="font-size:9px;padding:2px 5px;border-radius:4px;font-weight:700;background:${fdrColor(fr.diff.fdr)}22;color:${fdrColor(fr.diff.fdr)};">FDR ${fr.diff.fdr}</span>` : '<span style="font-size:11px;color:#8ba396;">—</span>'}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <!-- Metrics comparison -->
+                <div style="margin:12px 0;">
+                    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#8ba396;font-weight:700;margin-bottom:6px;">METRICS HEAD-TO-HEAD</div>
+                    <div style="display:flex;flex-direction:column;gap:8px;">
+                        ${comparisonRows.map(row => `
+                            <div style="display:grid;grid-template-columns:80px 1fr 50px 50px 1fr 80px;gap:8px;align-items:center;">
+                                <div style="text-align:right;font-size:11px;font-weight:600;color:${winColor(winner(parseFloat(row.diff), parseFloat(row.best)))};">${row.best}</div>
+                                <div style="text-align:right;">${bar(parseFloat(row.best), row.max, '#00BFFF')}</div>
+                                <div style="text-align:center;font-size:10px;color:#8ba396;font-weight:600;">${row.label}</div>
+                                <div style="text-align:center;font-size:10px;color:#8ba396;font-weight:600;"></div>
+                                <div>${bar(parseFloat(row.diff), row.max, '#FF6B9D')}</div>
+                                <div style="font-size:11px;font-weight:600;color:${winColor(winner(parseFloat(row.diff), parseFloat(row.best)))};">${row.diff}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <!-- Rotation risk comparison -->
+                <div style="margin:12px 0;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <div style="padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.06);">
+                        <div style="font-size:9px;text-transform:uppercase;color:#00BFFF;font-weight:700;margin-bottom:4px;">BEST — Rotation Risk</div>
+                        <div style="font-size:13px;font-weight:700;color:${b.rotationPenalty < 1 ? '#FF4444' : '#00FF85'};">${b.rotationPenalty < 1 ? ((1 - b.rotationPenalty) * 100).toFixed(0) + '% penalty' : 'Low risk'}</div>
+                        ${b.rotationReasons.length > 0 ? `<div style="font-size:10px;color:#8ba396;margin-top:2px;">${b.rotationReasons[0]}</div>` : ''}
+                    </div>
+                    <div style="padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.06);">
+                        <div style="font-size:9px;text-transform:uppercase;color:#FF6B9D;font-weight:700;margin-bottom:4px;">DIFF — Rotation Risk</div>
+                        <div style="font-size:13px;font-weight:700;color:${d.rotationPenalty < 1 ? '#FF4444' : '#00FF85'};">${d.rotationPenalty < 1 ? ((1 - d.rotationPenalty) * 100).toFixed(0) + '% penalty' : 'Low risk'}</div>
+                        ${d.rotationReasons.length > 0 ? `<div style="font-size:10px;color:#8ba396;margin-top:2px;">${d.rotationReasons[0]}</div>` : ''}
+                    </div>
+                </div>
+
+                <!-- Set-piece roles -->
+                <div style="margin:12px 0;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <div style="padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.06);">
+                        <div style="font-size:9px;text-transform:uppercase;color:#00BFFF;font-weight:700;margin-bottom:4px;">BEST — Set-Piece Roles</div>
+                        <div style="font-size:12px;color:${b.roles.length > 0 ? '#fff' : '#8ba396'};">${b.roles.length > 0 ? b.roles.join(' · ') : 'None'}</div>
+                    </div>
+                    <div style="padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.06);">
+                        <div style="font-size:9px;text-transform:uppercase;color:#FF6B9D;font-weight:700;margin-bottom:4px;">DIFF — Set-Piece Roles</div>
+                        <div style="font-size:12px;color:${d.roles.length > 0 ? '#fff' : '#8ba396'};">${d.roles.length > 0 ? d.roles.join(' · ') : 'None'}</div>
+                    </div>
+                </div>
+
+                <!-- Historical H2H vs opponent -->
+                <div style="margin:12px 0;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <div style="padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.06);">
+                        <div style="font-size:9px;text-transform:uppercase;color:#00BFFF;font-weight:700;margin-bottom:4px;">BEST — H2H vs Opponent</div>
+                        <div style="font-size:12px;color:#fff;">${b.oppHistAppearances > 0 ? `${b.oppHistPPG.toFixed(1)} PPG in ${b.oppHistAppearances} apps` : 'No historical data'}</div>
+                    </div>
+                    <div style="padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.06);">
+                        <div style="font-size:9px;text-transform:uppercase;color:#FF6B9D;font-weight:700;margin-bottom:4px;">DIFF — H2H vs Opponent</div>
+                        <div style="font-size:12px;color:#fff;">${d.oppHistAppearances > 0 ? `${d.oppHistPPG.toFixed(1)} PPG in ${d.oppHistAppearances} apps` : 'No historical data'}</div>
+                    </div>
+                </div>
+
+                <!-- Verdict advantages -->
+                <div style="margin:14px 0;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;">
+                    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#8ba396;font-weight:700;margin-bottom:8px;">VERDICT — KEY ADVANTAGES</div>
+                    <div style="display:flex;flex-direction:column;gap:5px;">
+                        ${advantageHtml}
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
     renderCaptainSpotlight(player, type) {
         if (!player) return '<div class="captaincy-empty">No eligible pick for this gameweek.</div>';
         const isBest = type === 'best';
@@ -5696,6 +5833,7 @@ const FPL = {
                 <div><span>Ownership</span><strong>${player.ownership.toFixed(1)}%</strong></div>
                 <div><span>Minutes confidence</span><strong>${player.confidence}</strong></div>
             </div>
+            ${!isBest && player.comparison ? `<div style="margin-top:16px;">${this.renderCaptainComparison(player.comparison)}</div>` : ''}
         `;
     },
 
