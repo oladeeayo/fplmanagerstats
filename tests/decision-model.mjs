@@ -62,7 +62,7 @@ const history = { current: [{ event: 1, points: 52 }, { event: 2, points: 61 }, 
 const rivals = [{ id: '456', name: 'Rival', teamName: 'Rival XI', rank: 9000, picks: [...picks.picks.slice(0, 12), ...elements.slice(-3).map((player, index) => ({ element: player.id, position: 13 + index }))] }];
 const liveData = { elements: elements.map(player => ({ id: player.id, stats: { total_points: player.id % 7, minutes: 90 } })) };
 
-const result = buildDecisionCentre({ bootstrap, fixtures, manager, picks, history, rivals, liveData, options: { targetGW: 10, horizon: 5, strategy: 'balanced', freeTransfers: 1 } });
+const result = await buildDecisionCentre({ bootstrap, fixtures, manager, picks, history, rivals, liveData, options: { targetGW: 10, horizon: 5, strategy: 'balanced', freeTransfers: 1 } });
 assert.equal(result.squad.length, 15);
 assert.equal(result.lineup.starters.length, 11);
 assert.equal(result.lineup.bench.length, 4);
@@ -83,7 +83,7 @@ assert.equal(result.backtest.status, 'baseline');
 assert.equal(result.live.status, 'live');
 assert.ok(result.live.players.length === 15 && Number.isFinite(result.live.livePoints));
 
-const advice = buildSquadAdvice({ bootstrap, fixtures, playerIds: squadPlayers.map(player => player.id), options: { targetGW: 10, horizon: 5, strategy: 'balanced', freeTransfers: 1, bank: 5 } });
+const advice = await buildSquadAdvice({ bootstrap, fixtures, playerIds: squadPlayers.map(player => player.id), options: { targetGW: 10, horizon: 5, strategy: 'balanced', freeTransfers: 1, bank: 5 } });
 assert.equal(advice.summary.legal, true);
 assert.equal(advice.critiques.length, 15);
 assert.equal(advice.lineup.starters.length, 11);
@@ -100,7 +100,7 @@ for (let gw = 1; gw <= 5; gw += 1) {
 }
 const gw1Bootstrap = { events: [{ id: 1, is_current: true }, { id: 2, is_next: true }], teams, elements };
 const gw1Picks = { picks: squadPlayers.map((player, index) => ({ element: player.id, position: index + 1, purchase_price: player.now_cost, selling_price: player.now_cost })), entry_history: { bank: 50 } };
-const gw1Decision = buildDecisionCentre({ bootstrap: gw1Bootstrap, fixtures: gw1Fixtures, manager, picks: gw1Picks, history, rivals: [], liveData: { elements: [] }, options: { targetGW: 1, horizon: 5, strategy: 'balanced', freeTransfers: 1 } });
+const gw1Decision = await buildDecisionCentre({ bootstrap: gw1Bootstrap, fixtures: gw1Fixtures, manager, picks: gw1Picks, history, rivals: [], liveData: { elements: [] }, options: { targetGW: 1, horizon: 5, strategy: 'balanced', freeTransfers: 1 } });
 const wcRec = gw1Decision.chips.recommendations.find(item => item.chip === 'Wildcard');
 const fhRec = gw1Decision.chips.recommendations.find(item => item.chip === 'Free Hit');
 assert.ok(!wcRec || wcRec.gameweek !== 1, 'Wildcard must not be scheduled in GW1');

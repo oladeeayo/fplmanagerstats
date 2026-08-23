@@ -469,6 +469,7 @@ async function collectAllHistoricalStats() {
             name,
             position: row.position,
             team: row.team,
+            element: parseNum(row.element),
           });
         }
       }
@@ -495,11 +496,12 @@ async function collectAllHistoricalStats() {
       );
 
       const bsEntry = bsByName.get(name.toLowerCase()) || null;
-      const fplId = bsEntry?.id || null;
+      const fplId = bsEntry?.id || meta.element || null;
       const webName = bsEntry?.web_name || name.split(' ').pop() || name;
 
       results.push({
         id: fplId,
+        element: meta.element || fplId,
         name,
         webName,
         webNameLower: webName.toLowerCase(),

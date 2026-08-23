@@ -12,9 +12,8 @@ const FDR_MULTIPLIER = { 1: 1.18, 2: 1.08, 3: 1.0, 4: 0.90, 5: 0.80 };
 const ROLE_BOOSTS = { penalty: 0.5, setPiece: 0.3, captain: 0.2 };
 
 function getDecayFactor(currentGW) {
-  if (currentGW <= 5) return 0;
-  if (currentGW >= 10) return 1;
-  return (currentGW - 5) / 5;
+  const gw = clamp(number(currentGW, 1), 1, 38);
+  return round(1 - Math.exp(-0.08 * (gw - 1)), 3);
 }
 
 // Enhanced models (imported lazily to avoid circular deps)
@@ -53,7 +52,7 @@ function availabilityFor(player, useNextRoundChance) {
 
   const chance = useNextRoundChance ? number(player.chance_of_playing_next_round, NaN) : NaN;
   if (Number.isFinite(chance)) return clamp(chance / 100, 0, 1);
-  if (player.status === 'i') return 0.25;
+  if (player.status === 'i') return 0;
   if (player.status === 'd') return 0.75;
   return 1;
 }
@@ -252,7 +251,7 @@ function starterTierFor(score) {
   return 'Unknown role';
 }
 
-function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form, ppg, position, officialProjection, historical }) {
+function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form, ppg, position, officialProjection, historical, teamsById }) {
   const difficulty = getFixtureDifficulty(fixture, player.team);
   const isHome = fixture.team_h === player.team;
   const opponentId = isHome ? fixture.team_a : fixture.team_h;
@@ -265,7 +264,7 @@ function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form
   let attackModifier, formModifier, csProb;
   try {
     const opp = getOpponentModel();
-    const oppName = teamsById.get(opponentId)?.name || '';
+    const oppName = teamsById?.get(opponentId)?.name || '';
     attackModifier = opp.adjustedAttackModifier(oppName, isHome);
     csProb = opp.adjustedCleanSheetProbability(oppName, isHome);
     formModifier = FORM_MODIFIER[difficulty] * (isHome ? 1.02 : 0.98);
@@ -320,17 +319,7 @@ function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form
   const roleMinutesRatio = clamp(fixtureXmins / historicAverageMinutes, 0, 1.2);
   const formProjection = form * roleMinutesRatio * formModifier;
   const ppgProjection = ppg * roleMinutesRatio * formModifier;
-  const fdrMultiplier = FDR_MULTIPLIER[difficulty] || 1.0;
-  let projectedPoints = ((eventProjection * 0.68) + (formProjection * 0.2) + (ppgProjection * 0.12)) * fdrMultiplier;
-
-  // Enhanced: add price change bonus for next GW fixtures
-  if (fixtureIndex === 0) {
-    try {
-      const pm = getPriceModel();
-      const priceInfo = pm.predictPriceChange(player);
-      projectedPoints += priceInfo.expectedChange * 1.5;
-    } catch { /* ignore */ }
-  }
+  let projectedPoints = (eventProjection * 0.68) + (formProjection * 0.2) + (ppgProjection * 0.12);
 
   if (officialProjection > 0 && fixtureIndex === 0) {
     const preseason = number(player.minutes) === 0 && number(player.total_points) === 0;
@@ -462,6 +451,7 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
       position,
       officialProjection,
       historical,
+      teamsById,
     });
 
     const opponentId = projection.opponentId;
@@ -492,10 +482,7 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
   });
 
   const totalXptsRaw = fixtures.reduce((sum, fixture) => sum + fixture.xPts, 0);
-  const consistencyBonus = (cs?.consistencyScore || 0) * 0.8 + (cs?.minutesReliability || 0) * 0.5 + (cs?.haulRateCareer || 0) * 2 + eliteBonus;
-  const roleBoost = (number(player.penalties_order) === 1 ? ROLE_BOOSTS.penalty : 0) +
-    (number(player.direct_freekicks_order) === 1 || number(player.corners_and_indirect_freekicks_order) === 1 ? ROLE_BOOSTS.setPiece : 0);
-  const totalXpts = round((totalXptsRaw + consistencyBonus + roleBoost) * playingTimeFactor);
+  const totalXpts = round(totalXptsRaw * playingTimeFactor);
   const totalXmins = fixtures.reduce((sum, fixture) => sum + fixture.xMins, 0);
   const attackingXpts = fixtures.reduce((sum, fixture) => sum + fixture.attackingXPts, 0);
   const ownership = number(player.selected_by_percent);
@@ -638,19 +625,14 @@ async function buildCaptaincyModel({ bootstrap, fixtures, selectedGW }) {
       currentGW: gameweek,
     }))
     .filter(Boolean)
-    .sort((a, b) => {
-      const aWeighted = a.xPts * (1 + (a.consistencyScore - 0.3) * 0.4);
-      const bWeighted = b.xPts * (1 + (b.consistencyScore - 0.3) * 0.4);
-      if (Math.abs(aWeighted - bWeighted) > 0.2) return bWeighted - aWeighted;
-      return b.xPts - a.xPts || b.upside - a.upside || b.xMins - a.xMins;
-    });
+    .sort((a, b) => b.xPts - a.xPts || b.upside - a.upside || b.xMins - a.xMins);
 
   const bestPick = candidates[0] || null;
   const topPicks = candidates.slice(0, 5).map((candidate, index) => ({ ...candidate, rank: index + 1 }));
   let differentialThreshold = 10;
   let differentialPick = candidates.find(candidate =>
     candidate.id !== bestPick?.id &&
-    ['MID', 'FWD'].includes(candidate.position) &&
+    candidate.position !== 'GKP' &&
     candidate.ownership < differentialThreshold &&
     candidate.xMinsPerFixture >= 60 &&
     candidate.xPts >= Math.max(4, (bestPick?.xPts || 0) * 0.7)
@@ -659,10 +641,10 @@ async function buildCaptaincyModel({ bootstrap, fixtures, selectedGW }) {
     differentialThreshold = 15;
     differentialPick = candidates.find(candidate =>
       candidate.id !== bestPick?.id &&
-      ['MID', 'FWD'].includes(candidate.position) &&
+      candidate.position !== 'GKP' &&
       candidate.ownership < differentialThreshold &&
       candidate.xMinsPerFixture >= 55
-    ) || candidates.find(candidate => candidate.id !== bestPick?.id && ['MID', 'FWD'].includes(candidate.position)) || null;
+    ) || candidates.find(candidate => candidate.id !== bestPick?.id && candidate.position !== 'GKP' && candidate.ownership < differentialThreshold) || null;
   }
 
   const rankedDifferential = differentialPick
