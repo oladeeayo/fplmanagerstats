@@ -611,11 +611,7 @@ async function collectAllHistoricalStats() {
     results.sort((a, b) => (b.crossSeason.totalPoints || 0) - (a.crossSeason.totalPoints || 0));
 
     if (results.length > 0 && sql) {
-      const batch_size = 500;
-      for (let i = 0; i < results.length; i += batch_size) {
-        const batch = results.slice(i, i + batch_size);
-        await sql`INSERT INTO player_historical_stats (season, players, total_players) VALUES (${season}, ${JSON.stringify(batch)}, ${batch.length}) ON CONFLICT (season) DO UPDATE SET players = ${JSON.stringify(batch)}, total_players = ${batch.length}`;
-      }
+      await sql`INSERT INTO player_historical_stats (season, players, total_players) VALUES (${season}, ${JSON.stringify(results)}, ${results.length}) ON CONFLICT (season) DO UPDATE SET players = ${JSON.stringify(results)}, total_players = ${results.length}`;
     }
 
     const resultMap = new Map();

@@ -650,6 +650,12 @@ async function buildCaptaincyModel({ bootstrap, fixtures, selectedGW }) {
       currentGW: gameweek,
     }))
     .filter(Boolean)
+    .filter(candidate => {
+      // Must be active and available to play
+      if (candidate.availability <= 0 || candidate.xMinsPerFixture < 45) return false;
+      // Must be an elite captaincy asset (Top 20 captaincy elite, historical elite, sustained performer, or top projected asset)
+      return candidate.isTop20CaptaincyElite || candidate.isHistoricalElite || candidate.hasSustainedExcellence || candidate.xPts >= 4.5;
+    })
     .sort((a, b) => b.xPts - a.xPts || b.upside - a.upside || b.xMins - a.xMins);
 
   const bestPick = candidates[0] || null;
