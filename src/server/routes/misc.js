@@ -1575,19 +1575,20 @@ router.get('/captain-picks', async (req, res) => {
     const rawModel = await buildCaptaincyModel({ bootstrap, fixtures, selectedGW: req.query.gw });
     const gw = rawModel.gameweek;
 
-    const snapshot = await getOrSaveCaptainSnapshot(gw, rawModel, bootstrap?.events);
-
-    // For future GWs (not yet started), always use the live model.
-    // Only use snapshot for past GWs where the model was locked before the deadline.
+    // Determine if this GW has started — if not, ALWAYS use the live model
     const gwFixturesForCheck = (fixtures || []).filter(f => f.event === gw);
     const gwHasStarted = gwFixturesForCheck.some(f => f.started || f.finished);
-    const useLiveModel = !gwHasStarted;
+    const forceLive = req.query.live === '1' || req.query.nocache === '1';
+    const useLiveModel = forceLive || !gwHasStarted;
 
-    const baseBestPick = useLiveModel ? rawModel.bestPick : (snapshot.bestPick || rawModel.bestPick);
-    const baseDiffPick = useLiveModel ? rawModel.differentialPick : (snapshot.differentialPick || rawModel.differentialPick);
+    // Only fetch/save snapshots for GWs that have actually started
+    const snapshot = useLiveModel ? null : await getOrSaveCaptainSnapshot(gw, rawModel, bootstrap?.events);
+
+    const baseBestPick = useLiveModel ? rawModel.bestPick : (snapshot?.bestPick || rawModel.bestPick);
+    const baseDiffPick = useLiveModel ? rawModel.differentialPick : (snapshot?.differentialPick || rawModel.differentialPick);
     const baseTopPicks = useLiveModel
       ? rawModel.topPicks
-      : ((snapshot.topPicks && snapshot.topPicks.length) ? snapshot.topPicks : rawModel.topPicks);
+      : ((snapshot?.topPicks && snapshot.topPicks.length) ? snapshot.topPicks : rawModel.topPicks);
 
     const gwFixtures = (fixtures || []).filter(f => f.event === gw);
     const isStarted = gwFixtures.some(f => f.started || f.finished);
