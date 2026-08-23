@@ -729,8 +729,12 @@ const FPL = {
             .map(p => {
                 const team = teams.find(t => t.id === p.team);
                 const fixtures = (data.transfers?.plan || []).length > 0 ? [] : [];
-                const totalXpts = parseFloat(p.total_points || 0) * 0.5 + parseFloat(p.form || 0) * 3;
-                return { id: p.id, name: p.web_name, team: team?.short_name || '?', cost: p.now_cost / 10, xPts: totalXpts, form: parseFloat(p.form || 0) };
+                const epNext = parseFloat(p.ep_next || 0);
+                const formVal = parseFloat(p.form || 0);
+                const ppgVal = parseFloat(p.points_per_game || 0);
+                const singleXpts = epNext > 0 ? epNext : (formVal > 0 ? formVal * 0.7 + ppgVal * 0.3 : ppgVal || 2.0);
+                const totalXpts = Math.round(singleXpts * 5 * 10) / 10;
+                return { id: p.id, name: p.web_name, team: team?.short_name || '?', cost: p.now_cost / 10, xPts: totalXpts, form: formVal };
             })
             .sort((a, b) => b.xPts - a.xPts)
             .slice(0, 5);
@@ -780,7 +784,11 @@ const FPL = {
             if (!inPlayer || outIdx < 0) throw new Error('That transfer is no longer available.');
             const oldPlayer = nextData.squad[outIdx];
             const team = bootstrap.teams.find(t => t.id === inPlayer.team);
-            const newPlayer = { id: inPlayer.id, name: inPlayer.web_name, team: inPlayer.team, teamId: inPlayer.team, teamFull: team?.name || team?.short_name || '?', position: posMap[inPlayer.element_type] || 'MID', cost: inPlayer.now_cost / 10, form: parseFloat(inPlayer.form || 0), totalXpts: parseFloat(inPlayer.total_points || 0) * 0.5 + parseFloat(inPlayer.form || 0) * 3, weekly: oldPlayer.weekly || [], upcomingFixtures: oldPlayer.upcomingFixtures || [], status: inPlayer.status || 'a', news: inPlayer.news || '' };
+            const inEp = parseFloat(inPlayer.ep_next || 0);
+            const inForm = parseFloat(inPlayer.form || 0);
+            const inPpg = parseFloat(inPlayer.points_per_game || 0);
+            const inXpts = Math.round((inEp > 0 ? inEp : (inForm > 0 ? inForm * 0.7 + inPpg * 0.3 : inPpg || 2.0)) * 5 * 10) / 10;
+            const newPlayer = { id: inPlayer.id, name: inPlayer.web_name, team: inPlayer.team, teamId: inPlayer.team, teamFull: team?.name || team?.short_name || '?', position: posMap[inPlayer.element_type] || 'MID', cost: inPlayer.now_cost / 10, form: inForm, totalXpts: inXpts, weekly: oldPlayer.weekly || [], upcomingFixtures: oldPlayer.upcomingFixtures || [], status: inPlayer.status || 'a', news: inPlayer.news || '' };
             nextData.squad[outIdx] = newPlayer;
             ['starters', 'bench'].forEach(key => {
                 const index = nextData.lineup[key].findIndex(p => p.id === move.outId);
@@ -7798,6 +7806,26 @@ const FPL = {
                 <div class="player-detail-section-title">Next 5 Fixtures</div>
                 <div class="player-detail-fixtures">
                     ${nextFixtures.map(f => `<div class="player-detail-fixture" style="background:${fdrColors[f.diff]}20;color:${fdrColors[f.diff]};border:1px solid ${fdrColors[f.diff]}40;"><div style="font-size:9px;opacity:0.7;">GW${f.gw}</div><div style="font-weight:700;font-size:13px;">${f.opp}</div><div style="font-size:9px;">${f.isHome === null ? '' : f.isHome ? 'H' : 'A'}</div></div>`).join('')}
+                </div>
+            </div>
+            <div class="player-detail-section" style="background:rgba(0,255,133,0.03);border:1px solid rgba(0,255,133,0.15);border-radius:10px;padding:12px;margin-top:12px;">
+                <div class="player-detail-section-title" style="color:#00FF85;display:flex;align-items:center;gap:6px;">
+                    <span class="material-symbols-outlined" style="font-size:16px;">query_stats</span>
+                    Opponent Intelligence & Hit ROI (${nextFixtures[0]?.opp || 'Next Opponent'})
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;margin-top:8px;text-align:center;">
+                    <div style="background:#141916;padding:8px;border-radius:6px;">
+                        <div style="font-size:9px;color:#8ba396;text-transform:uppercase;">Next xPts</div>
+                        <div style="font-family:var(--font-mono);font-size:14px;font-weight:700;color:#00FF85;">${(parseFloat(player.ep_next || 0) || (form * 0.7 + (parseFloat(player.points_per_game) || 2) * 0.3)).toFixed(1)}</div>
+                    </div>
+                    <div style="background:#141916;padding:8px;border-radius:6px;">
+                        <div style="font-size:9px;color:#8ba396;text-transform:uppercase;">Hit ROI (-4)</div>
+                        <div style="font-family:var(--font-mono);font-size:12px;font-weight:600;color:${(parseFloat(player.ep_next || 0) >= 5.0) ? '#00FF85' : '#FFA600'};">${(parseFloat(player.ep_next || 0) >= 5.0) ? '✓ Viable' : 'Risky'}</div>
+                    </div>
+                    <div style="background:#141916;padding:8px;border-radius:6px;">
+                        <div style="font-size:9px;color:#8ba396;text-transform:uppercase;">FDR Threat</div>
+                        <div style="font-family:var(--font-mono);font-size:14px;font-weight:700;color:${nextFixtures[0]?.diff <= 2 ? '#00FF85' : nextFixtures[0]?.diff >= 4 ? '#FF005A' : '#F9D243'};">${nextFixtures[0]?.diff <= 2 ? 'Low' : nextFixtures[0]?.diff >= 4 ? 'High' : 'Med'}</div>
+                    </div>
                 </div>
             </div>
             <div class="player-detail-section" style="border-top:1px solid #1A2E28;">
