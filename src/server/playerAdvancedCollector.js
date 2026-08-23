@@ -1,7 +1,12 @@
 const logger = require('./logger');
 const { sql } = require('./db');
 const { getSeasonData, getGameweekPlayerStatsWithOpponents, parseNum } = require('./fplInsightsData');
-const { getCachedApiData, BOOTSTRAP_URL, BOOTSTRAP_CACHE_TTL } = require('./cache');
+
+let _cache = null;
+function getCache() { return _cache || (_cache = require('./cache')); }
+function getCachedApiData(...args) { return getCache().getCachedApiData(...args); }
+const BOOTSTRAP_URL = 'https://fantasy.premierleague.com/api/bootstrap-static/';
+const BOOTSTRAP_CACHE_TTL = 5 * 60 * 1000;
 
 const activeCollections = new Set();
 
