@@ -1,6 +1,7 @@
 const logger = require('./logger');
 const { sql } = require('./db');
 const { getSeasonLabel } = require('./fplInsightsData');
+const { getCachedApiData, BOOTSTRAP_URL, BOOTSTRAP_CACHE_TTL } = require('./cache');
 
 const OWN_REPO_BASE = 'https://raw.githubusercontent.com/oladeeayo/fplmanagerstats/main/data/historical';
 
@@ -410,9 +411,35 @@ async function collectAllHistoricalStats() {
   if (lastHistoricalRun && (now - lastHistoricalRun) < 6 * 60 * 60 * 1000) return;
 
   try {
+    const existing = await sql`SELECT total_players FROM player_historical_stats WHERE season = ${season} LIMIT 1`;
+    if (existing.length > 0 && existing[0].total_players > 100) {
+      lastHistoricalRun = now;
+      logger.info({ season, playerCount: existing[0].total_players }, 'Historical data already in DB, skipping collection');
+      return;
+    }
+  } catch { /* continue with collection */ }
+
+  try {
     const seasonProfiles = {};
     const allPlayerGwData = new Map();
     const playerMeta = new Map();
+
+    let bootstrap = null;
+    try {
+      bootstrap = await getCachedApiData(BOOTSTRAP_URL, BOOTSTRAP_CACHE_TTL);
+    } catch { /* continue without IDs */ }
+
+    const bsByName = new Map();
+    const bsById = new Map();
+    if (bootstrap?.elements) {
+      for (const el of bootstrap.elements) {
+        const fullName = `${el.first_name || ''} ${el.second_name || ''}`.trim().toLowerCase();
+        const webName = (el.web_name || '').toLowerCase();
+        bsByName.set(fullName, el);
+        bsByName.set(webName, el);
+        bsById.set(el.id, el);
+      }
+    }
 
     for (const s of SEASONS_TO_FETCH) {
       logger.info({ season: s }, 'Fetching historical FPL data from own repo');
@@ -467,8 +494,15 @@ async function collectAllHistoricalStats() {
         Object.fromEntries(Object.entries(seasonsData).map(([s, d]) => [s, d.profile]))
       );
 
+      const bsEntry = bsByName.get(name.toLowerCase()) || null;
+      const fplId = bsEntry?.id || null;
+      const webName = bsEntry?.web_name || name.split(' ').pop() || name;
+
       results.push({
+        id: fplId,
         name,
+        webName,
+        webNameLower: webName.toLowerCase(),
         position: meta.position || 'MID',
         team: meta.team || 'Unknown',
         seasons: Object.fromEntries(Object.entries(seasonsData).map(([s, d]) => [s, d.profile])),

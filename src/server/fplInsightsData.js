@@ -427,8 +427,10 @@ async function loadHistoricalFromDB(season) {
     const rows = await sql`SELECT players FROM player_historical_stats WHERE season = ${season} LIMIT 1`;
     if (rows.length > 0 && rows[0].players) {
       const map = new Map();
-      for (const entry of rows[0].players) {
+      const entries = Array.isArray(rows[0].players) ? rows[0].players : [];
+      for (const entry of entries) {
         if (entry.id) map.set(Number(entry.id), entry);
+        if (entry.webNameLower) map.set(entry.webNameLower, entry);
         if (entry.name) map.set(entry.name.toLowerCase(), entry);
       }
       return map;
