@@ -1689,7 +1689,7 @@ router.get('/captain-picks', async (req, res) => {
       modelInputs: snapshot.modelInputs || rawModel.modelInputs,
       bestPick: enrichPick(baseBestPick),
       differentialPick: enrichPick(baseDiffPick),
-      topPicks: (baseTopPicks || []).map(enrichPick),
+      topPicks: (baseTopPicks || []).map(enrichPick).filter(Boolean),
       actualDeadlineCaptain,
       actualDeadlineViceCaptain,
       hasSnapshot: Boolean(snapshot),

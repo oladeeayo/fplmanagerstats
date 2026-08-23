@@ -5858,7 +5858,7 @@ const FPL = {
                 return;
             }
 
-            tbody.innerHTML = picks.map(player => {
+            tbody.innerHTML = picks.filter(Boolean).map(player => {
                 const isDifferential = data.differentialPick?.id === player.id;
                 const labels = [
                     (player.rank ?? (picks.indexOf(player) + 1)) === 1 ? '<span class="captaincy-row-label captaincy-row-label-best">BEST</span>' : '',
