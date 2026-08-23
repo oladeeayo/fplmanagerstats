@@ -243,12 +243,11 @@ const FPL = {
             }
             this.state.managerData = data;
             this.state.managerId = managerId;
-            localStorage.setItem('fplManagerId', managerId);
-
             try {
                 const leagueData = await this.apiFetch(this.API.managerLeagues(managerId));
-                const privateLeagues = (leagueData.leagues || []).filter(league => league.type === 'private');
-                this.state.managerLeagues = privateLeagues;
+                const leagues = leagueData.leagues || [];
+                this.state.managerLeagues = leagues;
+                const privateLeagues = leagues.filter(league => league.type === 'private');
                 const storedLeagueId = localStorage.getItem('fplLeagueId');
                 const defaultLeagueId = storedLeagueId || leagueData.defaultLeagueId;
                 if (defaultLeagueId) {
@@ -1827,6 +1826,47 @@ const FPL = {
             }
         }
 
+        // Top 10 League Positions Section
+        const top10Container = document.getElementById('manager-top10-leagues-container');
+        if (top10Container) {
+            const rawLeagues = this.state.managerLeagues || [];
+            if (rawLeagues.length > 0) {
+                const leagues = rawLeagues
+                    .map(l => ({
+                        id: l.id,
+                        name: l.name,
+                        rank: l.rank || l.entry_rank || 0,
+                        type: l.type || 'classic'
+                    }))
+                    .filter(l => l.rank > 0)
+                    .sort((a, b) => a.rank - b.rank);
+
+                const top10Only = leagues.filter(l => l.rank <= 10);
+                const displayLeagues = top10Only.length > 0 ? top10Only : leagues.slice(0, 10);
+
+                if (displayLeagues.length > 0) {
+                    top10Container.innerHTML = displayLeagues.map(l => `
+                        <div style="background:rgba(255,255,255,0.03);border:1px solid ${l.rank <= 10 ? 'rgba(0,255,133,0.3)' : 'rgba(255,255,255,0.08)'};border-radius:12px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,133,0.08)'" onmouseout="this.style.background='rgba(255,255,255,0.03)'" onclick="FPL.switchLeague(${l.id})">
+                            <div style="min-width:0;flex:1;padding-right:12px;">
+                                <div style="font-weight:700;color:#ffffff;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${this.escapeHTML(l.name)}</div>
+                                <div style="font-size:11px;color:#8ba396;margin-top:2px;">${l.type === 'private' ? 'Private League' : 'Classic League'}</div>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:6px;background:${l.rank <= 10 ? 'rgba(0,255,133,0.15)' : 'rgba(255,255,255,0.06)'};padding:6px 12px;border-radius:20px;border:1px solid ${l.rank <= 10 ? 'rgba(0,255,133,0.3)' : 'transparent'};">
+                                <span class="material-symbols-outlined" style="font-size:14px;color:${l.rank <= 10 ? '#00FF85' : '#ffffff'};">equalizer</span>
+                                <span style="font-family:var(--font-mono);font-weight:800;color:${l.rank <= 10 ? '#00FF85' : '#ffffff'};font-size:13px;">Position #${l.rank}</span>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    top10Container.innerHTML = '<div style="text-align:center;padding:24px;color:#8ba396;font-size:13px;background:rgba(255,255,255,0.03);border-radius:12px;border:1px solid rgba(255,255,255,0.06);">No active league ranks found for this manager</div>';
+                }
+            } else if (this.state.managerId) {
+                top10Container.innerHTML = '<div style="text-align:center;padding:24px;color:#8ba396;font-size:13px;background:rgba(255,255,255,0.03);border-radius:12px;border:1px solid rgba(255,255,255,0.06);">Loading joined leagues...</div>';
+            } else {
+                top10Container.innerHTML = '<div style="text-align:center;padding:24px;color:#8ba396;font-size:13px;background:rgba(255,255,255,0.03);border-radius:12px;border:1px solid rgba(255,255,255,0.06);">Connect your FPL ID to view top league standings</div>';
+            }
+        }
+
         // Render Points Per Gameweek Chart
         const ptsChartEl = document.getElementById('points-per-gw-chart');
         const ptsSummaryEl = document.getElementById('points-gw-summary');
@@ -1875,12 +1915,12 @@ const FPL = {
 
                 if (rankSummaryEl) rankSummaryEl.textContent = `Current: OR ${this.formatNumber(currentRank)} | Best: OR ${this.formatNumber(bestRank)}`;
 
-                const chartWidth = Math.max(480, weeklyRanks.length * 44);
+                const chartWidth = 500;
                 const chartHeight = 180;
                 const padTop = 24;
                 const padBottom = 30;
-                const padLeft = 16;
-                const padRight = 16;
+                const padLeft = 20;
+                const padRight = 20;
                 const availableWidth = chartWidth - padLeft - padRight;
                 const availableHeight = chartHeight - padTop - padBottom;
                 const rankRange = Math.max(1, worstRank - bestRank);
@@ -1895,8 +1935,8 @@ const FPL = {
                 const svgPath = points.map((pt, i) => `${i === 0 ? 'M' : 'L'} ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`).join(' ');
 
                 rankChartEl.innerHTML = `
-                    <div style="width:100%;overflow-x:auto;padding-bottom:6px;">
-                        <svg viewBox="0 0 ${chartWidth} ${chartHeight}" style="width:100%;min-width:${chartWidth}px;height:${chartHeight}px;overflow:visible;">
+                    <div style="width:100%;overflow:hidden;padding-bottom:4px;">
+                        <svg viewBox="0 0 ${chartWidth} ${chartHeight}" style="width:100%;height:180px;display:block;">
                             <defs>
                                 <linearGradient id="rankGradient" x1="0%" y1="0%" x2="0%" y2="100%">
                                     <stop offset="0%" stop-color="#00FF85" stop-opacity="0.3"/>
