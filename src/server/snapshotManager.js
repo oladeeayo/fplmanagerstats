@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const logger = require('./logger');
 const { checkAndCollect, collectHistoricalStats } = require('./playerAdvancedCollector');
+const { collectAllHistoricalStats } = require('./historicalCollector');
 
 const SNAPSHOT_DIR = path.join(__dirname, 'data');
 const SNAPSHOT_FILE = path.join(SNAPSHOT_DIR, 'snapshot.json');
@@ -285,7 +286,7 @@ function setForceMode(mode) {
 function initSnapshotManager(fetcher) {
   loadSnapshotFromDisk();
   evaluateSnapshotState(fetcher).catch(() => {});
-  collectHistoricalStats().catch(() => {});
+  collectAllHistoricalStats().catch(() => {});
 
   if (!intervalId) {
     intervalId = setInterval(() => {

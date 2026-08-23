@@ -428,7 +428,8 @@ async function loadHistoricalFromDB(season) {
     if (rows.length > 0 && rows[0].players) {
       const map = new Map();
       for (const entry of rows[0].players) {
-        map.set(Number(entry.id), entry);
+        if (entry.id) map.set(Number(entry.id), entry);
+        if (entry.name) map.set(entry.name.toLowerCase(), entry);
       }
       return map;
     }
