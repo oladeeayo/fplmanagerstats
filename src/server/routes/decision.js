@@ -460,7 +460,7 @@ router.get('/v1/h2h-matchup/:managerId', heavyEndpointLimiter, async (req, res) 
     }
 
     const selectedLeague = requestedLeagueId
-      ? h2hLeagues.find(l => l.id === requestedLeagueId) || h2hLeagues[0]
+      ? h2hLeagues.find(l => Number(l.id) === Number(requestedLeagueId)) || h2hLeagues[0]
       : h2hLeagues[0];
 
     const currentGW = bootstrap.events?.find(e => e.is_current)?.id || bootstrap.events?.find(e => e.is_next)?.id || 1;

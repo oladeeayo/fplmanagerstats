@@ -1845,18 +1845,30 @@ const FPL = {
                 const displayLeagues = top10Only.length > 0 ? top10Only : leagues.slice(0, 10);
 
                 if (displayLeagues.length > 0) {
-                    top10Container.innerHTML = displayLeagues.map(l => `
-                        <div style="background:rgba(255,255,255,0.03);border:1px solid ${l.rank <= 10 ? 'rgba(0,255,133,0.3)' : 'rgba(255,255,255,0.08)'};border-radius:12px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,133,0.08)'" onmouseout="this.style.background='rgba(255,255,255,0.03)'" onclick="FPL.switchLeague(${l.id})">
-                            <div style="min-width:0;flex:1;padding-right:12px;">
-                                <div style="font-weight:700;color:#ffffff;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${this.escapeHTML(l.name)}</div>
-                                <div style="font-size:11px;color:#8ba396;margin-top:2px;">${l.type === 'private' ? 'Private League' : 'Classic League'}</div>
-                            </div>
-                            <div style="display:flex;align-items:center;gap:6px;background:${l.rank <= 10 ? 'rgba(0,255,133,0.15)' : 'rgba(255,255,255,0.06)'};padding:6px 12px;border-radius:20px;border:1px solid ${l.rank <= 10 ? 'rgba(0,255,133,0.3)' : 'transparent'};">
-                                <span class="material-symbols-outlined" style="font-size:14px;color:${l.rank <= 10 ? '#00FF85' : '#ffffff'};">equalizer</span>
-                                <span style="font-family:var(--font-mono);font-weight:800;color:${l.rank <= 10 ? '#00FF85' : '#ffffff'};font-size:13px;">Position #${l.rank}</span>
+                    top10Container.innerHTML = `
+                        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;">
+                            <div style="max-height:148px;overflow-y:auto;scrollbar-width:thin;">
+                                <table style="width:100%;border-collapse:collapse;text-align:left;font-size:13px;">
+                                    <thead>
+                                        <tr style="border-bottom:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:#8ba396;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">
+                                            <th style="padding:10px 14px;font-weight:600;">League</th>
+                                            <th style="padding:10px 14px;font-weight:600;text-align:center;">Type</th>
+                                            <th style="padding:10px 14px;font-weight:600;text-align:right;">Position</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${displayLeagues.map(l => `
+                                            <tr style="border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='rgba(0,255,133,0.08)'" onmouseout="this.style.background='transparent'" onclick="FPL.switchLeague(${l.id})">
+                                                <td style="padding:10px 14px;font-weight:700;color:#ffffff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;">${this.escapeHTML(l.name)}</td>
+                                                <td style="padding:10px 14px;color:#8ba396;text-align:center;font-size:11px;">${l.type === 'private' ? 'Private' : 'Classic'}</td>
+                                                <td style="padding:10px 14px;text-align:right;font-family:var(--font-mono);font-weight:800;color:${l.rank <= 10 ? '#00FF85' : '#ffffff'};">#${l.rank}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
-                    `).join('');
+                    `;
                 } else {
                     top10Container.innerHTML = '<div style="text-align:center;padding:24px;color:#8ba396;font-size:13px;background:rgba(255,255,255,0.03);border-radius:12px;border:1px solid rgba(255,255,255,0.06);">No active league ranks found for this manager</div>';
                 }
@@ -6761,9 +6773,10 @@ const FPL = {
         // Populate H2H League Select
         if (selectEl && data.h2hLeagues?.length) {
             selectEl.innerHTML = data.h2hLeagues.map(l => 
-                `<option value="${l.id}" ${l.id === data.selectedLeague?.id ? 'selected' : ''}>${this.escapeHTML(l.name)}</option>`
+                `<option value="${l.id}" ${Number(l.id) === Number(data.selectedLeague?.id) ? 'selected' : ''}>${this.escapeHTML(l.name)}</option>`
             ).join('');
             selectEl.style.display = 'inline-block';
+            selectEl.onchange = (e) => this.switchH2HLeague(e.target.value);
         }
 
         if (!data.hasH2H) {

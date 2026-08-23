@@ -7,15 +7,6 @@ const FORM_MODIFIER = { 1: 1.12, 2: 1.06, 3: 1, 4: 0.94, 5: 0.88 };
 const CLEAN_SHEET_PROBABILITY = { 1: 0.46, 2: 0.37, 3: 0.28, 4: 0.19, 5: 0.12 };
 const PRESEASON_POSITION_PRIOR = { GKP: 3.4, DEF: 3.25, MID: 3.45, FWD: 3.35 };
 
-const POSITION_BENCHMARKS = { FWD: 5.2, MID: 4.8, DEF: 4.5, GKP: 4.2 };
-const FDR_MULTIPLIER = { 1: 1.18, 2: 1.08, 3: 1.0, 4: 0.90, 5: 0.80 };
-const ROLE_BOOSTS = { penalty: 0.5, setPiece: 0.3, captain: 0.2 };
-
-function getDecayFactor(currentGW) {
-  const gw = clamp(number(currentGW, 1), 1, 38);
-  return round(1 - Math.exp(-0.08 * (gw - 1)), 3);
-}
-
 // Enhanced models (imported lazily to avoid circular deps)
 let opponentModel = null;
 let bookingRiskModel = null;
@@ -52,7 +43,7 @@ function availabilityFor(player, useNextRoundChance) {
 
   const chance = useNextRoundChance ? number(player.chance_of_playing_next_round, NaN) : NaN;
   if (Number.isFinite(chance)) return clamp(chance / 100, 0, 1);
-  if (player.status === 'i') return 0;
+  if (player.status === 'i') return 0.25;
   if (player.status === 'd') return 0.75;
   return 1;
 }
@@ -251,7 +242,7 @@ function starterTierFor(score) {
   return 'Unknown role';
 }
 
-function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form, ppg, position, officialProjection, historical, teamsById }) {
+function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form, ppg, position, officialProjection, historical }) {
   const difficulty = getFixtureDifficulty(fixture, player.team);
   const isHome = fixture.team_h === player.team;
   const opponentId = isHome ? fixture.team_a : fixture.team_h;
@@ -264,7 +255,7 @@ function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form
   let attackModifier, formModifier, csProb;
   try {
     const opp = getOpponentModel();
-    const oppName = teamsById?.get(opponentId)?.name || '';
+    const oppName = teamsById.get(opponentId)?.name || '';
     attackModifier = opp.adjustedAttackModifier(oppName, isHome);
     csProb = opp.adjustedCleanSheetProbability(oppName, isHome);
     formModifier = FORM_MODIFIER[difficulty] * (isHome ? 1.02 : 0.98);
@@ -280,10 +271,12 @@ function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form
   const cleanSheetPoints = CLEAN_SHEET_POINTS[position] * csProb * sixtyMinuteProbability;
   const bonusPer90Raw = number(player.bonus) * 90 / Math.max(number(player.minutes), 900);
   let bonusPer90 = bonusPer90Raw;
-  if (historical?.crossSeason?.bonusPer90Career > 0) {
-    const histBonus = historical.crossSeason.bonusPer90Career;
+  if (historical?.prevSeason?.bonusPer90 > 0) {
+    const histBonus = historical.prevSeason.bonusPer90;
+    const currBonusHist = historical.currentSeason?.bonusPer90 || 0;
+    const blendedHistBonus = histBonus * 0.5 + currBonusHist * 0.5;
     const bonusWeight = Math.max(0, 1 - number(player.minutes) / 1000);
-    bonusPer90 = bonusPer90Raw * (1 - bonusWeight) + histBonus * bonusWeight;
+    bonusPer90 = bonusPer90Raw * (1 - bonusWeight) + blendedHistBonus * bonusWeight;
   }
   const bonusPoints = clamp(bonusPer90, 0, 1.25) * minuteShare * (0.9 + (attackModifier * 0.1));
   const setPiecePoints = (
@@ -317,13 +310,18 @@ function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form
 
   const historicAverageMinutes = clamp(number(player.minutes) / Math.max(number(player.total_points) / Math.max(ppg, 0.1), 1), 45, 90);
   const roleMinutesRatio = clamp(fixtureXmins / historicAverageMinutes, 0, 1.2);
-  
-  // Form & PPG act as a calibrated scaling modifier (0.88x to 1.12x) on the event projection
-  const playerBasePPG = ppg > 0 ? ppg : (POSITION_BENCHMARKS[position] || 4.5);
-  const formDeltaRatio = form > 0 ? (form / playerBasePPG) : 1.0;
-  const formModifierScaled = Math.max(0.88, Math.min(1.12, formDeltaRatio * roleMinutesRatio * formModifier));
-  
-  let projectedPoints = eventProjection * formModifierScaled;
+  const formProjection = form * roleMinutesRatio * formModifier;
+  const ppgProjection = ppg * roleMinutesRatio * formModifier;
+  let projectedPoints = (eventProjection * 0.68) + (formProjection * 0.2) + (ppgProjection * 0.12);
+
+  // Enhanced: add price change bonus for next GW fixtures
+  if (fixtureIndex === 0) {
+    try {
+      const pm = getPriceModel();
+      const priceInfo = pm.predictPriceChange(player);
+      projectedPoints += priceInfo.expectedChange * 1.5;
+    } catch { /* ignore */ }
+  }
 
   if (officialProjection > 0 && fixtureIndex === 0) {
     const preseason = number(player.minutes) === 0 && number(player.total_points) === 0;
@@ -346,7 +344,7 @@ function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form
   };
 }
 
-function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, baselines, useNextRoundChance, useOfficialProjection, teamExperience, teamPositionCosts, historicalData, currentGW }) {
+function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, baselines, useNextRoundChance, useOfficialProjection, teamExperience, teamPositionCosts, historicalData }) {
   const availability = availabilityFor(player, useNextRoundChance);
   const xMins = estimateExpectedMinutes(player, referenceMatches, availability, { teamExperience, position: POSITION_MAP[player.element_type - 1] });
   if (!playerFixtures.length || xMins < 20) return null;
@@ -358,96 +356,36 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
   const starterScore = estimateStarterScore(player, teamExperience || new Map(), teamPositionCosts || new Map(), { xMins, avgFdr });
   const form = number(player.form);
   const ppg = number(player.points_per_game);
+  const effectiveForm = form > 0 ? form : ppg;
   let xG90 = shrunkRate(player, 'expected_goals_per_90', baselines[player.element_type].xG90);
   let xA90 = shrunkRate(player, 'expected_assists_per_90', baselines[player.element_type].xA90);
 
-  const histById = historicalData?.get(player.id);
-  const historical = (histById && (
-    !player.web_name ||
-    histById.webNameLower === player.web_name.toLowerCase() ||
-    histById.name?.toLowerCase().includes(player.web_name.toLowerCase()) ||
-    player.web_name.toLowerCase().includes(histById.webNameLower)
-  )) ? histById : (historicalData?.get(player.web_name?.toLowerCase()) || null);
+  const historical = historicalData?.get(player.id) || null;
   const currentMins = number(player.minutes);
-  const cs = historical?.crossSeason || null;
-  const latestSeason = historical?.seasons ? Object.values(historical.seasons)[Object.values(historical.seasons).length - 1] : null;
-  const prevSeasonData = historical?.previousSeason || null;
+  const prevMins = historical?.prevSeason?.minutes || 0;
+  const currMinsHist = historical?.currentSeason?.minutes || 0;
 
-  const decay = getDecayFactor(currentGW);
-  const positionName = POSITION_MAP[player.element_type - 1];
-  const posBenchmark = POSITION_BENCHMARKS[positionName] || 4.5;
+  if (historical && (prevMins > 500 || currMinsHist > 500)) {
+    const currWeight = Math.min(currentMins / 1000, 1);
+    const prevWeight = 1 - currWeight;
+    const histGoalsPer90 = historical.prevSeason?.goalsPer90 || 0;
+    const histAssistsPer90 = historical.prevSeason?.assistsPer90 || 0;
+    const currHistGoalsPer90 = historical.currentSeason?.goalsPer90 || 0;
+    const currHistAssistsPer90 = historical.currentSeason?.assistsPer90 || 0;
+    const blendedHistGoals = histGoalsPer90 * 0.5 + currHistGoalsPer90 * 0.5;
+    const blendedHistAssists = histAssistsPer90 * 0.5 + currHistAssistsPer90 * 0.5;
+    xG90 = xG90 * currWeight + blendedHistGoals * prevWeight;
+    xA90 = xA90 * currWeight + blendedHistAssists * prevWeight;
 
-  const hasHistory = cs && cs.totalMinutes > 1000;
-  const hasFullHistory = cs && cs.fullSeasons >= 2 && cs.totalMinutes > 3000;
-
-  const histXGI90 = cs?.xGIPer90Career || latestSeason?.xGIPer90 || 0;
-  const histPPG90 = cs?.pointsPer90Career || latestSeason?.pointsPer90 || posBenchmark;
-  const histBonusPer90 = cs?.bonusPer90Career || 0;
-  const histHaulRate = cs?.haulRateCareer || 0;
-  const consistency = cs?.consistencyScore || 0;
-
-  const rawForm = form > 0 ? form : ppg;
-  let effectiveForm, effectivePPG;
-  if (hasHistory) {
-    const dampenedForm = Math.min(rawForm, histPPG90 * 2.5);
-    effectiveForm = dampenedForm * decay + histPPG90 * (1 - decay);
-    effectivePPG = ppg * decay + histPPG90 * (1 - decay);
-  } else {
-    effectiveForm = rawForm;
-    effectivePPG = ppg > 0 ? ppg : posBenchmark;
-  }
-
-  const playingTimeFactor = cs ? Math.min(1.0, 0.85 + (cs.minutesReliability || 0.7) * 0.15) : 0.92;
-
-  const eliteBonus = hasFullHistory ? (consistency * 0.4 + histHaulRate * 3 + Math.min(histXGI90, 1.0) * 0.8) : 0;
-
-  if (hasHistory) {
-    const careerGoalsPer90 = histXGI90 * 0.65;
-    const careerAssistsPer90 = histXGI90 * 0.35;
-    xG90 = xG90 * decay + careerGoalsPer90 * (1 - decay);
-    xA90 = xA90 * decay + careerAssistsPer90 * (1 - decay);
-
-    if (cs.xGITrend > 0.05) {
-      const boost = Math.min(cs.xGITrend * 0.2, 0.12);
+    if (historical.improvementRatio > 1.1) {
+      const boost = Math.min((historical.improvementRatio - 1) * 0.15, 0.12);
       xG90 *= (1 + boost);
       xA90 *= (1 + boost);
-    } else if (cs.xGITrend < -0.15) {
-      const penalty = Math.min(Math.abs(cs.xGITrend) * 0.1, 0.1);
-      xG90 *= (1 - penalty);
-      xA90 *= (1 - penalty);
     }
-  }
-  const fplXGI90 = xG90 + xA90;
-  const finalXGI90 = Math.max(fplXGI90, histXGI90 * (1 - decay) + fplXGI90 * decay);
-  if (finalXGI90 > fplXGI90) {
-    const ratio = finalXGI90 / Math.max(fplXGI90, 0.001);
-    xG90 *= ratio;
-    xA90 *= ratio;
   }
 
   const officialProjection = useOfficialProjection ? number(player.ep_next) : 0;
   const roles = describeRole(player);
-
-  const allOpponentHistory = {};
-  if (historical?.opponents) {
-    for (const [, oppData] of Object.entries(historical.opponents)) {
-      for (const opp of oppData) {
-        const key = opp.opponentTeamId;
-        if (!allOpponentHistory[key]) {
-          allOpponentHistory[key] = { appearances: 0, points: 0, xGI: 0, bonus: 0, hauls: 0, homeAppearances: 0, awayAppearances: 0, homePoints: 0, awayPoints: 0 };
-        }
-        const e = allOpponentHistory[key];
-        e.appearances += opp.appearances;
-        e.points += opp.points;
-        e.xGI += opp.xGI;
-        e.bonus += opp.bonus;
-        e.hauls += opp.hauls;
-        if (opp.wasHome) { e.homeAppearances += opp.appearances; e.homePoints += opp.points; }
-        else { e.awayAppearances += opp.appearances; e.awayPoints += opp.points; }
-      }
-    }
-  }
-
   const fixtures = playerFixtures.map((fixture, fixtureIndex) => {
     const projection = projectFixture({
       player,
@@ -457,61 +395,28 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
       xG90,
       xA90,
       form: effectiveForm,
-      ppg: effectivePPG,
+      ppg,
       position,
       officialProjection,
       historical,
-      teamsById,
     });
-
-    const opponentId = projection.opponentId;
-    const oppHist = allOpponentHistory[opponentId] || historical?.opponentsCombined?.[opponentId] || null;
-    let opponentMultiplier = 1.0;
-    if (oppHist && oppHist.appearances >= 1) {
-      const oppPPG90 = oppHist.minutes > 0 ? (oppHist.points * 90 / oppHist.minutes) : (oppHist.points / oppHist.appearances);
-      const sampleConfidence = Math.min(1.0, oppHist.appearances / 3);
-      // Calibrated H2H adjustment: -10% to +10% scaling based on historical record vs opponent
-      const h2hDelta = (oppPPG90 - 4.5) * 0.025;
-      opponentMultiplier = 1.0 + clamp(h2hDelta, -0.10, 0.10) * sampleConfidence;
-    }
-
+    const opponent = teamsById.get(projection.opponentId);
     return {
       ...projection,
-      xPts: round(projection.xPts * opponentMultiplier),
-      opponent: teamsById.get(opponentId)?.short_name || '?',
-      opponentFull: teamsById.get(opponentId)?.name || 'Opponent',
-      label: `${teamsById.get(opponentId)?.short_name || '?'} (${projection.venue})`,
-      oppHistAppearances: oppHist?.appearances || 0,
-      oppHistPPG: oppHist ? round(oppHist.points / Math.max(oppHist.appearances, 1), 1) : 0,
+      opponent: opponent?.short_name || '?',
+      opponentFull: opponent?.name || 'Opponent',
+      label: `${opponent?.short_name || '?'} (${projection.venue})`,
     };
   });
 
-  // Historical Elite Pool Guard & Top 20 Captaincy Elite Tier
-  const isTop20CaptaincyElite = Boolean(historical?.isTop20CaptaincyElite);
-  const isHistoricalElite = Boolean(historical?.isHistoricalElite || isTop20CaptaincyElite || (cs && (cs.totalPoints >= 380 || cs.fullSeasons >= 2)));
-  const gamesPlayedThisSeason = Math.max(number(player.starts), Math.floor(number(player.minutes) / 80));
-  const hasSustainedExcellence = gamesPlayedThisSeason >= 9 && (effectiveForm >= 6.5 || ppg >= 6.0);
-
-  // Captaincy Elite Weighting:
-  // Top 20 Captaincy Elite receive 1.06x boost above others
-  // Historical Elite receive 1.0x baseline
-  // Non-elite candidates without 9-10 GWs sustained form receive 0.85x penalty
-  let elitePoolFactor = 1.0;
-  if (isTop20CaptaincyElite) {
-    elitePoolFactor = 1.06;
-  } else if (!isHistoricalElite && !hasSustainedExcellence) {
-    elitePoolFactor = 0.85;
-  }
-
-  const totalXptsRaw = fixtures.reduce((sum, fixture) => sum + fixture.xPts, 0);
-  const totalXpts = round(totalXptsRaw * playingTimeFactor * elitePoolFactor);
+  const totalXpts = round(fixtures.reduce((sum, fixture) => sum + fixture.xPts, 0));
   const totalXmins = fixtures.reduce((sum, fixture) => sum + fixture.xMins, 0);
   const attackingXpts = fixtures.reduce((sum, fixture) => sum + fixture.attackingXPts, 0);
   const ownership = number(player.selected_by_percent);
-  const upsideRoleBoost = (number(player.penalties_order) === 1 ? 0.3 : 0) +
+  const roleBoost = (number(player.penalties_order) === 1 ? 0.3 : 0) +
     (number(player.direct_freekicks_order) === 1 ? 0.1 : 0) +
     (number(player.corners_and_indirect_freekicks_order) === 1 ? 0.1 : 0);
-  const upside = round(attackingXpts + upsideRoleBoost, 2);
+  const upside = round(attackingXpts + roleBoost, 2);
   const fixtureSummary = fixtures.map(fixture => fixture.label).join(' + ');
   const fixtureDetail = fixtures.map(fixture => `${fixture.label}, FDR ${fixture.fdr}`).join('; ');
   const formText = form > 0 ? `${form.toFixed(1)} form` : `${ppg.toFixed(1)} season PPG baseline`;
@@ -523,12 +428,12 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
       : `${number(player.clean_sheets)} clean sheets`;
   const confidence = xMins >= 78 && availability === 1 ? 'High' : xMins >= 60 && availability >= 0.75 ? 'Medium' : 'Managed risk';
 
-  const histData = historical || null;
-  const consistencyScore = cs?.consistencyScore ?? 0;
-  const improvementRatio = cs?.xGITrend ? (1 + cs.xGITrend) : 1;
-  const minutesReliability = cs?.minutesReliability ?? 0;
-  const prevSeasonXGI90 = prevSeasonData?.xGIPer90 || cs?.xGIPer90Career || 0;
-  const hasMultiSeasonData = !!(cs && cs.fullSeasons >= 2);
+  const histData = historicalData?.get(player.id) || null;
+  const consistencyScore = histData?.consistencyScore ?? 0;
+  const improvementRatio = histData?.improvementRatio ?? 1;
+  const minutesReliability = histData?.minutesReliability ?? 0;
+  const prevSeasonXGI90 = histData?.prevSeason?.xGIPer90 ?? 0;
+  const hasMultiSeasonData = !!(histData?.prevSeason?.minutes > 0 && histData?.currentSeason?.minutes > 0);
 
   return {
     id: player.id,
@@ -565,9 +470,6 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
     minutesReliability: round(minutesReliability, 2),
     prevSeasonXGI90: round(prevSeasonXGI90, 2),
     hasMultiSeasonData,
-    isTop20CaptaincyElite,
-    captaincyEliteRank: historical?.captaincyEliteRank || null,
-    isHistoricalElite,
     reason: `${fixtureDetail}. ${totalXmins} xMins, ${profileText} and ${formText} produce ${totalXpts.toFixed(1)} xPts.${roleText}${hasMultiSeasonData ? ` Multi-season consistency: ${round(consistencyScore * 100)}%.` : ''}`,
   };
 }
@@ -647,17 +549,21 @@ async function buildCaptaincyModel({ bootstrap, fixtures, selectedGW }) {
       teamExperience,
       teamPositionCosts,
       historicalData,
-      currentGW: gameweek,
     }))
     .filter(Boolean)
-    .sort((a, b) => b.xPts - a.xPts || b.upside - a.upside || b.xMins - a.xMins);
+    .sort((a, b) => {
+      const aWeighted = a.xPts * (1 + (a.consistencyScore - 0.5) * 0.15);
+      const bWeighted = b.xPts * (1 + (b.consistencyScore - 0.5) * 0.15);
+      if (Math.abs(aWeighted - bWeighted) > 0.3) return bWeighted - aWeighted;
+      return b.xPts - a.xPts || b.upside - a.upside || b.xMins - a.xMins;
+    });
 
   const bestPick = candidates[0] || null;
   const topPicks = candidates.slice(0, 5).map((candidate, index) => ({ ...candidate, rank: index + 1 }));
   let differentialThreshold = 10;
   let differentialPick = candidates.find(candidate =>
     candidate.id !== bestPick?.id &&
-    candidate.position !== 'GKP' &&
+    ['MID', 'FWD'].includes(candidate.position) &&
     candidate.ownership < differentialThreshold &&
     candidate.xMinsPerFixture >= 60 &&
     candidate.xPts >= Math.max(4, (bestPick?.xPts || 0) * 0.7)
@@ -666,10 +572,10 @@ async function buildCaptaincyModel({ bootstrap, fixtures, selectedGW }) {
     differentialThreshold = 15;
     differentialPick = candidates.find(candidate =>
       candidate.id !== bestPick?.id &&
-      candidate.position !== 'GKP' &&
+      ['MID', 'FWD'].includes(candidate.position) &&
       candidate.ownership < differentialThreshold &&
       candidate.xMinsPerFixture >= 55
-    ) || candidates.find(candidate => candidate.id !== bestPick?.id && candidate.position !== 'GKP' && candidate.ownership < differentialThreshold) || null;
+    ) || candidates.find(candidate => candidate.id !== bestPick?.id && ['MID', 'FWD'].includes(candidate.position)) || null;
   }
 
   const rankedDifferential = differentialPick
@@ -742,7 +648,6 @@ async function buildPlayerProjections({ bootstrap, fixtures, startGW, horizon = 
         teamExperience,
         teamPositionCosts,
         historicalData,
-        currentGW: gameweek,
       });
     };
     const candidates = gameweeks.map(buildForGameweek);
