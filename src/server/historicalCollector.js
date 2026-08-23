@@ -272,6 +272,47 @@ function buildOpponentProfile(gwRows) {
   }));
 }
 
+function computeCombinedOpponents(seasonsData) {
+  const combined = {};
+  for (const s of Object.keys(seasonsData)) {
+    const oppList = seasonsData[s].opponents || [];
+    for (const opp of oppList) {
+      const teamId = opp.opponentTeamId;
+      if (!teamId) continue;
+      if (!combined[teamId]) {
+        combined[teamId] = {
+          opponentTeamId: teamId,
+          appearances: 0,
+          minutes: 0,
+          points: 0,
+          goals: 0,
+          assists: 0,
+          xGI: 0,
+          bonus: 0,
+          hauls: 0,
+        };
+      }
+      const c = combined[teamId];
+      c.appearances += opp.appearances || 0;
+      c.minutes += opp.minutes || 0;
+      c.points += opp.points || 0;
+      c.goals += opp.goals || 0;
+      c.assists += opp.assists || 0;
+      c.xGI += opp.xGI || 0;
+      c.bonus += opp.bonus || 0;
+      c.hauls += opp.hauls || 0;
+    }
+  }
+  for (const teamId of Object.keys(combined)) {
+    const c = combined[teamId];
+    c.pointsPer90 = c.minutes > 0 ? round((c.points * 90) / c.minutes, 2) : 0;
+    c.xGIPer90 = c.minutes > 0 ? round((c.xGI * 90) / c.minutes, 2) : 0;
+    c.ppg = c.appearances > 0 ? round(c.points / c.appearances, 2) : 0;
+    c.haulRate = c.appearances > 0 ? round(c.hauls / c.appearances, 3) : 0;
+  }
+  return combined;
+}
+
 function buildFixtureProfile(gwRows) {
   const fixtures = [];
   for (const gw of gwRows) {
@@ -518,6 +559,8 @@ async function collectAllHistoricalStats() {
       const fplId = bsEntry?.id || meta.element || null;
       const webName = bsEntry?.web_name || name.split(' ').pop() || name;
 
+      const opponentsCombined = computeCombinedOpponents(seasonsData);
+
       results.push({
         id: fplId,
         element: meta.element || fplId,
@@ -528,10 +571,26 @@ async function collectAllHistoricalStats() {
         team: meta.team || 'Unknown',
         seasons: Object.fromEntries(Object.entries(seasonsData).map(([s, d]) => [s, d.profile])),
         opponents: Object.fromEntries(Object.entries(seasonsData).map(([s, d]) => [s, d.opponents])),
+        opponentsCombined,
         topFixtures: Object.fromEntries(Object.entries(seasonsData).map(([s, d]) => [s, d.fixtures.slice(0, 5)])),
         crossSeason,
+        isHistoricalElite: false,
+        top30Seasons: [],
       });
     }
+
+    // Flag Top 30 scoring players for each historical season for Captaincy Pool
+    SEASONS_TO_FETCH.forEach(s => {
+      const seasonRankings = [...results]
+        .filter(r => r.seasons && r.seasons[s] && r.seasons[s].totalPoints > 0)
+        .sort((a, b) => (b.seasons[s].totalPoints || 0) - (a.seasons[s].totalPoints || 0))
+        .slice(0, 30);
+
+      seasonRankings.forEach((entry, idx) => {
+        entry.isHistoricalElite = true;
+        entry.top30Seasons.push({ season: s, rank: idx + 1, points: entry.seasons[s].totalPoints });
+      });
+    });
 
     results.sort((a, b) => (b.crossSeason.totalPoints || 0) - (a.crossSeason.totalPoints || 0));
 

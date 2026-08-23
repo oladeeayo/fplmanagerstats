@@ -461,20 +461,26 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
     });
 
     const opponentId = projection.opponentId;
-    const oppHist = allOpponentHistory[opponentId];
+    const oppHist = allOpponentHistory[opponentId] || historical?.opponentsCombined?.[opponentId] || null;
     let opponentBoost = 0;
-    if (oppHist && oppHist.appearances >= 2) {
-      const oppPPG90 = oppHist.minutes > 0 ? (oppHist.points * 90 / oppHist.minutes) : 0;
+    if (oppHist && oppHist.appearances >= 1) {
+      const oppPPG90 = oppHist.minutes > 0 ? (oppHist.points * 90 / oppHist.minutes) : (oppHist.points / oppHist.appearances);
       const oppXGIPer90 = oppHist.minutes > 0 ? (oppHist.xGI * 90 / oppHist.minutes) : 0;
       const oppHaulRate = oppHist.appearances > 0 ? oppHist.hauls / oppHist.appearances : 0;
       const isHome = projection.venue === 'H';
       const venuePPG90 = isHome && oppHist.homeAppearances > 0
-        ? oppHist.homePoints * 90 / (oppHist.homeAppearances * 90)
+        ? oppHist.homePoints * 90 / Math.max(oppHist.homeAppearances * 90, 1)
         : !isHome && oppHist.awayAppearances > 0
-          ? oppHist.awayPoints * 90 / (oppHist.awayAppearances * 90)
+          ? oppHist.awayPoints * 90 / Math.max(oppHist.awayAppearances * 90, 1)
           : oppPPG90;
-      const sampleConfidence = Math.min(1, oppHist.appearances / 4);
-      opponentBoost = (venuePPG90 * 0.3 + oppXGIPer90 * 2 * 0.4 + oppHaulRate * 3 * 0.3) * sampleConfidence * (1 - decay);
+      const sampleConfidence = Math.min(1.2, oppHist.appearances / 3);
+
+      // Paramount consideration for historical performance in equivalent fixtures against upcoming opponent
+      if (oppPPG90 >= 5.5 || oppXGIPer90 >= 0.4 || oppHaulRate >= 0.25) {
+        opponentBoost = (venuePPG90 * 0.4 + oppXGIPer90 * 2.5 * 0.35 + oppHaulRate * 4 * 0.25) * sampleConfidence;
+      } else if (oppPPG90 < 3.5 && oppHist.appearances >= 2) {
+        opponentBoost = -(4.0 - oppPPG90) * 0.3 * sampleConfidence;
+      }
     }
 
     return {
@@ -484,11 +490,20 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
       opponentFull: teamsById.get(opponentId)?.name || 'Opponent',
       label: `${teamsById.get(opponentId)?.short_name || '?'} (${projection.venue})`,
       oppHistAppearances: oppHist?.appearances || 0,
+      oppHistPPG: oppHist ? round(oppHist.points / Math.max(oppHist.appearances, 1), 1) : 0,
     };
   });
 
+  // Historical Elite Pool Guard (Top 30 players from previous seasons)
+  const isHistoricalElite = Boolean(historical?.isHistoricalElite || (cs && (cs.totalPoints >= 380 || cs.fullSeasons >= 2)));
+  const gamesPlayedThisSeason = Math.max(number(player.starts), Math.floor(number(player.minutes) / 80));
+  const hasSustainedExcellence = gamesPlayedThisSeason >= 9 && (effectiveForm >= 6.5 || ppg >= 6.0);
+
+  // Non-elite candidates without 9-10 GWs sustained form receive non-elite penalty
+  const elitePoolFactor = (!isHistoricalElite && !hasSustainedExcellence) ? 0.78 : 1.0;
+
   const totalXptsRaw = fixtures.reduce((sum, fixture) => sum + fixture.xPts, 0);
-  const totalXpts = round(totalXptsRaw * playingTimeFactor);
+  const totalXpts = round(totalXptsRaw * playingTimeFactor * elitePoolFactor);
   const totalXmins = fixtures.reduce((sum, fixture) => sum + fixture.xMins, 0);
   const attackingXpts = fixtures.reduce((sum, fixture) => sum + fixture.attackingXPts, 0);
   const ownership = number(player.selected_by_percent);
