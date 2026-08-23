@@ -356,7 +356,6 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
   const starterScore = estimateStarterScore(player, teamExperience || new Map(), teamPositionCosts || new Map(), { xMins, avgFdr });
   const form = number(player.form);
   const ppg = number(player.points_per_game);
-  const effectiveForm = form > 0 ? form : ppg;
   let xG90 = shrunkRate(player, 'expected_goals_per_90', baselines[player.element_type].xG90);
   let xA90 = shrunkRate(player, 'expected_assists_per_90', baselines[player.element_type].xA90);
 
@@ -364,6 +363,19 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
   const currentMins = number(player.minutes);
   const prevMins = historical?.prevSeason?.minutes || 0;
   const currMinsHist = historical?.currentSeason?.minutes || 0;
+
+  let effectiveForm = form > 0 ? form : ppg;
+  let effectivePPG = ppg;
+  if (historical && currentMins < 1000) {
+    const histPPG90 = historical.prevSeason?.pointsPer90 || 0;
+    const currHistPPG90 = historical.currentSeason?.pointsPer90 || 0;
+    const blendedHistPPG = histPPG90 * 0.6 + currHistPPG90 * 0.4;
+    if (blendedHistPPG > 0) {
+      const formBlend = Math.max(0, 1 - currentMins / 1000);
+      effectiveForm = effectiveForm * (1 - formBlend) + blendedHistPPG * formBlend;
+      effectivePPG = ppg * (1 - formBlend) + blendedHistPPG * formBlend;
+    }
+  }
 
   if (historical && (prevMins > 500 || currMinsHist > 500)) {
     const currWeight = Math.min(currentMins / 1000, 1);
@@ -395,7 +407,7 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
       xG90,
       xA90,
       form: effectiveForm,
-      ppg,
+      ppg: effectivePPG,
       position,
       officialProjection,
       historical,
@@ -409,7 +421,9 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
     };
   });
 
-  const totalXpts = round(fixtures.reduce((sum, fixture) => sum + fixture.xPts, 0));
+  const totalXptsRaw = fixtures.reduce((sum, fixture) => sum + fixture.xPts, 0);
+  const consistencyBonus = (historical?.consistencyScore || 0) * 0.5 + (historical?.minutesReliability || 0) * 0.3;
+  const totalXpts = round(totalXptsRaw + consistencyBonus);
   const totalXmins = fixtures.reduce((sum, fixture) => sum + fixture.xMins, 0);
   const attackingXpts = fixtures.reduce((sum, fixture) => sum + fixture.attackingXPts, 0);
   const ownership = number(player.selected_by_percent);
