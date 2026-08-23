@@ -464,13 +464,12 @@ async function getHistoricalPlayerStats(forceRefresh = false) {
 
   try {
     const { collectAllHistoricalStats } = require('./historicalCollector');
-    await collectAllHistoricalStats();
-    const retryData = await loadHistoricalFromDB(currentSeason);
-    if (retryData && retryData.size > 0) {
-      historicalCache = retryData;
+    const collectedMap = await collectAllHistoricalStats();
+    if (collectedMap && collectedMap.size > 0) {
+      historicalCache = collectedMap;
       historicalSeason = currentSeason;
       lastHistoricalFetch = now;
-      logger.info({ season: currentSeason, playerCount: retryData.size }, 'Historical stats loaded from DB after forced collection');
+      logger.info({ season: currentSeason, playerCount: collectedMap.size }, 'Historical stats loaded from collector');
       return historicalCache;
     }
   } catch { /* fall through */ }

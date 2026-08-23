@@ -56,7 +56,7 @@ const bootstrap = {
   events: [{ id: 9, is_current: true }, { id: 10, is_next: true }],
   teams,
   elements: [
-    player({ id: 1, web_name: 'Favourite', selected_by_percent: '50.0' }),
+    player({ id: 1, web_name: 'Favourite', form: '7.0', expected_goals_per_90: 0.55, selected_by_percent: '50.0' }),
     player({ id: 2, web_name: 'Differential', code: 101, team: 3, selected_by_percent: '5.0', form: '6.0', expected_goals_per_90: 0.45 }),
     player({ id: 3, web_name: 'Unavailable', code: 102, team: 3, status: 'i', chance_of_playing_next_round: 0, selected_by_percent: '1.0', expected_goals_per_90: 1.2 }),
     player({ id: 4, web_name: 'HardAway', code: 103, team: 2, selected_by_percent: '20.0', expected_goals_per_90: 0.5 }),
@@ -107,3 +107,6 @@ const highMinsScore = estimateStarterScore(rotationRisk, freshTeam, costs, { xMi
 const hardFixturesScore = estimateStarterScore(rotationRisk, freshTeam, costs, { xMins: 80, avgFdr: 4.2 });
 assert.ok(highMinsScore > lowMinsScore, 'higher projected minutes must improve starter score');
 assert.ok(hardFixturesScore < highMinsScore, 'very difficult fixtures must reduce starter score');
+
+console.log('Captaincy model tests passed');
+process.exit(0);

@@ -412,21 +412,25 @@ function computeCrossSeasonMetrics(seasonProfiles) {
   };
 }
 
-async function collectAllHistoricalStats() {
-  if (!sql) return;
+let cachedHistoricalMap = null;
 
+async function collectAllHistoricalStats() {
   const season = getSeasonLabel();
   const now = Date.now();
-  if (lastHistoricalRun && (now - lastHistoricalRun) < 6 * 60 * 60 * 1000) return;
 
-  try {
-    const existing = await sql`SELECT total_players FROM player_historical_stats WHERE season = ${season} LIMIT 1`;
-    if (existing.length > 0 && existing[0].total_players > 100) {
-      lastHistoricalRun = now;
-      logger.info({ season, playerCount: existing[0].total_players }, 'Historical data already in DB, skipping collection');
-      return;
-    }
-  } catch { /* continue with collection */ }
+  if (cachedHistoricalMap && lastHistoricalRun && (now - lastHistoricalRun) < 6 * 60 * 60 * 1000) {
+    return cachedHistoricalMap;
+  }
+
+  if (sql) {
+    try {
+      const existing = await sql`SELECT total_players FROM player_historical_stats WHERE season = ${season} LIMIT 1`;
+      if (existing.length > 0 && existing[0].total_players > 100) {
+        lastHistoricalRun = now;
+        logger.info({ season, playerCount: existing[0].total_players }, 'Historical data already in DB, skipping collection');
+      }
+    } catch { /* continue with collection */ }
+  }
 
   try {
     const seasonProfiles = {};
@@ -539,10 +543,21 @@ async function collectAllHistoricalStats() {
       }
     }
 
+    const resultMap = new Map();
+    for (const entry of results) {
+      if (entry.id) resultMap.set(Number(entry.id), entry);
+      if (entry.element) resultMap.set(Number(entry.element), entry);
+      if (entry.webNameLower) resultMap.set(entry.webNameLower, entry);
+      if (entry.name) resultMap.set(entry.name.toLowerCase(), entry);
+    }
+
+    cachedHistoricalMap = resultMap;
     lastHistoricalRun = Date.now();
-    logger.info({ season, playerCount: results.length, seasons: SEASONS_TO_FETCH }, 'Historical player profiles collected to DB');
+    logger.info({ season, playerCount: results.length, seasons: SEASONS_TO_FETCH }, 'Historical player profiles collected');
+    return resultMap;
   } catch (err) {
     logger.error({ err }, 'Failed to collect historical player profiles');
+    return cachedHistoricalMap || new Map();
   }
 }
 

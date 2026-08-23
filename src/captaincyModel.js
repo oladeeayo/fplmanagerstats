@@ -357,7 +357,13 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
   let xG90 = shrunkRate(player, 'expected_goals_per_90', baselines[player.element_type].xG90);
   let xA90 = shrunkRate(player, 'expected_assists_per_90', baselines[player.element_type].xA90);
 
-  const historical = historicalData?.get(player.id) || historicalData?.get(player.web_name?.toLowerCase()) || null;
+  const histById = historicalData?.get(player.id);
+  const historical = (histById && (
+    !player.web_name ||
+    histById.webNameLower === player.web_name.toLowerCase() ||
+    histById.name?.toLowerCase().includes(player.web_name.toLowerCase()) ||
+    player.web_name.toLowerCase().includes(histById.webNameLower)
+  )) ? histById : (historicalData?.get(player.web_name?.toLowerCase()) || null);
   const currentMins = number(player.minutes);
   const cs = historical?.crossSeason || null;
   const latestSeason = historical?.seasons ? Object.values(historical.seasons)[Object.values(historical.seasons).length - 1] : null;

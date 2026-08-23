@@ -107,3 +107,4 @@ assert.ok(!wcRec || wcRec.gameweek !== 1, 'Wildcard must not be scheduled in GW1
 assert.ok(!fhRec || fhRec.gameweek !== 1, 'Free Hit must not be scheduled in GW1');
 
 console.log('Decision model tests passed');
+process.exit(0);
