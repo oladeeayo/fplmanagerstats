@@ -7,6 +7,14 @@ const FORM_MODIFIER = { 1: 1.12, 2: 1.06, 3: 1, 4: 0.94, 5: 0.88 };
 const CLEAN_SHEET_PROBABILITY = { 1: 0.46, 2: 0.37, 3: 0.28, 4: 0.19, 5: 0.12 };
 const PRESEASON_POSITION_PRIOR = { GKP: 3.4, DEF: 3.25, MID: 3.45, FWD: 3.35 };
 
+const POSITION_BENCHMARKS = { FWD: 5.2, MID: 4.8, DEF: 4.5, GKP: 4.2 };
+const FDR_MULTIPLIER = { 1: 1.18, 2: 1.08, 3: 1.0, 4: 0.90, 5: 0.80 };
+const ROLE_BOOSTS = { penalty: 0.5, setPiece: 0.3, captain: 0.2 };
+
+function getDecayFactor(currentGW) {
+  return Math.min(currentGW / 5, 1);
+}
+
 // Enhanced models (imported lazily to avoid circular deps)
 let opponentModel = null;
 let bookingRiskModel = null;
@@ -310,7 +318,8 @@ function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form
   const roleMinutesRatio = clamp(fixtureXmins / historicAverageMinutes, 0, 1.2);
   const formProjection = form * roleMinutesRatio * formModifier;
   const ppgProjection = ppg * roleMinutesRatio * formModifier;
-  let projectedPoints = (eventProjection * 0.68) + (formProjection * 0.2) + (ppgProjection * 0.12);
+  const fdrMultiplier = FDR_MULTIPLIER[difficulty] || 1.0;
+  let projectedPoints = ((eventProjection * 0.68) + (formProjection * 0.2) + (ppgProjection * 0.12)) * fdrMultiplier;
 
   // Enhanced: add price change bonus for next GW fixtures
   if (fixtureIndex === 0) {
@@ -342,7 +351,7 @@ function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form
   };
 }
 
-function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, baselines, useNextRoundChance, useOfficialProjection, teamExperience, teamPositionCosts, historicalData }) {
+function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, baselines, useNextRoundChance, useOfficialProjection, teamExperience, teamPositionCosts, historicalData, currentGW }) {
   const availability = availabilityFor(player, useNextRoundChance);
   const xMins = estimateExpectedMinutes(player, referenceMatches, availability, { teamExperience, position: POSITION_MAP[player.element_type - 1] });
   if (!playerFixtures.length || xMins < 20) return null;
@@ -363,24 +372,31 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
   const latestSeason = historical?.seasons ? Object.values(historical.seasons)[Object.values(historical.seasons).length - 1] : null;
   const prevSeasonData = historical?.previousSeason || null;
 
+  const decay = getDecayFactor(currentGW);
+  const histWeight = 1 - decay;
+  const currWeight = decay;
+
   let effectiveForm = form > 0 ? form : ppg;
   let effectivePPG = ppg;
-  if (cs && currentMins < 1000) {
-    const histPPG90 = cs.pointsPer90Career || latestSeason?.pointsPer90 || 0;
-    if (histPPG90 > 0) {
-      const formBlend = Math.max(0, 1 - currentMins / 1000);
-      effectiveForm = effectiveForm * (1 - formBlend) + histPPG90 * formBlend;
-      effectivePPG = ppg * (1 - formBlend) + histPPG90 * formBlend;
-    }
+  const positionName = POSITION_MAP[player.element_type - 1];
+  const posBenchmark = POSITION_BENCHMARKS[positionName] || 4.5;
+
+  if (cs && cs.totalMinutes > 500) {
+    const histPPG90 = cs.pointsPer90Career || latestSeason?.pointsPer90 || posBenchmark;
+    effectiveForm = effectiveForm * currWeight + histPPG90 * histWeight;
+    effectivePPG = ppg * currWeight + histPPG90 * histWeight;
+  } else if (!cs) {
+    effectiveForm = effectiveForm * currWeight + posBenchmark * histWeight;
+    effectivePPG = ppg * currWeight + posBenchmark * histWeight;
   }
 
-  if (cs && cs.totalMinutes > 1000) {
-    const currWeight = Math.min(currentMins / 1000, 1);
-    const prevWeight = 1 - currWeight;
+  const playingTimeFactor = cs ? Math.min(1.2, 0.8 + (cs.minutesReliability || 0.7) * 0.4) : 1;
+
+  if (cs && cs.totalMinutes > 500) {
     const careerGoalsPer90 = cs.xGIPer90Career * 0.65;
     const careerAssistsPer90 = cs.xGIPer90Career * 0.35;
-    xG90 = xG90 * currWeight + careerGoalsPer90 * prevWeight;
-    xA90 = xA90 * currWeight + careerAssistsPer90 * prevWeight;
+    xG90 = xG90 * currWeight + careerGoalsPer90 * histWeight;
+    xA90 = xA90 * currWeight + careerAssistsPer90 * histWeight;
 
     if (cs.xGITrend > 0.05) {
       const boost = Math.min(cs.xGITrend * 0.2, 0.12);
@@ -391,6 +407,9 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
       xG90 *= (1 - penalty);
       xA90 *= (1 - penalty);
     }
+  } else if (!cs) {
+    xG90 = xG90 * currWeight + (posBenchmark * 0.15 / 90) * histWeight;
+    xA90 = xA90 * currWeight + (posBenchmark * 0.08 / 90) * histWeight;
   }
 
   const officialProjection = useOfficialProjection ? number(player.ep_next) : 0;
@@ -420,14 +439,16 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
 
   const totalXptsRaw = fixtures.reduce((sum, fixture) => sum + fixture.xPts, 0);
   const consistencyBonus = (cs?.consistencyScore || 0) * 0.8 + (cs?.minutesReliability || 0) * 0.5 + (cs?.haulRateCareer || 0) * 2;
-  const totalXpts = round(totalXptsRaw + consistencyBonus);
+  const roleBoost = (number(player.penalties_order) === 1 ? ROLE_BOOSTS.penalty : 0) +
+    (number(player.direct_freekicks_order) === 1 || number(player.corners_and_indirect_freekicks_order) === 1 ? ROLE_BOOSTS.setPiece : 0);
+  const totalXpts = round((totalXptsRaw + consistencyBonus + roleBoost) * playingTimeFactor);
   const totalXmins = fixtures.reduce((sum, fixture) => sum + fixture.xMins, 0);
   const attackingXpts = fixtures.reduce((sum, fixture) => sum + fixture.attackingXPts, 0);
   const ownership = number(player.selected_by_percent);
-  const roleBoost = (number(player.penalties_order) === 1 ? 0.3 : 0) +
+  const upsideRoleBoost = (number(player.penalties_order) === 1 ? 0.3 : 0) +
     (number(player.direct_freekicks_order) === 1 ? 0.1 : 0) +
     (number(player.corners_and_indirect_freekicks_order) === 1 ? 0.1 : 0);
-  const upside = round(attackingXpts + roleBoost, 2);
+  const upside = round(attackingXpts + upsideRoleBoost, 2);
   const fixtureSummary = fixtures.map(fixture => fixture.label).join(' + ');
   const fixtureDetail = fixtures.map(fixture => `${fixture.label}, FDR ${fixture.fdr}`).join('; ');
   const formText = form > 0 ? `${form.toFixed(1)} form` : `${ppg.toFixed(1)} season PPG baseline`;
@@ -560,6 +581,7 @@ async function buildCaptaincyModel({ bootstrap, fixtures, selectedGW }) {
       teamExperience,
       teamPositionCosts,
       historicalData,
+      currentGW: gameweek,
     }))
     .filter(Boolean)
     .sort((a, b) => {
@@ -659,6 +681,7 @@ async function buildPlayerProjections({ bootstrap, fixtures, startGW, horizon = 
         teamExperience,
         teamPositionCosts,
         historicalData,
+        currentGW: gameweek,
       });
     };
     const candidates = gameweeks.map(buildForGameweek);
