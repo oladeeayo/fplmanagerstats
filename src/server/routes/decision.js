@@ -189,16 +189,19 @@ async function analyzeManager(managerId, playerData, leagueId = null) {
   const totalSaves = gks.reduce((s, p) => s + (p.saves||0), 0);
   const templateCount = players.filter(p => parseFloat(p.selectedBy||0) >= 20).length;
 
-  // Underperforming analysis
+  // Underperforming analysis (must be in team at least 3 GWs)
   const underperforming = players
     .filter(p => {
+      const inTeamLongEnough = (p.gwInSquad || 0) >= 3;
+      if (!inTeamLongEnough) return false;
       const avgFDR = p.nextFixtures?.length ? p.nextFixtures.reduce((s,f) => s+f.difficulty, 0) / p.nextFixtures.length : 0;
-      const formOk = parseFloat(p.form||0) >= 2.0;
-      const ppgOk = parseFloat(p.pointsPerGame||0) >= 2.0;
+      const formOk = parseFloat(p.form||0) >= 2.5;
+      const ppgOk = parseFloat(p.pointsPerGame||0) >= 2.5;
       const toughFixtures = avgFDR >= 3.5;
       const lowMins = (p.minutes||0) < 500;
       const yellowRisk = (p.yellowCards||0) >= 4;
-      return (toughFixtures && !formOk) || (!ppgOk && lowMins) || yellowRisk;
+      const lowReturnRate = (p.playerPoints || 0) / Math.max(1, p.gwInSquad || 1) < 2.5;
+      return (toughFixtures && !formOk) || (!ppgOk && lowMins) || yellowRisk || lowReturnRate;
     })
     .sort((a, b) => parseFloat(a.form||0) - parseFloat(b.form||0))
     .slice(0, 5);
@@ -464,21 +467,26 @@ router.get('/v1/h2h-matchup/:managerId', heavyEndpointLimiter, async (req, res) 
     const targetGW = Math.max(1, Math.min(38, parseInt(req.query.gw) || currentGW));
 
     // Fetch H2H match fixtures for this manager in the selected league
+    const numManagerId = Number(managerId);
     let h2hData = await optionalApiGet(
-      `https://fantasy.premierleague.com/api/leagues-h2h-matches/league/${selectedLeague.id}/?entry=${managerId}&event=${targetGW}`
+      `https://fantasy.premierleague.com/api/leagues-h2h-matches/league/${selectedLeague.id}/?entry=${managerId}`
     );
 
     let matches = h2hData?.results || [];
-    const numManagerId = Number(managerId);
+    let userMatch = matches.find(m => (Number(m.event) === Number(targetGW)) && (Number(m.entry_1_entry) === numManagerId || Number(m.entry_2_entry) === numManagerId));
 
-    // If query with event didn't return user match, try fetching all entry matches for this league
-    let userMatch = matches.find(m => Number(m.entry_1_entry) === numManagerId || Number(m.entry_2_entry) === numManagerId);
     if (!userMatch) {
-      h2hData = await optionalApiGet(
-        `https://fantasy.premierleague.com/api/leagues-h2h-matches/league/${selectedLeague.id}/?entry=${managerId}`
+      // Try querying by event
+      const eventData = await optionalApiGet(
+        `https://fantasy.premierleague.com/api/leagues-h2h-matches/league/${selectedLeague.id}/?event=${targetGW}`
       );
-      matches = h2hData?.results || [];
-      userMatch = matches.find(m => (m.event === targetGW) && (Number(m.entry_1_entry) === numManagerId || Number(m.entry_2_entry) === numManagerId));
+      const eventMatches = eventData?.results || [];
+      userMatch = eventMatches.find(m => Number(m.entry_1_entry) === numManagerId || Number(m.entry_2_entry) === numManagerId);
+    }
+
+    if (!userMatch && matches.length > 0) {
+      // Fallback to any recent match fixture for this manager if targetGW is unplayed or future
+      userMatch = matches.find(m => Number(m.entry_1_entry) === numManagerId || Number(m.entry_2_entry) === numManagerId);
     }
 
     let opponentId = null;

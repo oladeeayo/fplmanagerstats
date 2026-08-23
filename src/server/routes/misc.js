@@ -1471,16 +1471,16 @@ if (!fs.existsSync(CAPTAIN_SNAPSHOT_DIR)) {
   }
 }
 
-async function getOrSaveCaptainSnapshot(gw, rawModel) {
+async function getOrSaveCaptainSnapshot(gw, rawModel, bootstrapEvents) {
+  const filePath = path.join(CAPTAIN_SNAPSHOT_DIR, `gw_${gw}.json`);
+  let existingSnapshot = null;
+
   // Try database first (works on Vercel serverless)
   if (sql) {
     try {
       const rows = await sql`SELECT data FROM captain_snapshots WHERE gameweek = ${gw} LIMIT 1`;
       if (rows.length > 0 && rows[0].data) {
-        const saved = typeof rows[0].data === 'string' ? JSON.parse(rows[0].data) : rows[0].data;
-        if (saved && saved.bestPick && Array.isArray(saved.topPicks) && saved.topPicks.length > 0) {
-          return saved;
-        }
+        existingSnapshot = typeof rows[0].data === 'string' ? JSON.parse(rows[0].data) : rows[0].data;
       }
     } catch (e) {
       logger.warn({ err: e }, 'Failed reading captain snapshot from DB');
@@ -1488,16 +1488,36 @@ async function getOrSaveCaptainSnapshot(gw, rawModel) {
   }
 
   // Fallback to filesystem (local dev)
-  const filePath = path.join(CAPTAIN_SNAPSHOT_DIR, `gw_${gw}.json`);
-  if (fs.existsSync(filePath)) {
+  if (!existingSnapshot && fs.existsSync(filePath)) {
     try {
       const content = fs.readFileSync(filePath, 'utf8');
-      const saved = JSON.parse(content);
-      if (saved && saved.bestPick && Array.isArray(saved.topPicks) && saved.topPicks.length > 0) {
-        return saved;
-      }
+      existingSnapshot = JSON.parse(content);
     } catch (e) {
       logger.error({ err: e }, 'Failed reading captain snapshot');
+    }
+  }
+
+  // Determine deadline status
+  const eventObj = Array.isArray(bootstrapEvents) ? bootstrapEvents.find(e => e.id === Number(gw)) : null;
+  const deadlineMs = eventObj?.deadline_time ? new Date(eventObj.deadline_time).getTime() : null;
+  const now = Date.now();
+  // Deadline threshold: within 2 minutes of deadline or past deadline
+  const isPastDeadline = deadlineMs ? (now >= deadlineMs - 2 * 60 * 1000) : false;
+
+  // STRICT DEADLINE LOCK: If a snapshot exists AND (isPastDeadline OR isDeadlineLocked), IT IS LOCKED PERMANENTLY!
+  if (existingSnapshot && existingSnapshot.bestPick && Array.isArray(existingSnapshot.topPicks) && existingSnapshot.topPicks.length > 0) {
+    if (isPastDeadline || existingSnapshot.isDeadlineLocked) {
+      if (!existingSnapshot.isDeadlineLocked) {
+        existingSnapshot.isDeadlineLocked = true;
+        existingSnapshot.lockedAt = existingSnapshot.lockedAt || new Date().toISOString();
+        if (sql) {
+          try {
+            await sql`INSERT INTO captain_snapshots (gameweek, data) VALUES (${gw}, ${JSON.stringify(existingSnapshot)}) ON CONFLICT (gameweek) DO UPDATE SET data = ${JSON.stringify(existingSnapshot)}`;
+          } catch (e) { /* ignore */ }
+        }
+        try { fs.writeFileSync(filePath, JSON.stringify(existingSnapshot, null, 2), 'utf8'); } catch (e) { /* ignore */ }
+      }
+      return existingSnapshot;
     }
   }
 
@@ -1506,6 +1526,8 @@ async function getOrSaveCaptainSnapshot(gw, rawModel) {
     generatedAt: rawModel.generatedAt || new Date().toISOString(),
     modelVersion: rawModel.modelVersion,
     modelInputs: rawModel.modelInputs,
+    isDeadlineLocked: isPastDeadline,
+    lockedAt: isPastDeadline ? new Date().toISOString() : null,
     bestPick: rawModel.bestPick ? JSON.parse(JSON.stringify(rawModel.bestPick)) : null,
     differentialPick: rawModel.differentialPick ? JSON.parse(JSON.stringify(rawModel.differentialPick)) : null,
     topPicks: (rawModel.topPicks || []).map(p => JSON.parse(JSON.stringify(p)))
@@ -1540,7 +1562,7 @@ router.get('/captain-picks', async (req, res) => {
     const rawModel = await buildCaptaincyModel({ bootstrap, fixtures, selectedGW: req.query.gw });
     const gw = rawModel.gameweek;
 
-    const snapshot = getOrSaveCaptainSnapshot(gw, rawModel);
+    const snapshot = await getOrSaveCaptainSnapshot(gw, rawModel, bootstrap?.events);
 
     // Baseline picks come directly from the pre-deadline snapshot!
     const baseBestPick = snapshot.bestPick || rawModel.bestPick;
@@ -3276,6 +3298,8 @@ router.get('/player-history/:id', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch player history' });
   }
 });
+
+router.getOrSaveCaptainSnapshot = getOrSaveCaptainSnapshot;
 
 module.exports = router;
 

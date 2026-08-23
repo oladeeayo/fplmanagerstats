@@ -1,0 +1,21 @@
+{
+  "gameweek": 1,
+  "generatedAt": "2026-08-23T17:51:23.756Z",
+  "modelVersion": "Captaincy xPts 2.0",
+  "modelInputs": [
+    "fixtures",
+    "form",
+    "xMins",
+    "xG",
+    "xA",
+    "PPG",
+    "availability",
+    "set pieces",
+    "bonus"
+  ],
+  "isDeadlineLocked": true,
+  "lockedAt": "2026-08-23T17:51:23.757Z",
+  "bestPick": null,
+  "differentialPick": null,
+  "topPicks": []
+}

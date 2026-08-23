@@ -142,6 +142,23 @@ async function takeSnapshot(gwId, schedule, fetcher) {
 
     saveSnapshotToDisk(snapshotData);
     logger.info({ gwId: snapshotData.gwId, deadline: schedule?.deadlineTime }, 'FPL site snapshot captured 2 minutes before deadline');
+
+    // Trigger pre-deadline captaincy model lock
+    try {
+      if (bootstrap && fixtures) {
+        const { buildCaptaincyModel } = require('../captaincyModel');
+        const miscRoutes = require('./routes/misc');
+        const getOrSaveCaptainSnapshot = miscRoutes.getOrSaveCaptainSnapshot;
+        if (typeof getOrSaveCaptainSnapshot === 'function') {
+          const rawModel = await buildCaptaincyModel({ bootstrap, fixtures, selectedGW: snapshotData.gwId });
+          await getOrSaveCaptainSnapshot(snapshotData.gwId, rawModel, bootstrap.events);
+          logger.info({ gwId: snapshotData.gwId }, 'Pre-deadline captaincy model snapshot permanently locked');
+        }
+      }
+    } catch (capErr) {
+      logger.warn({ err: capErr.message }, 'Failed locking pre-deadline captain snapshot in snapshotManager');
+    }
+
     return snapshotData;
   } catch (err) {
     logger.error({ err: err.message }, 'Error taking snapshot');

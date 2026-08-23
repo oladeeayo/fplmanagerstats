@@ -13,11 +13,11 @@ function normalizeStrategy(value) {
 }
 
 function adjustedScore(player, strategy) {
-  const consistencyBoost = (player.consistencyScore || 0) * 2;
-  const improvementBoost = (player.improvementRatio || 1) > 1 ? (player.improvementRatio - 1) * 5 : 0;
+  const consistencyBoost = (player.consistencyScore || 0) * 0.4;
+  const improvementBoost = (player.improvementRatio || 1) > 1 ? (player.improvementRatio - 1) * 1.2 : 0;
   if (strategy === 'protect') return player.totalXpts + Math.min(player.ownership, 50) * 0.025 + player.availability * 0.006 + consistencyBoost;
   if (strategy === 'chase') return player.totalXpts + (100 - Math.min(player.ownership, 80)) * 0.018 + (player.range.high - player.totalXpts) * 0.22 + improvementBoost;
-  return player.totalXpts + player.xPtsPerMillion * 0.04 + consistencyBoost * 0.5;
+  return player.totalXpts + player.xPtsPerMillion * 0.04 + consistencyBoost * 0.3;
 }
 
 function validSquad(players) {
@@ -61,6 +61,8 @@ function buildTransferPlans({ squad, allPlayers, bank, freeTransfers, strategy }
         const nextGain = round(incoming.weekly[0].xPts - outgoing.weekly[0].xPts);
         const hitCost = freeTransfers > 0 ? 0 : 4;
         const netGain = round(horizonGain - hitCost);
+        // Only consider hits if net gain is substantial (at least 5.0 net xPts)
+        if (hitCost > 0 && netGain < 5.0) return;
         if (netGain <= 0) return;
         plans.push({
           id: `${outgoing.id}-${incoming.id}`,
@@ -92,9 +94,13 @@ function buildTransferPlans({ squad, allPlayers, bank, freeTransfers, strategy }
       const secondSale = second.transfers[0].out.sellingPrice ?? second.transfers[0].out.cost;
       const newBank = round(bank + firstSale + secondSale - first.transfers[0].in.cost - second.transfers[0].in.cost);
       if (newBank < 0) continue;
-      const hitCost = Math.max(0, 2 - freeTransfers) * 4;
+      // Strictly cap hitCost at 4 (max 1 hit in extreme cases, never -8 or -12)
+      const rawHitCost = Math.max(0, 2 - freeTransfers) * 4;
+      if (rawHitCost > 4) continue; // Exclude double-hit plans (> -4 hit)
+      const hitCost = Math.min(4, rawHitCost);
       const horizonGain = round(first.horizonGain + second.horizonGain);
       const netGain = round(horizonGain - hitCost);
+      if (hitCost > 0 && netGain < 5.0) continue; // Require high net gain for hits
       if (netGain <= 0) continue;
       doublePlans.push({
         id: `${first.id}-${second.id}`,

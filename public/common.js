@@ -1809,11 +1809,11 @@ const FPL = {
                             <span style="font-weight:700;color:#ffffff;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.webName || p.name}</span>
                         </td>
                         <td style="text-align:center;color:#ffffff;font-family:var(--font-mono);font-size:11px;">${p.totalPoints || p.points || 0}</td>
-                        <td style="text-align:center;color:#8ba396;font-family:var(--font-mono);font-size:11px;">${p.gwApps || 28}</td>
-                        <td style="text-align:center;color:#8ba396;font-family:var(--font-mono);font-size:11px;">${p.starts || 27}</td>
+                        <td style="text-align:center;color:#8ba396;font-family:var(--font-mono);font-size:11px;">${p.gwApps != null ? p.gwApps : (p.minutes > 0 ? (p.starts || Math.ceil(p.minutes / 70)) : (p.playerPoints ? Math.ceil(p.playerPoints / 4) : 0))}</td>
+                        <td style="text-align:center;color:#8ba396;font-family:var(--font-mono);font-size:11px;">${p.starts != null ? p.starts : (p.minutes > 0 ? Math.ceil(p.minutes / 90) : 0)}</td>
                         <td style="text-align:center;color:#8ba396;font-family:var(--font-mono);font-size:11px;">${p.captPts || 0}</td>
                         <td style="text-align:center;color:#ffffff;font-family:var(--font-mono);font-size:11px;">${p.costStr || ('£' + ((p.nowCost || 100) / 10).toFixed(1) + 'm')}</td>
-                        <td style="text-align:center;font-weight:700;color:#00FF85;font-family:var(--font-mono);font-size:11px;">${p.ppg || ( (p.totalPoints || p.points || 0) / 28 ).toFixed(1)}</td>
+                        <td style="text-align:center;font-weight:700;color:#00FF85;font-family:var(--font-mono);font-size:11px;">${p.ppg ? p.ppg : ((p.gwApps || 1) > 0 ? ((p.totalPoints || p.points || 0) / (p.gwApps || 1)).toFixed(1) : (p.points_per_game || '0.0'))}</td>
                     </tr>
                 `).join('');
             }
@@ -1867,31 +1867,51 @@ const FPL = {
 
                 if (rankSummaryEl) rankSummaryEl.textContent = `Current: OR ${this.formatNumber(currentRank)} | Best: OR ${this.formatNumber(bestRank)}`;
 
-                rankChartEl.innerHTML = weeklyRanks.map((rank, idx) => {
-                    const gw = idx + 1;
-                    const prevRank = idx > 0 ? weeklyRanks[idx - 1] : rank;
-                    const isImproved = rank < prevRank; // lower rank is better
-                    const isWorse = rank > prevRank;
-                    
-                    const range = Math.max(1, worstRank - bestRank);
-                    const normalized = (rank - bestRank) / range;
-                    const heightPct = Math.max(15, Math.round((1 - normalized) * 85 + 15));
-                    
-                    const barBg = isImproved
-                        ? 'linear-gradient(to top, rgba(0,255,133,0.15), #00FF85)'
-                        : isWorse
-                        ? 'linear-gradient(to top, rgba(255,0,90,0.15), #FF005A)'
-                        : 'linear-gradient(to top, rgba(255,255,255,0.15), #8ba396)';
-                    const textColor = isImproved ? '#00FF85' : isWorse ? '#FF005A' : '#8ba396';
-                    
-                    const rankFormatted = rank >= 1000000 ? (rank / 1000000).toFixed(1) + 'M' : rank >= 1000 ? (rank / 1000).toFixed(0) + 'k' : rank;
+                const chartWidth = Math.max(480, weeklyRanks.length * 44);
+                const chartHeight = 180;
+                const padTop = 24;
+                const padBottom = 30;
+                const padLeft = 16;
+                const padRight = 16;
+                const availableWidth = chartWidth - padLeft - padRight;
+                const availableHeight = chartHeight - padTop - padBottom;
+                const rankRange = Math.max(1, worstRank - bestRank);
 
-                    return `<div style="flex:1;min-width:28px;max-width:48px;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;position:relative;" title="GW${gw}: OR ${this.formatNumber(rank)}">
-                        <span style="font-family:var(--font-mono);font-size:9px;font-weight:700;color:${textColor};margin-bottom:4px;">${rankFormatted}</span>
-                        <div style="width:100%;height:${heightPct}%;background:${barBg};border-radius:4px 4px 0 0;transition:all 0.2s;"></div>
-                        <span style="font-family:var(--font-mono);font-size:9px;color:#8ba396;margin-top:6px;">GW${gw}</span>
-                    </div>`;
-                }).join('');
+                const points = weeklyRanks.map((rank, idx) => {
+                    const x = padLeft + (weeklyRanks.length > 1 ? (idx / (weeklyRanks.length - 1)) * availableWidth : availableWidth / 2);
+                    const norm = (rank - bestRank) / rankRange;
+                    const y = padTop + norm * availableHeight;
+                    return { x, y, rank, gw: idx + 1 };
+                });
+
+                const svgPath = points.map((pt, i) => `${i === 0 ? 'M' : 'L'} ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`).join(' ');
+
+                rankChartEl.innerHTML = `
+                    <div style="width:100%;overflow-x:auto;padding-bottom:6px;">
+                        <svg viewBox="0 0 ${chartWidth} ${chartHeight}" style="width:100%;min-width:${chartWidth}px;height:${chartHeight}px;overflow:visible;">
+                            <defs>
+                                <linearGradient id="rankGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" stop-color="#00FF85" stop-opacity="0.3"/>
+                                    <stop offset="100%" stop-color="#00FF85" stop-opacity="0.0"/>
+                                </linearGradient>
+                            </defs>
+                            <path d="${svgPath} L ${points[points.length-1].x.toFixed(1)} ${chartHeight - padBottom} L ${points[0].x.toFixed(1)} ${chartHeight - padBottom} Z" fill="url(#rankGradient)"/>
+                            <path d="${svgPath}" fill="none" stroke="#00FF85" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                            ${points.map(pt => {
+                                const rankFormatted = pt.rank >= 1000000 ? (pt.rank / 1000000).toFixed(1) + 'M' : pt.rank >= 1000 ? (pt.rank / 1000).toFixed(0) + 'k' : pt.rank;
+                                return `
+                                    <g class="rank-point-node">
+                                        <circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="5" fill="#0E1A14" stroke="#00FF85" stroke-width="2.5">
+                                            <title>GW${pt.gw}: Overall Rank #${pt.rank.toLocaleString()}</title>
+                                        </circle>
+                                        <text x="${pt.x.toFixed(1)}" y="${(pt.y - 10).toFixed(1)}" text-anchor="middle" fill="#00FF85" font-size="9.5" font-family="var(--font-mono)" font-weight="700">${rankFormatted}</text>
+                                        <text x="${pt.x.toFixed(1)}" y="${chartHeight - 8}" text-anchor="middle" fill="#8ba396" font-size="9.5" font-family="var(--font-mono)">GW${pt.gw}</text>
+                                    </g>
+                                `;
+                            }).join('')}
+                        </svg>
+                    </div>
+                `;
             } else {
                 if (rankSummaryEl) rankSummaryEl.textContent = '';
                 rankChartEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:#8ba396;font-size:13px;">Connect your FPL ID to view Overall Rank history</div>';
