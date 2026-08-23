@@ -269,9 +269,15 @@ function projectFixture({ player, fixture, fixtureIndex, xMins, xG90, xA90, form
   const goalPoints = xG90 * minuteShare * attackModifier * GOAL_POINTS[position];
   const assistPoints = xA90 * minuteShare * attackModifier * 3;
   const cleanSheetPoints = CLEAN_SHEET_POINTS[position] * csProb * sixtyMinuteProbability;
-  const bonusPer90 = historical?.prevSeason?.bonusPer90 > 0 && number(player.minutes) < 500
-    ? (number(player.bonus) * 90 / Math.max(number(player.minutes), 900)) * 0.6 + historical.prevSeason.bonusPer90 * 0.4
-    : number(player.bonus) * 90 / Math.max(number(player.minutes), 900);
+  const bonusPer90Raw = number(player.bonus) * 90 / Math.max(number(player.minutes), 900);
+  let bonusPer90 = bonusPer90Raw;
+  if (historical?.prevSeason?.bonusPer90 > 0) {
+    const histBonus = historical.prevSeason.bonusPer90;
+    const currBonusHist = historical.currentSeason?.bonusPer90 || 0;
+    const blendedHistBonus = histBonus * 0.5 + currBonusHist * 0.5;
+    const bonusWeight = Math.max(0, 1 - number(player.minutes) / 1000);
+    bonusPer90 = bonusPer90Raw * (1 - bonusWeight) + blendedHistBonus * bonusWeight;
+  }
   const bonusPoints = clamp(bonusPer90, 0, 1.25) * minuteShare * (0.9 + (attackModifier * 0.1));
   const setPiecePoints = (
     (number(player.penalties_order) === 1 ? 0.12 : 0) +
@@ -355,10 +361,27 @@ function buildCandidate({ player, playerFixtures, teamsById, referenceMatches, b
   let xA90 = shrunkRate(player, 'expected_assists_per_90', baselines[player.element_type].xA90);
 
   const historical = historicalData?.get(player.id) || null;
-  if (historical?.prevSeason?.minutes > 1000 && number(player.minutes) < 500) {
-    const histWeight = 0.3;
-    xG90 = xG90 * (1 - histWeight) + (historical.prevSeason.goalsPer90 || 0) * histWeight;
-    xA90 = xA90 * (1 - histWeight) + (historical.prevSeason.assistsPer90 || 0) * histWeight;
+  const currentMins = number(player.minutes);
+  const prevMins = historical?.prevSeason?.minutes || 0;
+  const currMinsHist = historical?.currentSeason?.minutes || 0;
+
+  if (historical && (prevMins > 500 || currMinsHist > 500)) {
+    const currWeight = Math.min(currentMins / 1000, 1);
+    const prevWeight = 1 - currWeight;
+    const histGoalsPer90 = historical.prevSeason?.goalsPer90 || 0;
+    const histAssistsPer90 = historical.prevSeason?.assistsPer90 || 0;
+    const currHistGoalsPer90 = historical.currentSeason?.goalsPer90 || 0;
+    const currHistAssistsPer90 = historical.currentSeason?.assistsPer90 || 0;
+    const blendedHistGoals = histGoalsPer90 * 0.5 + currHistGoalsPer90 * 0.5;
+    const blendedHistAssists = histAssistsPer90 * 0.5 + currHistAssistsPer90 * 0.5;
+    xG90 = xG90 * currWeight + blendedHistGoals * prevWeight;
+    xA90 = xA90 * currWeight + blendedHistAssists * prevWeight;
+
+    if (historical.improvementRatio > 1.1) {
+      const boost = Math.min((historical.improvementRatio - 1) * 0.15, 0.12);
+      xG90 *= (1 + boost);
+      xA90 *= (1 + boost);
+    }
   }
 
   const officialProjection = useOfficialProjection ? number(player.ep_next) : 0;
@@ -506,10 +529,7 @@ async function buildCaptaincyModel({ bootstrap, fixtures, selectedGW }) {
   try {
     const insights = getFplInsightsData();
     if (insights.getHistoricalPlayerStats) {
-      historicalData = await Promise.race([
-        insights.getHistoricalPlayerStats(),
-        new Promise(resolve => setTimeout(() => resolve(null), 3000))
-      ]);
+      historicalData = await insights.getHistoricalPlayerStats();
     }
   } catch { /* ignore */ }
 
@@ -604,10 +624,7 @@ async function buildPlayerProjections({ bootstrap, fixtures, startGW, horizon = 
   try {
     const insights = getFplInsightsData();
     if (insights.getHistoricalPlayerStats) {
-      historicalData = await Promise.race([
-        insights.getHistoricalPlayerStats(),
-        new Promise(resolve => setTimeout(() => resolve(null), 3000))
-      ]);
+      historicalData = await insights.getHistoricalPlayerStats();
     }
   } catch { /* ignore */ }
 

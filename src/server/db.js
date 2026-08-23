@@ -155,7 +155,20 @@ async function initDatabase() {
           data JSONB NOT NULL,
           created_at TIMESTAMP DEFAULT NOW()
         )
-      `
+      `,
+
+      sql`
+        CREATE TABLE IF NOT EXISTS player_historical_stats (
+          id SERIAL PRIMARY KEY,
+          season VARCHAR(16) NOT NULL,
+          players JSONB NOT NULL,
+          total_players INT NOT NULL,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `.then(async () => {
+        await sql`CREATE INDEX IF NOT EXISTS idx_phs_season ON player_historical_stats(season)`;
+        await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_phs_season_unique ON player_historical_stats(season)`;
+      })
     ]);
 
     logger.info('Database initialized successfully');

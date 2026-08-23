@@ -3,6 +3,14 @@ const logger = require('./logger');
 const REPO_BASE = 'https://raw.githubusercontent.com/olbauday/FPL-Core-Insights/main/data';
 const FPL_BASE = 'https://fantasy.premierleague.com/api';
 
+let _sql = null;
+function getSql() {
+  if (!_sql) {
+    try { _sql = require('./db').sql; } catch { /* disabled */ }
+  }
+  return _sql;
+}
+
 let cachedData = null;
 let cachedSeason = null;
 let lastFetch = 0;
@@ -412,6 +420,24 @@ async function getAllFinishedGWStats(finishedGWIds) {
   return results;
 }
 
+async function loadHistoricalFromDB(season) {
+  const sql = getSql();
+  if (!sql) return null;
+  try {
+    const rows = await sql`SELECT players FROM player_historical_stats WHERE season = ${season} LIMIT 1`;
+    if (rows.length > 0 && rows[0].players) {
+      const map = new Map();
+      for (const entry of rows[0].players) {
+        map.set(Number(entry.id), entry);
+      }
+      return map;
+    }
+  } catch (err) {
+    logger.warn({ err, season }, 'Failed to load historical stats from DB');
+  }
+  return null;
+}
+
 async function getHistoricalPlayerStats(forceRefresh = false) {
   const currentSeason = getSeasonLabel();
   const now = Date.now();
@@ -420,110 +446,21 @@ async function getHistoricalPlayerStats(forceRefresh = false) {
     return historicalCache;
   }
 
-  const parts = currentSeason.split('-');
-  const prevYear = Number(parts[0]) - 1;
-  const prevSeason = `${prevYear}-${prevYear + 1}`;
-
-  logger.info({ currentSeason, prevSeason }, 'Fetching historical player stats from FPL-Core-Insights');
-
-  try {
-    const [currentStats, prevStats] = await Promise.all([
-      fetchPlayerStats(currentSeason).catch(() => []),
-      fetchPlayerStats(prevSeason).catch(() => [])
-    ]);
-
-    const historicalMap = new Map();
-
-    for (const ps of prevStats) {
-      const pid = Number(ps.id);
-      if (!pid) continue;
-      historicalMap.set(pid, {
-        prevSeason: {
-          appearances: parseNum(ps.appearances) || parseNum(ps.games) || 0,
-          minutes: parseNum(ps.minutes),
-          goals: parseNum(ps.goals_scored),
-          assists: parseNum(ps.assists),
-          cleanSheets: parseNum(ps.clean_sheets),
-          bonus: parseNum(ps.bonus),
-          bps: parseNum(ps.bps),
-          totalPoints: parseNum(ps.total_points),
-          expectedGoals: parseNum(ps.expected_goals),
-          expectedAssists: parseNum(ps.expected_assists),
-          xGI: parseNum(ps.expected_goal_involvements),
-          form: parseNum(ps.form),
-          defensiveContribution: parseNum(ps.defensive_contribution),
-          goalsPer90: parseNum(ps.minutes) > 0 ? (parseNum(ps.goals_scored) * 90 / parseNum(ps.minutes)) : 0,
-          assistsPer90: parseNum(ps.minutes) > 0 ? (parseNum(ps.assists) * 90 / parseNum(ps.minutes)) : 0,
-          xGIPer90: parseNum(ps.minutes) > 0 ? (parseNum(ps.expected_goal_involvements) * 90 / parseNum(ps.minutes)) : 0,
-          bonusPer90: parseNum(ps.minutes) > 0 ? (parseNum(ps.bonus) * 90 / parseNum(ps.minutes)) : 0,
-        }
-      });
-    }
-
-    for (const ps of currentStats) {
-      const pid = Number(ps.id);
-      if (!pid) continue;
-      const existing = historicalMap.get(pid) || {};
-      existing.currentSeason = {
-        appearances: parseNum(ps.appearances) || parseNum(ps.games) || 0,
-        minutes: parseNum(ps.minutes),
-        goals: parseNum(ps.goals_scored),
-        assists: parseNum(ps.assists),
-        cleanSheets: parseNum(ps.clean_sheets),
-        bonus: parseNum(ps.bonus),
-        bps: parseNum(ps.bps),
-        totalPoints: parseNum(ps.total_points),
-        expectedGoals: parseNum(ps.expected_goals),
-        expectedAssists: parseNum(ps.expected_assists),
-        xGI: parseNum(ps.expected_goal_involvements),
-        form: parseNum(ps.form),
-        defensiveContribution: parseNum(ps.defensive_contribution),
-        goalsPer90: parseNum(ps.minutes) > 0 ? (parseNum(ps.goals_scored) * 90 / parseNum(ps.minutes)) : 0,
-        assistsPer90: parseNum(ps.minutes) > 0 ? (parseNum(ps.assists) * 90 / parseNum(ps.minutes)) : 0,
-        xGIPer90: parseNum(ps.minutes) > 0 ? (parseNum(ps.expected_goal_involvements) * 90 / parseNum(ps.minutes)) : 0,
-        bonusPer90: parseNum(ps.minutes) > 0 ? (parseNum(ps.bonus) * 90 / parseNum(ps.minutes)) : 0,
-      };
-      historicalMap.set(pid, existing);
-    }
-
-    for (const [pid, data] of historicalMap) {
-      const prev = data.prevSeason;
-      const curr = data.currentSeason;
-      if (prev && curr && prev.minutes > 0 && curr.minutes > 0) {
-        const consistencyScore = (
-          (Math.min(prev.appearances, 38) / 38) * 0.3 +
-          (Math.min(curr.appearances, 38) / 38) * 0.3 +
-          (prev.minutes > 1500 ? 0.2 : prev.minutes / 1500 * 0.2) +
-          (curr.minutes > 1500 ? 0.2 : curr.minutes / 1500 * 0.2)
-        );
-        const improvementRatio = curr.xGIPer90 > 0 && prev.xGIPer90 > 0
-          ? Math.min(curr.xGIPer90 / prev.xGIPer90, 2)
-          : 1;
-        data.consistencyScore = Math.round(consistencyScore * 100) / 100;
-        data.improvementRatio = Math.round(improvementRatio * 100) / 100;
-        data.minutesReliability = Math.round(((prev.minutes / (38 * 90)) + (curr.minutes / (38 * 90))) / 2 * 100) / 100;
-      } else if (prev && prev.minutes > 0) {
-        data.consistencyScore = Math.round((prev.minutes / (38 * 90)) * 100) / 100;
-        data.improvementRatio = 1;
-        data.minutesReliability = Math.round((prev.minutes / (38 * 90)) * 100) / 100;
-      } else {
-        data.consistencyScore = 0;
-        data.improvementRatio = 1;
-        data.minutesReliability = 0;
+  if (!forceRefresh) {
+    try {
+      const dbData = await loadHistoricalFromDB(currentSeason);
+      if (dbData && dbData.size > 0) {
+        historicalCache = dbData;
+        historicalSeason = currentSeason;
+        lastHistoricalFetch = now;
+        logger.info({ season: currentSeason, playerCount: dbData.size }, 'Historical stats loaded from DB');
+        return historicalCache;
       }
-    }
-
-    historicalCache = historicalMap;
-    historicalSeason = currentSeason;
-    lastHistoricalFetch = now;
-
-    logger.info({ prevSeason, playerCount: historicalMap.size }, 'Historical player stats loaded');
-    return historicalMap;
-  } catch (err) {
-    logger.error({ err, prevSeason }, 'Failed to fetch historical player stats');
-    if (historicalCache) return historicalCache;
-    return new Map();
+    } catch { /* fall through to CSV */ }
   }
+
+  if (historicalCache) return historicalCache;
+  return new Map();
 }
 
 module.exports = {
@@ -533,5 +470,7 @@ module.exports = {
   getAllFinishedGWStats,
   getHistoricalPlayerStats,
   parseNum,
-  getSeasonLabel
+  getSeasonLabel,
+  fetchPlayerStats,
+  loadHistoricalFromDB
 };
