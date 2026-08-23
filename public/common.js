@@ -5861,7 +5861,7 @@ const FPL = {
             tbody.innerHTML = picks.map(player => {
                 const isDifferential = data.differentialPick?.id === player.id;
                 const labels = [
-                    player.rank === 1 ? '<span class="captaincy-row-label captaincy-row-label-best">BEST</span>' : '',
+                    (player.rank ?? (picks.indexOf(player) + 1)) === 1 ? '<span class="captaincy-row-label captaincy-row-label-best">BEST</span>' : '',
                     isDifferential ? '<span class="captaincy-row-label captaincy-row-label-diff">DIFF</span>' : ''
                 ].join('');
                 const rotationFlag = player.rotationRisk?.penalty < 1
@@ -5880,8 +5880,9 @@ const FPL = {
                     actualCell = `<td class="mono" style="font-weight:700;"><span style="color:${color};">${player.actualPts} pts</span> <small style="color:#8ba396;font-size:11px;">(${player.captainActualPts} (C))</small></td>`;
                 }
 
-                return `<tr class="${player.rank === 1 ? 'captaincy-row-best' : ''}" style="cursor:pointer;" onclick="FPL.showPlayerDetail(${player.id})">
-                    <td><span class="captaincy-rank">${player.rank}</span></td>
+                const playerRank = player.rank ?? (picks.indexOf(player) + 1);
+                return `<tr class="${playerRank === 1 ? 'captaincy-row-best' : ''}" style="cursor:pointer;" onclick="FPL.showPlayerDetail(${player.id})">
+                    <td><span class="captaincy-rank">${playerRank}</span></td>
                     <td>
                         <div class="captaincy-table-player">
                             <div class="captaincy-table-photo">${this.playerPhotoMarkup(player, `${player.name} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;', true)}</div>

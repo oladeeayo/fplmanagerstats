@@ -1529,6 +1529,11 @@ async function getOrSaveCaptainSnapshot(gw, rawModel, bootstrapEvents) {
     }
   }
 
+  // Only save snapshots when the model actually has results
+  if (!rawModel.bestPick && (!rawModel.topPicks || rawModel.topPicks.length === 0)) {
+    return { gameweek: gw, generatedAt: rawModel.generatedAt, modelVersion: rawModel.modelVersion, modelInputs: rawModel.modelInputs, bestPick: null, differentialPick: null, topPicks: [] };
+  }
+
   const snapshot = {
     gameweek: gw,
     generatedAt: rawModel.generatedAt || new Date().toISOString(),
