@@ -1572,10 +1572,17 @@ router.get('/captain-picks', async (req, res) => {
 
     const snapshot = await getOrSaveCaptainSnapshot(gw, rawModel, bootstrap?.events);
 
-    // Baseline picks come directly from the pre-deadline snapshot!
-    const baseBestPick = snapshot.bestPick || rawModel.bestPick;
-    const baseDiffPick = snapshot.differentialPick || rawModel.differentialPick;
-    const baseTopPicks = (snapshot.topPicks && snapshot.topPicks.length) ? snapshot.topPicks : rawModel.topPicks;
+    // For future GWs (not yet started), always use the live model.
+    // Only use snapshot for past GWs where the model was locked before the deadline.
+    const gwFixturesForCheck = (fixtures || []).filter(f => f.event === gw);
+    const gwHasStarted = gwFixturesForCheck.some(f => f.started || f.finished);
+    const useLiveModel = !gwHasStarted;
+
+    const baseBestPick = useLiveModel ? rawModel.bestPick : (snapshot.bestPick || rawModel.bestPick);
+    const baseDiffPick = useLiveModel ? rawModel.differentialPick : (snapshot.differentialPick || rawModel.differentialPick);
+    const baseTopPicks = useLiveModel
+      ? rawModel.topPicks
+      : ((snapshot.topPicks && snapshot.topPicks.length) ? snapshot.topPicks : rawModel.topPicks);
 
     const gwFixtures = (fixtures || []).filter(f => f.event === gw);
     const isStarted = gwFixtures.some(f => f.started || f.finished);
