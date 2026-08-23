@@ -296,15 +296,15 @@ function computeCaptaincyScore({
   if (hasCorners) roleComponent += 10;
   roleComponent = Math.min(100, roleComponent);
 
-  // Weighted sum — fixture quality and xPts dominate, elite is a tiebreaker
+  // Weighted sum — xPts and fixture dominate, form is secondary
   const rawScore =
-    xPtsComponent * 0.30 +
-    formComponent * 0.18 +
+    xPtsComponent * 0.32 +
+    formComponent * 0.12 +
     xGI90Component * 0.12 +
-    fixtureComponent * 0.18 +
+    fixtureComponent * 0.20 +
     eliteComponent * 0.08 +
     h2hComponent * 0.08 +
-    roleComponent * 0.06;
+    roleComponent * 0.08;
 
   // Apply transfer penalty
   const finalScore = rawScore * transferPenalty;
