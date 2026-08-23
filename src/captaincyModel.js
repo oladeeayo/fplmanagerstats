@@ -240,11 +240,20 @@ function estimateExpectedMinutes(player, referenceMatches, availability, context
 }
 
 function buildPositionBaselines(elements) {
+  // Fallback baselines for early season when no players have 450+ minutes yet
+  const FALLBACK = {
+    1: { xG90: 0, xA90: 0 },           // GKP
+    2: { xG90: 0.04, xA90: 0.03 },     // DEF
+    3: { xG90: 0.18, xA90: 0.15 },     // MID
+    4: { xG90: 0.30, xA90: 0.10 },     // FWD
+  };
   return [1, 2, 3, 4].reduce((baselines, elementType) => {
     const established = elements.filter(player => player.element_type === elementType && number(player.minutes) >= 450);
+    const xgValues = established.map(player => number(player.expected_goals_per_90)).filter(value => value > 0);
+    const xaValues = established.map(player => number(player.expected_assists_per_90)).filter(value => value > 0);
     baselines[elementType] = {
-      xG90: median(established.map(player => number(player.expected_goals_per_90)).filter(value => value > 0)),
-      xA90: median(established.map(player => number(player.expected_assists_per_90)).filter(value => value > 0)),
+      xG90: xgValues.length > 0 ? median(xgValues) : FALLBACK[elementType].xG90,
+      xA90: xaValues.length > 0 ? median(xaValues) : FALLBACK[elementType].xA90,
     };
     return baselines;
   }, {});
