@@ -3194,11 +3194,17 @@ router.get('/player-advanced', async (req, res) => {
       const { computeAdvancedFromLive } = require('../playerAdvancedCollector');
       const livePlayers = await computeAdvancedFromLive(bootstrap, fixtures, currentGW);
       if (livePlayers && livePlayers.length > 0) {
-        if (sql) {
-          await sql`INSERT INTO player_advanced_stats (gameweek, players, total_players) VALUES (${currentGW}, ${JSON.stringify(livePlayers)}, ${livePlayers.length}) ON CONFLICT (gameweek) DO UPDATE SET players = ${JSON.stringify(livePlayers)}, total_players = ${livePlayers.length}`;
-          dbRows = dbRows.filter(row => Number(row.gameweek) !== Number(currentGW));
-        }
+        // Return the fresh live calculation even if persistence is unavailable.
+        dbRows = dbRows.filter(row => Number(row.gameweek) !== Number(currentGW));
         dbRows.push({ gameweek: currentGW, players: livePlayers });
+
+        if (sql) {
+          try {
+            await sql`INSERT INTO player_advanced_stats (gameweek, players, total_players) VALUES (${currentGW}, ${JSON.stringify(livePlayers)}, ${livePlayers.length}) ON CONFLICT (gameweek) DO UPDATE SET players = ${JSON.stringify(livePlayers)}, total_players = ${livePlayers.length}`;
+          } catch (dbError) {
+            logger.error({ err: dbError, currentGW, playerCount: livePlayers.length }, 'Failed to persist refreshed current GW advanced stats');
+          }
+        }
       }
     } catch (e) {
       logger.warn({ err: e, currentGW }, 'Failed to refresh current GW advanced stats from live endpoint');
