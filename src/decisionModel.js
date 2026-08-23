@@ -50,6 +50,12 @@ function buildTransferPlans({ squad, allPlayers, bank, freeTransfers, strategy }
   const sales = [...squad].sort((a, b) => adjustedScore(a, strategy) - adjustedScore(b, strategy));
   const plans = [];
 
+  // Minimum thresholds to avoid absurd low-value transfers
+  const MIN_NET_GAIN_FREE = 2.0;   // Minimum net xPts gain for a free transfer to be worth making
+  const MIN_NET_GAIN_HIT = 5.0;    // Minimum net xPts gain to justify a -4 hit
+  const MIN_NEXT_GAIN = 0.5;       // Minimum single-GW improvement to consider
+  const MIN_XPTSPM_IMPROVEMENT = 0.03; // Minimum xPts/£m efficiency improvement
+
   for (const outgoing of sales.slice(0, 10)) {
     candidates
       .filter(incoming => incoming.position === outgoing.position && incoming.cost <= (outgoing.sellingPrice ?? outgoing.cost) + bank)
@@ -61,9 +67,15 @@ function buildTransferPlans({ squad, allPlayers, bank, freeTransfers, strategy }
         const nextGain = round(incoming.weekly[0].xPts - outgoing.weekly[0].xPts);
         const hitCost = freeTransfers > 0 ? 0 : 4;
         const netGain = round(horizonGain - hitCost);
-        // Only consider hits if net gain is substantial (at least 5.0 net xPts)
-        if (hitCost > 0 && netGain < 5.0) return;
+        const xptsPerMpmImprovement = (incoming.xPtsPerMillion || 0) - (outgoing.xPtsPerMillion || 0);
+
+        // Reject weak transfers: require meaningful improvement
         if (netGain <= 0) return;
+        if (hitCost > 0 && netGain < MIN_NET_GAIN_HIT) return;
+        if (hitCost === 0 && netGain < MIN_NET_GAIN_FREE) return;
+        if (nextGain < MIN_NEXT_GAIN && horizonGain < MIN_NET_GAIN_FREE) return;
+        // Reject lateral moves: incoming must be meaningfully better per-£m
+        if (xptsPerMpmImprovement < MIN_XPTSPM_IMPROVEMENT && horizonGain < 3.0) return;
         plans.push({
           id: `${outgoing.id}-${incoming.id}`,
           transfers: [{ out: outgoing, in: incoming }],
@@ -100,7 +112,8 @@ function buildTransferPlans({ squad, allPlayers, bank, freeTransfers, strategy }
       const hitCost = Math.min(4, rawHitCost);
       const horizonGain = round(first.horizonGain + second.horizonGain);
       const netGain = round(horizonGain - hitCost);
-      if (hitCost > 0 && netGain < 5.0) continue; // Require high net gain for hits
+      if (hitCost > 0 && netGain < MIN_NET_GAIN_HIT) continue;
+      if (hitCost === 0 && netGain < MIN_NET_GAIN_FREE) continue;
       if (netGain <= 0) continue;
       doublePlans.push({
         id: `${first.id}-${second.id}`,

@@ -4276,69 +4276,7 @@ const FPL = {
         }, 1500);
     },
 
-    showManagerDetail(managerId, managerName, teamName, rank, eventTotal, total, rankDiff, diffCount) {
-        const bodyEl = document.getElementById('manager-detail-body');
-        if (!bodyEl) return;
 
-        let diffText = '0';
-        let diffColor = 'var(--md-sys-color-on-surface-variant)';
-        let diffIcon = 'remove';
-        if (rankDiff > 0) {
-            diffText = `+${rankDiff}`;
-            diffColor = 'var(--fdr-2)';
-            diffIcon = 'arrow_upward';
-        } else if (rankDiff < 0) {
-            diffText = `${rankDiff}`;
-            diffColor = 'var(--fdr-5)';
-            diffIcon = 'arrow_downward';
-        }
-
-        bodyEl.innerHTML = `
-            <div style="padding: 20px; display: flex; flex-direction: column; gap: 16px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 16px;">
-                    <div>
-                        <div style="font-size: 1.25rem; font-weight: 800; color: var(--md-sys-color-on-surface); line-height: 1.2;">${this.escapeHTML(teamName || 'Team')}</div>
-                        <div style="font-size: 0.875rem; color: var(--fdr-1); margin-top: 4px; font-weight: 600;">Manager: ${this.escapeHTML(managerName || 'Unknown')}</div>
-                    </div>
-                    <div style="text-align: right; background: rgba(0,255,133,0.1); border: 1px solid rgba(0,255,133,0.2); padding: 8px 14px; border-radius: 12px;">
-                        <div style="font-size: 0.6875rem; font-family: var(--font-mono); color: var(--md-sys-color-on-surface-variant);">RANK</div>
-                        <div style="font-size: 1.5rem; font-weight: 900; color: var(--fdr-1); line-height: 1;">#${rank}</div>
-                    </div>
-                </div>
-
-                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
-                    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 12px; border-radius: 10px;">
-                        <div style="font-size: 0.6875rem; font-family: var(--font-mono); color: var(--md-sys-color-on-surface-variant); margin-bottom: 4px;">GW POINTS</div>
-                        <div style="font-size: 1.5rem; font-weight: 800; color: var(--md-sys-color-on-surface);">${eventTotal}</div>
-                    </div>
-                    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 12px; border-radius: 10px;">
-                        <div style="font-size: 0.6875rem; font-family: var(--font-mono); color: var(--md-sys-color-on-surface-variant); margin-bottom: 4px;">TOTAL POINTS</div>
-                        <div style="font-size: 1.5rem; font-weight: 800; color: var(--fdr-1);">${this.formatNumber(total)}</div>
-                    </div>
-                    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 12px; border-radius: 10px;">
-                        <div style="font-size: 0.6875rem; font-family: var(--font-mono); color: var(--md-sys-color-on-surface-variant); margin-bottom: 4px;">RANK CHANGE</div>
-                        <div style="display: flex; align-items: center; gap: 4px; font-size: 1.25rem; font-weight: 800; color: ${diffColor};">
-                            <span class="material-symbols-outlined" style="font-size: 20px;">${diffIcon}</span>
-                            <span>${diffText}</span>
-                        </div>
-                    </div>
-                    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 12px; border-radius: 10px;">
-                        <div style="font-size: 0.6875rem; font-family: var(--font-mono); color: var(--md-sys-color-on-surface-variant); margin-bottom: 4px;">DIFF FROM LEADER</div>
-                        <div style="font-size: 1.25rem; font-weight: 800; color: var(--md-sys-color-on-surface);">${this.formatNumber(diffCount)} pts</div>
-                    </div>
-                </div>
-
-                ${managerId ? `
-                    <button class="btn btn-primary" style="width: 100%; margin-top: 8px; justify-content: center;" onclick="FPL.setActiveManagerFromModal(${managerId})">
-                        <span class="material-symbols-outlined" style="font-size: 18px;">analytics</span>
-                        View Full Dashboard for this Manager
-                    </button>
-                ` : ''}
-            </div>
-        `;
-
-        this.showDialog('manager-detail-dialog');
-    },
 
     setActiveManagerFromModal(managerId) {
         this.hideDialog('manager-detail-dialog');
