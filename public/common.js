@@ -5869,11 +5869,6 @@ const FPL = {
             const inputs = document.getElementById('cap-model-inputs');
             if (inputs) inputs.innerHTML = (data.modelInputs || []).map(input => `<span>${input}</span>`).join('');
 
-            const bestCard = document.getElementById('cap-best-card');
-            if (bestCard) bestCard.innerHTML = this.renderCaptainSpotlight(data.bestPick, 'best');
-            const differentialCard = document.getElementById('cap-differential-card');
-            if (differentialCard) differentialCard.innerHTML = this.renderCaptainSpotlight(data.differentialPick, 'differential');
-
             const actualDeadlineCard = document.getElementById('cap-actual-deadline-card');
             if (actualDeadlineCard) {
                 if (data.actualDeadlineCaptain && (data.isStarted || data.isFinished)) {
@@ -5921,11 +5916,14 @@ const FPL = {
             }
 
             tbody.innerHTML = picks.map(player => {
-                const isDifferential = data.differentialPick?.id === player.id;
-                const labels = [
-                    player.rank === 1 ? '<span class="captaincy-row-label captaincy-row-label-best">BEST</span>' : '',
-                    isDifferential ? '<span class="captaincy-row-label captaincy-row-label-diff">DIFF</span>' : ''
-                ].join('');
+                const rotationFlag = player.rotationRisk?.penalty < 1
+                    ? `<span style="color:#FF4444;font-size:9px;font-weight:700;margin-left:4px;">⚠ ROTATION</span>`
+                    : player.rotationRisk?.isMidweek
+                        ? `<span style="color:#FFD700;font-size:9px;font-weight:700;margin-left:4px;">MIDWEEK</span>`
+                        : '';
+                const eliteFlag = player.isTop20CaptaincyElite
+                    ? `<span style="color:#00FF85;font-size:9px;font-weight:700;margin-left:4px;">★ ELITE</span>`
+                    : '';
 
                 let actualCell = '<td class="mono" style="color:#8ba396;">--</td>';
                 if (player.actualPts !== null && player.actualPts !== undefined && (player.isStarted || player.isFinished)) {
@@ -5939,7 +5937,7 @@ const FPL = {
                     <td>
                         <div class="captaincy-table-player">
                             <div class="captaincy-table-photo">${this.playerPhotoMarkup(player, `${player.name} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;', true)}</div>
-                            <div class="captaincy-table-player-info"><strong>${player.name}${labels}</strong><span>${player.team} · ${player.position}</span></div>
+                            <div class="captaincy-table-player-info"><strong>${player.name}${eliteFlag}${rotationFlag}</strong><span>${player.team} · ${player.position}${player.roles?.length ? ' · ' + player.roles[0] : ''}</span></div>
                         </div>
                     </td>
                     <td><div class="captaincy-fixtures">${this.captainFixtureBadges(player.fixtures)}</div></td>
