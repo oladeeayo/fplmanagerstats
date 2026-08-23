@@ -506,7 +506,10 @@ async function buildCaptaincyModel({ bootstrap, fixtures, selectedGW }) {
   try {
     const insights = getFplInsightsData();
     if (insights.getHistoricalPlayerStats) {
-      historicalData = await insights.getHistoricalPlayerStats();
+      historicalData = await Promise.race([
+        insights.getHistoricalPlayerStats(),
+        new Promise(resolve => setTimeout(() => resolve(null), 3000))
+      ]);
     }
   } catch { /* ignore */ }
 
@@ -601,7 +604,10 @@ async function buildPlayerProjections({ bootstrap, fixtures, startGW, horizon = 
   try {
     const insights = getFplInsightsData();
     if (insights.getHistoricalPlayerStats) {
-      historicalData = await insights.getHistoricalPlayerStats();
+      historicalData = await Promise.race([
+        insights.getHistoricalPlayerStats(),
+        new Promise(resolve => setTimeout(() => resolve(null), 3000))
+      ]);
     }
   } catch { /* ignore */ }
 

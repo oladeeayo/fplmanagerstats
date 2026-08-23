@@ -269,9 +269,9 @@ async function buildDecisionCentre({ bootstrap, fixtures, manager, picks, histor
   };
 }
 
-function buildSquadAdvice({ bootstrap, fixtures, playerIds, options = {} }) {
+async function buildSquadAdvice({ bootstrap, fixtures, playerIds, options = {} }) {
   const strategy = normalizeStrategy(options.strategy);
-  const projectionData = buildPlayerProjections({ bootstrap, fixtures, startGW: options.targetGW, horizon: options.horizon });
+  const projectionData = await buildPlayerProjections({ bootstrap, fixtures, startGW: options.targetGW, horizon: options.horizon });
   const projectionMap = new Map(projectionData.projections.map(player => [player.id, player]));
   const squad = [...new Set((playerIds || []).map(Number))].map(id => projectionMap.get(id)).filter(Boolean);
   if (!squad.length) throw new Error('Add players before running the squad review');
