@@ -1829,6 +1829,8 @@ const FPL = {
         // Top 10 League Positions Section
         const top10Container = document.getElementById('manager-top10-leagues-container');
         if (top10Container) {
+            top10Container.style.display = 'block';
+            top10Container.style.width = '100%';
             const rawLeagues = this.state.managerLeagues || [];
             if (rawLeagues.length > 0) {
                 const leagues = rawLeagues
