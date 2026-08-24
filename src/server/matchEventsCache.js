@@ -32,9 +32,11 @@ async function fetchMatchEvents() {
   if (!apiKey) return null;
 
   try {
-    // Fetch live + recently finished PL matches
+    // Fetch live + recently finished PL matches (comma-separated statuses for v4 API)
+    const now = new Date();
+    const season = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
     const resp = await fetch(
-      `${FD_API_BASE}/competitions/${PL_COMPETITION_ID}/matches?status=LIVE&status=IN_PLAY&status=PAUSED&status=FINISHED`,
+      `${FD_API_BASE}/competitions/${PL_COMPETITION_ID}/matches?status=LIVE,IN_PLAY,PAUSED,FINISHED&season=${season}`,
       { headers: { 'X-Auth-Token': apiKey } }
     );
 
@@ -45,6 +47,7 @@ async function fetchMatchEvents() {
 
     const data = await resp.json();
     const now = Date.now();
+    logger.info({ matchCount: data.matches?.length ?? 0, season }, 'football-data.org response received');
 
     const matches = (data.matches || [])
       .filter(m => {
