@@ -1572,23 +1572,68 @@ router.get('/captain-picks', async (req, res) => {
       getCachedApiData(BOOTSTRAP_URL),
       getCachedApiData(FIXTURES_URL)
     ]);
-    const rawModel = await buildCaptaincyModel({ bootstrap, fixtures, selectedGW: req.query.gw });
-    const gw = rawModel.gameweek;
-
-    // Determine if this GW has started — if not, ALWAYS use the live model
-    const gwFixturesForCheck = (fixtures || []).filter(f => f.event === gw);
-    const gwHasStarted = gwFixturesForCheck.some(f => f.started || f.finished);
+    
+    // --- PRE-GENERATED STORE PATH ---
+    // First check the scheduler store for fresh pre-generated picks
+    const { getStoredPicks } = require('../captaincyScheduler');
+    const requestedGW = req.query.gw ? Number(req.query.gw) : null;
+    
+    // Determine the target GW
+    let targetGW = requestedGW;
+    if (!targetGW) {
+      const events = bootstrap?.events || [];
+      const now = Date.now();
+      const nextEvent = events.find(e => !e.finished && e.deadline_time && new Date(e.deadline_time).getTime() > now)
+        || events.find(e => !e.finished)
+        || events[events.length - 1];
+      targetGW = nextEvent?.id || 1;
+    }
+    
+    // Try pre-generated store first (fast path — no live calculation)
     const forceLive = req.query.live === '1' || req.query.nocache === '1';
-    const useLiveModel = forceLive || !gwHasStarted;
+    const stored = !forceLive ? await getStoredPicks(targetGW, sql) : null;
+    
+    // Also check if GW has started for live stats enrichment
+    const gwFixturesForCheck = (fixtures || []).filter(f => f.event === targetGW);
+    const gwHasStarted = gwFixturesForCheck.some(f => f.started || f.finished);
+    
+    let rawModel = null;
+    let snapshotData = null;
+    
+    if (stored && stored.data && stored.data.bestPick && (stored.data.topPicks || []).length > 0) {
+      // FAST PATH: serve from pre-generated store
+      snapshotData = stored.data;
+      rawModel = {
+        gameweek: targetGW,
+        generatedAt: stored.generatedAt,
+        modelVersion: snapshotData.modelVersion || 'v3.1-precomputed',
+        modelInputs: snapshotData.modelInputs || [],
+        bestPick: snapshotData.bestPick,
+        differentialPick: snapshotData.differentialPick,
+        topPicks: snapshotData.topPicks,
+        availableGameweeks: (bootstrap.events || []).filter(e => !e.finished).map(e => e.id)
+      };
+    } else {
+      // SLOW PATH: calculate live (store was empty or stale)
+      rawModel = await buildCaptaincyModel({ bootstrap, fixtures, selectedGW: req.query.gw });
+      
+      // Save to store for next time
+      try {
+        const { storePicks } = require('../captaincyScheduler');
+        await storePicks(rawModel.gameweek, rawModel, sql);
+      } catch (e) { /* ignore */ }
+    }
+    
+    const gw = rawModel.gameweek;
+    const forceLiveRefresh = req.query.live === '1' || req.query.nocache === '1';
+    const useLiveModel = forceLiveRefresh || !gwHasStarted;
 
-    // Only fetch/save snapshots for GWs that have actually started
+    // For started GWs, try to get locked snapshot from DB
     const snapshot = useLiveModel ? null : await getOrSaveCaptainSnapshot(gw, rawModel, bootstrap?.events);
 
-    const baseBestPick = useLiveModel ? rawModel.bestPick : (snapshot?.bestPick || rawModel.bestPick);
-    const baseDiffPick = useLiveModel ? rawModel.differentialPick : (snapshot?.differentialPick || rawModel.differentialPick);
-    const baseTopPicks = useLiveModel
-      ? rawModel.topPicks
-      : ((snapshot?.topPicks && snapshot.topPicks.length) ? snapshot.topPicks : rawModel.topPicks);
+    const baseBestPick = rawModel.bestPick;
+    const baseDiffPick = rawModel.differentialPick;
+    const baseTopPicks = rawModel.topPicks;
 
     const gwFixtures = (fixtures || []).filter(f => f.event === gw);
     const isStarted = gwFixtures.some(f => f.started || f.finished);
@@ -1693,7 +1738,8 @@ router.get('/captain-picks', async (req, res) => {
       topPicks: (baseTopPicks || []).map(enrichPick).filter(Boolean),
       actualDeadlineCaptain,
       actualDeadlineViceCaptain,
-      hasSnapshot: Boolean(snapshot),
+      hasSnapshot: Boolean(snapshot) || Boolean(stored && stored.data),
+      isPreGenerated: Boolean(stored && stored.data && !snapshot),
       isStarted,
       isFinished
     });

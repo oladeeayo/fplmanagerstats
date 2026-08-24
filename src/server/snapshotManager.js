@@ -308,6 +308,12 @@ function initSnapshotManager(fetcher) {
     collectAllHistoricalStats().catch(() => {});
   } catch { /* ignore if not available */ }
 
+  // Pre-generate captaincy picks for all upcoming GWs on startup + every 6 hours
+  try {
+    const { initCaptaincyScheduler } = require('./captaincyScheduler');
+    initCaptaincyScheduler();
+  } catch { /* ignore if not available */ }
+
   if (!intervalId) {
     intervalId = setInterval(() => {
       evaluateSnapshotState(fetcher).catch(() => {});

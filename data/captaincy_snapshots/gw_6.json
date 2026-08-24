@@ -1,0 +1,708 @@
+{
+  "gameweek": 6,
+  "generatedAt": "2026-08-24T07:19:12.706Z",
+  "modelVersion": "Captaincy Score v3.0 - Elite Pool + H2H + Transfer Detection",
+  "modelInputs": [
+    "fixtures",
+    "form",
+    "xMins",
+    "xG",
+    "xA",
+    "PPG",
+    "availability",
+    "set pieces",
+    "bonus"
+  ],
+  "isDeadlineLocked": false,
+  "lockedAt": null,
+  "bestPick": {
+    "id": 12,
+    "name": "Saka",
+    "fullName": "Bukayo Saka",
+    "code": 223340,
+    "team": "ARS",
+    "teamFull": "Arsenal",
+    "position": "MID",
+    "cost": 9.5,
+    "form": 9,
+    "formUsed": 7.2,
+    "formSource": "form",
+    "ppg": 9,
+    "xG90": 0.37,
+    "xA90": 0.21,
+    "xGI90": 0.58,
+    "savesPer90": 0,
+    "xMins": 67,
+    "xMinsPerFixture": 67,
+    "xPts": 7,
+    "ownership": 10,
+    "availability": 100,
+    "confidence": "Medium",
+    "starterScore": 40,
+    "starterTier": "Rotation risk",
+    "isStarter": false,
+    "roles": [
+      "first-choice penalties"
+    ],
+    "fixtures": [
+      {
+        "opponentId": 13,
+        "isHome": true,
+        "venue": "H",
+        "fdr": 2,
+        "kickoff": "2026-10-10T11:30:00Z",
+        "xMins": 67,
+        "xPts": 6.2,
+        "attackingXPts": 1.84,
+        "defensiveContributionXPts": 1.17,
+        "tone": "favourable",
+        "opponent": "LEE",
+        "opponentFull": "Leeds",
+        "label": "LEE (H)",
+        "oppHistAppearances": 8,
+        "oppHistPPG": 2.4
+      }
+    ],
+    "fixtureSummary": "LEE (H)",
+    "upside": 2.14,
+    "consistencyScore": 0.87,
+    "improvementRatio": 0.96,
+    "minutesReliability": 0.87,
+    "prevSeasonXGI90": 0.6,
+    "hasMultiSeasonData": true,
+    "isTop20CaptaincyElite": true,
+    "captaincyEliteRank": 4,
+    "isHistoricalElite": true,
+    "transferPenalty": 1,
+    "eliteEntryScore": 89,
+    "captaincyScore": {
+      "finalScore": 71.8,
+      "components": {
+        "xPts": 70,
+        "form": 86,
+        "xGI90": 58,
+        "fixture": 79,
+        "elite": 89,
+        "h2h": 20,
+        "role": 70
+      },
+      "transferPenalty": 1
+    },
+    "rotationRisk": {
+      "penalty": 1.03,
+      "reasons": [
+        "Extended rest period — fresh for this fixture"
+      ],
+      "restDays": 20.9,
+      "isMidweek": false,
+      "gwCongestion": false,
+      "daysUntilNext": 8.2
+    },
+    "isEliteCaptaincyCandidate": true,
+    "reason": "LEE (H), FDR 2. 67 xMins, 0.58 xGI/90 and 9.0 form produce 7.0 xPts. Role: first-choice penalties. Multi-season consistency: 87.4%. Rotation risk: Extended rest period — fresh for this fixture.",
+    "explanation": "Saka leads the model at 7.0 xPts. LEE (H) is a favourable FDR 2 fixture. 67 xMins limits appearance risk, while 0.58 xGI/90 and a 7.2 form rating provide the strongest overall points profile. Saka also has first-choice penalties."
+  },
+  "differentialPick": {
+    "id": 15,
+    "name": "Ødegaard",
+    "fullName": "Martin Ødegaard",
+    "code": 184029,
+    "team": "ARS",
+    "teamFull": "Arsenal",
+    "position": "MID",
+    "cost": 6.5,
+    "form": 11,
+    "formUsed": 7.2,
+    "formSource": "form",
+    "ppg": 11,
+    "xG90": 0.25,
+    "xA90": 0.15,
+    "xGI90": 0.41,
+    "savesPer90": 0,
+    "xMins": 75,
+    "xMinsPerFixture": 75,
+    "xPts": 6.6,
+    "ownership": 9.6,
+    "availability": 100,
+    "confidence": "Medium",
+    "starterScore": 37,
+    "starterTier": "Rotation risk",
+    "isStarter": false,
+    "roles": [],
+    "fixtures": [
+      {
+        "opponentId": 13,
+        "isHome": true,
+        "venue": "H",
+        "fdr": 2,
+        "kickoff": "2026-10-10T11:30:00Z",
+        "xMins": 75,
+        "xPts": 5.8,
+        "attackingXPts": 1.44,
+        "defensiveContributionXPts": 1.33,
+        "tone": "favourable",
+        "opponent": "LEE",
+        "opponentFull": "Leeds",
+        "label": "LEE (H)",
+        "oppHistAppearances": 8,
+        "oppHistPPG": 2.3
+      }
+    ],
+    "fixtureSummary": "LEE (H)",
+    "upside": 1.44,
+    "consistencyScore": 0.81,
+    "improvementRatio": 0.74,
+    "minutesReliability": 0.87,
+    "prevSeasonXGI90": 0.42,
+    "hasMultiSeasonData": true,
+    "isTop20CaptaincyElite": true,
+    "captaincyEliteRank": 20,
+    "isHistoricalElite": true,
+    "transferPenalty": 1,
+    "eliteEntryScore": 70,
+    "captaincyScore": {
+      "finalScore": 62.6,
+      "components": {
+        "xPts": 66,
+        "form": 86,
+        "xGI90": 41,
+        "fixture": 79,
+        "elite": 70,
+        "h2h": 19,
+        "role": 20
+      },
+      "transferPenalty": 1
+    },
+    "rotationRisk": {
+      "penalty": 1.03,
+      "reasons": [
+        "Extended rest period — fresh for this fixture"
+      ],
+      "restDays": 20.9,
+      "isMidweek": false,
+      "gwCongestion": false,
+      "daysUntilNext": 8.2
+    },
+    "isEliteCaptaincyCandidate": true,
+    "reason": "LEE (H), FDR 2. 75 xMins, 0.41 xGI/90 and 11.0 form produce 6.6 xPts. Multi-season consistency: 81.2%. Rotation risk: Extended rest period — fresh for this fixture.",
+    "overallRank": 4,
+    "threshold": 10,
+    "explanation": "At 9.6% ownership, Ødegaard offers the strongest low-owned projection at 6.6 xPts, 0.4 behind the model leader. LEE (H) is a favourable FDR 2 fixture, while 75 xMins and 0.41 xGI/90 support the upside.",
+    "comparison": {
+      "bestPick": {
+        "name": "Saka",
+        "team": "ARS",
+        "position": "MID",
+        "cost": 9.5,
+        "xPts": 7,
+        "formUsed": 7.2,
+        "xGI90": 0.58,
+        "ownership": 10,
+        "xMins": 67,
+        "confidence": "Medium",
+        "fixtures": [
+          {
+            "label": "LEE (H)",
+            "fdr": 2,
+            "venue": "H",
+            "xPts": 6.2,
+            "opponentFull": "Leeds",
+            "tone": "favourable"
+          }
+        ],
+        "rotationPenalty": 1.03,
+        "rotationReasons": [
+          "Extended rest period — fresh for this fixture"
+        ],
+        "roles": [
+          "first-choice penalties"
+        ],
+        "captaincyScore": 71.8,
+        "oppHistAppearances": 8,
+        "oppHistPPG": 2.4
+      },
+      "diffPick": {
+        "name": "Ødegaard",
+        "team": "ARS",
+        "position": "MID",
+        "cost": 6.5,
+        "xPts": 6.6,
+        "formUsed": 7.2,
+        "xGI90": 0.41,
+        "ownership": 9.6,
+        "xMins": 75,
+        "confidence": "Medium",
+        "fixtures": [
+          {
+            "label": "LEE (H)",
+            "fdr": 2,
+            "venue": "H",
+            "xPts": 5.8,
+            "opponentFull": "Leeds",
+            "tone": "favourable"
+          }
+        ],
+        "rotationPenalty": 1.03,
+        "rotationReasons": [
+          "Extended rest period — fresh for this fixture"
+        ],
+        "roles": [],
+        "captaincyScore": 62.6,
+        "oppHistAppearances": 8,
+        "oppHistPPG": 2.3
+      },
+      "deltas": {
+        "xPts": -0.4,
+        "form": 0,
+        "xGI90": -0.17,
+        "ownership": 0.4,
+        "avgFdr": 0
+      },
+      "advantages": [
+        {
+          "player": "best",
+          "reason": "7.0 vs 6.6 xPts"
+        },
+        {
+          "player": "best",
+          "reason": "Higher xGI (0.58 vs 0.41 /90)"
+        }
+      ]
+    }
+  },
+  "topPicks": [
+    {
+      "id": 12,
+      "name": "Saka",
+      "fullName": "Bukayo Saka",
+      "code": 223340,
+      "team": "ARS",
+      "teamFull": "Arsenal",
+      "position": "MID",
+      "cost": 9.5,
+      "form": 9,
+      "formUsed": 7.2,
+      "formSource": "form",
+      "ppg": 9,
+      "xG90": 0.37,
+      "xA90": 0.21,
+      "xGI90": 0.58,
+      "savesPer90": 0,
+      "xMins": 67,
+      "xMinsPerFixture": 67,
+      "xPts": 7,
+      "ownership": 10,
+      "availability": 100,
+      "confidence": "Medium",
+      "starterScore": 40,
+      "starterTier": "Rotation risk",
+      "isStarter": false,
+      "roles": [
+        "first-choice penalties"
+      ],
+      "fixtures": [
+        {
+          "opponentId": 13,
+          "isHome": true,
+          "venue": "H",
+          "fdr": 2,
+          "kickoff": "2026-10-10T11:30:00Z",
+          "xMins": 67,
+          "xPts": 6.2,
+          "attackingXPts": 1.84,
+          "defensiveContributionXPts": 1.17,
+          "tone": "favourable",
+          "opponent": "LEE",
+          "opponentFull": "Leeds",
+          "label": "LEE (H)",
+          "oppHistAppearances": 8,
+          "oppHistPPG": 2.4
+        }
+      ],
+      "fixtureSummary": "LEE (H)",
+      "upside": 2.14,
+      "consistencyScore": 0.87,
+      "improvementRatio": 0.96,
+      "minutesReliability": 0.87,
+      "prevSeasonXGI90": 0.6,
+      "hasMultiSeasonData": true,
+      "isTop20CaptaincyElite": true,
+      "captaincyEliteRank": 4,
+      "isHistoricalElite": true,
+      "transferPenalty": 1,
+      "eliteEntryScore": 89,
+      "captaincyScore": {
+        "finalScore": 71.8,
+        "components": {
+          "xPts": 70,
+          "form": 86,
+          "xGI90": 58,
+          "fixture": 79,
+          "elite": 89,
+          "h2h": 20,
+          "role": 70
+        },
+        "transferPenalty": 1
+      },
+      "rotationRisk": {
+        "penalty": 1.03,
+        "reasons": [
+          "Extended rest period — fresh for this fixture"
+        ],
+        "restDays": 20.9,
+        "isMidweek": false,
+        "gwCongestion": false,
+        "daysUntilNext": 8.2
+      },
+      "isEliteCaptaincyCandidate": true,
+      "reason": "LEE (H), FDR 2. 67 xMins, 0.58 xGI/90 and 9.0 form produce 7.0 xPts. Role: first-choice penalties. Multi-season consistency: 87.4%. Rotation risk: Extended rest period — fresh for this fixture.",
+      "rank": 1
+    },
+    {
+      "id": 411,
+      "name": "Haaland",
+      "fullName": "Erling Haaland",
+      "code": 223094,
+      "team": "MCI",
+      "teamFull": "Man City",
+      "position": "FWD",
+      "cost": 15.5,
+      "form": 2,
+      "formUsed": 5.6,
+      "formSource": "form",
+      "ppg": 2,
+      "xG90": 0.54,
+      "xA90": 0.25,
+      "xGI90": 0.8,
+      "savesPer90": 0,
+      "xMins": 90,
+      "xMinsPerFixture": 90,
+      "xPts": 7.4,
+      "ownership": 69,
+      "availability": 100,
+      "confidence": "High",
+      "starterScore": 46,
+      "starterTier": "Rotation risk",
+      "isStarter": false,
+      "roles": [
+        "first-choice penalties"
+      ],
+      "fixtures": [
+        {
+          "opponentId": 14,
+          "isHome": false,
+          "venue": "A",
+          "fdr": 4,
+          "kickoff": "2026-10-11T15:30:00Z",
+          "xMins": 90,
+          "xPts": 6.5,
+          "attackingXPts": 2.93,
+          "defensiveContributionXPts": 0.5,
+          "tone": "difficult",
+          "opponent": "LIV",
+          "opponentFull": "Liverpool",
+          "label": "LIV (A)",
+          "oppHistAppearances": 8,
+          "oppHistPPG": 8
+        }
+      ],
+      "fixtureSummary": "LIV (A)",
+      "upside": 3.23,
+      "consistencyScore": 0.91,
+      "improvementRatio": 1.02,
+      "minutesReliability": 0.93,
+      "prevSeasonXGI90": 0.84,
+      "hasMultiSeasonData": true,
+      "isTop20CaptaincyElite": true,
+      "captaincyEliteRank": 1,
+      "isHistoricalElite": true,
+      "transferPenalty": 1,
+      "eliteEntryScore": 96,
+      "captaincyScore": {
+        "finalScore": 66.4,
+        "components": {
+          "xPts": 74,
+          "form": 56,
+          "xGI90": 80,
+          "fixture": 24,
+          "elite": 96,
+          "h2h": 82,
+          "role": 70
+        },
+        "transferPenalty": 1
+      },
+      "rotationRisk": {
+        "penalty": 1.03,
+        "reasons": [
+          "Extended rest period — fresh for this fixture"
+        ],
+        "restDays": 22.1,
+        "isMidweek": false,
+        "gwCongestion": false,
+        "daysUntilNext": 5.9
+      },
+      "isEliteCaptaincyCandidate": true,
+      "reason": "LIV (A), FDR 4. 90 xMins, 0.80 xGI/90 and 2.0 form produce 7.4 xPts. Role: first-choice penalties. Multi-season consistency: 91.4%. Rotation risk: Extended rest period — fresh for this fixture.",
+      "rank": 2
+    },
+    {
+      "id": 426,
+      "name": "B.Fernandes",
+      "fullName": "Bruno Borges Fernandes",
+      "code": 141746,
+      "team": "MUN",
+      "teamFull": "Man Utd",
+      "position": "MID",
+      "cost": 12,
+      "form": 2,
+      "formUsed": 4.3,
+      "formSource": "form",
+      "ppg": 2,
+      "xG90": 0.33,
+      "xA90": 0.21,
+      "xGI90": 0.54,
+      "savesPer90": 0,
+      "xMins": 90,
+      "xMinsPerFixture": 90,
+      "xPts": 7.1,
+      "ownership": 50.8,
+      "availability": 100,
+      "confidence": "High",
+      "starterScore": 48,
+      "starterTier": "Rotation risk",
+      "isStarter": false,
+      "roles": [
+        "first-choice penalties",
+        "direct free-kicks",
+        "corners and indirect free-kicks"
+      ],
+      "fixtures": [
+        {
+          "opponentId": 19,
+          "isHome": true,
+          "venue": "H",
+          "fdr": 3,
+          "kickoff": "2026-10-10T16:30:00Z",
+          "xMins": 90,
+          "xPts": 6.2,
+          "attackingXPts": 2.27,
+          "defensiveContributionXPts": 1,
+          "tone": "balanced",
+          "opponent": "TOT",
+          "opponentFull": "Spurs",
+          "label": "TOT (H)",
+          "oppHistAppearances": 8,
+          "oppHistPPG": 2.6
+        }
+      ],
+      "fixtureSummary": "TOT (H)",
+      "upside": 2.77,
+      "consistencyScore": 0.98,
+      "improvementRatio": 1.34,
+      "minutesReliability": 0.97,
+      "prevSeasonXGI90": 0.55,
+      "hasMultiSeasonData": true,
+      "isTop20CaptaincyElite": true,
+      "captaincyEliteRank": 3,
+      "isHistoricalElite": true,
+      "transferPenalty": 1,
+      "eliteEntryScore": 91,
+      "captaincyScore": {
+        "finalScore": 63.2,
+        "components": {
+          "xPts": 71,
+          "form": 42,
+          "xGI90": 54,
+          "fixture": 53,
+          "elite": 91,
+          "h2h": 22,
+          "role": 95
+        },
+        "transferPenalty": 1
+      },
+      "rotationRisk": {
+        "penalty": 1.03,
+        "reasons": [
+          "Extended rest period — fresh for this fixture"
+        ],
+        "restDays": 20,
+        "isMidweek": false,
+        "gwCongestion": false,
+        "daysUntilNext": 7.9
+      },
+      "isEliteCaptaincyCandidate": true,
+      "reason": "TOT (H), FDR 3. 90 xMins, 0.54 xGI/90 and 2.0 form produce 7.1 xPts. Role: first-choice penalties, direct free-kicks, corners and indirect free-kicks. Multi-season consistency: 97.6%. Rotation risk: Extended rest period — fresh for this fixture.",
+      "rank": 3
+    },
+    {
+      "id": 15,
+      "name": "Ødegaard",
+      "fullName": "Martin Ødegaard",
+      "code": 184029,
+      "team": "ARS",
+      "teamFull": "Arsenal",
+      "position": "MID",
+      "cost": 6.5,
+      "form": 11,
+      "formUsed": 7.2,
+      "formSource": "form",
+      "ppg": 11,
+      "xG90": 0.25,
+      "xA90": 0.15,
+      "xGI90": 0.41,
+      "savesPer90": 0,
+      "xMins": 75,
+      "xMinsPerFixture": 75,
+      "xPts": 6.6,
+      "ownership": 9.6,
+      "availability": 100,
+      "confidence": "Medium",
+      "starterScore": 37,
+      "starterTier": "Rotation risk",
+      "isStarter": false,
+      "roles": [],
+      "fixtures": [
+        {
+          "opponentId": 13,
+          "isHome": true,
+          "venue": "H",
+          "fdr": 2,
+          "kickoff": "2026-10-10T11:30:00Z",
+          "xMins": 75,
+          "xPts": 5.8,
+          "attackingXPts": 1.44,
+          "defensiveContributionXPts": 1.33,
+          "tone": "favourable",
+          "opponent": "LEE",
+          "opponentFull": "Leeds",
+          "label": "LEE (H)",
+          "oppHistAppearances": 8,
+          "oppHistPPG": 2.3
+        }
+      ],
+      "fixtureSummary": "LEE (H)",
+      "upside": 1.44,
+      "consistencyScore": 0.81,
+      "improvementRatio": 0.74,
+      "minutesReliability": 0.87,
+      "prevSeasonXGI90": 0.42,
+      "hasMultiSeasonData": true,
+      "isTop20CaptaincyElite": true,
+      "captaincyEliteRank": 20,
+      "isHistoricalElite": true,
+      "transferPenalty": 1,
+      "eliteEntryScore": 70,
+      "captaincyScore": {
+        "finalScore": 62.6,
+        "components": {
+          "xPts": 66,
+          "form": 86,
+          "xGI90": 41,
+          "fixture": 79,
+          "elite": 70,
+          "h2h": 19,
+          "role": 20
+        },
+        "transferPenalty": 1
+      },
+      "rotationRisk": {
+        "penalty": 1.03,
+        "reasons": [
+          "Extended rest period — fresh for this fixture"
+        ],
+        "restDays": 20.9,
+        "isMidweek": false,
+        "gwCongestion": false,
+        "daysUntilNext": 8.2
+      },
+      "isEliteCaptaincyCandidate": true,
+      "reason": "LEE (H), FDR 2. 75 xMins, 0.41 xGI/90 and 11.0 form produce 6.6 xPts. Multi-season consistency: 81.2%. Rotation risk: Extended rest period — fresh for this fixture.",
+      "rank": 4
+    },
+    {
+      "id": 367,
+      "name": "Gakpo",
+      "fullName": "Cody Gakpo",
+      "code": 243298,
+      "team": "LIV",
+      "teamFull": "Liverpool",
+      "position": "MID",
+      "cost": 7,
+      "form": 12,
+      "formUsed": 7.5,
+      "formSource": "form",
+      "ppg": 12,
+      "xG90": 0.31,
+      "xA90": 0.18,
+      "xGI90": 0.49,
+      "savesPer90": 0,
+      "xMins": 90,
+      "xMinsPerFixture": 90,
+      "xPts": 8.1,
+      "ownership": 3.9,
+      "availability": 100,
+      "confidence": "High",
+      "starterScore": 37,
+      "starterTier": "Rotation risk",
+      "isStarter": false,
+      "roles": [],
+      "fixtures": [
+        {
+          "opponentId": 15,
+          "isHome": true,
+          "venue": "H",
+          "fdr": 4,
+          "kickoff": "2026-10-11T15:30:00Z",
+          "xMins": 90,
+          "xPts": 7.4,
+          "attackingXPts": 2.08,
+          "defensiveContributionXPts": 2,
+          "tone": "difficult",
+          "opponent": "MCI",
+          "opponentFull": "Man City",
+          "label": "MCI (H)",
+          "oppHistAppearances": 7,
+          "oppHistPPG": 4.1
+        }
+      ],
+      "fixtureSummary": "MCI (H)",
+      "upside": 2.08,
+      "consistencyScore": 0.74,
+      "improvementRatio": 0.77,
+      "minutesReliability": 0.68,
+      "prevSeasonXGI90": 0.51,
+      "hasMultiSeasonData": true,
+      "isTop20CaptaincyElite": true,
+      "captaincyEliteRank": 11,
+      "isHistoricalElite": true,
+      "transferPenalty": 1,
+      "eliteEntryScore": 76,
+      "captaincyScore": {
+        "finalScore": 60,
+        "components": {
+          "xPts": 81,
+          "form": 90,
+          "xGI90": 49,
+          "fixture": 26,
+          "elite": 76,
+          "h2h": 35,
+          "role": 20
+        },
+        "transferPenalty": 1
+      },
+      "rotationRisk": {
+        "penalty": 1.03,
+        "reasons": [
+          "Extended rest period — fresh for this fixture"
+        ],
+        "restDays": 21.1,
+        "isMidweek": false,
+        "gwCongestion": false,
+        "daysUntilNext": 5.9
+      },
+      "isEliteCaptaincyCandidate": true,
+      "reason": "MCI (H), FDR 4. 90 xMins, 0.49 xGI/90 and 12.0 form produce 8.1 xPts. Multi-season consistency: 74.2%. Rotation risk: Extended rest period — fresh for this fixture.",
+      "rank": 5
+    }
+  ]
+}
