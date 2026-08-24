@@ -600,6 +600,7 @@ const FPL = {
             case 'setpieces': return this.renderSetPieces();
             case 'aiteam': return this.renderAITeam();
             case 'playeradvanced': return this.loadPlayerAdvanced();
+            case 'livecentre': return; // React handles this tab
         }
     },
 

@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
+import { createRoot } from 'react-dom/client';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FPLProvider } from '../context/FPLContext';
 import { InstallPrompt } from '../components/InstallPrompt';
 import { JoinLeaguePrompt } from '../components/JoinLeaguePrompt';
 import { ConnectTeamPrompt } from '../components/ConnectTeamPrompt';
 import { LegacyDashboard } from '../components/LegacyDashboard';
+import { LiveCentre } from '../components/LiveCentre';
 import { TabSkeleton } from '../components/TabSkeleton';
 import { appRoutes, isAppTab, tabFromPath, type AppTab } from './routes';
 
@@ -82,7 +84,7 @@ function AppInner() {
     window.FPL.initSidebarCollapse();
     window.FPL.initBottomNavOverflow();
 
-    const overflowTabs = ['decision', 'league', 'zones', 'ownership', 'setpieces', 'aiteam', 'teamnews'];
+    const overflowTabs = ['decision', 'league', 'zones', 'ownership', 'setpieces', 'aiteam', 'teamnews', 'livecentre'];
     document.querySelectorAll<HTMLElement>('.sidebar-nav-item').forEach(el => {
       el.classList.toggle('active', el.dataset.tab === activeTab);
     });
@@ -107,6 +109,20 @@ function AppInner() {
     } else {
       setTimeout(() => setTabLoading(false), 300);
     }
+  }, [activeTab, ready]);
+
+  // Mount Live Centre React component into the legacy tab slot
+  useEffect(() => {
+    if (activeTab !== 'livecentre') return;
+    const container = document.getElementById('livecentre-root');
+    if (!container || container.dataset.mounted === 'true') return;
+    container.dataset.mounted = 'true';
+    const root = createRoot(container);
+    root.render(<LiveCentre />);
+    return () => {
+      container.dataset.mounted = 'false';
+      root.unmount();
+    };
   }, [activeTab, ready]);
 
   return (
