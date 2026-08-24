@@ -1358,7 +1358,7 @@ body.sidebar-open {
 .decision-controls input,.decision-controls select,.decision-rival-input input,.decision-compare-controls select { min-height:42px; border:1px solid #294138; border-radius:8px; background-color:#141916; color:#fff; padding:8px 12px; font:700 13px var(--font-mono); text-align:center; }
 .decision-controls input { width:70px; }
 .decision-subnav { display:flex; gap:2px; overflow-x:auto; margin-bottom:18px; border-bottom:1px solid #1a2e28; scrollbar-width:none; }
-.decision-subnav button { min-height:40px; border:0; border-bottom:2px solid transparent; background:transparent; color:var(--fpl-text-muted); padding:0 14px; cursor:pointer; font:700 11px var(--font-mono); white-space:nowrap; }
+.decision-subnav button { min-height:40px; border:0; border-bottom:2px solid transparent; background:transparent; color:var(--fpl-text-muted); padding:0 14px; cursor:pointer; font:700 11px var(--font-mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .decision-subnav button.active { border-color:var(--fpl-accent); color:#fff; }
 .decision-subnav button:hover { color:#fff; background:rgba(255,255,255,.035); }
 .decision-empty { display:flex; align-items:center; justify-content:center; gap:16px; min-height:220px; border:1px dashed #294138; border-radius:6px; background:#111613; color:var(--fpl-text-muted); padding:24px; }
@@ -1769,6 +1769,8 @@ body.sidebar-open {
         overscroll-behavior-x: contain;
         touch-action: pan-x pan-y;
         width: 100%;
+        padding-right: 16px;
+        box-sizing: border-box;
         max-width: 100%;
         min-width: 0;
         position: relative;
@@ -5522,20 +5524,33 @@ html, body, *, *::before, *::after {
 
 /* 3. Full-width Equal Proportion Tab Bars on Mobile */
 .fixtures-nav-strip,
-.aiteam-tabs,
-.decision-subnav {
+.aiteam-tabs {
     display: flex !important;
     width: 100% !important;
     box-sizing: border-box !important;
 }
 .fixtures-nav-strip button,
-.aiteam-tab,
-.decision-subnav button {
+.aiteam-tab {
     flex: 1 !important;
     text-align: center !important;
     justify-content: center !important;
     min-height: 44px !important;
     white-space: nowrap !important;
+}
+/* Decision Lab tab bar - scrollable on mobile to prevent truncation */
+.decision-subnav {
+    display: flex !important;
+    gap: 2px !important;
+    overflow-x: auto !important;
+    scrollbar-width: none !important;
+    -webkit-overflow-scrolling: touch !important;
+    white-space: nowrap !important;
+}
+.decision-subnav button {
+    flex: 0 0 auto !important;
+    min-height: 44px !important;
+    padding: 0 12px !important;
+    font-size: 10px !important;
 }
 
 /* 4. Fixture Projections & Leaderboards Grid */
