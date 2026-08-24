@@ -137,12 +137,12 @@ async function getGlobalPlayerHistory(playerId) {
   return data;
 }
 
-async function getCachedApiData(url, maxAgeMs = 60 * 1000) {
+async function getCachedApiData(url, maxAgeMs = 60 * 1000, { bypassCache = false } = {}) {
   const isBootstrapUrl = url === BOOTSTRAP_URL || url.includes('/api/bootstrap-static');
   const isFixturesUrl = url === FIXTURES_URL || url.includes('/api/fixtures');
 
   // If site snapshot mode is ACTIVE (from 2 mins before deadline to 20 mins before 1st match), serve snapshot
-  if (snapshotManager.isSnapshotActive()) {
+  if (!bypassCache && snapshotManager.isSnapshotActive()) {
     const snap = snapshotManager.getSnapshotData();
     if (isBootstrapUrl && snap?.bootstrap) {
       return snap.bootstrap;
@@ -154,15 +154,17 @@ async function getCachedApiData(url, maxAgeMs = 60 * 1000) {
 
   const cacheKey = `api:${url}`;
   const ttlSeconds = Math.ceil(maxAgeMs / 1000);
-  if (redis) {
+  if (!bypassCache && redis) {
     try {
       const cached = await redis.get(cacheKey);
       if (cached) return cached;
     } catch (e) { /* fall back to in-memory */ }
   }
-  const cached = upstreamCache.get(url);
-  if (cached?.data && Date.now() - cached.timestamp < maxAgeMs) return cached.data;
-  if (cached?.request) return cached.request;
+  if (!bypassCache) {
+    const cached = upstreamCache.get(url);
+    if (cached?.data && Date.now() - cached.timestamp < maxAgeMs) return cached.data;
+    if (cached?.request) return cached.request;
+  }
 
   const request = apiGet(url).then(async ({ data }) => {
     upstreamCache.set(url, { data, timestamp: Date.now() });
