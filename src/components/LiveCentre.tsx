@@ -124,96 +124,90 @@ function LiveCentreComponent() {
         for (const fx of todayLive) {
           const home = teamMap.get(fx.team_h);
           const away = teamMap.get(fx.team_a);
+          const minute = `${fx.minutes}'`;
 
-          const processEntries = (
-            entries: Array<{ value: number; element: number }>,
-            side: 'h' | 'a',
-            identifier: string,
-          ) => {
-            const team = side === 'h' ? home : away;
-            const minute = `${fx.minutes}'`;
+          const makeRow = (
+            playerName: string, teamId: number, teamCode: number, teamShort: string,
+            eventType: string, pointsStr: string, points: number,
+          ): FeedRow => ({
+            minute, playerName, teamId, teamCode, teamShort,
+            eventType, pointsStr, points,
+            fixtureId: fx.id, sortKey: rows.length,
+          });
 
-            if (identifier === 'goals_scored') {
-              for (const entry of entries) {
-                const p = playerMap.get(entry.element);
-                rows.push({
-                  minute, playerName: p?.web_name ?? `#${entry.element}`,
-                  teamId: team?.id ?? 0, teamCode: team?.code ?? 0,
-                  teamShort: team?.short_name ?? '',
-                  eventType: 'Goal', pointsStr: '+5 pts', points: 5,
-                  fixtureId: fx.id, sortKey: fx.minutes * 10000 + rows.length,
-                });
-              }
+          // Build interleaved event sequence matching FPL API order:
+          // goal → assist, goal → assist, ... then cards, saves, bonus
+          const gs = fx.stats.find(s => s.identifier === 'goals_scored');
+          const as = fx.stats.find(s => s.identifier === 'assists');
+          const yc = fx.stats.find(s => s.identifier === 'yellow_cards');
+          const rc = fx.stats.find(s => s.identifier === 'red_cards');
+          const sv = fx.stats.find(s => s.identifier === 'saves');
+          const bn = fx.stats.find(s => s.identifier === 'bonus');
+
+          // Interleave goals and assists per side
+          const maxGoals = Math.max(
+            gs?.h.length ?? 0, gs?.a.length ?? 0,
+            as?.h.length ?? 0, as?.a.length ?? 0,
+          );
+          for (let i = 0; i < maxGoals; i++) {
+            // Home goal → home assist
+            if (gs?.h[i]) {
+              const p = playerMap.get(gs.h[i].element);
+              const t = home!;
+              rows.push(makeRow(p?.web_name ?? '', t.id, t.code, t.short_name, 'Goal', '+5 pts', 5));
             }
-            if (identifier === 'assists') {
-              for (const entry of entries) {
-                const p = playerMap.get(entry.element);
-                rows.push({
-                  minute, playerName: p?.web_name ?? `#${entry.element}`,
-                  teamId: team?.id ?? 0, teamCode: team?.code ?? 0,
-                  teamShort: team?.short_name ?? '',
-                  eventType: 'Assist', pointsStr: '+3 pts', points: 3,
-                  fixtureId: fx.id, sortKey: fx.minutes * 10000 + rows.length,
-                });
-              }
+            if (as?.h[i]) {
+              const p = playerMap.get(as.h[i].element);
+              const t = home!;
+              rows.push(makeRow(p?.web_name ?? '', t.id, t.code, t.short_name, 'Assist', '+3 pts', 3));
             }
-            if (identifier === 'yellow_cards') {
-              for (const entry of entries) {
-                const p = playerMap.get(entry.element);
-                rows.push({
-                  minute, playerName: p?.web_name ?? `#${entry.element}`,
-                  teamId: team?.id ?? 0, teamCode: team?.code ?? 0,
-                  teamShort: team?.short_name ?? '',
-                  eventType: 'Yellow Card', pointsStr: '-1 pts', points: -1,
-                  fixtureId: fx.id, sortKey: fx.minutes * 10000 + rows.length,
-                });
-              }
+            // Away goal → away assist
+            if (gs?.a[i]) {
+              const p = playerMap.get(gs.a[i].element);
+              const t = away!;
+              rows.push(makeRow(p?.web_name ?? '', t.id, t.code, t.short_name, 'Goal', '+5 pts', 5));
             }
-            if (identifier === 'red_cards') {
-              for (const entry of entries) {
-                const p = playerMap.get(entry.element);
-                rows.push({
-                  minute, playerName: p?.web_name ?? `#${entry.element}`,
-                  teamId: team?.id ?? 0, teamCode: team?.code ?? 0,
-                  teamShort: team?.short_name ?? '',
-                  eventType: 'Red Card', pointsStr: '-3 pts', points: -3,
-                  fixtureId: fx.id, sortKey: fx.minutes * 10000 + rows.length,
-                });
-              }
+            if (as?.a[i]) {
+              const p = playerMap.get(as.a[i].element);
+              const t = away!;
+              rows.push(makeRow(p?.web_name ?? '', t.id, t.code, t.short_name, 'Assist', '+3 pts', 3));
             }
-            if (identifier === 'saves') {
-              for (const entry of entries) {
+          }
+
+          // Cards
+          const processCard = (entries: Array<{ value: number; element: number }>, side: 'h' | 'a', type: string, pts: number, ptsStr: string) => {
+            const team = side === 'h' ? home! : away!;
+            for (const entry of entries) {
+              const p = playerMap.get(entry.element);
+              rows.push(makeRow(p?.web_name ?? '', team.id, team.code, team.short_name, type, ptsStr, pts));
+            }
+          };
+          if (yc) { processCard(yc.h, 'h', 'Yellow Card', -1, '-1 pts'); processCard(yc.a, 'a', 'Yellow Card', -1, '-1 pts'); }
+          if (rc) { processCard(rc.h, 'h', 'Red Card', -3, '-3 pts'); processCard(rc.a, 'a', 'Red Card', -3, '-3 pts'); }
+
+          // Saves (3+)
+          if (sv) {
+            for (const side of ['h', 'a'] as const) {
+              const team = side === 'h' ? home! : away!;
+              for (const entry of (side === 'h' ? sv.h : sv.a)) {
                 if (entry.value >= 3) {
                   const p = playerMap.get(entry.element);
-                  rows.push({
-                    minute, playerName: p?.web_name ?? `#${entry.element}`,
-                    teamId: team?.id ?? 0, teamCode: team?.code ?? 0,
-                    teamShort: team?.short_name ?? '',
-                    eventType: `${entry.value} Saves`, pointsStr: '+1 pts', points: 1,
-                    fixtureId: fx.id, sortKey: fx.minutes * 10000 + rows.length,
-                  });
+                  rows.push(makeRow(p?.web_name ?? '', team.id, team.code, team.short_name, `${entry.value} Saves`, '+1 pts', 1));
                 }
               }
             }
-            if (identifier === 'bonus') {
-              for (const entry of entries) {
+          }
+
+          // Bonus
+          if (bn) {
+            for (const side of ['h', 'a'] as const) {
+              const team = side === 'h' ? home! : away!;
+              for (const entry of (side === 'h' ? bn.h : bn.a)) {
                 const p = playerMap.get(entry.element);
                 const pts = entry.value >= 3 ? 3 : entry.value >= 2 ? 2 : 1;
-                rows.push({
-                  minute, playerName: p?.web_name ?? `#${entry.element}`,
-                  teamId: team?.id ?? 0, teamCode: team?.code ?? 0,
-                  teamShort: team?.short_name ?? '',
-                  eventType: `${entry.value} Bonus pts`,
-                  pointsStr: `+${pts} pts`, points: pts,
-                  fixtureId: fx.id, sortKey: fx.minutes * 10000 + rows.length,
-                });
+                rows.push(makeRow(p?.web_name ?? '', team.id, team.code, team.short_name, `${entry.value} Bonus pts`, `+${pts} pts`, pts));
               }
             }
-          };
-
-          for (const stat of fx.stats) {
-            processEntries(stat.h, 'h', stat.identifier);
-            processEntries(stat.a, 'a', stat.identifier);
           }
         }
 
