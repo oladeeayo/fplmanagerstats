@@ -1572,65 +1572,48 @@ router.get('/captain-picks', async (req, res) => {
       getCachedApiData(BOOTSTRAP_URL),
       getCachedApiData(FIXTURES_URL)
     ]);
-    
-    // --- PRE-GENERATED STORE PATH ---
-    // First check the scheduler store for fresh pre-generated picks
-    const { getStoredPicks } = require('../captaincyScheduler');
-    const requestedGW = req.query.gw ? Number(req.query.gw) : null;
-    
-    // Determine the target GW
-    let targetGW = requestedGW;
-    if (!targetGW) {
-      const events = bootstrap?.events || [];
-      const now = Date.now();
-      const nextEvent = events.find(e => !e.finished && e.deadline_time && new Date(e.deadline_time).getTime() > now)
-        || events.find(e => !e.finished)
-        || events[events.length - 1];
-      targetGW = nextEvent?.id || 1;
+
+    const { getStoredPicks, getAllStoredGWs } = require('../captaincyScheduler');
+
+    // Determine which GWs have pre-saved data
+    const availableGWs = await getAllStoredGWs(sql);
+
+    // Target GW: use requested, or first available
+    let targetGW = req.query.gw ? Number(req.query.gw) : null;
+    if (!targetGW || !availableGWs.includes(targetGW)) {
+      targetGW = availableGWs[0] || 1;
     }
-    
-    // Try pre-generated store first (fast path — no live calculation)
-    const forceLive = req.query.live === '1' || req.query.nocache === '1';
-    const stored = !forceLive ? await getStoredPicks(targetGW, sql) : null;
-    
-    // Also check if GW has started for live stats enrichment
-    const gwFixturesForCheck = (fixtures || []).filter(f => f.event === targetGW);
-    const gwHasStarted = gwFixturesForCheck.some(f => f.started || f.finished);
-    
-    let rawModel = null;
-    let snapshotData = null;
-    
-    if (stored && stored.data && stored.data.bestPick && (stored.data.topPicks || []).length > 0) {
-      // FAST PATH: serve from pre-generated store
-      snapshotData = stored.data;
-      rawModel = {
+
+    // ONLY serve from pre-saved data — no live calculation
+    const stored = await getStoredPicks(targetGW, sql);
+    if (!stored || !stored.data || !stored.data.bestPick || !(stored.data.topPicks || []).length) {
+      return res.json({
         gameweek: targetGW,
-        generatedAt: stored.generatedAt,
-        modelVersion: snapshotData.modelVersion || 'v3.1-precomputed',
-        modelInputs: snapshotData.modelInputs || [],
-        bestPick: snapshotData.bestPick,
-        differentialPick: snapshotData.differentialPick,
-        topPicks: snapshotData.topPicks,
-        availableGameweeks: (bootstrap.events || []).filter(e => !e.finished).map(e => e.id)
-      };
-    } else {
-      // SLOW PATH: calculate live (store was empty or stale)
-      rawModel = await buildCaptaincyModel({ bootstrap, fixtures, selectedGW: req.query.gw });
-      
-      // Save to store for next time
-      try {
-        const { storePicks } = require('../captaincyScheduler');
-        await storePicks(rawModel.gameweek, rawModel, sql);
-      } catch (e) { /* ignore */ }
+        generatedAt: null,
+        modelVersion: 'v3.1',
+        modelInputs: [],
+        bestPick: null,
+        differentialPick: null,
+        topPicks: [],
+        availableGameweeks: availableGWs,
+        hasSnapshot: false,
+        error: 'No pre-generated picks available for this gameweek. The scheduler will generate them shortly.'
+      });
     }
-    
+
+    const snapshotData = stored.data;
+    const rawModel = {
+      gameweek: targetGW,
+      generatedAt: snapshotData.generatedAt || stored.generatedAt,
+      modelVersion: snapshotData.modelVersion || 'v3.1-precomputed',
+      modelInputs: snapshotData.modelInputs || [],
+      bestPick: snapshotData.bestPick,
+      differentialPick: snapshotData.differentialPick,
+      topPicks: snapshotData.topPicks,
+      availableGameweeks: availableGWs
+    };
+
     const gw = rawModel.gameweek;
-    const forceLiveRefresh = req.query.live === '1' || req.query.nocache === '1';
-    const useLiveModel = forceLiveRefresh || !gwHasStarted;
-
-    // For started GWs, try to get locked snapshot from DB
-    const snapshot = useLiveModel ? null : await getOrSaveCaptainSnapshot(gw, rawModel, bootstrap?.events);
-
     const baseBestPick = rawModel.bestPick;
     const baseDiffPick = rawModel.differentialPick;
     const baseTopPicks = rawModel.topPicks;
@@ -1730,16 +1713,16 @@ router.get('/captain-picks', async (req, res) => {
 
     res.json({
       ...rawModel,
-      generatedAt: snapshot?.generatedAt || rawModel.generatedAt,
-      modelVersion: snapshot?.modelVersion || rawModel.modelVersion,
-      modelInputs: snapshot?.modelInputs || rawModel.modelInputs,
+      generatedAt: rawModel.generatedAt,
+      modelVersion: rawModel.modelVersion,
+      modelInputs: rawModel.modelInputs,
       bestPick: enrichPick(baseBestPick),
       differentialPick: enrichPick(baseDiffPick),
       topPicks: (baseTopPicks || []).map(enrichPick).filter(Boolean),
       actualDeadlineCaptain,
       actualDeadlineViceCaptain,
-      hasSnapshot: Boolean(snapshot) || Boolean(stored && stored.data),
-      isPreGenerated: Boolean(stored && stored.data && !snapshot),
+      hasSnapshot: true,
+      isPreGenerated: true,
       isStarted,
       isFinished
     });

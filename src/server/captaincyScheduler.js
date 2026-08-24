@@ -5,14 +5,14 @@
  * them in the DB (or disk fallback). The captain-picks API reads from
  * this store instead of calculating live on every page load.
  * 
- * Runs on server startup and every 6 hours to keep picks fresh.
+ * Runs on server startup and every 24 hours to keep picks fresh.
  */
 
 const fs = require('fs');
 const path = require('path');
 const logger = require('./logger');
 
-const STALENESS_MS = 6 * 60 * 60 * 1000; // 6 hours
+const STALENESS_MS = 24 * 60 * 60 * 1000; // 24 hours
 const FUTURE_GW_COUNT = 6;
 const SNAPSHOT_DIR = path.join(__dirname, '../../data/captaincy_snapshots');
 
@@ -45,6 +45,41 @@ function getUpcomingGWs(bootstrap) {
 
 function diskPath(gw) {
   return path.join(SNAPSHOT_DIR, `gw_${gw}.json`);
+}
+
+/**
+ * Get all GWs that have pre-saved picks (DB first, then disk).
+ * Returns sorted array of GW numbers, newest first.
+ */
+async function getAllStoredGWs(sql) {
+  const gwSet = new Set();
+
+  // DB
+  if (sql) {
+    try {
+      const rows = await sql`SELECT gameweek FROM captain_snapshots WHERE data->>'bestPick' IS NOT NULL ORDER BY gameweek ASC`;
+      rows.forEach(r => gwSet.add(r.gameweek));
+    } catch {}
+  }
+
+  // Disk
+  try {
+    if (fs.existsSync(SNAPSHOT_DIR)) {
+      const files = fs.readdirSync(SNAPSHOT_DIR).filter(f => f.startsWith('gw_') && f.endsWith('.json'));
+      for (const f of files) {
+        const gw = parseInt(f.replace('gw_', '').replace('.json', ''), 10);
+        if (!isNaN(gw)) {
+          // Verify file has valid data
+          try {
+            const raw = JSON.parse(fs.readFileSync(path.join(SNAPSHOT_DIR, f), 'utf8'));
+            if (raw && raw.bestPick) gwSet.add(gw);
+          } catch {}
+        }
+      }
+    }
+  } catch {}
+
+  return [...gwSet].sort((a, b) => a - b);
 }
 
 /**
@@ -202,7 +237,7 @@ function startRefreshTimer() {
     preGenerateAll().catch(() => {});
   }, STALENESS_MS);
   if (refreshTimer.unref) refreshTimer.unref();
-  logger.info('Captaincy refresh timer started (every 6 hours)');
+  logger.info('Captaincy refresh timer started (every 24 hours)');
 }
 
 function initCaptaincyScheduler() {
@@ -214,6 +249,7 @@ module.exports = {
   initCaptaincyScheduler,
   preGenerateAll,
   getStoredPicks,
+  getAllStoredGWs,
   storePicks,
   STALENESS_MS,
 };
