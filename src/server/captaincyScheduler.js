@@ -48,28 +48,19 @@ function diskPath(gw) {
 }
 
 /**
- * Get all GWs that have pre-saved picks (DB first, then disk).
- * Returns sorted array of GW numbers, newest first.
+ * Get all GWs that have pre-saved picks (disk first, then DB).
+ * Only returns valid GWs (1-38).
  */
 async function getAllStoredGWs(sql) {
   const gwSet = new Set();
 
-  // DB
-  if (sql) {
-    try {
-      const rows = await sql`SELECT gameweek FROM captain_snapshots WHERE data->>'bestPick' IS NOT NULL ORDER BY gameweek ASC`;
-      rows.forEach(r => gwSet.add(r.gameweek));
-    } catch {}
-  }
-
-  // Disk
+  // Disk first — always the latest data
   try {
     if (fs.existsSync(SNAPSHOT_DIR)) {
       const files = fs.readdirSync(SNAPSHOT_DIR).filter(f => f.startsWith('gw_') && f.endsWith('.json'));
       for (const f of files) {
         const gw = parseInt(f.replace('gw_', '').replace('.json', ''), 10);
-        if (!isNaN(gw)) {
-          // Verify file has valid data
+        if (!isNaN(gw) && gw >= 1 && gw <= 38) {
           try {
             const raw = JSON.parse(fs.readFileSync(path.join(SNAPSHOT_DIR, f), 'utf8'));
             if (raw && raw.bestPick) gwSet.add(gw);
@@ -79,14 +70,40 @@ async function getAllStoredGWs(sql) {
     }
   } catch {}
 
+  // DB fallback — only add GWs not already found on disk
+  if (sql) {
+    try {
+      const rows = await sql`SELECT gameweek FROM captain_snapshots WHERE data->>'bestPick' IS NOT NULL AND gameweek >= 1 AND gameweek <= 38 ORDER BY gameweek ASC`;
+      rows.forEach(r => gwSet.add(r.gameweek));
+    } catch {}
+  }
+
   return [...gwSet].sort((a, b) => a - b);
 }
 
 /**
- * Read stored picks — tries DB first, then disk fallback.
+ * Read stored picks — tries DISK first (always correct), then DB fallback.
  */
 async function getStoredPicks(gw, sql) {
-  // Try DB
+  // Valid GW range check
+  if (!gw || gw < 1 || gw > 38) return null;
+
+  // Try DISK first — disk files are always the latest committed data
+  const fp = diskPath(gw);
+  if (fs.existsSync(fp)) {
+    try {
+      const raw = JSON.parse(fs.readFileSync(fp, 'utf8'));
+      if (raw && raw.bestPick && (raw.topPicks || []).length > 0) {
+        const stat = fs.statSync(fp);
+        const ageMs = Date.now() - stat.mtimeMs;
+        return { data: raw, generatedAt: raw.generatedAt, isStale: raw.isDeadlineLocked ? false : ageMs > STALENESS_MS };
+      }
+    } catch (e) {
+      logger.warn({ err: e.message, gw }, 'Failed reading captain picks from disk');
+    }
+  }
+
+  // Fallback to DB (stale data possible)
   if (sql) {
     try {
       const rows = await sql`SELECT data, created_at FROM captain_snapshots WHERE gameweek = ${gw} LIMIT 1`;
@@ -99,21 +116,6 @@ async function getStoredPicks(gw, sql) {
       }
     } catch (e) {
       logger.warn({ err: e.message, gw }, 'Failed reading captain picks from DB');
-    }
-  }
-
-  // Try disk
-  const fp = diskPath(gw);
-  if (fs.existsSync(fp)) {
-    try {
-      const raw = JSON.parse(fs.readFileSync(fp, 'utf8'));
-      if (raw && raw.bestPick && (raw.topPicks || []).length > 0) {
-        const stat = fs.statSync(fp);
-        const ageMs = Date.now() - stat.mtimeMs;
-        return { data: raw, generatedAt: raw.generatedAt, isStale: raw.isDeadlineLocked ? false : ageMs > STALENESS_MS };
-      }
-    } catch (e) {
-      logger.warn({ err: e.message, gw }, 'Failed reading captain picks from disk');
     }
   }
 
@@ -241,8 +243,22 @@ function startRefreshTimer() {
 }
 
 function initCaptaincyScheduler() {
+  // Clean stale/invalid entries from DB on startup
+  cleanupStaleDB().catch(() => {});
   preGenerateAll().catch(() => {});
   startRefreshTimer();
+}
+
+/**
+ * Remove stale entries from DB (gw_999, gw > 38, empty data).
+ */
+async function cleanupStaleDB() {
+  const { sql } = getDeps();
+  if (!sql) return;
+  try {
+    await sql`DELETE FROM captain_snapshots WHERE gameweek > 38 OR gameweek < 1`;
+    logger.info('Cleaned stale captaincy snapshots from DB');
+  } catch {}
 }
 
 module.exports = {
