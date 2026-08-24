@@ -51,10 +51,10 @@ function buildTransferPlans({ squad, allPlayers, bank, freeTransfers, strategy }
   const plans = [];
 
   // Minimum thresholds to avoid absurd low-value transfers
-  const MIN_NET_GAIN_FREE = 2.0;   // Minimum net xPts gain for a free transfer to be worth making
-  const MIN_NET_GAIN_HIT = 5.0;    // Minimum net xPts gain to justify a -4 hit
-  const MIN_NEXT_GAIN = 0.5;       // Minimum single-GW improvement to consider
-  const MIN_XPTSPM_IMPROVEMENT = 0.03; // Minimum xPts/£m efficiency improvement
+  const MIN_NET_GAIN_FREE = 3.0;   // Minimum net xPts gain for a free transfer to be worth making
+  const MIN_NET_GAIN_HIT = 6.0;    // Minimum net xPts gain to justify a -4 hit
+  const MIN_NEXT_GAIN = 1.0;       // Minimum single-GW improvement to consider
+  const MIN_XPTSPM_IMPROVEMENT = 0.05; // Minimum xPts/£m efficiency improvement
 
   for (const outgoing of sales.slice(0, 10)) {
     candidates
@@ -262,6 +262,9 @@ async function buildDecisionCentre({ bootstrap, fixtures, manager, picks, histor
   const bank = Number.isFinite(Number(options.bank)) ? Number(options.bank) : Number(picks.entry_history?.bank || 0) / 10;
   const freeTransfers = Math.max(1, Math.min(5, Number(options.freeTransfers) || 1));
   const lineup = selectLineup(squad, strategy);
+  // Preserve FPL's actual bench arrangement (positions 12-15) rather than re-sorting by score
+  const fplBench = squad.filter(p => p.pickPosition > 11).sort((a, b) => a.pickPosition - b.pickPosition);
+  if (fplBench.length === lineup.bench.length) lineup.bench = fplBench;
   const transferPlans = buildTransferPlans({ squad, allPlayers: projectionData.projections, bank, freeTransfers, strategy });
   const optimalSquad = buildOptimalSquad(projectionData.projections.filter(player => player.availability >= 50), Number(options.budget) || 100, strategy);
   const chips = buildChipPlan({ squad, gameweeks: projectionData.gameweeks, usedChips: (history.chips || []).map(chip => chip.name), strategy });

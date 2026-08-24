@@ -3912,7 +3912,7 @@ select option {
 .aiteam-pitch-name-tag { width: 100%; padding: 2px 4px; background: rgba(0, 0, 0, 0.65); border-radius: 4px; box-sizing: border-box; text-align: center; overflow: hidden; margin-top: 2px; }
 .aiteam-pitch-name { font-size: 11px; font-weight: 700; color: #fff; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .aiteam-pitch-name.is-captain { color: #FFD700; }
-.aiteam-pitch-metrics-tag { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-top: 1px; }
+.aiteam-pitch-metrics-tag { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; width: 100%; margin-top: 1px; }
 .aiteam-pitch-cost { font: 700 10px var(--font-mono); color: #B0B0B0; }
 .aiteam-pitch-xpts { font: 800 11px var(--font-mono); color: #00FF85; margin: 1px 0; }
 .aiteam-fixture-block { display: flex; width: fit-content; max-width: 100%; flex-direction: column; align-self: center; gap: 1px; }

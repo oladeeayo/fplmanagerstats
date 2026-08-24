@@ -941,7 +941,7 @@ const FPL = {
                 }
                 html += `<div class="tactics-player-card bench aiteam-pitch-card aiteam-bench-card" onclick="FPL.openSmartTeamSubUnderlay(${p.id})" style="cursor:pointer;" title="Click to view sub replacements for ${FPL.escapeHTML(p.name)}">
                     <div class="aiteam-bench-badges">
-                        <span class="aiteam-bench-order-badge">${i === 0 ? 'GK' : i}</span>
+                        <span class="aiteam-bench-order-badge">${i + 1}</span>
                         <span class="aiteam-bench-pos-badge">${p.position}</span>
                     </div>
                     <div class="tactics-player-shirt" style="display:grid;place-items:center;background:transparent;position:relative;">

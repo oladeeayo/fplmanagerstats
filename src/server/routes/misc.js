@@ -2249,7 +2249,8 @@ router.get('/dashboard/overview', async (req, res) => {
 
     const gwAverage = currentEvent?.average_entry_score || 42;
     const highestScore = currentEvent?.highest_score || 118;
-    const totalTransfers = currentEvent?.transfers_made != null ? (currentEvent.transfers_made / 1000000).toFixed(1) + 'M' : '--';
+    const transferCount = nextEvent?.transfers_made ?? currentEvent?.transfers_made ?? 0;
+    const totalTransfers = transferCount > 0 ? (transferCount / 1000000).toFixed(1) + 'M' : '--';
 
     const mostSelected = [...elements]
       .sort((a, b) => parseFloat(b.selected_by_percent) - parseFloat(a.selected_by_percent))
