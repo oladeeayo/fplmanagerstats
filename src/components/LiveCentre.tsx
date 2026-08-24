@@ -17,8 +17,8 @@ interface Player {
 
 interface StatEntry {
   identifier: string;
-  a: Array<{ value: number }>;
-  h: Array<{ value: number }>;
+  a: Array<{ value: number; element: number }>;
+  h: Array<{ value: number; element: number }>;
 }
 
 interface Fixture {
@@ -78,16 +78,20 @@ function LiveCentreComponent() {
       const bootstrap = await bootstrapRes.json();
 
       const teamMap = new Map<number, Team>();
-      bootstrap.teams.forEach((t: Team) => teamMap.set(t.id, t));
+      if (Array.isArray(bootstrap.teams)) {
+        bootstrap.teams.forEach((t: Team) => teamMap.set(t.id, t));
+      }
       setTeams(teamMap);
 
       const playerMap = new Map<number, Player>();
-      bootstrap.elements.forEach((p: Player) => playerMap.set(p.id, p));
+      if (Array.isArray(bootstrap.elements)) {
+        bootstrap.elements.forEach((p: Player) => playerMap.set(p.id, p));
+      }
       setPlayers(playerMap);
 
       const currentGW =
-        bootstrap.events.find((e: { is_current: boolean }) => e.is_current)?.id ??
-        bootstrap.events.find((e: { is_next: boolean }) => e.is_next)?.id ??
+        bootstrap.events?.find((e: { is_current: boolean }) => e.is_current)?.id ??
+        bootstrap.events?.find((e: { is_next: boolean }) => e.is_next)?.id ??
         1;
 
       const fixtureRes = await fetch('/api/fixtures');
@@ -97,30 +101,32 @@ function LiveCentreComponent() {
         : [];
       setFixtures(gwFixtures);
 
-      // Only fetch live data if matches are in progress
+      // Only build events from live fixtures
       const liveFixtures = gwFixtures.filter(isLive);
       if (liveFixtures.length > 0) {
         const events: LiveEvent[] = [];
         for (const fx of liveFixtures) {
           for (const stat of fx.stats) {
+            // FPL fixture stats: { value: <stat_count>, element: <player_id> }
+            // "element" is the player element ID, "value" is the stat magnitude
             if (stat.identifier === 'goals_scored') {
               for (const entry of stat.h) {
-                const p = playerMap.get(entry.value);
+                const p = playerMap.get(entry.element);
                 events.push({
                   type: 'goal',
-                  playerId: entry.value,
-                  playerName: p?.web_name ?? `#${entry.value}`,
+                  playerId: entry.element,
+                  playerName: p?.web_name ?? `#${entry.element}`,
                   teamId: fx.team_h,
                   teamShort: teamMap.get(fx.team_h)?.short_name ?? '',
                   fixtureId: fx.id,
                 });
               }
               for (const entry of stat.a) {
-                const p = playerMap.get(entry.value);
+                const p = playerMap.get(entry.element);
                 events.push({
                   type: 'goal',
-                  playerId: entry.value,
-                  playerName: p?.web_name ?? `#${entry.value}`,
+                  playerId: entry.element,
+                  playerName: p?.web_name ?? `#${entry.element}`,
                   teamId: fx.team_a,
                   teamShort: teamMap.get(fx.team_a)?.short_name ?? '',
                   fixtureId: fx.id,
@@ -129,22 +135,22 @@ function LiveCentreComponent() {
             }
             if (stat.identifier === 'assists') {
               for (const entry of stat.h) {
-                const p = playerMap.get(entry.value);
+                const p = playerMap.get(entry.element);
                 events.push({
                   type: 'assist',
-                  playerId: entry.value,
-                  playerName: p?.web_name ?? `#${entry.value}`,
+                  playerId: entry.element,
+                  playerName: p?.web_name ?? `#${entry.element}`,
                   teamId: fx.team_h,
                   teamShort: teamMap.get(fx.team_h)?.short_name ?? '',
                   fixtureId: fx.id,
                 });
               }
               for (const entry of stat.a) {
-                const p = playerMap.get(entry.value);
+                const p = playerMap.get(entry.element);
                 events.push({
                   type: 'assist',
-                  playerId: entry.value,
-                  playerName: p?.web_name ?? `#${entry.value}`,
+                  playerId: entry.element,
+                  playerName: p?.web_name ?? `#${entry.element}`,
                   teamId: fx.team_a,
                   teamShort: teamMap.get(fx.team_a)?.short_name ?? '',
                   fixtureId: fx.id,
@@ -153,22 +159,22 @@ function LiveCentreComponent() {
             }
             if (stat.identifier === 'yellow_cards') {
               for (const entry of stat.h) {
-                const p = playerMap.get(entry.value);
+                const p = playerMap.get(entry.element);
                 events.push({
                   type: 'yellow',
-                  playerId: entry.value,
-                  playerName: p?.web_name ?? `#${entry.value}`,
+                  playerId: entry.element,
+                  playerName: p?.web_name ?? `#${entry.element}`,
                   teamId: fx.team_h,
                   teamShort: teamMap.get(fx.team_h)?.short_name ?? '',
                   fixtureId: fx.id,
                 });
               }
               for (const entry of stat.a) {
-                const p = playerMap.get(entry.value);
+                const p = playerMap.get(entry.element);
                 events.push({
                   type: 'yellow',
-                  playerId: entry.value,
-                  playerName: p?.web_name ?? `#${entry.value}`,
+                  playerId: entry.element,
+                  playerName: p?.web_name ?? `#${entry.element}`,
                   teamId: fx.team_a,
                   teamShort: teamMap.get(fx.team_a)?.short_name ?? '',
                   fixtureId: fx.id,
@@ -177,22 +183,22 @@ function LiveCentreComponent() {
             }
             if (stat.identifier === 'red_cards') {
               for (const entry of stat.h) {
-                const p = playerMap.get(entry.value);
+                const p = playerMap.get(entry.element);
                 events.push({
                   type: 'red',
-                  playerId: entry.value,
-                  playerName: p?.web_name ?? `#${entry.value}`,
+                  playerId: entry.element,
+                  playerName: p?.web_name ?? `#${entry.element}`,
                   teamId: fx.team_h,
                   teamShort: teamMap.get(fx.team_h)?.short_name ?? '',
                   fixtureId: fx.id,
                 });
               }
               for (const entry of stat.a) {
-                const p = playerMap.get(entry.value);
+                const p = playerMap.get(entry.element);
                 events.push({
                   type: 'red',
-                  playerId: entry.value,
-                  playerName: p?.web_name ?? `#${entry.value}`,
+                  playerId: entry.element,
+                  playerName: p?.web_name ?? `#${entry.element}`,
                   teamId: fx.team_a,
                   teamShort: teamMap.get(fx.team_a)?.short_name ?? '',
                   fixtureId: fx.id,
@@ -201,50 +207,56 @@ function LiveCentreComponent() {
             }
             if (stat.identifier === 'saves') {
               for (const entry of stat.h) {
-                const p = playerMap.get(entry.value);
-                events.push({
-                  type: 'save',
-                  playerId: entry.value,
-                  playerName: p?.web_name ?? `#${entry.value}`,
-                  teamId: fx.team_h,
-                  teamShort: teamMap.get(fx.team_h)?.short_name ?? '',
-                  fixtureId: fx.id,
-                });
+                const p = playerMap.get(entry.element);
+                if (entry.value >= 3) {
+                  events.push({
+                    type: 'save',
+                    playerId: entry.element,
+                    playerName: p?.web_name ?? `#${entry.element}`,
+                    teamId: fx.team_h,
+                    teamShort: teamMap.get(fx.team_h)?.short_name ?? '',
+                    extra: `${entry.value} saves`,
+                    fixtureId: fx.id,
+                  });
+                }
               }
               for (const entry of stat.a) {
-                const p = playerMap.get(entry.value);
-                events.push({
-                  type: 'save',
-                  playerId: entry.value,
-                  playerName: p?.web_name ?? `#${entry.value}`,
-                  teamId: fx.team_a,
-                  teamShort: teamMap.get(fx.team_a)?.short_name ?? '',
-                  fixtureId: fx.id,
-                });
+                const p = playerMap.get(entry.element);
+                if (entry.value >= 3) {
+                  events.push({
+                    type: 'save',
+                    playerId: entry.element,
+                    playerName: p?.web_name ?? `#${entry.element}`,
+                    teamId: fx.team_a,
+                    teamShort: teamMap.get(fx.team_a)?.short_name ?? '',
+                    extra: `${entry.value} saves`,
+                    fixtureId: fx.id,
+                  });
+                }
               }
             }
             if (stat.identifier === 'bonus') {
               for (const entry of stat.h) {
-                const p = playerMap.get(entry.value);
+                const p = playerMap.get(entry.element);
                 events.push({
                   type: 'bonus',
-                  playerId: entry.value,
-                  playerName: p?.web_name ?? `#${entry.value}`,
+                  playerId: entry.element,
+                  playerName: p?.web_name ?? `#${entry.element}`,
                   teamId: fx.team_h,
                   teamShort: teamMap.get(fx.team_h)?.short_name ?? '',
-                  extra: '3 BPS',
+                  extra: `${entry.value} BPS`,
                   fixtureId: fx.id,
                 });
               }
               for (const entry of stat.a) {
-                const p = playerMap.get(entry.value);
+                const p = playerMap.get(entry.element);
                 events.push({
                   type: 'bonus',
-                  playerId: entry.value,
-                  playerName: p?.web_name ?? `#${entry.value}`,
+                  playerId: entry.element,
+                  playerName: p?.web_name ?? `#${entry.element}`,
                   teamId: fx.team_a,
                   teamShort: teamMap.get(fx.team_a)?.short_name ?? '',
-                  extra: '3 BPS',
+                  extra: `${entry.value} BPS`,
                   fixtureId: fx.id,
                 });
               }
@@ -313,8 +325,6 @@ function LiveCentreComponent() {
   /* ── No live matches ──────────────────────────────────────────────── */
 
   if (!hasLive) {
-    // Find next upcoming fixture
-    const now = Date.now();
     const upcoming = fixtures
       .filter(f => !f.started && !f.finished)
       .sort((a, b) => new Date(a.kickoff_time).getTime() - new Date(b.kickoff_time).getTime());
@@ -334,7 +344,7 @@ function LiveCentreComponent() {
           </h2>
           <p style={{ fontSize: 13, color: 'var(--md-sys-color-on-surface-variant)', margin: 0 }}>
             {nextFixture
-              ? `Next match: ${teams.get(nextFixture.team_h)?.short_name ?? '???'} vs ${teams.get(nextFixture.team_a)?.short_name ?? '???'} — ${new Date(nextFixture.kickoff_time).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })}`
+              ? `Next: ${teams.get(nextFixture.team_h)?.short_name ?? '???'} vs ${teams.get(nextFixture.team_a)?.short_name ?? '???'} — ${new Date(nextFixture.kickoff_time).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })}`
               : 'Matches for this gameweek haven\'t started yet.'
             }
           </p>
@@ -517,50 +527,54 @@ function MatchCard({
   const live = isLive(fixture);
   const statusColor = live ? '#FF005A' : 'var(--md-sys-color-on-surface-variant)';
 
-  // Collect real goal events from fixture stats
+  // Build goal events from fixture stats
+  // FPL stats: { value: <stat_count>, element: <player_id> }
   const goalEvents: Array<{ team: 'h' | 'a'; scorer: string; assister?: string }> = [];
-  for (const stat of fixture.stats) {
-    if (stat.identifier === 'goals_scored') {
-      for (const entry of stat.h) {
-        const p = players.get(entry.value);
-        goalEvents.push({ team: 'h', scorer: p?.web_name ?? '' });
-      }
-      for (const entry of stat.a) {
-        const p = players.get(entry.value);
-        goalEvents.push({ team: 'a', scorer: p?.web_name ?? '' });
-      }
+  const goalsStat = fixture.stats.find(s => s.identifier === 'goals_scored');
+  if (goalsStat) {
+    for (const entry of goalsStat.h) {
+      const p = players.get(entry.element);
+      goalEvents.push({ team: 'h', scorer: p?.web_name ?? `#${entry.element}` });
+    }
+    for (const entry of goalsStat.a) {
+      const p = players.get(entry.element);
+      goalEvents.push({ team: 'a', scorer: p?.web_name ?? `#${entry.element}` });
     }
   }
+
   // Match assists to goals by index
-  const assistEntries = fixture.stats.find(s => s.identifier === 'assists');
-  if (assistEntries) {
+  const assistStat = fixture.stats.find(s => s.identifier === 'assists');
+  if (assistStat) {
     let hIdx = 0;
     let aIdx = 0;
     for (const ge of goalEvents) {
-      if (ge.team === 'h' && assistEntries.h[hIdx]) {
-        const p = players.get(assistEntries.h[hIdx].value);
+      if (ge.team === 'h' && assistStat.h[hIdx]) {
+        const p = players.get(assistStat.h[hIdx].element);
         ge.assister = p?.web_name;
         hIdx++;
-      } else if (ge.team === 'a' && assistEntries.a[aIdx]) {
-        const p = players.get(assistEntries.a[aIdx].value);
+      } else if (ge.team === 'a' && assistStat.a[aIdx]) {
+        const p = players.get(assistStat.a[aIdx].element);
         ge.assister = p?.web_name;
         aIdx++;
       }
     }
   }
 
-  // Cards from fixture stats (real per-GW data)
+  // Cards
   const yellowH = fixture.stats.find(s => s.identifier === 'yellow_cards')?.h.length ?? 0;
   const yellowA = fixture.stats.find(s => s.identifier === 'yellow_cards')?.a.length ?? 0;
   const redH = fixture.stats.find(s => s.identifier === 'red_cards')?.h.length ?? 0;
   const redA = fixture.stats.find(s => s.identifier === 'red_cards')?.a.length ?? 0;
 
-  // Saves from fixture stats (real per-GW data)
-  const savesH = fixture.stats.find(s => s.identifier === 'saves')?.h.length ?? 0;
-  const savesA = fixture.stats.find(s => s.identifier === 'saves')?.a.length ?? 0;
+  // Save count (value = number of saves per entry)
+  const savesStat = fixture.stats.find(s => s.identifier === 'saves');
+  let totalSaves = 0;
+  if (savesStat) {
+    for (const entry of savesStat.h) totalSaves += entry.value;
+    for (const entry of savesStat.a) totalSaves += entry.value;
+  }
 
   const hasCards = (yellowH + yellowA + redH + redA) > 0;
-  const hasSaves = (savesH + savesA) > 0;
 
   return (
     <div
@@ -595,14 +609,10 @@ function MatchCard({
       <div style={{ padding: '16px 12px 12px', textAlign: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
           <div style={{ flex: 1, textAlign: 'right' }}>
-            <div style={{
-              fontSize: 12, fontWeight: 600, color: '#ffffff',
-              marginBottom: 4,
-            }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#ffffff', marginBottom: 4 }}>
               {home?.short_name ?? '???'}
             </div>
           </div>
-
           <div style={{
             fontSize: 28, fontWeight: 800, fontFamily: 'var(--font-mono)',
             color: live ? '#FF005A' : '#ffffff',
@@ -610,12 +620,8 @@ function MatchCard({
           }}>
             {fixture.team_h_score ?? 0} - {fixture.team_a_score ?? 0}
           </div>
-
           <div style={{ flex: 1, textAlign: 'left' }}>
-            <div style={{
-              fontSize: 12, fontWeight: 600, color: '#ffffff',
-              marginBottom: 4,
-            }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#ffffff', marginBottom: 4 }}>
               {away?.short_name ?? '???'}
             </div>
           </div>
@@ -641,15 +647,15 @@ function MatchCard({
           </div>
         )}
 
-        {/* Stats row — only show real data */}
-        {(hasCards || hasSaves) && (
+        {/* Stats row */}
+        {(hasCards || totalSaves > 0) && (
           <div style={{
             display: 'flex', justifyContent: 'center', gap: 12, marginTop: 10,
             fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)',
           }}>
             {yellowH + yellowA > 0 && <span>🟨 {yellowH + yellowA}</span>}
             {redH + redA > 0 && <span>🟥 {redH + redA}</span>}
-            {savesH + savesA > 0 && <span>🧤 {savesH + savesA} saves</span>}
+            {totalSaves > 0 && <span>🧤 {totalSaves} saves</span>}
           </div>
         )}
       </div>
@@ -673,7 +679,7 @@ function EventRow({ event }: { event: LiveEvent }) {
     assist: 'ASSIST',
     yellow: 'YELLOW CARD',
     red: 'RED CARD',
-    save: 'SAVE',
+    save: 'SAVE MILESTONE',
     cs: 'CLEAN SHEET',
     bonus: 'BONUS',
   };
