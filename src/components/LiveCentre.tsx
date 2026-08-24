@@ -37,6 +37,30 @@ interface Fixture {
   stats: StatEntry[];
 }
 
+interface FDGoal {
+  minute: number;
+  injuryTime: number | null;
+  scorer: { id: number; name: string } | null;
+  assist: { id: number; name: string } | null;
+  team: { id: number; name: string } | null;
+}
+
+interface FDBooking {
+  minute: number;
+  player: { id: number; name: string } | null;
+  team: { id: number; name: string } | null;
+  card: string;
+}
+
+interface FDMatch {
+  id: number;
+  homeTeam: { id: number; name: string; tla: string };
+  awayTeam: { id: number; name: string; tla: string };
+  minute: number | null;
+  goals: FDGoal[];
+  bookings: FDBooking[];
+}
+
 interface FeedRow {
   minute: string;
   playerName: string;
@@ -55,19 +79,28 @@ interface FeedRow {
 const TEAM_BADGE = (code: number) =>
   `https://resources.premierleague.com/premierleague/badges/70/t${code}.png`;
 
-function fixtureStatus(f: Fixture): string {
-  if (f.finished) return 'FT';
-  if (f.started) return `${f.minutes}'`;
-  return '';
-}
-
 function isLive(f: Fixture): boolean {
   return f.started && !f.finished;
 }
 
 function isToday(dateStr: string): boolean {
-  const d = new Date(dateStr);
-  return d.toDateString() === new Date().toDateString();
+  return new Date(dateStr).toDateString() === new Date().toDateString();
+}
+
+// Map football-data.org team name/TLA to FPL team
+function findFPLTeam(
+  fdName: string,
+  fdTLA: string,
+  fplTeams: Map<number, Team>,
+): Team | undefined {
+  for (const t of fplTeams.values()) {
+    if (t.short_name === fdTLA || t.name.toLowerCase() === fdName.toLowerCase()) return t;
+  }
+  // Fuzzy match on TLA
+  for (const t of fplTeams.values()) {
+    if (t.short_name.toLowerCase() === fdTLA.toLowerCase()) return t;
+  }
+  return undefined;
 }
 
 /* ── Component ─────────────────────────────────────────────────────────── */
@@ -82,6 +115,7 @@ function LiveCentreComponent() {
   const [selectedFixture, setSelectedFixture] = useState<number | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [hasLeague, setHasLeague] = useState(false);
+  const [hasMatchEvents, setHasMatchEvents] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -118,105 +152,188 @@ function LiveCentreComponent() {
 
       const todayLive = gwFixtures.filter(f => isLive(f) && isToday(f.kickoff_time));
 
+      // Try to get real event timestamps from football-data.org
+      let fdMatches: FDMatch[] = [];
+      try {
+        const fdRes = await fetch('/api/match-events');
+        const fdData = await fdRes.json();
+        fdMatches = fdData.matches || [];
+      } catch { /* football-data.org not available, fall back to FPL ordering */ }
+
+      setHasMatchEvents(fdMatches.length > 0);
+
       if (todayLive.length > 0) {
         const rows: FeedRow[] = [];
 
-        for (const fx of todayLive) {
-          const home = teamMap.get(fx.team_h);
-          const away = teamMap.get(fx.team_a);
-          const minute = `${fx.minutes}'`;
+        if (fdMatches.length > 0) {
+          // Use football-data.org events with real timestamps
+          for (const fdMatch of fdMatches) {
+            const fplTeam = findFPLTeam(fdMatch.homeTeam.name, fdMatch.homeTeam.tla, teamMap);
+            if (!fplTeam) continue;
 
-          const makeRow = (
-            playerName: string, teamId: number, teamCode: number, teamShort: string,
-            eventType: string, pointsStr: string, points: number,
-          ): FeedRow => ({
-            minute, playerName, teamId, teamCode, teamShort,
-            eventType, pointsStr, points,
-            fixtureId: fx.id, sortKey: rows.length,
-          });
+            // Find matching FPL fixture
+            const fplFixture = todayLive.find(f =>
+              (f.team_h === fplTeam.id) || (f.team_a === fplTeam.id)
+            );
+            if (!fplFixture) continue;
 
-          // Build interleaved event sequence matching FPL API order:
-          // goal → assist, goal → assist, ... then cards, saves, bonus
-          const gs = fx.stats.find(s => s.identifier === 'goals_scored');
-          const as = fx.stats.find(s => s.identifier === 'assists');
-          const yc = fx.stats.find(s => s.identifier === 'yellow_cards');
-          const rc = fx.stats.find(s => s.identifier === 'red_cards');
-          const sv = fx.stats.find(s => s.identifier === 'saves');
-          const bn = fx.stats.find(s => s.identifier === 'bonus');
+            const homeTeam = teamMap.get(fplFixture.team_h)!;
+            const awayTeam = teamMap.get(fplFixture.team_a)!;
 
-          // Interleave goals and assists per side
-          const maxGoals = Math.max(
-            gs?.h.length ?? 0, gs?.a.length ?? 0,
-            as?.h.length ?? 0, as?.a.length ?? 0,
-          );
-          for (let i = 0; i < maxGoals; i++) {
-            // Home goal → home assist
-            if (gs?.h[i]) {
-              const p = playerMap.get(gs.h[i].element);
-              const t = home!;
-              rows.push(makeRow(p?.web_name ?? '', t.id, t.code, t.short_name, 'Goal', '+5 pts', 5));
+            // Build all events with real minutes
+            interface Event {
+              minute: number;
+              injuryTime: number;
+              playerName: string;
+              teamId: number;
+              teamCode: number;
+              teamShort: string;
+              eventType: string;
+              points: number;
             }
-            if (as?.h[i]) {
-              const p = playerMap.get(as.h[i].element);
-              const t = home!;
-              rows.push(makeRow(p?.web_name ?? '', t.id, t.code, t.short_name, 'Assist', '+3 pts', 3));
+
+            const events: Event[] = [];
+
+            for (const goal of fdMatch.goals) {
+              const team = goal.team?.id === homeTeam.id ? homeTeam : awayTeam;
+              const scorerName = goal.scorer?.name ?? 'Unknown';
+              events.push({
+                minute: goal.minute,
+                injuryTime: goal.injuryTime ?? 0,
+                playerName: scorerName,
+                teamId: team.id, teamCode: team.code, teamShort: team.short_name,
+                eventType: 'Goal', points: 5,
+              });
+              if (goal.assist) {
+                events.push({
+                  minute: goal.minute,
+                  injuryTime: goal.injuryTime ?? 0,
+                  playerName: goal.assist.name,
+                  teamId: team.id, teamCode: team.code, teamShort: team.short_name,
+                  eventType: 'Assist', points: 3,
+                });
+              }
             }
-            // Away goal → away assist
-            if (gs?.a[i]) {
-              const p = playerMap.get(gs.a[i].element);
-              const t = away!;
-              rows.push(makeRow(p?.web_name ?? '', t.id, t.code, t.short_name, 'Goal', '+5 pts', 5));
+
+            for (const booking of fdMatch.bookings) {
+              const team = booking.team?.id === homeTeam.id ? homeTeam : awayTeam;
+              const cardType = booking.card === 'RED' ? 'Red Card' : 'Yellow Card';
+              const pts = booking.card === 'RED' ? -3 : -1;
+              events.push({
+                minute: booking.minute,
+                injuryTime: booking.injuryTime ?? 0,
+                playerName: booking.player?.name ?? 'Unknown',
+                teamId: team.id, teamCode: team.code, teamShort: team.short_name,
+                eventType: cardType, points: pts,
+              });
             }
-            if (as?.a[i]) {
-              const p = playerMap.get(as.a[i].element);
-              const t = away!;
-              rows.push(makeRow(p?.web_name ?? '', t.id, t.code, t.short_name, 'Assist', '+3 pts', 3));
+
+            // Sort by minute then injury time
+            events.sort((a, b) => a.minute - b.minute || a.injuryTime - b.injuryTime);
+
+            // Convert to FeedRows
+            for (let i = 0; i < events.length; i++) {
+              const ev = events[i];
+              const minStr = ev.injuryTime > 0 ? `${ev.minute}+${ev.injuryTime}'` : `${ev.minute}'`;
+              const ptsStr = ev.points >= 0 ? `+${ev.points} pts` : `${ev.points} pts`;
+              rows.push({
+                minute: minStr,
+                playerName: ev.playerName,
+                teamId: ev.teamId,
+                teamCode: ev.teamCode,
+                teamShort: ev.teamShort,
+                eventType: ev.eventType,
+                pointsStr: ptsStr,
+                points: ev.points,
+                fixtureId: fplFixture.id,
+                sortKey: i, // Already sorted by minute
+              });
             }
           }
+        } else {
+          // Fallback: use FPL fixture stats in API order
+          for (const fx of todayLive) {
+            const home = teamMap.get(fx.team_h);
+            const away = teamMap.get(fx.team_a);
+            const minute = `${fx.minutes}'`;
 
-          // Cards
-          const processCard = (entries: Array<{ value: number; element: number }>, side: 'h' | 'a', type: string, pts: number, ptsStr: string) => {
-            const team = side === 'h' ? home! : away!;
-            for (const entry of entries) {
-              const p = playerMap.get(entry.element);
-              rows.push(makeRow(p?.web_name ?? '', team.id, team.code, team.short_name, type, ptsStr, pts));
+            const makeRow = (
+              playerName: string, teamId: number, teamCode: number, teamShort: string,
+              eventType: string, pointsStr: string, points: number,
+            ): FeedRow => ({
+              minute, playerName, teamId, teamCode, teamShort,
+              eventType, pointsStr, points,
+              fixtureId: fx.id, sortKey: rows.length,
+            });
+
+            const gs = fx.stats.find(s => s.identifier === 'goals_scored');
+            const as = fx.stats.find(s => s.identifier === 'assists');
+            const yc = fx.stats.find(s => s.identifier === 'yellow_cards');
+            const rc = fx.stats.find(s => s.identifier === 'red_cards');
+            const sv = fx.stats.find(s => s.identifier === 'saves');
+            const bn = fx.stats.find(s => s.identifier === 'bonus');
+
+            const maxGoals = Math.max(gs?.h.length ?? 0, gs?.a.length ?? 0);
+            for (let i = 0; i < maxGoals; i++) {
+              if (gs?.h[i]) {
+                const p = playerMap.get(gs.h[i].element);
+                const t = home!;
+                rows.push(makeRow(p?.web_name ?? '', t.id, t.code, t.short_name, 'Goal', '+5 pts', 5));
+              }
+              if (as?.h[i]) {
+                const p = playerMap.get(as.h[i].element);
+                const t = home!;
+                rows.push(makeRow(p?.web_name ?? '', t.id, t.code, t.short_name, 'Assist', '+3 pts', 3));
+              }
+              if (gs?.a[i]) {
+                const p = playerMap.get(gs.a[i].element);
+                const t = away!;
+                rows.push(makeRow(p?.web_name ?? '', t.id, t.code, t.short_name, 'Goal', '+5 pts', 5));
+              }
+              if (as?.a[i]) {
+                const p = playerMap.get(as.a[i].element);
+                const t = away!;
+                rows.push(makeRow(p?.web_name ?? '', t.id, t.code, t.short_name, 'Assist', '+3 pts', 3));
+              }
             }
-          };
-          if (yc) { processCard(yc.h, 'h', 'Yellow Card', -1, '-1 pts'); processCard(yc.a, 'a', 'Yellow Card', -1, '-1 pts'); }
-          if (rc) { processCard(rc.h, 'h', 'Red Card', -3, '-3 pts'); processCard(rc.a, 'a', 'Red Card', -3, '-3 pts'); }
 
-          // Saves (3+)
-          if (sv) {
-            for (const side of ['h', 'a'] as const) {
+            const processCard = (entries: Array<{ value: number; element: number }>, side: 'h' | 'a', type: string, pts: number, ptsStr: string) => {
               const team = side === 'h' ? home! : away!;
-              for (const entry of (side === 'h' ? sv.h : sv.a)) {
-                if (entry.value >= 3) {
+              for (const entry of entries) {
+                const p = playerMap.get(entry.element);
+                rows.push(makeRow(p?.web_name ?? '', team.id, team.code, team.short_name, type, ptsStr, pts));
+              }
+            };
+            if (yc) { processCard(yc.h, 'h', 'Yellow Card', -1, '-1 pts'); processCard(yc.a, 'a', 'Yellow Card', -1, '-1 pts'); }
+            if (rc) { processCard(rc.h, 'h', 'Red Card', -3, '-3 pts'); processCard(rc.a, 'a', 'Red Card', -3, '-3 pts'); }
+
+            if (sv) {
+              for (const side of ['h', 'a'] as const) {
+                const team = side === 'h' ? home! : away!;
+                for (const entry of (side === 'h' ? sv.h : sv.a)) {
+                  if (entry.value >= 3) {
+                    const p = playerMap.get(entry.element);
+                    rows.push(makeRow(p?.web_name ?? '', team.id, team.code, team.short_name, `${entry.value} Saves`, '+1 pts', 1));
+                  }
+                }
+              }
+            }
+
+            if (bn) {
+              for (const side of ['h', 'a'] as const) {
+                const team = side === 'h' ? home! : away!;
+                for (const entry of (side === 'h' ? bn.h : bn.a)) {
                   const p = playerMap.get(entry.element);
-                  rows.push(makeRow(p?.web_name ?? '', team.id, team.code, team.short_name, `${entry.value} Saves`, '+1 pts', 1));
+                  const pts = entry.value >= 3 ? 3 : entry.value >= 2 ? 2 : 1;
+                  rows.push(makeRow(p?.web_name ?? '', team.id, team.code, team.short_name, `${entry.value} Bonus pts`, `+${pts} pts`, pts));
                 }
               }
             }
           }
-
-          // Bonus
-          if (bn) {
-            for (const side of ['h', 'a'] as const) {
-              const team = side === 'h' ? home! : away!;
-              for (const entry of (side === 'h' ? bn.h : bn.a)) {
-                const p = playerMap.get(entry.element);
-                const pts = entry.value >= 3 ? 3 : entry.value >= 2 ? 2 : 1;
-                rows.push(makeRow(p?.web_name ?? '', team.id, team.code, team.short_name, `${entry.value} Bonus pts`, `+${pts} pts`, pts));
-              }
-            }
-          }
         }
 
-        rows.sort((a, b) => b.sortKey - a.sortKey);
         setFeedRows(rows);
-
-        if (todayLive.length === 1) {
-          setSelectedFixture(todayLive[0].id);
-        }
+        if (todayLive.length === 1) setSelectedFixture(todayLive[0].id);
       } else {
         setFeedRows([]);
         setSelectedFixture(null);
@@ -230,7 +347,6 @@ function LiveCentreComponent() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-
   useEffect(() => {
     if (autoRefresh) intervalRef.current = setInterval(fetchData, 15_000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
@@ -416,7 +532,7 @@ function LiveCentreComponent() {
           {/* Header */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '1fr 1fr' + (hasLeague ? ' 80px' : ''),
+            gridTemplateColumns: '50px 1fr 1fr' + (hasLeague ? ' 80px' : ''),
             padding: '8px 16px',
             background: 'rgba(255,255,255,0.04)',
             borderBottom: '1px solid rgba(255,255,255,0.08)',
@@ -424,6 +540,7 @@ function LiveCentreComponent() {
             color: 'var(--md-sys-color-on-surface-variant)',
             textTransform: 'uppercase', letterSpacing: '0.06em',
           }}>
+            <span></span>
             <span>Player</span>
             <span>Event</span>
             {hasLeague && <span style={{ textAlign: 'right' }}>Impact</span>}
@@ -435,17 +552,26 @@ function LiveCentreComponent() {
               <div style={{ textAlign: 'center', padding: 28, color: 'var(--md-sys-color-on-surface-variant)', fontSize: 13 }}>
                 No events yet.
               </div>
-            )}              {filteredRows.map((row, i) => (
+            )}
+            {filteredRows.map((row, i) => (
               <div
                 key={`${row.fixtureId}-${row.playerName}-${row.eventType}-${i}`}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '1fr 1fr' + (hasLeague ? ' 80px' : ''),
+                  gridTemplateColumns: '50px 1fr 1fr' + (hasLeague ? ' 80px' : ''),
                   padding: '10px 16px',
                   borderBottom: '1px solid rgba(255,255,255,0.03)',
                   fontSize: 13, alignItems: 'center',
                 }}
               >
+                {/* Minute */}
+                <span style={{
+                  fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)',
+                  color: '#FF005A',
+                }}>
+                  {row.minute}
+                </span>
+
                 {/* Player + badge */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <img
@@ -506,21 +632,16 @@ function ScoreCard({
   const home = teams.get(fixture.team_h);
   const away = teams.get(fixture.team_a);
   const live = isLive(fixture);
-  const status = fixtureStatus(fixture);
+  const status = live ? `${fixture.minutes}'` : fixture.finished ? 'FT' : '';
 
-  // Build goal list with team context
   interface GoalInfo { scorer: string; assister?: string; teamSide: 'h' | 'a'; teamId: number; }
   const goals: GoalInfo[] = [];
   const gs = fixture.stats.find(s => s.identifier === 'goals_scored');
   const as = fixture.stats.find(s => s.identifier === 'assists');
 
   if (gs) {
-    for (const e of gs.h) goals.push({
-      scorer: players.get(e.element)?.web_name ?? '', teamSide: 'h', teamId: fixture.team_h,
-    });
-    for (const e of gs.a) goals.push({
-      scorer: players.get(e.element)?.web_name ?? '', teamSide: 'a', teamId: fixture.team_a,
-    });
+    for (const e of gs.h) goals.push({ scorer: players.get(e.element)?.web_name ?? '', teamSide: 'h', teamId: fixture.team_h });
+    for (const e of gs.a) goals.push({ scorer: players.get(e.element)?.web_name ?? '', teamSide: 'a', teamId: fixture.team_a });
   }
   if (as) {
     let hi = 0, ai = 0;
@@ -535,8 +656,7 @@ function ScoreCard({
   const rh = fixture.stats.find(s => s.identifier === 'red_cards')?.h.length ?? 0;
   const ra = fixture.stats.find(s => s.identifier === 'red_cards')?.a.length ?? 0;
   const ss = fixture.stats.find(s => s.identifier === 'saves');
-  let hSaves = 0;
-  let aSaves = 0;
+  let hSaves = 0, aSaves = 0;
   if (ss) { for (const e of ss.h) hSaves += e.value; for (const e of ss.a) aSaves += e.value; }
 
   return (
@@ -544,7 +664,6 @@ function ScoreCard({
       borderRadius: 12, overflow: 'hidden',
       background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
     }}>
-      {/* Status */}
       <div style={{
         padding: '5px 12px', textAlign: 'center',
         background: live ? 'rgba(255,0,90,0.08)' : 'rgba(255,255,255,0.02)',
@@ -555,94 +674,50 @@ function ScoreCard({
           color: live ? '#FF005A' : 'var(--md-sys-color-on-surface-variant)',
           display: 'inline-flex', alignItems: 'center', gap: 5,
         }}>
-          {live && <span style={{
-            width: 5, height: 5, borderRadius: '50%', background: '#FF005A',
-            animation: 'pulse 1.5s infinite',
-          }} />}
+          {live && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#FF005A', animation: 'pulse 1.5s infinite' }} />}
           {status}
         </span>
       </div>
 
-      {/* Teams + Score */}
       <div style={{ padding: '14px 10px 6px', textAlign: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-          {/* Home */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flex: 1 }}>
-            <img
-              src={TEAM_BADGE(home?.code ?? 0)}
-              alt={home?.short_name}
-              style={{ width: 28, height: 28 }}
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-            />
-            <span style={{ fontSize: 11, fontWeight: 600, color: '#ffffff' }}>
-              {home?.short_name ?? '???'}
-            </span>
+            <img src={TEAM_BADGE(home?.code ?? 0)} alt={home?.short_name} style={{ width: 28, height: 28 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#ffffff' }}>{home?.short_name ?? '???'}</span>
           </div>
-
-          {/* Score */}
-          <div style={{
-            fontSize: 26, fontWeight: 800, fontFamily: 'var(--font-mono)',
-            color: live ? '#FF005A' : '#ffffff', minWidth: 50,
-          }}>
+          <div style={{ fontSize: 26, fontWeight: 800, fontFamily: 'var(--font-mono)', color: live ? '#FF005A' : '#ffffff', minWidth: 50 }}>
             {fixture.team_h_score ?? 0} - {fixture.team_a_score ?? 0}
           </div>
-
-          {/* Away */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flex: 1 }}>
-            <img
-              src={TEAM_BADGE(away?.code ?? 0)}
-              alt={away?.short_name}
-              style={{ width: 28, height: 28 }}
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-            />
-            <span style={{ fontSize: 11, fontWeight: 600, color: '#ffffff' }}>
-              {away?.short_name ?? '???'}
-            </span>
+            <img src={TEAM_BADGE(away?.code ?? 0)} alt={away?.short_name} style={{ width: 28, height: 28 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#ffffff' }}>{away?.short_name ?? '???'}</span>
           </div>
         </div>
 
-        {/* Goals + Stats — split by team */}
         <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
-          {/* Home side */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
             {goals.filter(g => g.teamSide === 'h').map((g, i) => (
-              <div key={i} style={{
-                display: 'flex', alignItems: 'center', gap: 5,
-                fontSize: 10, fontFamily: 'var(--font-mono)',
-                color: 'var(--md-sys-color-on-surface-variant)',
-              }}>
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)' }}>
                 <span style={{ color: '#00FF85' }}>⚽</span>
                 <span style={{ color: '#ffffff', fontWeight: 600 }}>{g.scorer}</span>
                 {g.assister && <span>(ast: {g.assister})</span>}
               </div>
             ))}
-            <div style={{
-              display: 'flex', gap: 8, marginTop: 4,
-              fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)',
-            }}>
+            <div style={{ display: 'flex', gap: 8, marginTop: 4, fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)' }}>
               {yh > 0 && <span>🟨 {yh}</span>}
               {rh > 0 && <span>🟥 {rh}</span>}
               {hSaves > 0 && <span>🧤 {hSaves}</span>}
             </div>
           </div>
-
-          {/* Away side */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'flex-end' }}>
             {goals.filter(g => g.teamSide === 'a').map((g, i) => (
-              <div key={i} style={{
-                display: 'flex', alignItems: 'center', gap: 5,
-                fontSize: 10, fontFamily: 'var(--font-mono)',
-                color: 'var(--md-sys-color-on-surface-variant)',
-              }}>
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)' }}>
                 <span style={{ color: '#ffffff', fontWeight: 600 }}>{g.scorer}</span>
                 {g.assister && <span>(ast: {g.assister})</span>}
                 <span style={{ color: '#00FF85' }}>⚽</span>
               </div>
             ))}
-            <div style={{
-              display: 'flex', gap: 8, marginTop: 4,
-              fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)',
-            }}>
+            <div style={{ display: 'flex', gap: 8, marginTop: 4, fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)' }}>
               {aSaves > 0 && <span>🧤 {aSaves}</span>}
               {ra > 0 && <span>🟥 {ra}</span>}
               {ya > 0 && <span>🟨 {ya}</span>}

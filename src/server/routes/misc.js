@@ -228,6 +228,57 @@ router.get('/live/:gw', async (req, res) => {
   }
 });
 
+// ---- Match Events from football-data.org (goals/cards with minute timestamps) ----
+router.get('/match-events', async (req, res) => {
+  try {
+    const apiKey = process.env.FOOTBALL_API_KEY;
+    if (!apiKey) return res.json({ matches: [] });
+
+    const resp = await fetch('https://api.football-data.org/v4/competitions/2021/matches?status=LIVE&status=IN_PLAY&status=PAUSED', {
+      headers: { 'X-Auth-Token': apiKey },
+    });
+    if (!resp.ok) return res.json({ matches: [] });
+    const data = await resp.json();
+
+    const matches = (data.matches || []).map(m => ({
+      id: m.id,
+      utcDate: m.utcDate,
+      status: m.status,
+      minute: m.minute,
+      homeTeam: { id: m.homeTeam.id, name: m.homeTeam.shortName || m.homeTeam.name, tla: m.homeTeam.tla },
+      awayTeam: { id: m.awayTeam.id, name: m.awayTeam.shortName || m.awayTeam.name, tla: m.awayTeam.tla },
+      score: m.score,
+      goals: (m.goals || []).map(g => ({
+        minute: g.minute,
+        injuryTime: g.injuryTime,
+        type: g.type,
+        scorer: g.scorer ? { id: g.scorer.id, name: g.scorer.name } : null,
+        assist: g.assist ? { id: g.assist.id, name: g.assist.name } : null,
+        team: g.team ? { id: g.team.id, name: g.team.name } : null,
+        score: g.score,
+      })),
+      bookings: (m.bookings || []).map(b => ({
+        minute: b.minute,
+        injuryTime: b.injuryTime,
+        player: b.player ? { id: b.player.id, name: b.player.name } : null,
+        team: b.team ? { id: b.team.id, name: b.team.name } : null,
+        card: b.card,
+      })),
+      substitutions: (m.substitutions || []).map(s => ({
+        minute: s.minute,
+        playerOut: s.playerOut ? { id: s.playerOut.id, name: s.playerOut.name } : null,
+        playerIn: s.playerIn ? { id: s.playerIn.id, name: s.playerIn.name } : null,
+        team: s.team ? { id: s.team.id, name: s.team.name } : null,
+      })),
+    }));
+
+    res.json({ matches });
+  } catch (e) {
+    logger.error({ err: e }, 'Match events error');
+    res.json({ matches: [] });
+  }
+});
+
 // ---- Price Changes ----
 router.get('/price-changes', async (req, res) => {
   try {
