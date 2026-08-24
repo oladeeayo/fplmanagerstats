@@ -5777,14 +5777,19 @@ const FPL = {
 
     async renderCaptaincy() {
         const tbody = document.getElementById('captain-picks-body');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="captaincy-loading">Recalculating captaincy picks...</td></tr>';
+        if (tbody && !this.state.captainPicks) {
+            tbody.innerHTML = '<tr><td colspan="9" class="captaincy-loading">Loading captaincy picks...</td></tr>';
+        }
         try {
             const requestedGW = this.state.captainGW || '';
             const cacheKey = `captain-${requestedGW}`;
             let data = this.getCachedTabData(cacheKey);
             if (!data) {
                 data = await this.apiFetch(this.API.captainPicks(requestedGW));
-                this.setCachedTabData(cacheKey, data);
+                if (data && data.gameweek) {
+                    this.setCachedTabData(cacheKey, data);
+                    this.setCachedTabData(`captain-${data.gameweek}`, data);
+                }
             }
             this.state.captainPicks = data;
             this.state.captainGW = data.gameweek;
@@ -5793,6 +5798,7 @@ const FPL = {
             if (gwSelect) {
                 const gameweeks = data.availableGameweeks?.length ? data.availableGameweeks : Array.from({ length: 38 }, (_, index) => index + 1);
                 gwSelect.innerHTML = gameweeks.map(gw => `<option value="${gw}"${gw === data.gameweek ? ' selected' : ''}>GW ${gw}</option>`).join('');
+                gwSelect.onchange = (e) => this.setCaptainGameweek(e.target.value);
             }
 
             const status = document.getElementById('cap-model-updated');

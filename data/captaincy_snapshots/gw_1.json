@@ -13,8 +13,8 @@
     "set pieces",
     "bonus"
   ],
-  "isDeadlineLocked": false,
-  "lockedAt": null,
+  "isDeadlineLocked": true,
+  "lockedAt": "2026-08-24T08:04:29.760Z",
   "bestPick": {
     "id": 426,
     "name": "B.Fernandes",

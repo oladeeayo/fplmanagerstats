@@ -1569,8 +1569,8 @@ async function getOrSaveCaptainSnapshot(gw, rawModel, bootstrapEvents) {
 router.get('/captain-picks', async (req, res) => {
   try {
     const [bootstrap, fixtures] = await Promise.all([
-      getCachedApiData(BOOTSTRAP_URL),
-      getCachedApiData(FIXTURES_URL)
+      getCachedApiData(BOOTSTRAP_URL).catch(() => null),
+      getCachedApiData(FIXTURES_URL).catch(() => null)
     ]);
 
     const { getStoredPicks, getAllStoredGWs } = require('../captaincyScheduler');
