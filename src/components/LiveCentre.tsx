@@ -422,7 +422,7 @@ function LiveCentreComponent() {
           {/* Header */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '60px 1fr 1fr' + (hasLeague ? ' 80px' : ''),
+            gridTemplateColumns: '1fr 1fr' + (hasLeague ? ' 80px' : ''),
             padding: '8px 16px',
             background: 'rgba(255,255,255,0.04)',
             borderBottom: '1px solid rgba(255,255,255,0.08)',
@@ -430,7 +430,6 @@ function LiveCentreComponent() {
             color: 'var(--md-sys-color-on-surface-variant)',
             textTransform: 'uppercase', letterSpacing: '0.06em',
           }}>
-            <span></span>
             <span>Player</span>
             <span>Event</span>
             {hasLeague && <span style={{ textAlign: 'right' }}>Impact</span>}
@@ -442,26 +441,17 @@ function LiveCentreComponent() {
               <div style={{ textAlign: 'center', padding: 28, color: 'var(--md-sys-color-on-surface-variant)', fontSize: 13 }}>
                 No events yet.
               </div>
-            )}
-            {filteredRows.map((row, i) => (
+            )}              {filteredRows.map((row, i) => (
               <div
                 key={`${row.fixtureId}-${row.playerName}-${row.eventType}-${i}`}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '60px 1fr 1fr' + (hasLeague ? ' 80px' : ''),
+                  gridTemplateColumns: '1fr 1fr' + (hasLeague ? ' 80px' : ''),
                   padding: '10px 16px',
                   borderBottom: '1px solid rgba(255,255,255,0.03)',
                   fontSize: 13, alignItems: 'center',
                 }}
               >
-                {/* Minute */}
-                <span style={{
-                  fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)',
-                  color: '#FF005A',
-                }}>
-                  {row.minute}
-                </span>
-
                 {/* Player + badge */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <img
@@ -580,7 +570,7 @@ function ScoreCard({
       </div>
 
       {/* Teams + Score */}
-      <div style={{ padding: '14px 10px 10px', textAlign: 'center' }}>
+      <div style={{ padding: '14px 10px 6px', textAlign: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
           {/* Home */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flex: 1 }}>
@@ -618,7 +608,7 @@ function ScoreCard({
         </div>
 
         {/* Goals + Stats — split by team */}
-        <div style={{ marginTop: 14, display: 'flex', gap: 8 }}>
+        <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
           {/* Home side */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
             {goals.filter(g => g.teamSide === 'h').map((g, i) => (
