@@ -6,6 +6,7 @@ interface Team {
   id: number;
   name: string;
   short_name: string;
+  code: number;
 }
 
 interface Player {
@@ -40,6 +41,7 @@ interface FeedRow {
   minute: string;
   playerName: string;
   teamId: number;
+  teamCode: number;
   teamShort: string;
   eventType: string;
   pointsStr: string;
@@ -50,8 +52,8 @@ interface FeedRow {
 
 /* ── Helpers ───────────────────────────────────────────────────────────── */
 
-const TEAM_BADGE = (id: number) =>
-  `https://resources.premierleague.com/premierleague/badges/rb/t${id}.svg`;
+const TEAM_BADGE = (code: number) =>
+  `https://resources.premierleague.com/premierleague/badges/70/t${code}.png`;
 
 function fixtureStatus(f: Fixture): string {
   if (f.finished) return 'FT';
@@ -84,7 +86,6 @@ function LiveCentreComponent() {
 
   const fetchData = useCallback(async () => {
     try {
-      // Check league membership
       const leagueId = window.FPL?.state?.leagueId || localStorage.getItem('fplLeagueId');
       setHasLeague(!!leagueId);
 
@@ -115,22 +116,20 @@ function LiveCentreComponent() {
         : [];
       setFixtures(gwFixtures);
 
-      // Only today's live fixtures
       const todayLive = gwFixtures.filter(f => isLive(f) && isToday(f.kickoff_time));
 
       if (todayLive.length > 0) {
         const rows: FeedRow[] = [];
 
         for (const fx of todayLive) {
-          const homeShort = teamMap.get(fx.team_h)?.short_name ?? '';
-          const awayShort = teamMap.get(fx.team_a)?.short_name ?? '';
+          const home = teamMap.get(fx.team_h);
+          const away = teamMap.get(fx.team_a);
 
           const processEntries = (
             entries: Array<{ value: number; element: number }>,
             side: 'h' | 'a',
           ) => {
-            const teamShort = side === 'h' ? homeShort : awayShort;
-            const teamId = side === 'h' ? fx.team_h : fx.team_a;
+            const team = side === 'h' ? home : away;
             const minute = `${fx.minutes}'`;
 
             if (stat.identifier === 'goals_scored') {
@@ -138,9 +137,10 @@ function LiveCentreComponent() {
                 const p = playerMap.get(entry.element);
                 rows.push({
                   minute, playerName: p?.web_name ?? `#${entry.element}`,
-                  teamId, teamShort, eventType: 'Goal', pointsStr: '+5 pts',
-                  points: 5, fixtureId: fx.id,
-                  sortKey: fx.minutes * 10000 + rows.length,
+                  teamId: team?.id ?? 0, teamCode: team?.code ?? 0,
+                  teamShort: team?.short_name ?? '',
+                  eventType: 'Goal', pointsStr: '+5 pts', points: 5,
+                  fixtureId: fx.id, sortKey: fx.minutes * 10000 + rows.length,
                 });
               }
             }
@@ -149,9 +149,10 @@ function LiveCentreComponent() {
                 const p = playerMap.get(entry.element);
                 rows.push({
                   minute, playerName: p?.web_name ?? `#${entry.element}`,
-                  teamId, teamShort, eventType: 'Assist', pointsStr: '+3 pts',
-                  points: 3, fixtureId: fx.id,
-                  sortKey: fx.minutes * 10000 + rows.length,
+                  teamId: team?.id ?? 0, teamCode: team?.code ?? 0,
+                  teamShort: team?.short_name ?? '',
+                  eventType: 'Assist', pointsStr: '+3 pts', points: 3,
+                  fixtureId: fx.id, sortKey: fx.minutes * 10000 + rows.length,
                 });
               }
             }
@@ -160,9 +161,10 @@ function LiveCentreComponent() {
                 const p = playerMap.get(entry.element);
                 rows.push({
                   minute, playerName: p?.web_name ?? `#${entry.element}`,
-                  teamId, teamShort, eventType: 'Yellow Card', pointsStr: '-1 pts',
-                  points: -1, fixtureId: fx.id,
-                  sortKey: fx.minutes * 10000 + rows.length,
+                  teamId: team?.id ?? 0, teamCode: team?.code ?? 0,
+                  teamShort: team?.short_name ?? '',
+                  eventType: 'Yellow Card', pointsStr: '-1 pts', points: -1,
+                  fixtureId: fx.id, sortKey: fx.minutes * 10000 + rows.length,
                 });
               }
             }
@@ -171,9 +173,10 @@ function LiveCentreComponent() {
                 const p = playerMap.get(entry.element);
                 rows.push({
                   minute, playerName: p?.web_name ?? `#${entry.element}`,
-                  teamId, teamShort, eventType: 'Red Card', pointsStr: '-3 pts',
-                  points: -3, fixtureId: fx.id,
-                  sortKey: fx.minutes * 10000 + rows.length,
+                  teamId: team?.id ?? 0, teamCode: team?.code ?? 0,
+                  teamShort: team?.short_name ?? '',
+                  eventType: 'Red Card', pointsStr: '-3 pts', points: -3,
+                  fixtureId: fx.id, sortKey: fx.minutes * 10000 + rows.length,
                 });
               }
             }
@@ -183,9 +186,10 @@ function LiveCentreComponent() {
                   const p = playerMap.get(entry.element);
                   rows.push({
                     minute, playerName: p?.web_name ?? `#${entry.element}`,
-                    teamId, teamShort, eventType: `${entry.value} Saves`, pointsStr: '+1 pts',
-                    points: 1, fixtureId: fx.id,
-                    sortKey: fx.minutes * 10000 + rows.length,
+                    teamId: team?.id ?? 0, teamCode: team?.code ?? 0,
+                    teamShort: team?.short_name ?? '',
+                    eventType: `${entry.value} Saves`, pointsStr: '+1 pts', points: 1,
+                    fixtureId: fx.id, sortKey: fx.minutes * 10000 + rows.length,
                   });
                 }
               }
@@ -196,9 +200,11 @@ function LiveCentreComponent() {
                 const pts = entry.value >= 3 ? 3 : entry.value >= 2 ? 2 : 1;
                 rows.push({
                   minute, playerName: p?.web_name ?? `#${entry.element}`,
-                  teamId, teamShort, eventType: `${entry.value} Bonus pts`,
-                  pointsStr: `+${pts} pts`, points: pts, fixtureId: fx.id,
-                  sortKey: fx.minutes * 10000 + rows.length,
+                  teamId: team?.id ?? 0, teamCode: team?.code ?? 0,
+                  teamShort: team?.short_name ?? '',
+                  eventType: `${entry.value} Bonus pts`,
+                  pointsStr: `+${pts} pts`, points: pts,
+                  fixtureId: fx.id, sortKey: fx.minutes * 10000 + rows.length,
                 });
               }
             }
@@ -228,17 +234,11 @@ function LiveCentreComponent() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    if (autoRefresh) {
-      intervalRef.current = setInterval(fetchData, 15_000);
-    }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
+    if (autoRefresh) intervalRef.current = setInterval(fetchData, 15_000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [autoRefresh, fetchData]);
 
   if (loading) {
@@ -263,12 +263,9 @@ function LiveCentreComponent() {
 
   const liveFixtures = fixtures.filter(f => isLive(f) && isToday(f.kickoff_time));
   const hasLive = liveFixtures.length > 0;
-
   const filteredRows = selectedFixture
     ? feedRows.filter(r => r.fixtureId === selectedFixture)
     : feedRows;
-
-  /* ── No live ──────────────────────────────────────────────────────── */
 
   if (!hasLive) {
     const upcoming = fixtures
@@ -291,15 +288,13 @@ function LiveCentreComponent() {
           <p style={{ fontSize: 13, color: 'var(--md-sys-color-on-surface-variant)', margin: 0 }}>
             {next
               ? `Next: ${teams.get(next.team_h)?.short_name ?? '???'} vs ${teams.get(next.team_a)?.short_name ?? '???'} — ${new Date(next.kickoff_time).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })}`
-              : 'Matches for this gameweek haven\'t started yet.'
-            }
+              : 'Matches for this gameweek haven\'t started yet.'}
           </p>
         </div>
         <button onClick={() => fetchData()} style={{
           display: 'flex', alignItems: 'center', gap: 6,
           padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-          border: '1px solid rgba(255,255,255,0.1)',
-          background: 'rgba(255,255,255,0.04)',
+          border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)',
           color: 'var(--md-sys-color-on-surface-variant)', cursor: 'pointer',
         }}>
           <span className="material-symbols-outlined" style={{ fontSize: 16 }}>refresh</span>
@@ -308,8 +303,6 @@ function LiveCentreComponent() {
       </div>
     );
   }
-
-  /* ── Live ─────────────────────────────────────────────────────────── */
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -359,17 +352,38 @@ function LiveCentreComponent() {
       {/* Match tabs */}
       {liveFixtures.length > 1 && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          <MatchTab label="All" active={!selectedFixture} onClick={() => setSelectedFixture(null)} />
-          {liveFixtures.map(f => (
-            <MatchTab
-              key={f.id}
-              label={`${teams.get(f.team_h)?.short_name} ${f.team_h_score ?? 0}-${f.team_a_score ?? 0} ${teams.get(f.team_a)?.short_name}`}
-              active={f.id === selectedFixture}
-              onClick={() => setSelectedFixture(f.id)}
-              teamH={f.team_h}
-              teamA={f.team_a}
-            />
-          ))}
+          <button
+            onClick={() => setSelectedFixture(null)}
+            style={{
+              padding: '5px 12px', borderRadius: 8, fontSize: 11, fontWeight: 600,
+              border: !selectedFixture ? '1px solid rgba(255,0,90,0.4)' : '1px solid rgba(255,255,255,0.08)',
+              background: !selectedFixture ? 'rgba(255,0,90,0.1)' : 'rgba(255,255,255,0.03)',
+              color: !selectedFixture ? '#FF005A' : 'var(--md-sys-color-on-surface-variant)',
+              cursor: 'pointer', fontFamily: 'var(--font-mono)',
+            }}
+          >All</button>
+          {liveFixtures.map(f => {
+            const home = teams.get(f.team_h);
+            const away = teams.get(f.team_a);
+            return (
+              <button
+                key={f.id}
+                onClick={() => setSelectedFixture(f.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '5px 12px', borderRadius: 8, fontSize: 11, fontWeight: 600,
+                  border: f.id === selectedFixture ? '1px solid rgba(255,0,90,0.4)' : '1px solid rgba(255,255,255,0.08)',
+                  background: f.id === selectedFixture ? 'rgba(255,0,90,0.1)' : 'rgba(255,255,255,0.03)',
+                  color: f.id === selectedFixture ? '#FF005A' : 'var(--md-sys-color-on-surface-variant)',
+                  cursor: 'pointer', fontFamily: 'var(--font-mono)',
+                }}
+              >
+                <img src={TEAM_BADGE(home?.code ?? 0)} style={{ width: 16, height: 16 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                {home?.short_name} {f.team_h_score ?? 0}-{f.team_a_score ?? 0} {away?.short_name}
+                <img src={TEAM_BADGE(away?.code ?? 0)} style={{ width: 16, height: 16 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -380,14 +394,7 @@ function LiveCentreComponent() {
         gap: 14,
       }}>
         {liveFixtures.map(f => (
-          <ScoreCard
-            key={f.id}
-            fixture={f}
-            teams={teams}
-            players={players}
-            selected={selectedFixture === f.id}
-            onSelect={() => setSelectedFixture(selectedFixture === f.id ? null : f.id)}
-          />
+          <ScoreCard key={f.id} fixture={f} teams={teams} players={players} />
         ))}
       </div>
 
@@ -400,9 +407,7 @@ function LiveCentreComponent() {
           <span className="material-symbols-outlined" style={{ color: '#00FF85', fontSize: 18 }}>bolt</span>
           My Feed
           {hasLeague && (
-            <span style={{
-              fontSize: 11, fontWeight: 500, color: 'var(--md-sys-color-on-surface-variant)',
-            }}>
+            <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--md-sys-color-on-surface-variant)' }}>
               · Impact vs league
             </span>
           )}
@@ -433,10 +438,7 @@ function LiveCentreComponent() {
           {/* Rows */}
           <div style={{ maxHeight: 520, overflowY: 'auto' }}>
             {filteredRows.length === 0 && (
-              <div style={{
-                textAlign: 'center', padding: 28,
-                color: 'var(--md-sys-color-on-surface-variant)', fontSize: 13,
-              }}>
+              <div style={{ textAlign: 'center', padding: 28, color: 'var(--md-sys-color-on-surface-variant)', fontSize: 13 }}>
                 No events yet.
               </div>
             )}
@@ -462,7 +464,7 @@ function LiveCentreComponent() {
                 {/* Player + badge */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <img
-                    src={TEAM_BADGE(row.teamId)}
+                    src={TEAM_BADGE(row.teamCode)}
                     alt={row.teamShort}
                     style={{ width: 20, height: 20, flexShrink: 0 }}
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -496,9 +498,7 @@ function LiveCentreComponent() {
                     textAlign: 'right', fontSize: 11, fontWeight: 600,
                     fontFamily: 'var(--font-mono)',
                     color: 'var(--md-sys-color-on-surface-variant)',
-                  }}>
-                    —
-                  </span>
+                  }}>—</span>
                 )}
               </div>
             ))}
@@ -509,56 +509,39 @@ function LiveCentreComponent() {
   );
 }
 
-/* ── Small helpers ─────────────────────────────────────────────────────── */
-
-function MatchTab({ label, active, onClick }: {
-  label: string; active: boolean; onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        padding: '5px 12px', borderRadius: 8, fontSize: 11, fontWeight: 600,
-        border: active ? '1px solid rgba(255,0,90,0.4)' : '1px solid rgba(255,255,255,0.08)',
-        background: active ? 'rgba(255,0,90,0.1)' : 'rgba(255,255,255,0.03)',
-        color: active ? '#FF005A' : 'var(--md-sys-color-on-surface-variant)',
-        cursor: 'pointer', fontFamily: 'var(--font-mono)',
-      }}
-    >
-      {label}
-    </button>
-  );
-}
-
 /* ── Score Card ────────────────────────────────────────────────────────── */
 
 function ScoreCard({
-  fixture, teams, players, selected, onSelect,
+  fixture, teams, players,
 }: {
   fixture: Fixture;
   teams: Map<number, Team>;
   players: Map<number, Player>;
-  selected: boolean;
-  onSelect: () => void;
 }) {
   const home = teams.get(fixture.team_h);
   const away = teams.get(fixture.team_a);
   const live = isLive(fixture);
   const status = fixtureStatus(fixture);
 
-  // Goals
-  const goals: Array<{ scorer: string; assister?: string }> = [];
+  // Build goal list with team context
+  interface GoalInfo { scorer: string; assister?: string; teamSide: 'h' | 'a'; teamId: number; }
+  const goals: GoalInfo[] = [];
   const gs = fixture.stats.find(s => s.identifier === 'goals_scored');
   const as = fixture.stats.find(s => s.identifier === 'assists');
+
   if (gs) {
-    for (const e of gs.h) goals.push({ scorer: players.get(e.element)?.web_name ?? '' });
-    for (const e of gs.a) goals.push({ scorer: players.get(e.element)?.web_name ?? '' });
+    for (const e of gs.h) goals.push({
+      scorer: players.get(e.element)?.web_name ?? '', teamSide: 'h', teamId: fixture.team_h,
+    });
+    for (const e of gs.a) goals.push({
+      scorer: players.get(e.element)?.web_name ?? '', teamSide: 'a', teamId: fixture.team_a,
+    });
   }
   if (as) {
     let hi = 0, ai = 0;
     for (const g of goals) {
-      if (as.h[hi]) { g.assister = players.get(as.h[hi].element)?.web_name; hi++; }
-      else if (as.a[ai]) { g.assister = players.get(as.a[ai].element)?.web_name; ai++; }
+      if (g.teamSide === 'h' && as.h[hi]) { g.assister = players.get(as.h[hi].element)?.web_name; hi++; }
+      else if (g.teamSide === 'a' && as.a[ai]) { g.assister = players.get(as.a[ai].element)?.web_name; ai++; }
     }
   }
 
@@ -571,14 +554,10 @@ function ScoreCard({
   if (ss) { for (const e of ss.h) saves += e.value; for (const e of ss.a) saves += e.value; }
 
   return (
-    <div
-      onClick={onSelect}
-      style={{
-        borderRadius: 12, overflow: 'hidden', cursor: 'pointer',
-        background: selected ? 'rgba(0,255,133,0.06)' : 'rgba(255,255,255,0.03)',
-        border: selected ? '1px solid rgba(0,255,133,0.3)' : '1px solid rgba(255,255,255,0.06)',
-      }}
-    >
+    <div style={{
+      borderRadius: 12, overflow: 'hidden',
+      background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+    }}>
       {/* Status */}
       <div style={{
         padding: '5px 12px', textAlign: 'center',
@@ -604,7 +583,7 @@ function ScoreCard({
           {/* Home */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flex: 1 }}>
             <img
-              src={TEAM_BADGE(fixture.team_h)}
+              src={TEAM_BADGE(home?.code ?? 0)}
               alt={home?.short_name}
               style={{ width: 28, height: 28 }}
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -625,7 +604,7 @@ function ScoreCard({
           {/* Away */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flex: 1 }}>
             <img
-              src={TEAM_BADGE(fixture.team_a)}
+              src={TEAM_BADGE(away?.code ?? 0)}
               alt={away?.short_name}
               style={{ width: 28, height: 28 }}
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -636,22 +615,37 @@ function ScoreCard({
           </div>
         </div>
 
-        {/* Goals */}
+        {/* Goals — grouped by team */}
         {goals.length > 0 && (
-          <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {goals.map((g, i) => (
-              <div key={i} style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)' }}>
-                ⚽ <span style={{ color: '#fff', fontWeight: 600 }}>{g.scorer}</span>
-                {g.assister && <span> (ast: {g.assister})</span>}
-              </div>
-            ))}
+          <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {goals.map((g, i) => {
+              const team = teams.get(g.teamId);
+              return (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  fontSize: 11, fontFamily: 'var(--font-mono)',
+                  color: 'var(--md-sys-color-on-surface-variant)',
+                }}>
+                  <img
+                    src={TEAM_BADGE(team?.code ?? 0)}
+                    style={{ width: 14, height: 14, flexShrink: 0 }}
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                  <span style={{ color: '#00FF85' }}>⚽</span>
+                  <span style={{ color: '#ffffff', fontWeight: 600 }}>{g.scorer}</span>
+                  {g.assister && (
+                    <span>(ast: {g.assister})</span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
-        {/* Mini stats */}
+        {/* Stats */}
         {(yh + ya + rh + ra + saves > 0) && (
           <div style={{
-            display: 'flex', justifyContent: 'center', gap: 10, marginTop: 8,
+            display: 'flex', justifyContent: 'center', gap: 10, marginTop: 10,
             fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)',
           }}>
             {yh + ya > 0 && <span>🟨 {yh + ya}</span>}
