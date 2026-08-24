@@ -67,7 +67,7 @@ function LiveCentreComponent() {
   const [liveEvents, setLiveEvents] = useState<LiveEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [focusFixture, setFocusFixture] = useState<number | null>(null);
+  const [selectedFixture, setSelectedFixture] = useState<number | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const eventsEndRef = useRef<HTMLDivElement>(null);
@@ -101,7 +101,6 @@ function LiveCentreComponent() {
         : [];
       setFixtures(gwFixtures);
 
-      // Only build events from live fixtures
       const liveFixtures = gwFixtures.filter(isLive);
       if (liveFixtures.length > 0) {
         const events: LiveEvent[] = [];
@@ -234,14 +233,8 @@ function LiveCentreComponent() {
           }
         }
         setLiveEvents(events);
-
-        // Auto-focus the single live match
-        if (liveFixtures.length === 1) {
-          setFocusFixture(liveFixtures[0].id);
-        }
       } else {
         setLiveEvents([]);
-        setFocusFixture(null);
       }
 
       setLoading(false);
@@ -268,8 +261,6 @@ function LiveCentreComponent() {
     eventsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [liveEvents]);
 
-  /* ── Loading / Error ──────────────────────────────────────────────── */
-
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
@@ -293,16 +284,13 @@ function LiveCentreComponent() {
   const liveFixtures = fixtures.filter(isLive);
   const hasLive = liveFixtures.length > 0;
 
-  // Determine which fixture to show
-  const activeFixture = liveFixtures.find(f => f.id === focusFixture) ?? liveFixtures[0] ?? null;
-
-  const filteredEvents = activeFixture
-    ? liveEvents.filter(e => e.fixtureId === activeFixture.id)
-    : [];
+  const filteredEvents = selectedFixture
+    ? liveEvents.filter(e => e.fixtureId === selectedFixture)
+    : liveEvents;
 
   /* ── No live matches ──────────────────────────────────────────────── */
 
-  if (!hasLive || !activeFixture) {
+  if (!hasLive) {
     const upcoming = fixtures
       .filter(f => !f.started && !f.finished)
       .sort((a, b) => new Date(a.kickoff_time).getTime() - new Date(b.kickoff_time).getTime());
@@ -345,16 +333,16 @@ function LiveCentreComponent() {
     );
   }
 
-  /* ── Live match active ────────────────────────────────────────────── */
+  /* ── Live matches active ──────────────────────────────────────────── */
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: 'center' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }`}</style>
 
       {/* Controls Bar */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '12px 16px', borderRadius: 12, width: '100%', maxWidth: 600,
+        padding: '12px 16px', borderRadius: 12,
         background: 'rgba(255,0,90,0.06)', border: '1px solid rgba(255,0,90,0.15)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -371,7 +359,7 @@ function LiveCentreComponent() {
             LIVE
           </span>
           <span style={{ fontSize: 13, color: '#ffffff', fontWeight: 600 }}>
-            {activeFixture.minutes}'
+            {liveFixtures.length} {liveFixtures.length === 1 ? 'match' : 'matches'} in progress
           </span>
         </div>
         <button
@@ -392,64 +380,63 @@ function LiveCentreComponent() {
         </button>
       </div>
 
-      {/* Match switcher (only if multiple live) */}
-      {liveFixtures.length > 1 && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-          {liveFixtures.map(f => {
-            const home = teams.get(f.team_h);
-            const away = teams.get(f.team_a);
-            const isActive = f.id === activeFixture.id;
-            return (
-              <button
-                key={f.id}
-                onClick={() => setFocusFixture(f.id)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '8px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-                  border: isActive ? '1px solid rgba(255,0,90,0.4)' : '1px solid rgba(255,255,255,0.08)',
-                  background: isActive ? 'rgba(255,0,90,0.1)' : 'rgba(255,255,255,0.03)',
-                  color: isActive ? '#FF005A' : 'var(--md-sys-color-on-surface-variant)',
-                  cursor: 'pointer', transition: 'all 0.15s ease',
-                }}
-              >
-                <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)' }}>{f.minutes}'</span>
-                {home?.short_name} {f.team_h_score ?? 0} - {f.team_a_score ?? 0} {away?.short_name}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Score Card — centred */}
-      <div style={{ width: '100%', maxWidth: 480 }}>
-        <MatchCard
-          fixture={activeFixture}
-          teams={teams}
-          players={players}
-        />
+      {/* Match Cards Grid */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${Math.min(liveFixtures.length, 3)}, 1fr)`,
+        gap: 16,
+      }}>
+        {liveFixtures.map(f => (
+          <MatchCard
+            key={f.id}
+            fixture={f}
+            teams={teams}
+            players={players}
+            selected={selectedFixture === f.id}
+            onSelect={() => setSelectedFixture(selectedFixture === f.id ? null : f.id)}
+          />
+        ))}
       </div>
 
-      {/* Events — centred */}
-      <div style={{ width: '100%', maxWidth: 480 }}>
+      {/* Live Event Feed — centred, larger */}
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+      }}>
         <h2 style={{
-          fontSize: 14, fontWeight: 700, color: '#ffffff', margin: '0 0 10px',
-          display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center',
+          fontSize: 16, fontWeight: 700, color: '#ffffff', margin: '0 0 12px',
+          display: 'flex', alignItems: 'center', gap: 8,
         }}>
-          <span className="material-symbols-outlined" style={{ color: '#00FF85', fontSize: 18 }}>
+          <span className="material-symbols-outlined" style={{ color: '#00FF85', fontSize: 20 }}>
             bolt
           </span>
           Events
+          {selectedFixture && (
+            <button
+              onClick={() => setSelectedFixture(null)}
+              style={{
+                marginLeft: 8, padding: '2px 10px', borderRadius: 6,
+                fontSize: 11, fontWeight: 600, border: '1px solid rgba(255,255,255,0.1)',
+                background: 'rgba(255,255,255,0.06)', color: 'var(--md-sys-color-on-surface-variant)',
+                cursor: 'pointer',
+              }}
+            >
+              Show all
+            </button>
+          )}
         </h2>
         <div style={{
-          display: 'flex', flexDirection: 'column', gap: 6,
+          display: 'flex', flexDirection: 'column', gap: 8,
           maxHeight: 500, overflowY: 'auto',
+          width: '100%', maxWidth: 560,
+          padding: '16px 20px', borderRadius: 14,
+          background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
         }}>
           {filteredEvents.length === 0 && (
             <div style={{
               textAlign: 'center', padding: 24,
               color: 'var(--md-sys-color-on-surface-variant)', fontSize: 13,
             }}>
-              No events yet in this match.
+              No events yet.
             </div>
           )}
           {filteredEvents.map((ev, i) => (
@@ -465,17 +452,20 @@ function LiveCentreComponent() {
 /* ── Sub-components ────────────────────────────────────────────────────── */
 
 function MatchCard({
-  fixture, teams, players,
+  fixture, teams, players, selected, onSelect,
 }: {
   fixture: Fixture;
   teams: Map<number, Team>;
   players: Map<number, Player>;
+  selected: boolean;
+  onSelect: () => void;
 }) {
   const home = teams.get(fixture.team_h);
   const away = teams.get(fixture.team_a);
   const status = fixtureStatus(fixture);
+  const live = isLive(fixture);
+  const statusColor = live ? '#FF005A' : 'var(--md-sys-color-on-surface-variant)';
 
-  // Goal events
   const goalEvents: Array<{ team: 'h' | 'a'; scorer: string; assister?: string }> = [];
   const goalsStat = fixture.stats.find(s => s.identifier === 'goals_scored');
   if (goalsStat) {
@@ -489,7 +479,6 @@ function MatchCard({
     }
   }
 
-  // Match assists to goals
   const assistStat = fixture.stats.find(s => s.identifier === 'assists');
   if (assistStat) {
     let hIdx = 0;
@@ -507,13 +496,11 @@ function MatchCard({
     }
   }
 
-  // Cards
   const yellowH = fixture.stats.find(s => s.identifier === 'yellow_cards')?.h.length ?? 0;
   const yellowA = fixture.stats.find(s => s.identifier === 'yellow_cards')?.a.length ?? 0;
   const redH = fixture.stats.find(s => s.identifier === 'red_cards')?.h.length ?? 0;
   const redA = fixture.stats.find(s => s.identifier === 'red_cards')?.a.length ?? 0;
 
-  // Saves
   const savesStat = fixture.stats.find(s => s.identifier === 'saves');
   let totalSaves = 0;
   if (savesStat) {
@@ -524,58 +511,61 @@ function MatchCard({
   const hasCards = (yellowH + yellowA + redH + redA) > 0;
 
   return (
-    <div style={{
-      borderRadius: 14, overflow: 'hidden',
-      background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
-    }}>
+    <div
+      onClick={onSelect}
+      style={{
+        borderRadius: 12, overflow: 'hidden', cursor: 'pointer',
+        background: selected ? 'rgba(0,255,133,0.06)' : 'rgba(255,255,255,0.03)',
+        border: selected ? '1px solid rgba(0,255,133,0.3)' : '1px solid rgba(255,255,255,0.06)',
+        transition: 'all 0.15s ease',
+      }}
+    >
       {/* Status bar */}
       <div style={{
-        padding: '8px 16px', display: 'flex', justifyContent: 'center', alignItems: 'center',
-        background: 'rgba(255,0,90,0.08)',
+        padding: '6px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        background: live ? 'rgba(255,0,90,0.08)' : 'rgba(255,255,255,0.02)',
         borderBottom: '1px solid rgba(255,255,255,0.06)',
       }}>
         <span style={{
-          fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#FF005A',
-          display: 'flex', alignItems: 'center', gap: 6,
+          fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)',
+          color: statusColor,
         }}>
-          <span style={{
-            width: 6, height: 6, borderRadius: '50%',
-            background: '#FF005A', animation: 'pulse 1.5s infinite',
-          }} />
+          {live && <span style={{
+            display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
+            background: '#FF005A', marginRight: 6, animation: 'pulse 1.5s infinite',
+          }} />}
           {status}
         </span>
       </div>
 
-      {/* Score — centred */}
-      <div style={{ padding: '20px 16px 16px', textAlign: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
-          <div style={{ textAlign: 'right', minWidth: 60 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#ffffff' }}>
+      {/* Score */}
+      <div style={{ padding: '16px 12px 12px', textAlign: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+          <div style={{ flex: 1, textAlign: 'right' }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#ffffff', marginBottom: 4 }}>
               {home?.short_name ?? '???'}
             </div>
           </div>
           <div style={{
-            fontSize: 36, fontWeight: 800, fontFamily: 'var(--font-mono)',
-            color: '#FF005A', minWidth: 80,
+            fontSize: 28, fontWeight: 800, fontFamily: 'var(--font-mono)',
+            color: live ? '#FF005A' : '#ffffff',
+            minWidth: 60,
           }}>
             {fixture.team_h_score ?? 0} - {fixture.team_a_score ?? 0}
           </div>
-          <div style={{ textAlign: 'left', minWidth: 60 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#ffffff' }}>
+          <div style={{ flex: 1, textAlign: 'left' }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#ffffff', marginBottom: 4 }}>
               {away?.short_name ?? '???'}
             </div>
           </div>
         </div>
 
-        {/* Goals detail — centred */}
         {goalEvents.length > 0 && (
-          <div style={{
-            marginTop: 16, display: 'flex', flexDirection: 'column', gap: 6,
-            alignItems: 'center',
-          }}>
+          <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
             {goalEvents.map((ge, i) => (
               <div key={i} style={{
-                fontSize: 12, fontFamily: 'var(--font-mono)', textAlign: 'center',
+                fontSize: 11, color: 'var(--md-sys-color-on-surface-variant)',
+                fontFamily: 'var(--font-mono)',
               }}>
                 <span style={{ color: '#00FF85' }}>⚽</span>{' '}
                 <span style={{ color: '#ffffff', fontWeight: 600 }}>{ge.scorer}</span>
@@ -589,11 +579,10 @@ function MatchCard({
           </div>
         )}
 
-        {/* Stats row — centred */}
         {(hasCards || totalSaves > 0) && (
           <div style={{
-            display: 'flex', justifyContent: 'center', gap: 16, marginTop: 14,
-            fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)',
+            display: 'flex', justifyContent: 'center', gap: 12, marginTop: 10,
+            fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)',
           }}>
             {yellowH + yellowA > 0 && <span>🟨 {yellowH + yellowA}</span>}
             {redH + redA > 0 && <span>🟥 {redH + redA}</span>}
@@ -631,27 +620,23 @@ function EventRow({ event }: { event: LiveEvent }) {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center',
-      padding: '12px 16px', borderRadius: 10,
+      padding: '14px 20px', borderRadius: 12,
       background: bg, border: `1px solid ${color}22`,
       textAlign: 'center',
     }}>
-      <span style={{ fontSize: 20, marginBottom: 4 }}>{emoji}</span>
+      <span style={{ fontSize: 22, marginBottom: 4 }}>{emoji}</span>
       <span style={{
-        fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)',
+        fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)',
         color, letterSpacing: '0.06em', marginBottom: 4,
       }}>
         {labels[event.type]}
       </span>
-      <div style={{
-        fontSize: 14, fontWeight: 700, color: '#ffffff',
-      }}>
+      <div style={{ fontSize: 15, fontWeight: 700, color: '#ffffff' }}>
         {event.playerName}
       </div>
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 6, marginTop: 4,
-      }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
         <span style={{
-          fontSize: 10, padding: '1px 6px', borderRadius: 4,
+          fontSize: 10, padding: '2px 8px', borderRadius: 4,
           background: 'rgba(255,255,255,0.06)',
           color: 'var(--md-sys-color-on-surface-variant)',
           fontFamily: 'var(--font-mono)', fontWeight: 600,
