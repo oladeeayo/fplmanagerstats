@@ -65,6 +65,7 @@ interface FDMatch {
 interface FeedRow {
   minute: string;
   playerName: string;
+  playerId?: number;
   teamId: number;
   teamCode: number;
   teamShort: string;
@@ -73,6 +74,8 @@ interface FeedRow {
   points: number;
   fixtureId: number;
   sortKey: number;
+  impact?: string;
+  impactColor?: string;
 }
 
 /* ── Helpers ───────────────────────────────────────────────────────────── */
@@ -130,6 +133,7 @@ function LiveCentreComponent() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [hasLeague, setHasLeague] = useState(false);
   const [hasMatchEvents, setHasMatchEvents] = useState(false);
+  const [ownedPlayerIds, setOwnedPlayerIds] = useState<Set<number>>(new Set());
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -156,6 +160,20 @@ function LiveCentreComponent() {
         bootstrap.events?.find((e: { is_current: boolean }) => e.is_current)?.id ??
         bootstrap.events?.find((e: { is_next: boolean }) => e.is_next)?.id ??
         1;
+
+      // Fetch user's squad to determine player ownership for impact column
+      try {
+        const managerId = (window as any).FPL?.state?.managerId || localStorage.getItem('fplManagerId');
+        if (managerId) {
+          const squadRes = await fetch(`/api/manager-squad/${managerId}?gw=${currentGW}`);
+          const squadData = await squadRes.json();
+          const owned = new Set<number>();
+          [...(squadData.starting11 || []), ...(squadData.bench || [])].forEach((p: any) => {
+            if (p.id) owned.add(p.id);
+          });
+          setOwnedPlayerIds(owned);
+        }
+      } catch { /* squad not available */ }
 
       const fixtureRes = await fetch('/api/fixtures?live=1');
       const allFixtures: Fixture[] = await fixtureRes.json();
@@ -200,6 +218,7 @@ function LiveCentreComponent() {
               minute: number;
               injuryTime: number;
               playerName: string;
+              playerId: number;
               teamId: number;
               teamCode: number;
               teamShort: string;
@@ -207,23 +226,35 @@ function LiveCentreComponent() {
               points: number;
             }
 
+            // Helper to find FPL player by full name
+            const findPlayerByName = (fullName: string, teamId: number): Player | undefined => {
+              for (const [, p] of playerMap) {
+                if (p.team === teamId && fullName.toLowerCase().includes(p.web_name.toLowerCase())) return p;
+              }
+              return undefined;
+            };
+
             const events: Event[] = [];
 
             for (const goal of fdMatch.goals) {
               const team = goal.team?.id === homeTeam.id ? homeTeam : awayTeam;
               const scorerName = goal.scorer?.name ?? 'Unknown';
+              const scorerPlayer = findPlayerByName(scorerName, team.id);
               events.push({
                 minute: goal.minute,
                 injuryTime: goal.injuryTime ?? 0,
                 playerName: scorerName,
+                playerId: scorerPlayer?.id ?? 0,
                 teamId: team.id, teamCode: team.code, teamShort: team.short_name,
                 eventType: 'Goal', points: 5,
               });
               if (goal.assist) {
+                const assistPlayer = findPlayerByName(goal.assist.name, team.id);
                 events.push({
                   minute: goal.minute,
                   injuryTime: goal.injuryTime ?? 0,
                   playerName: goal.assist.name,
+                  playerId: assistPlayer?.id ?? 0,
                   teamId: team.id, teamCode: team.code, teamShort: team.short_name,
                   eventType: 'Assist', points: 3,
                 });
@@ -234,10 +265,12 @@ function LiveCentreComponent() {
               const team = booking.team?.id === homeTeam.id ? homeTeam : awayTeam;
               const cardType = booking.card === 'RED' ? 'Red Card' : 'Yellow Card';
               const pts = booking.card === 'RED' ? -3 : -1;
+              const bookPlayer = findPlayerByName(booking.player?.name ?? '', team.id);
               events.push({
                 minute: booking.minute,
                 injuryTime: booking.injuryTime ?? 0,
                 playerName: booking.player?.name ?? 'Unknown',
+                playerId: bookPlayer?.id ?? 0,
                 teamId: team.id, teamCode: team.code, teamShort: team.short_name,
                 eventType: cardType, points: pts,
               });
@@ -251,9 +284,11 @@ function LiveCentreComponent() {
               const ev = events[i];
               const minStr = ev.injuryTime > 0 ? `${ev.minute}+${ev.injuryTime}'` : `${ev.minute}'`;
               const ptsStr = ev.points >= 0 ? `+${ev.points} pts` : `${ev.points} pts`;
+              const isOwned = ev.playerId > 0 && ownedPlayerIds.has(ev.playerId);
               rows.push({
                 minute: minStr,
                 playerName: ev.playerName,
+                playerId: ev.playerId,
                 teamId: ev.teamId,
                 teamCode: ev.teamCode,
                 teamShort: ev.teamShort,
@@ -261,7 +296,9 @@ function LiveCentreComponent() {
                 pointsStr: ptsStr,
                 points: ev.points,
                 fixtureId: fplFixture.id,
-                sortKey: i, // Already sorted by minute
+                sortKey: i,
+                impact: isOwned ? (ev.points >= 0 ? `+${ev.points}` : `${ev.points}`) : undefined,
+                impactColor: isOwned ? (ev.points >= 0 ? '#00FF85' : '#FF4444') : undefined,
               });
             }
           }
@@ -273,13 +310,18 @@ function LiveCentreComponent() {
             const minute = `${fx.minutes}'`;
 
             const makeRow = (
-              playerName: string, teamId: number, teamCode: number, teamShort: string,
+              playerName: string, playerId: number, teamId: number, teamCode: number, teamShort: string,
               eventType: string, pointsStr: string, points: number,
-            ): FeedRow => ({
-              minute, playerName, teamId, teamCode, teamShort,
-              eventType, pointsStr, points,
-              fixtureId: fx.id, sortKey: rows.length,
-            });
+            ): FeedRow => {
+              const isOwned = playerId > 0 && ownedPlayerIds.has(playerId);
+              return {
+                minute, playerName, playerId, teamId, teamCode, teamShort,
+                eventType, pointsStr, points,
+                fixtureId: fx.id, sortKey: rows.length,
+                impact: isOwned ? (points >= 0 ? `+${points}` : `${points}`) : undefined,
+                impactColor: isOwned ? (points >= 0 ? '#00FF85' : '#FF4444') : undefined,
+              };
+            };
 
             const gs = fx.stats.find(s => s.identifier === 'goals_scored');
             const as = fx.stats.find(s => s.identifier === 'assists');
@@ -293,22 +335,22 @@ function LiveCentreComponent() {
               if (gs?.h[i]) {
                 const p = playerMap.get(gs.h[i].element);
                 const t = home!;
-                rows.push(makeRow(p?.web_name ?? '', t.id, t.code, t.short_name, 'Goal', '+5 pts', 5));
+                rows.push(makeRow(p?.web_name ?? '', p?.id ?? 0, t.id, t.code, t.short_name, 'Goal', '+5 pts', 5));
               }
               if (as?.h[i]) {
                 const p = playerMap.get(as.h[i].element);
                 const t = home!;
-                rows.push(makeRow(p?.web_name ?? '', t.id, t.code, t.short_name, 'Assist', '+3 pts', 3));
+                rows.push(makeRow(p?.web_name ?? '', p?.id ?? 0, t.id, t.code, t.short_name, 'Assist', '+3 pts', 3));
               }
               if (gs?.a[i]) {
                 const p = playerMap.get(gs.a[i].element);
                 const t = away!;
-                rows.push(makeRow(p?.web_name ?? '', t.id, t.code, t.short_name, 'Goal', '+5 pts', 5));
+                rows.push(makeRow(p?.web_name ?? '', p?.id ?? 0, t.id, t.code, t.short_name, 'Goal', '+5 pts', 5));
               }
               if (as?.a[i]) {
                 const p = playerMap.get(as.a[i].element);
                 const t = away!;
-                rows.push(makeRow(p?.web_name ?? '', t.id, t.code, t.short_name, 'Assist', '+3 pts', 3));
+                rows.push(makeRow(p?.web_name ?? '', p?.id ?? 0, t.id, t.code, t.short_name, 'Assist', '+3 pts', 3));
               }
             }
 
@@ -316,7 +358,7 @@ function LiveCentreComponent() {
               const team = side === 'h' ? home! : away!;
               for (const entry of entries) {
                 const p = playerMap.get(entry.element);
-                rows.push(makeRow(p?.web_name ?? '', team.id, team.code, team.short_name, type, ptsStr, pts));
+                rows.push(makeRow(p?.web_name ?? '', p?.id ?? 0, team.id, team.code, team.short_name, type, ptsStr, pts));
               }
             };
             if (yc) { processCard(yc.h, 'h', 'Yellow Card', -1, '-1 pts'); processCard(yc.a, 'a', 'Yellow Card', -1, '-1 pts'); }
@@ -328,7 +370,7 @@ function LiveCentreComponent() {
                 for (const entry of (side === 'h' ? sv.h : sv.a)) {
                   if (entry.value >= 3) {
                     const p = playerMap.get(entry.element);
-                    rows.push(makeRow(p?.web_name ?? '', team.id, team.code, team.short_name, `${entry.value} Saves`, '+1 pts', 1));
+                    rows.push(makeRow(p?.web_name ?? '', p?.id ?? 0, team.id, team.code, team.short_name, `${entry.value} Saves`, '+1 pts', 1));
                   }
                 }
               }
@@ -340,7 +382,7 @@ function LiveCentreComponent() {
                 for (const entry of (side === 'h' ? bn.h : bn.a)) {
                   const p = playerMap.get(entry.element);
                   const pts = entry.value >= 3 ? 3 : entry.value >= 2 ? 2 : 1;
-                  rows.push(makeRow(p?.web_name ?? '', team.id, team.code, team.short_name, `${entry.value} Bonus pts`, `+${pts} pts`, pts));
+                  rows.push(makeRow(p?.web_name ?? '', p?.id ?? 0, team.id, team.code, team.short_name, `${entry.value} Bonus pts`, `+${pts} pts`, pts));
                 }
               }
             }
@@ -623,8 +665,8 @@ function LiveCentreComponent() {
                   <span style={{
                     textAlign: 'right', fontSize: 11, fontWeight: 600,
                     fontFamily: 'var(--font-mono)',
-                    color: 'var(--md-sys-color-on-surface-variant)',
-                  }}>—</span>
+                    color: row.impact ? row.impactColor : 'var(--md-sys-color-on-surface-variant)',
+                  }}>{row.impact ?? '—'}</span>
                 )}
               </div>
             ))}

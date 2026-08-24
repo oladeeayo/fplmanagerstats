@@ -286,13 +286,9 @@ router.get('/league-standings/:leagueId', heavyEndpointLimiter, async (req, res)
         const chips = hist?.chips || [];
         const currentGW = hist?.current?.length || 0;
 
-        // Map season names to find specific past seasons
-        const getSeasonRank = (season) => {
-          const s = past.find(p => p.season_name === season);
-          return s ? s.rank : null;
-        };
-        const lastSeasonRank = getSeasonRank('2024/25');
-        const seasonBeforeLastRank = getSeasonRank('2023/24');
+        // Dynamically pick the two most recent completed seasons
+        const lastSeasonRank = past.length > 0 ? past[past.length - 1]?.rank || null : null;
+        const seasonBeforeLastRank = past.length > 1 ? past[past.length - 2]?.rank || null : null;
 
         // Chips filtered from GW20+
         const chipLabels = chips
@@ -1997,6 +1993,37 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
     const pageSize = 100;
     const managerEntries = topEntries.slice((page - 1) * pageSize, page * pageSize);
 
+    // Fetch entry + history data for current page managers (overall rank, past season ranks, season chips)
+    const managerDetailMap = {};
+    await Promise.all(
+      managerEntries.map(async e => {
+        if (!e.entry) return;
+        try {
+          const [entryData, historyData] = await Promise.all([
+            getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/`),
+            getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/history/`)
+          ]);
+          const past = historyData?.past || [];
+          // Dynamically pick the two most recent completed seasons
+          const lastSeason = past.length > 0 ? past[past.length - 1] : null;
+          const seasonBefore = past.length > 1 ? past[past.length - 2] : null;
+          const chipsUsed = (historyData?.chips || []).map(c => ({
+            name: c.name, event: c.event
+          }));
+          managerDetailMap[e.entry] = {
+            overallRank: entryData?.summary_overall_rank || null,
+            lastSeasonRank: lastSeason?.rank || null,
+            lastSeasonName: lastSeason?.season_name || null,
+            seasonBeforeLastRank: seasonBefore?.rank || null,
+            seasonBeforeName: seasonBefore?.season_name || null,
+            seasonChips: chipsUsed
+          };
+        } catch (err) {
+          managerDetailMap[e.entry] = {};
+        }
+      })
+    );
+
     const managers = managerEntries.map((entry, index) => {
       const mgrName = entry.player_name || [entry.player_first_name, entry.player_last_name].filter(Boolean).join(' ');
       const entName = entry.entry_name || 'Team';
@@ -2032,6 +2059,7 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
         xGWPts = Math.round(totalXP * 10) / 10;
       }
 
+      const detail = managerDetailMap[mId] || {};
       return {
         rank: entry.rank || ((page - 1) * pageSize) + index + 1,
         managerName: mgrName,
@@ -2043,7 +2071,11 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
         diffCount: Math.max(0, leaderTotal - (entry.total || 0)),
         xGWPts,
         captainName,
-        activeChip: activeChipCode
+        activeChip: activeChipCode,
+        overallRank: detail.overallRank || null,
+        lastSeasonRank: detail.lastSeasonRank || null,
+        seasonBeforeLastRank: detail.seasonBeforeLastRank || null,
+        seasonChips: detail.seasonChips || []
       };
     });
 
@@ -2149,6 +2181,9 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
     const hasMoreFlag = !isFullyLoaded;
     const actualTotalManagers = knownTotalCount;
 
+    // Extract season names from the first manager that has them
+    const firstWithSeasons = managers.find(m => m.lastSeasonName || m.seasonBeforeName) || {};
+
     return res.json({
       leagueId: parseInt(leagueId),
       leagueName: decodeHTMLEntities(leagueInfo.name) || `League ${leagueId}`,
@@ -2163,6 +2198,8 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       topScoreGW: eventScores.length ? Math.max(...eventScores) : 0,
       topScorerManager: managers.find(manager => manager.eventTotal === Math.max(...eventScores))?.managerName || '',
       topScorerTeam: managers.find(manager => manager.eventTotal === Math.max(...eventScores))?.entryName || '',
+      lastSeasonName: firstWithSeasons.lastSeasonName || null,
+      seasonBeforeName: firstWithSeasons.seasonBeforeName || null,
       managers,
       leagueTemplate,
       captaincyCount,
@@ -2184,14 +2221,36 @@ router.get('/manager-squad/:managerId', async (req, res) => {
     const bootstrap = await getCachedApiData(BOOTSTRAP_URL);
     const activeGW = gw || bootstrap.events?.find(e => e.is_current)?.id || bootstrap.events?.find(e => e.is_next)?.id || 1;
     
-    const [managerData, picksData, historyData] = await Promise.all([
+    const [managerData, picksData, historyData, fixturesData] = await Promise.all([
       getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/`),
       getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${activeGW}/picks/`).catch(() => ({})),
-      getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/history/`).catch(() => ({}))
+      getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/history/`).catch(() => ({})),
+      getCachedApiData(FIXTURES_URL)
     ]);
 
     const elementsMap = new Map((bootstrap.elements || []).map(p => [p.id, p]));
     const teamsMap = new Map((bootstrap.teams || []).map(t => [t.id, t]));
+
+    // Build fixtures map: teamId -> sorted upcoming fixtures with FDR
+    const allFixtures = fixturesData || [];
+    const teamFixturesMap = {};
+    allFixtures.forEach(f => {
+      if (!f.event || f.event < activeGW) return;
+      [f.team_h, f.team_a].forEach(teamId => {
+        if (!teamFixturesMap[teamId]) teamFixturesMap[teamId] = [];
+        const isHome = f.team_h === teamId;
+        const oppTeam = teamsMap.get(isHome ? f.team_a : f.team_h);
+        teamFixturesMap[teamId].push({
+          gw: f.event,
+          opponent: oppTeam?.short_name || '?',
+          isHome,
+          fdr: isHome ? (f.team_h_difficulty || 3) : (f.team_a_difficulty || 3)
+        });
+      });
+    });
+    Object.keys(teamFixturesMap).forEach(teamId => {
+      teamFixturesMap[teamId].sort((a, b) => a.gw - b.gw);
+    });
 
     const activeChip = picksData?.active_chip || null;
     const picks = picksData?.picks || [];
@@ -2208,6 +2267,7 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       const el = elementsMap.get(p.element);
       if (!el) return;
       const team = teamsMap.get(el.team);
+      const playerFixtures = (teamFixturesMap[el.team] || []).slice(0, 3);
       const playerObj = {
         id: el.id,
         code: el.code,
@@ -2218,6 +2278,8 @@ router.get('/manager-squad/:managerId', async (req, res) => {
         posType: el.element_type,
         cost: (el.now_cost / 10).toFixed(1),
         xP: parseFloat(el.ep_next || el.form || 0),
+        gwPoints: el.event_points ?? 0,
+        nextFixtures: playerFixtures,
         isCaptain: p.is_captain,
         isVice: p.is_vice_captain,
         multiplier: p.multiplier,

@@ -657,7 +657,7 @@
                     <!-- Data Table (Standings) -->
                     <div style="border-radius:16px;overflow:clip;display:flex;flex-direction:column;">
                         <div class="league-table-wrap sticky-rank-player" tabindex="0" aria-label="League standings table">
-                            <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:13px;white-space:nowrap;min-width:750px;">
+                            <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:13px;white-space:nowrap;min-width:1000px;">
                                 <thead>
                                     <tr style="background:rgba(255,255,255,0.03);color:var(--md-sys-color-on-surface);font-size:11px;font-family:var(--font-mono);">
                                         <th style="text-align:left;width:36px;background:rgba(24,24,27,0.9);position:sticky;left:0;z-index:2;cursor:pointer;" onclick="FPL.toggleStandingsSort('rank')" title="Sort by Rank">RANK <span id="standings-sort-icon-rank" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;color:#00FF85;">arrow_upward</span></th>
@@ -669,10 +669,13 @@
                                         <th style="text-align:center;cursor:pointer;" onclick="FPL.toggleStandingsSort('activeChip')" title="Sort by Chip Used">CHIP <span id="standings-sort-icon-activeChip" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
                                         <th style="text-align:center;cursor:pointer;" onclick="FPL.toggleStandingsSort('rankDiff')" title="Sort by Rank Movement">RANK DIFF <span id="standings-sort-icon-rankDiff" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
                                         <th style="text-align:center;cursor:pointer;" onclick="FPL.toggleStandingsSort('diffCount')" title="Sort by Points Behind Leader">DIFF COUNT <span id="standings-sort-icon-diffCount" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th style="text-align:center;cursor:pointer;" class="desktop-only" onclick="FPL.toggleStandingsSort('overallRank')" title="Sort by Overall Rank">OVR RANK <span id="standings-sort-icon-overallRank" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th id="standings-header-lastSzn" style="text-align:center;cursor:pointer;" class="desktop-only" onclick="FPL.toggleStandingsSort('lastSeasonRank')" title="Sort by Last Season Rank">LAST SZN <span id="standings-sort-icon-lastSeasonRank" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
+                                        <th id="standings-header-sznBefore" style="text-align:center;cursor:pointer;" class="desktop-only" onclick="FPL.toggleStandingsSort('seasonBeforeLastRank')" title="Sort by Season Before Last Rank">SZN BEFORE <span id="standings-sort-icon-seasonBeforeLastRank" class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;display:none;"></span></th>
                                     </tr>
                                 </thead>
                                 <tbody id="league-standings-body">
-                                    <tr><td colspan="9" style="text-align:center;padding:var(--space-xl);"><div style="display:flex;justify-content:center;padding:16px;"><div class="pixel-loader-container"><span class="pixel-grid" aria-hidden="true"><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span></span><span class="pixel-loader-label">Loading league standings...</span></div></div></td></tr>
+                                    <tr><td colspan="12" style="text-align:center;padding:var(--space-xl);"><div style="display:flex;justify-content:center;padding:16px;"><div class="pixel-loader-container"><span class="pixel-grid" aria-hidden="true"><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span></span><span class="pixel-loader-label">Loading league standings...</span></div></div></td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -1138,7 +1141,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="ownership-trends-table-body">
-                                    <tr><td colspan="9" style="text-align:center;padding:var(--space-xl);"><div style="display:flex;justify-content:center;padding:16px;"><div class="pixel-loader-container"><span class="pixel-grid" aria-hidden="true"><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span></span><span class="pixel-loader-label">Loading ownership trend data...</span></div></div></td></tr>
+                                    <tr><td colspan="12" style="text-align:center;padding:var(--space-xl);"><div style="display:flex;justify-content:center;padding:16px;"><div class="pixel-loader-container"><span class="pixel-grid" aria-hidden="true"><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span></span><span class="pixel-loader-label">Loading ownership trend data...</span></div></div></td></tr>
                                 </tbody>
                             </table>
                         </div>
