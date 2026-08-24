@@ -133,7 +133,7 @@ function LiveCentreComponent() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [hasLeague, setHasLeague] = useState(false);
   const [hasMatchEvents, setHasMatchEvents] = useState(false);
-  const [ownedPlayerIds, setOwnedPlayerIds] = useState<Set<number>>(new Set());
+  const ownedPlayerIdsRef = useRef<Set<number>>(new Set());
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -164,6 +164,7 @@ function LiveCentreComponent() {
       // Fetch user's squad to determine player ownership for impact column
       try {
         const managerId = (window as any).FPL?.state?.managerId || localStorage.getItem('fplManagerId');
+        console.log('[LiveCentre] managerId:', managerId);
         if (managerId) {
           const squadRes = await fetch(`/api/manager-squad/${managerId}?gw=${currentGW}`);
           const squadData = await squadRes.json();
@@ -171,9 +172,13 @@ function LiveCentreComponent() {
           [...(squadData.starting11 || []), ...(squadData.bench || [])].forEach((p: any) => {
             if (p.id) owned.add(p.id);
           });
-          setOwnedPlayerIds(owned);
+          ownedPlayerIdsRef.current = owned;
+          console.log('[LiveCentre] owned player IDs:', [...owned]);
+        } else {
+          ownedPlayerIdsRef.current = new Set();
+          console.log('[LiveCentre] No managerId found');
         }
-      } catch { /* squad not available */ }
+      } catch (e) { ownedPlayerIdsRef.current = new Set(); console.error('[LiveCentre] Squad fetch failed:', e); }
 
       const fixtureRes = await fetch('/api/fixtures?live=1');
       const allFixtures: Fixture[] = await fixtureRes.json();
@@ -208,7 +213,10 @@ function LiveCentreComponent() {
             const fplFixture = todayLive.find(f =>
               (f.team_h === fplTeam.id) || (f.team_a === fplTeam.id)
             );
-            if (!fplFixture) continue;
+            if (!fplFixture) {
+              console.log('[LiveCentre] No FPL fixture match for FD match:', fdMatch.homeTeam.name, 'vs', fdMatch.awayTeam.name, 'fplTeam:', fplTeam.short_name, 'todayLive:', todayLive.map(f => `${f.team_h}-${f.team_a}`));
+              continue;
+            }
 
             const homeTeam = teamMap.get(fplFixture.team_h)!;
             const awayTeam = teamMap.get(fplFixture.team_a)!;
@@ -226,20 +234,46 @@ function LiveCentreComponent() {
               points: number;
             }
 
-            // Helper to find FPL player by full name
+            // Helper to find FPL player by full name (with accent normalization)
+            const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
             const findPlayerByName = (fullName: string, teamId: number): Player | undefined => {
+              const normFull = normalize(fullName);
+              let best: Player | undefined;
+              let bestLen = 0;
               for (const [, p] of playerMap) {
-                if (p.team === teamId && fullName.toLowerCase().includes(p.web_name.toLowerCase())) return p;
+                if (p.team !== teamId) continue;
+                const normWeb = normalize(p.web_name);
+                // Exact or substring match, prefer longest match
+                if (normFull.includes(normWeb) && normWeb.length > bestLen) {
+                  best = p;
+                  bestLen = normWeb.length;
+                }
               }
-              return undefined;
+              // Fallback: check if any player's web_name contains parts of the full name
+              if (!best) {
+                const nameParts = normFull.split(/\s+/);
+                for (const [, p] of playerMap) {
+                  if (p.team !== teamId) continue;
+                  const normWeb = normalize(p.web_name);
+                  if (nameParts.some(part => part.length > 2 && normWeb.includes(part))) {
+                    best = p;
+                    break;
+                  }
+                }
+              }
+              return best;
             };
 
             const events: Event[] = [];
+
+            // Debug: log team IDs
+            console.log('[LiveCentre] FD match teams:', { fdHome: fdMatch.homeTeam.id, fdAway: fdMatch.awayTeam.id, fplHome: homeTeam.id, fplHomeShort: homeTeam.short_name, fplAway: awayTeam.id, fplAwayShort: awayTeam.short_name });
 
             for (const goal of fdMatch.goals) {
               const team = goal.team?.id === homeTeam.id ? homeTeam : awayTeam;
               const scorerName = goal.scorer?.name ?? 'Unknown';
               const scorerPlayer = findPlayerByName(scorerName, team.id);
+              if (!scorerPlayer) console.log('[LiveCentre] No match for scorer:', scorerName, 'team:', team.short_name, 'teamId:', team.id);
               events.push({
                 minute: goal.minute,
                 injuryTime: goal.injuryTime ?? 0,
@@ -279,12 +313,14 @@ function LiveCentreComponent() {
             // Sort by minute then injury time
             events.sort((a, b) => a.minute - b.minute || a.injuryTime - b.injuryTime);
 
+            console.log('[LiveCentre] FD events:', events.map(e => ({ name: e.playerName, playerId: e.playerId, teamId: e.teamId, type: e.eventType })));
+
             // Convert to FeedRows
             for (let i = 0; i < events.length; i++) {
               const ev = events[i];
               const minStr = ev.injuryTime > 0 ? `${ev.minute}+${ev.injuryTime}'` : `${ev.minute}'`;
               const ptsStr = ev.points >= 0 ? `+${ev.points} pts` : `${ev.points} pts`;
-              const isOwned = ev.playerId > 0 && ownedPlayerIds.has(ev.playerId);
+              const isOwned = ev.playerId > 0 && ownedPlayerIdsRef.current.has(ev.playerId);
               rows.push({
                 minute: minStr,
                 playerName: ev.playerName,
@@ -313,7 +349,7 @@ function LiveCentreComponent() {
               playerName: string, playerId: number, teamId: number, teamCode: number, teamShort: string,
               eventType: string, pointsStr: string, points: number,
             ): FeedRow => {
-              const isOwned = playerId > 0 && ownedPlayerIds.has(playerId);
+              const isOwned = playerId > 0 && ownedPlayerIdsRef.current.has(playerId);
               return {
                 minute, playerName, playerId, teamId, teamCode, teamShort,
                 eventType, pointsStr, points,
