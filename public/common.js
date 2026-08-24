@@ -3207,13 +3207,26 @@ const FPL = {
                     capBadge = `<span style="position:absolute;top:-4px;right:-4px;background:#00E5FF;color:#000;font-weight:900;font-size:9px;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.6);">V</span>`;
                 }
 
-                const gwPtsColor = (p.gwPoints || 0) >= 6 ? '#00FF85' : (p.gwPoints || 0) >= 3 ? '#fff' : (p.gwPoints || 0) > 0 ? '#FFA726' : '#666';
+                // Calculate displayed GW points (apply captain multiplier)
+                const isTC = activeChip === '3XC' && p.isCaptain;
+                const ptsMultiplier = isTC ? 3 : (p.isCaptain ? 2 : 1);
+                const displayPts = (p.gwPoints ?? 0) * ptsMultiplier;
+                const gwPtsColor = displayPts >= 12 ? '#00FF85' : displayPts >= 6 ? '#fff' : displayPts > 0 ? '#FFA726' : '#666';
+                
+                // Build mini fixture boxes
+                const fixtures = (p.nextFixtures || []).slice(0, 3);
+                const fixtureHTML = fixtures.map(fx => {
+                    const fdrBg = `var(--fdr-${fx.fdr})`;
+                    const fdrClr = fx.fdr <= 2 ? '#fff' : fx.fdr === 3 ? '#1a1a1a' : '#fff';
+                    return `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:14px;border-radius:2px;font-size:7px;font-weight:800;font-family:var(--font-mono);background:${fdrBg};color:${fdrClr};gap:1px;line-height:1;"><span style="font-size:6px;opacity:0.7;">${fx.isHome ? 'H' : 'A'}</span>${fx.opponent}</span>`;
+                }).join('');
+
                 return `
                     <div style="display:flex;flex-direction:column;align-items:center;width:72px;position:relative;">
                         <div style="position:relative;width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid ${p.isCaptain ? '#00FF85' : 'rgba(255,255,255,0.15)'};overflow:visible;display:flex;align-items:center;justify-content:center;">
                             <img src="${photoUrl}" onerror="if(this.src!=='${plFallback}'&&'${plFallback}'){this.src='${plFallback}';}else{this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2246%22 height=%2246%22 viewBox=%220 0 24 24%22 fill=%22%23777%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E';}" style="width:100%;height:100%;object-fit:cover;object-position:top;border-radius:50%;" alt="${p.name}">
                             ${capBadge}
-                            <span style="position:absolute;top:-6px;left:-6px;background:rgba(0,0,0,0.85);border:1px solid ${gwPtsColor};color:${gwPtsColor};font-weight:900;font-size:9px;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);box-shadow:0 2px 4px rgba(0,0,0,0.5);">${p.gwPoints ?? '--'}</span>
+                            <span style="position:absolute;top:-6px;left:-6px;background:rgba(0,0,0,0.85);border:1px solid ${gwPtsColor};color:${gwPtsColor};font-weight:900;font-size:9px;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);box-shadow:0 2px 4px rgba(0,0,0,0.5);">${displayPts}</span>
                         </div>
                         <div style="margin-top:4px;background:rgba(0,0,0,0.85);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:2px 4px;text-align:center;width:100%;">
                             <div style="font-weight:700;font-size:10px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(p.name)}</div>
@@ -3221,6 +3234,7 @@ const FPL = {
                                 <span style="color:#8ba396;">${p.team}</span>
                                 <span style="color:#00FF85;font-weight:800;font-family:var(--font-mono);">£${p.cost}m</span>
                             </div>
+                            ${fixtures.length > 0 ? `<div style="display:flex;justify-content:center;gap:2px;margin-top:3px;">${fixtureHTML}</div>` : ''}
                         </div>
                     </div>
                 `;
@@ -3288,34 +3302,6 @@ const FPL = {
                         `).join('')}
                     </div>
                     ` : ''}
-                </div>
-
-                <!-- Player Fixtures Section -->
-                <div style="margin-top:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                        <h3 style="font-family:var(--font-mono);font-size:13px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0;letter-spacing:0.03em;">NEXT 3 FIXTURES</h3>
-                        <span style="font-size:10px;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);">FDR 1-5 difficulty rating</span>
-                    </div>
-                    <div style="display:flex;flex-direction:column;gap:6px;">
-                        ${[...starting11, ...bench].map(p => {
-                            const fixtures = p.nextFixtures || [];
-                            return `<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:6px;background:rgba(255,255,255,0.02);">
-                                <span style="font-weight:700;font-size:11px;color:#fff;width:70px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(p.name)}</span>
-                                <span style="font-size:9px;color:#8ba396;width:28px;">${p.team}</span>
-                                <div style="display:flex;gap:4px;">
-                                    ${fixtures.map(fx => {
-                                        const fdrBg = `var(--fdr-${fx.fdr})`;
-                                        const fdrText = fx.fdr <= 2 ? '#fff' : fx.fdr === 3 ? '#1a1a1a' : '#fff';
-                                        return `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:52px;height:22px;border-radius:4px;font-size:10px;font-weight:800;font-family:var(--font-mono);background:${fdrBg};color:${fdrText};gap:3px;">
-                                            <span style="font-size:8px;opacity:0.8;">${fx.isHome ? 'H' : 'A'}</span>
-                                            ${fx.opponent}
-                                        </span>`;
-                                    }).join('')}
-                                    ${fixtures.length === 0 ? '<span style="font-size:10px;color:#666;font-family:var(--font-mono);">No fixtures</span>' : ''}
-                                </div>
-                            </div>`;
-                        }).join('')}
-                    </div>
                 </div>
             `;
         } catch (err) {
