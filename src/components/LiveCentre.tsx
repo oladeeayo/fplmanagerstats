@@ -36,14 +36,15 @@ interface Fixture {
   stats: StatEntry[];
 }
 
-interface LiveEvent {
-  type: 'goal' | 'assist' | 'yellow' | 'red' | 'save' | 'cs' | 'bonus';
-  playerId: number;
+interface FeedRow {
+  time: string;
   playerName: string;
-  teamId: number;
   teamShort: string;
-  extra?: string;
+  eventType: string;
+  pointsStr: string;
+  points: number;
   fixtureId: number;
+  sortKey: number;
 }
 
 /* ── Helpers ───────────────────────────────────────────────────────────── */
@@ -58,22 +59,43 @@ function isLive(f: Fixture): boolean {
   return f.started && !f.finished;
 }
 
+function isToday(dateStr: string): boolean {
+  const d = new Date(dateStr);
+  const now = new Date();
+  return d.toDateString() === now.toDateString();
+}
+
+/** Points the FPL system awards for each event type */
+const EVENT_POINTS: Record<string, number> = {
+  goal: 5,       // depends on position, but 5 is a rough mid
+  assist: 3,
+  yellow: -1,
+  red: -3,
+  save: 1,       // per 3 saves = 1 pt, we show per-save
+  bonus: 0,      // value is BPS count, bonus pts are 3/2/1
+};
+
 /* ── Component ─────────────────────────────────────────────────────────── */
 
 function LiveCentreComponent() {
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
   const [teams, setTeams] = useState<Map<number, Team>>(new Map());
   const [players, setPlayers] = useState<Map<number, Player>>(new Map());
-  const [liveEvents, setLiveEvents] = useState<LiveEvent[]>([]);
+  const [feedRows, setFeedRows] = useState<FeedRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedFixture, setSelectedFixture] = useState<number | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [hasManager, setHasManager] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const eventsEndRef = useRef<HTMLDivElement>(null);
 
   const fetchData = useCallback(async () => {
     try {
+      // Check if manager is connected
+      const managerId = window.FPL?.state?.managerId || localStorage.getItem('fplManagerId');
+      setHasManager(!!managerId);
+
       const bootstrapRes = await fetch('/api/bootstrap-static');
       const bootstrap = await bootstrapRes.json();
 
@@ -94,7 +116,6 @@ function LiveCentreComponent() {
         bootstrap.events?.find((e: { is_next: boolean }) => e.is_next)?.id ??
         1;
 
-      // Use ?live=1 for 15s cache instead of 30min
       const fixtureRes = await fetch('/api/fixtures?live=1');
       const allFixtures: Fixture[] = await fixtureRes.json();
       const gwFixtures = Array.isArray(allFixtures)
@@ -102,141 +123,154 @@ function LiveCentreComponent() {
         : [];
       setFixtures(gwFixtures);
 
-      // Only build events from live fixtures
-      const liveFixtures = gwFixtures.filter(isLive);
-      if (liveFixtures.length > 0) {
-        const events: LiveEvent[] = [];
-        for (const fx of liveFixtures) {
+      // Only live fixtures that are today
+      const liveFixtures = gwFixtures.filter(f => isLive(f));
+      const todayLive = liveFixtures.filter(f => isToday(f.kickoff_time));
+
+      if (todayLive.length > 0) {
+        const rows: FeedRow[] = [];
+
+        for (const fx of todayLive) {
+          const homeShort = teamMap.get(fx.team_h)?.short_name ?? '';
+          const awayShort = teamMap.get(fx.team_a)?.short_name ?? '';
+
           for (const stat of fx.stats) {
-            if (stat.identifier === 'goals_scored') {
-              for (const entry of stat.h) {
-                const p = playerMap.get(entry.element);
-                events.push({
-                  type: 'goal', playerId: entry.element,
-                  playerName: p?.web_name ?? `#${entry.element}`,
-                  teamId: fx.team_h, teamShort: teamMap.get(fx.team_h)?.short_name ?? '',
-                  fixtureId: fx.id,
-                });
-              }
-              for (const entry of stat.a) {
-                const p = playerMap.get(entry.element);
-                events.push({
-                  type: 'goal', playerId: entry.element,
-                  playerName: p?.web_name ?? `#${entry.element}`,
-                  teamId: fx.team_a, teamShort: teamMap.get(fx.team_a)?.short_name ?? '',
-                  fixtureId: fx.id,
-                });
-              }
-            }
-            if (stat.identifier === 'assists') {
-              for (const entry of stat.h) {
-                const p = playerMap.get(entry.element);
-                events.push({
-                  type: 'assist', playerId: entry.element,
-                  playerName: p?.web_name ?? `#${entry.element}`,
-                  teamId: fx.team_h, teamShort: teamMap.get(fx.team_h)?.short_name ?? '',
-                  fixtureId: fx.id,
-                });
-              }
-              for (const entry of stat.a) {
-                const p = playerMap.get(entry.element);
-                events.push({
-                  type: 'assist', playerId: entry.element,
-                  playerName: p?.web_name ?? `#${entry.element}`,
-                  teamId: fx.team_a, teamShort: teamMap.get(fx.team_a)?.short_name ?? '',
-                  fixtureId: fx.id,
-                });
-              }
-            }
-            if (stat.identifier === 'yellow_cards') {
-              for (const entry of stat.h) {
-                const p = playerMap.get(entry.element);
-                events.push({
-                  type: 'yellow', playerId: entry.element,
-                  playerName: p?.web_name ?? `#${entry.element}`,
-                  teamId: fx.team_h, teamShort: teamMap.get(fx.team_h)?.short_name ?? '',
-                  fixtureId: fx.id,
-                });
-              }
-              for (const entry of stat.a) {
-                const p = playerMap.get(entry.element);
-                events.push({
-                  type: 'yellow', playerId: entry.element,
-                  playerName: p?.web_name ?? `#${entry.element}`,
-                  teamId: fx.team_a, teamShort: teamMap.get(fx.team_a)?.short_name ?? '',
-                  fixtureId: fx.id,
-                });
-              }
-            }
-            if (stat.identifier === 'red_cards') {
-              for (const entry of stat.h) {
-                const p = playerMap.get(entry.element);
-                events.push({
-                  type: 'red', playerId: entry.element,
-                  playerName: p?.web_name ?? `#${entry.element}`,
-                  teamId: fx.team_h, teamShort: teamMap.get(fx.team_h)?.short_name ?? '',
-                  fixtureId: fx.id,
-                });
-              }
-              for (const entry of stat.a) {
-                const p = playerMap.get(entry.element);
-                events.push({
-                  type: 'red', playerId: entry.element,
-                  playerName: p?.web_name ?? `#${entry.element}`,
-                  teamId: fx.team_a, teamShort: teamMap.get(fx.team_a)?.short_name ?? '',
-                  fixtureId: fx.id,
-                });
-              }
-            }
-            if (stat.identifier === 'saves') {
-              for (const entry of stat.h) {
-                const p = playerMap.get(entry.element);
-                if (entry.value >= 3) {
-                  events.push({
-                    type: 'save', playerId: entry.element,
+            const processEntries = (
+              entries: Array<{ value: number; element: number }>,
+              side: 'h' | 'a',
+            ) => {
+              const teamShort = side === 'h' ? homeShort : awayShort;
+              const teamId = side === 'h' ? fx.team_h : fx.team_a;
+
+              if (stat.identifier === 'goals_scored') {
+                for (const entry of entries) {
+                  const p = playerMap.get(entry.element);
+                  rows.push({
+                    time: new Date(fx.kickoff_time).toLocaleString([], {
+                      weekday: 'short', hour: '2-digit', minute: '2-digit',
+                      month: 'short', day: 'numeric',
+                    }),
                     playerName: p?.web_name ?? `#${entry.element}`,
-                    teamId: fx.team_h, teamShort: teamMap.get(fx.team_h)?.short_name ?? '',
-                    extra: `${entry.value} saves`, fixtureId: fx.id,
+                    teamShort,
+                    eventType: 'Goal',
+                    pointsStr: '+5 pts',
+                    points: 5,
+                    fixtureId: fx.id,
+                    sortKey: fx.minutes * 10000 + rows.length,
                   });
                 }
               }
-              for (const entry of stat.a) {
-                const p = playerMap.get(entry.element);
-                if (entry.value >= 3) {
-                  events.push({
-                    type: 'save', playerId: entry.element,
+              if (stat.identifier === 'assists') {
+                for (const entry of entries) {
+                  const p = playerMap.get(entry.element);
+                  rows.push({
+                    time: new Date(fx.kickoff_time).toLocaleString([], {
+                      weekday: 'short', hour: '2-digit', minute: '2-digit',
+                      month: 'short', day: 'numeric',
+                    }),
                     playerName: p?.web_name ?? `#${entry.element}`,
-                    teamId: fx.team_a, teamShort: teamMap.get(fx.team_a)?.short_name ?? '',
-                    extra: `${entry.value} saves`, fixtureId: fx.id,
+                    teamShort,
+                    eventType: 'Assist',
+                    pointsStr: '+3 pts',
+                    points: 3,
+                    fixtureId: fx.id,
+                    sortKey: fx.minutes * 10000 + rows.length,
                   });
                 }
               }
-            }
-            if (stat.identifier === 'bonus') {
-              for (const entry of stat.h) {
-                const p = playerMap.get(entry.element);
-                events.push({
-                  type: 'bonus', playerId: entry.element,
-                  playerName: p?.web_name ?? `#${entry.element}`,
-                  teamId: fx.team_h, teamShort: teamMap.get(fx.team_h)?.short_name ?? '',
-                  extra: `${entry.value} BPS`, fixtureId: fx.id,
-                });
+              if (stat.identifier === 'yellow_cards') {
+                for (const entry of entries) {
+                  const p = playerMap.get(entry.element);
+                  rows.push({
+                    time: new Date(fx.kickoff_time).toLocaleString([], {
+                      weekday: 'short', hour: '2-digit', minute: '2-digit',
+                      month: 'short', day: 'numeric',
+                    }),
+                    playerName: p?.web_name ?? `#${entry.element}`,
+                    teamShort,
+                    eventType: 'Yellow Card',
+                    pointsStr: '-1 pts',
+                    points: -1,
+                    fixtureId: fx.id,
+                    sortKey: fx.minutes * 10000 + rows.length,
+                  });
+                }
               }
-              for (const entry of stat.a) {
-                const p = playerMap.get(entry.element);
-                events.push({
-                  type: 'bonus', playerId: entry.element,
-                  playerName: p?.web_name ?? `#${entry.element}`,
-                  teamId: fx.team_a, teamShort: teamMap.get(fx.team_a)?.short_name ?? '',
-                  extra: `${entry.value} BPS`, fixtureId: fx.id,
-                });
+              if (stat.identifier === 'red_cards') {
+                for (const entry of entries) {
+                  const p = playerMap.get(entry.element);
+                  rows.push({
+                    time: new Date(fx.kickoff_time).toLocaleString([], {
+                      weekday: 'short', hour: '2-digit', minute: '2-digit',
+                      month: 'short', day: 'numeric',
+                    }),
+                    playerName: p?.web_name ?? `#${entry.element}`,
+                    teamShort,
+                    eventType: 'Red Card',
+                    pointsStr: '-3 pts',
+                    points: -3,
+                    fixtureId: fx.id,
+                    sortKey: fx.minutes * 10000 + rows.length,
+                  });
+                }
               }
-            }
+              if (stat.identifier === 'saves') {
+                for (const entry of entries) {
+                  if (entry.value >= 3) {
+                    const p = playerMap.get(entry.element);
+                    rows.push({
+                      time: new Date(fx.kickoff_time).toLocaleString([], {
+                        weekday: 'short', hour: '2-digit', minute: '2-digit',
+                        month: 'short', day: 'numeric',
+                      }),
+                      playerName: p?.web_name ?? `#${entry.element}`,
+                      teamShort,
+                      eventType: `${entry.value} Saves`,
+                      pointsStr: '+1 pts',
+                      points: 1,
+                      fixtureId: fx.id,
+                      sortKey: fx.minutes * 10000 + rows.length,
+                    });
+                  }
+                }
+              }
+              if (stat.identifier === 'bonus') {
+                for (const entry of entries) {
+                  const p = playerMap.get(entry.element);
+                  const pts = entry.value >= 3 ? 3 : entry.value >= 2 ? 2 : 1;
+                  rows.push({
+                    time: new Date(fx.kickoff_time).toLocaleString([], {
+                      weekday: 'short', hour: '2-digit', minute: '2-digit',
+                      month: 'short', day: 'numeric',
+                    }),
+                    playerName: p?.web_name ?? `#${entry.element}`,
+                    teamShort,
+                    eventType: `${entry.value} Bonus pts`,
+                    pointsStr: `+${pts} pts`,
+                    points: pts,
+                    fixtureId: fx.id,
+                    sortKey: fx.minutes * 10000 + rows.length,
+                  });
+                }
+              }
+            };
+
+            processEntries(stat.h, 'h');
+            processEntries(stat.a, 'a');
           }
         }
-        setLiveEvents(events);
+
+        // Sort by match minute (most recent first)
+        rows.sort((a, b) => b.sortKey - a.sortKey);
+        setFeedRows(rows);
+
+        // Auto-focus the single live match
+        if (todayLive.length === 1) {
+          setSelectedFixture(todayLive[0].id);
+        }
       } else {
-        setLiveEvents([]);
+        setFeedRows([]);
+        setSelectedFixture(null);
       }
 
       setLoading(false);
@@ -261,7 +295,7 @@ function LiveCentreComponent() {
 
   useEffect(() => {
     eventsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [liveEvents]);
+  }, [feedRows]);
 
   if (loading) {
     return (
@@ -283,12 +317,12 @@ function LiveCentreComponent() {
     );
   }
 
-  const liveFixtures = fixtures.filter(isLive);
+  const liveFixtures = fixtures.filter(f => isLive(f) && isToday(f.kickoff_time));
   const hasLive = liveFixtures.length > 0;
 
-  const filteredEvents = selectedFixture
-    ? liveEvents.filter(e => e.fixtureId === selectedFixture)
-    : liveEvents;
+  const filteredRows = selectedFixture
+    ? feedRows.filter(r => r.fixtureId === selectedFixture)
+    : feedRows;
 
   /* ── No live matches ──────────────────────────────────────────────── */
 
@@ -361,7 +395,7 @@ function LiveCentreComponent() {
             LIVE
           </span>
           <span style={{ fontSize: 13, color: '#ffffff', fontWeight: 600 }}>
-            {liveFixtures.length} {liveFixtures.length === 1 ? 'match' : 'matches'}
+            {liveFixtures.length} {liveFixtures.length === 1 ? 'match' : 'matches'} today
           </span>
         </div>
         <button
@@ -382,7 +416,45 @@ function LiveCentreComponent() {
         </button>
       </div>
 
-      {/* Match Cards Grid */}
+      {/* Match selector tabs */}
+      {liveFixtures.length > 1 && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            onClick={() => setSelectedFixture(null)}
+            style={{
+              padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+              border: !selectedFixture ? '1px solid rgba(255,0,90,0.4)' : '1px solid rgba(255,255,255,0.08)',
+              background: !selectedFixture ? 'rgba(255,0,90,0.1)' : 'rgba(255,255,255,0.03)',
+              color: !selectedFixture ? '#FF005A' : 'var(--md-sys-color-on-surface-variant)',
+              cursor: 'pointer',
+            }}
+          >
+            All
+          </button>
+          {liveFixtures.map(f => {
+            const home = teams.get(f.team_h);
+            const away = teams.get(f.team_a);
+            const isActive = f.id === selectedFixture;
+            return (
+              <button
+                key={f.id}
+                onClick={() => setSelectedFixture(f.id)}
+                style={{
+                  padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                  border: isActive ? '1px solid rgba(255,0,90,0.4)' : '1px solid rgba(255,255,255,0.08)',
+                  background: isActive ? 'rgba(255,0,90,0.1)' : 'rgba(255,255,255,0.03)',
+                  color: isActive ? '#FF005A' : 'var(--md-sys-color-on-surface-variant)',
+                  cursor: 'pointer',
+                }}
+              >
+                {home?.short_name} {f.team_h_score ?? 0}-{f.team_a_score ?? 0} {away?.short_name}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Score cards */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: `repeat(${Math.min(liveFixtures.length, 3)}, 1fr)`,
@@ -400,10 +472,8 @@ function LiveCentreComponent() {
         ))}
       </div>
 
-      {/* Live Event Feed — full width, centred content */}
-      <div style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-      }}>
+      {/* Event Feed Table */}
+      <div>
         <h2 style={{
           fontSize: 16, fontWeight: 700, color: '#ffffff', margin: '0 0 12px',
           display: 'flex', alignItems: 'center', gap: 8,
@@ -411,41 +481,113 @@ function LiveCentreComponent() {
           <span className="material-symbols-outlined" style={{ color: '#00FF85', fontSize: 20 }}>
             bolt
           </span>
-          Events
-          {selectedFixture && (
-            <button
-              onClick={() => setSelectedFixture(null)}
-              style={{
-                marginLeft: 8, padding: '2px 10px', borderRadius: 6,
-                fontSize: 11, fontWeight: 600, border: '1px solid rgba(255,255,255,0.1)',
-                background: 'rgba(255,255,255,0.06)', color: 'var(--md-sys-color-on-surface-variant)',
-                cursor: 'pointer',
-              }}
-            >
-              Show all
-            </button>
+          My Feed
+          {hasManager && (
+            <span style={{
+              fontSize: 11, fontWeight: 500, color: 'var(--md-sys-color-on-surface-variant)',
+              fontFamily: 'var(--font-mono)',
+            }}>
+              · Impact vs league
+            </span>
           )}
         </h2>
+
         <div style={{
-          display: 'flex', flexDirection: 'column', gap: 8,
-          maxHeight: 600, overflowY: 'auto',
-          width: '100%',
-          padding: '16px 24px', borderRadius: 14,
-          background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
+          borderRadius: 14, overflow: 'hidden',
+          border: '1px solid rgba(255,255,255,0.08)',
         }}>
-          {filteredEvents.length === 0 && (
-            <div style={{
-              textAlign: 'center', padding: 24,
-              color: 'var(--md-sys-color-on-surface-variant)', fontSize: 13,
-            }}>
-              No events yet.
-            </div>
-          )}
-          {filteredEvents.map((ev, i) => (
-            <EventRow key={`${ev.fixtureId}-${ev.type}-${ev.playerId}-${i}`} event={ev} />
-          ))}
-          <div ref={eventsEndRef} />
+          {/* Table header */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: hasManager ? '140px 1fr 1fr 90px' : '140px 1fr 1fr',
+            padding: '10px 16px',
+            background: 'rgba(255,255,255,0.04)',
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
+            fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)',
+            color: 'var(--md-sys-color-on-surface-variant)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+          }}>
+            <span>Time</span>
+            <span>Player</span>
+            <span>Event</span>
+            {hasManager && <span style={{ textAlign: 'right' }}>Impact</span>}
+          </div>
+
+          {/* Table rows */}
+          <div style={{ maxHeight: 500, overflowY: 'auto' }}>
+            {filteredRows.length === 0 && (
+              <div style={{
+                textAlign: 'center', padding: 32,
+                color: 'var(--md-sys-color-on-surface-variant)', fontSize: 13,
+              }}>
+                No events yet.
+              </div>
+            )}
+            {filteredRows.map((row, i) => (
+              <div
+                key={`${row.fixtureId}-${row.playerName}-${row.eventType}-${i}`}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: hasManager ? '140px 1fr 1fr 90px' : '140px 1fr 1fr',
+                  padding: '12px 16px',
+                  borderBottom: '1px solid rgba(255,255,255,0.04)',
+                  fontSize: 13,
+                  alignItems: 'center',
+                  background: i % 2 === 0 ? 'rgba(255,255,255,0.01)' : 'transparent',
+                }}
+              >
+                {/* Time */}
+                <span style={{
+                  fontSize: 11, color: 'var(--md-sys-color-on-surface-variant)',
+                  fontFamily: 'var(--font-mono)', lineHeight: 1.4,
+                }}>
+                  {row.time}
+                </span>
+
+                {/* Player + Team */}
+                <span>
+                  <span style={{ fontWeight: 600, color: '#ffffff' }}>
+                    {row.playerName}
+                  </span>
+                  <br />
+                  <span style={{
+                    fontSize: 11, color: 'var(--md-sys-color-on-surface-variant)',
+                  }}>
+                    {row.teamShort}
+                  </span>
+                </span>
+
+                {/* Event */}
+                <span>
+                  <span style={{ fontWeight: 600, color: '#ffffff' }}>
+                    {row.eventType}
+                  </span>
+                  <br />
+                  <span style={{
+                    fontSize: 11,
+                    color: row.points >= 0 ? '#00FF85' : '#FF4444',
+                    fontFamily: 'var(--font-mono)',
+                  }}>
+                    {row.pointsStr}
+                  </span>
+                </span>
+
+                {/* Impact (only if manager connected) */}
+                {hasManager && (
+                  <span style={{
+                    textAlign: 'right', fontSize: 12, fontWeight: 600,
+                    fontFamily: 'var(--font-mono)',
+                  }}>
+                    {/* Placeholder — real impact requires league data */}
+                    <span style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>—</span>
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
+        <div ref={eventsEndRef} />
       </div>
     </div>
   );
@@ -588,67 +730,6 @@ function MatchCard({
             {redH + redA > 0 && <span>🟥 {redH + redA}</span>}
             {totalSaves > 0 && <span>🧤 {totalSaves} saves</span>}
           </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function EventRow({ event }: { event: LiveEvent }) {
-  const icons: Record<LiveEvent['type'], { emoji: string; color: string; bg: string }> = {
-    goal: { emoji: '⚽', color: '#00FF85', bg: 'rgba(0,255,133,0.08)' },
-    assist: { emoji: '🅰️', color: '#00BFFF', bg: 'rgba(0,191,255,0.08)' },
-    yellow: { emoji: '🟨', color: '#FFD700', bg: 'rgba(255,215,0,0.08)' },
-    red: { emoji: '🟥', color: '#FF4444', bg: 'rgba(255,68,68,0.08)' },
-    save: { emoji: '🧤', color: '#FF9800', bg: 'rgba(255,152,0,0.08)' },
-    cs: { emoji: '🧹', color: '#00FF85', bg: 'rgba(0,255,133,0.08)' },
-    bonus: { emoji: '⭐', color: '#FFA600', bg: 'rgba(255,166,0,0.08)' },
-  };
-
-  const labels: Record<LiveEvent['type'], string> = {
-    goal: 'GOAL',
-    assist: 'ASSIST',
-    yellow: 'YELLOW CARD',
-    red: 'RED CARD',
-    save: 'SAVE MILESTONE',
-    cs: 'CLEAN SHEET',
-    bonus: 'BONUS',
-  };
-
-  const { emoji, color, bg } = icons[event.type];
-
-  return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      padding: '14px 20px', borderRadius: 12,
-      background: bg, border: `1px solid ${color}22`,
-      textAlign: 'center',
-    }}>
-      <span style={{ fontSize: 22, marginBottom: 4 }}>{emoji}</span>
-      <span style={{
-        fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)',
-        color, letterSpacing: '0.06em', marginBottom: 4,
-      }}>
-        {labels[event.type]}
-      </span>
-      <div style={{ fontSize: 15, fontWeight: 700, color: '#ffffff' }}>
-        {event.playerName}
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-        <span style={{
-          fontSize: 10, padding: '2px 8px', borderRadius: 4,
-          background: 'rgba(255,255,255,0.06)',
-          color: 'var(--md-sys-color-on-surface-variant)',
-          fontFamily: 'var(--font-mono)', fontWeight: 600,
-        }}>
-          {event.teamShort}
-        </span>
-        {event.extra && (
-          <span style={{
-            fontSize: 11, color: 'var(--md-sys-color-on-surface-variant)',
-          }}>
-            {event.extra}
-          </span>
         )}
       </div>
     </div>
