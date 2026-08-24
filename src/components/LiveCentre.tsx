@@ -128,11 +128,12 @@ function LiveCentreComponent() {
           const processEntries = (
             entries: Array<{ value: number; element: number }>,
             side: 'h' | 'a',
+            identifier: string,
           ) => {
             const team = side === 'h' ? home : away;
             const minute = `${fx.minutes}'`;
 
-            if (stat.identifier === 'goals_scored') {
+            if (identifier === 'goals_scored') {
               for (const entry of entries) {
                 const p = playerMap.get(entry.element);
                 rows.push({
@@ -144,7 +145,7 @@ function LiveCentreComponent() {
                 });
               }
             }
-            if (stat.identifier === 'assists') {
+            if (identifier === 'assists') {
               for (const entry of entries) {
                 const p = playerMap.get(entry.element);
                 rows.push({
@@ -156,7 +157,7 @@ function LiveCentreComponent() {
                 });
               }
             }
-            if (stat.identifier === 'yellow_cards') {
+            if (identifier === 'yellow_cards') {
               for (const entry of entries) {
                 const p = playerMap.get(entry.element);
                 rows.push({
@@ -168,7 +169,7 @@ function LiveCentreComponent() {
                 });
               }
             }
-            if (stat.identifier === 'red_cards') {
+            if (identifier === 'red_cards') {
               for (const entry of entries) {
                 const p = playerMap.get(entry.element);
                 rows.push({
@@ -180,7 +181,7 @@ function LiveCentreComponent() {
                 });
               }
             }
-            if (stat.identifier === 'saves') {
+            if (identifier === 'saves') {
               for (const entry of entries) {
                 if (entry.value >= 3) {
                   const p = playerMap.get(entry.element);
@@ -194,7 +195,7 @@ function LiveCentreComponent() {
                 }
               }
             }
-            if (stat.identifier === 'bonus') {
+            if (identifier === 'bonus') {
               for (const entry of entries) {
                 const p = playerMap.get(entry.element);
                 const pts = entry.value >= 3 ? 3 : entry.value >= 2 ? 2 : 1;
@@ -211,8 +212,8 @@ function LiveCentreComponent() {
           };
 
           for (const stat of fx.stats) {
-            processEntries(stat.h, 'h');
-            processEntries(stat.a, 'a');
+            processEntries(stat.h, 'h', stat.identifier);
+            processEntries(stat.a, 'a', stat.identifier);
           }
         }
 
