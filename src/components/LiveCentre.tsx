@@ -47,6 +47,7 @@ interface FDGoal {
 
 interface FDBooking {
   minute: number;
+  injuryTime?: number | null;
   player: { id: number; name: string } | null;
   team: { id: number; name: string } | null;
   card: string;
