@@ -7128,7 +7128,7 @@ const FPL = {
                 ${(lineup.bench || []).map((p, i) => `
                     <div style="position:relative;">
                         <div class="aiteam-bench-badges">
-                            <span class="aiteam-bench-order-badge">${i === 0 ? 'GK' : i}</span>
+                            <span class="aiteam-bench-order-badge">${i + 1}</span>
                             <span class="aiteam-bench-pos-badge">${p.position}</span>
                         </div>
                         ${renderCard(p, true)}

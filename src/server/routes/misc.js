@@ -2249,7 +2249,7 @@ router.get('/dashboard/overview', async (req, res) => {
 
     const gwAverage = currentEvent?.average_entry_score || 42;
     const highestScore = currentEvent?.highest_score || 118;
-    const totalTransfers = currentEvent?.transfers_made ? (currentEvent.transfers_made / 1000000).toFixed(1) + 'M' : '3.4M';
+    const totalTransfers = currentEvent?.transfers_made != null ? (currentEvent.transfers_made / 1000000).toFixed(1) + 'M' : '--';
 
     const mostSelected = [...elements]
       .sort((a, b) => parseFloat(b.selected_by_percent) - parseFloat(a.selected_by_percent))
@@ -2666,7 +2666,6 @@ const SET_PIECE_DATA = {
   'NFO': { penalties: ['Wood','Gibbs-White','Igor Jesus'], freeKicks: ['Gibbs-White','Murillo','N.Williams','Hudson-Odoi'], corners: ['N.Williams','Hutchinson','Ndoye','Bakwa'] },
   'TOT': { penalties: ['Solanke','Kudus','Xavi','Richarlison'], freeKicks: ['Pedro Porro','Xavi','Kudus','Tonali'], corners: ['Pedro Porro','Kudus','Tel','Xavi','Tonali'] },
   'SUN': { penalties: ['Diarra','Le Fée'], freeKicks: ['Xhaka','Le Fée'], corners: ['Le Fée','Xhaka','Hume'] },
-  'WOL': { penalties: ['Cunha','Hwang','Sarabia'], freeKicks: ['Sarabia','Nunes','Aït-Nouri'], corners: ['Sarabia','Nunes','Aït-Nouri'] }
 };
 
 // Fuzzy name matcher: matches FPL list name to bootstrap web_name

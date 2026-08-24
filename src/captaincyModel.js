@@ -1,4 +1,4 @@
-const { getEliteEntry, getTransferPenalty, computeCaptaincyScore, ELITE_CAPTAINCY_PLAYERS } = require('../data/elite_top20_captaincy');
+const { getEliteEntry, computeCaptaincyScore } = require('../data/elite_top20_captaincy');
 
 const POSITION_MAP = ['GKP', 'DEF', 'MID', 'FWD'];
 
@@ -10,8 +10,7 @@ const CLEAN_SHEET_PROBABILITY = { 1: 0.46, 2: 0.37, 3: 0.28, 4: 0.19, 5: 0.12 };
 const PRESEASON_POSITION_PRIOR = { GKP: 3.4, DEF: 3.25, MID: 3.45, FWD: 3.35 };
 
 const POSITION_BENCHMARKS = { FWD: 5.2, MID: 4.8, DEF: 4.5, GKP: 4.2 };
-const FDR_MULTIPLIER = { 1: 1.18, 2: 1.08, 3: 1.0, 4: 0.90, 5: 0.80 };
-const ROLE_BOOSTS = { penalty: 0.5, setPiece: 0.3, captain: 0.2 };
+
 
 function getDecayFactor(currentGW) {
   const gw = clamp(number(currentGW, 1), 1, 38);
@@ -21,11 +20,9 @@ function getDecayFactor(currentGW) {
 // Enhanced models (imported lazily to avoid circular deps)
 let opponentModel = null;
 let bookingRiskModel = null;
-let priceModel = null;
 let fplInsightsData = null;
 function getOpponentModel() { return opponentModel || (opponentModel = require('./server/opponentModel')); }
 function getBookingRiskModel() { return bookingRiskModel || (bookingRiskModel = require('./server/bookingRiskModel')); }
-function getPriceModel() { return priceModel || (priceModel = require('./server/priceModel')); }
 function getFplInsightsData() { return fplInsightsData || (fplInsightsData = require('./server/fplInsightsData')); }
 
 function clamp(value, min, max) {

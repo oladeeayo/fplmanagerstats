@@ -56,27 +56,6 @@ function scorePlayer(player, options = {}) {
 }
 
 // Evaluate a starting XI formation
-function evaluateFormation(starters, formation) {
-  const gk = starters.filter(p => p.position === 'GKP')[0];
-  const defs = starters.filter(p => p.position === 'DEF').slice(0, formation.DEF);
-  const mids = starters.filter(p => p.position === 'MID').slice(0, formation.MID);
-  const fwds = starters.filter(p => p.position === 'FWD').slice(0, formation.FWD);
-
-  if (!gk || defs.length < formation.DEF || mids.length < formation.MID || fwds.length < formation.FWD) {
-    return { score: -Infinity, starters: [], bench: [] };
-  }
-
-  const xi = [gk, ...defs, ...mids, ...fwds];
-  const score = xi.reduce((sum, p) => sum + scorePlayer(p), 0);
-
-  return {
-    score,
-    formation: formation.label,
-    starters: xi,
-    gk, defs, mids, fwds,
-  };
-}
-
 // Find optimal lineup from a 15-player squad
 function findOptimalLineup(squad) {
   if (squad.length !== SQUAD_SIZE) return null;

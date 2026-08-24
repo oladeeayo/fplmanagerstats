@@ -3924,7 +3924,7 @@ select option {
 .tactics-player-shirt.is-missing .aiteam-shirt-fallback, .aiteam-bench-shirt-img.is-missing .aiteam-shirt-fallback, .tactics-player-shirt:not(:has(img)) .aiteam-shirt-fallback, .aiteam-bench-shirt-img:not(:has(img)) .aiteam-shirt-fallback { display: block; }
 
 /* Bench Badges & Layout */
-.aiteam-bench-badges { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 2px; padding: 0 2px; }
+.aiteam-bench-badges { display: flex; align-items: center; gap: 4px; width: 100%; margin-bottom: 2px; padding: 0 2px; }
 .aiteam-bench-order-badge { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: #14241c; border: 1px solid #00FF85; color: #00FF85; font: 800 9px var(--font-mono); }
 .aiteam-bench-pos-badge { font: 800 9px var(--font-mono); color: #8ba396; text-transform: uppercase; }
 
