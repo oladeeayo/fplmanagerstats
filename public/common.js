@@ -5632,7 +5632,7 @@ const FPL = {
                         <div style="font-size:11px;color:#8ba396;">${b.team} · ${b.position} · £${b.cost.toFixed(1)}m</div>
                     </div>
                     <div style="padding:10px 12px;background:rgba(255,107,157,0.08);border:1px solid rgba(255,107,157,0.25);border-radius:10px;">
-                        <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:#FF6B9D;font-weight:700;margin-bottom:4px;">DIFFERENTIAL < ${player.threshold}%</div>
+                        <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:#FF6B9D;font-weight:700;margin-bottom:4px;">DIFFERENTIAL < ${d.threshold || 10}%</div>
                         <div style="font-size:15px;font-weight:800;color:#fff;">${d.name}</div>
                         <div style="font-size:11px;color:#8ba396;">${d.team} · ${d.position} · £${d.cost.toFixed(1)}m</div>
                     </div>
