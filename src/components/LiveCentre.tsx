@@ -164,9 +164,11 @@ function LiveCentreComponent() {
       // Fetch user's squad to determine player ownership for impact column
       try {
         const managerId = (window as any).FPL?.state?.managerId || localStorage.getItem('fplManagerId');
+        console.log('[LiveCentre] managerId:', managerId, 'hasLeague:', leagueId);
         if (managerId) {
           const squadRes = await fetch(`/api/manager-squad/${managerId}?gw=${currentGW}`);
           const squadData = await squadRes.json();
+          console.log('[LiveCentre] squad response:', { starting11: squadData.starting11?.length, bench: squadData.bench?.length, ids: [...(squadData.starting11 || []), ...(squadData.bench || [])].map((p: any) => p.id) });
           const owned = new Set<number>();
           [...(squadData.starting11 || []), ...(squadData.bench || [])].forEach((p: any) => {
             if (p.id) owned.add(p.id);
@@ -175,7 +177,7 @@ function LiveCentreComponent() {
         } else {
           ownedPlayerIdsRef.current = new Set();
         }
-      } catch { ownedPlayerIdsRef.current = new Set(); }
+      } catch (e) { ownedPlayerIdsRef.current = new Set(); console.error('[LiveCentre] squad fetch error:', e); }
 
       const fixtureRes = await fetch('/api/fixtures?live=1');
       const allFixtures: Fixture[] = await fixtureRes.json();
@@ -781,34 +783,38 @@ function ScoreCard({
           </div>
         </div>
 
-        <div style={{ marginTop: 4, display: 'flex', gap: 8 }}>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <div style={{ marginTop: 8, display: 'flex', gap: 12 }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
             {goals.filter(g => g.teamSide === 'h').map((g, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)' }}>
-                <span style={{ color: '#00FF85' }}>⚽</span>
-                <span style={{ color: '#ffffff', fontWeight: 600 }}>{g.scorer}</span>
-                {g.assister && <span>(ast: {g.assister})</span>}
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)', padding: '2px 0' }}>
+                <span style={{ color: '#00FF85', fontSize: 12 }}>⚽</span>
+                <span style={{ color: '#ffffff', fontWeight: 700 }}>{g.scorer}</span>
+                {g.assister && <span style={{ opacity: 0.7 }}>(ast: {g.assister})</span>}
               </div>
             ))}
-            <div style={{ display: 'flex', gap: 8, marginTop: 4, fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)' }}>
-              {yh > 0 && <span>🟨 {yh}</span>}
-              {rh > 0 && <span>🟥 {rh}</span>}
-              {hSaves > 0 && <span>🧤 {hSaves}</span>}
-            </div>
+            {(yh > 0 || rh > 0 || hSaves > 0) && (
+              <div style={{ display: 'flex', gap: 10, marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)' }}>
+                {yh > 0 && <span>🟨 {yh}</span>}
+                {rh > 0 && <span>🟥 {rh}</span>}
+                {hSaves > 0 && <span>🧤 {hSaves}</span>}
+              </div>
+            )}
           </div>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'flex-end' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
             {goals.filter(g => g.teamSide === 'a').map((g, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)' }}>
-                <span style={{ color: '#ffffff', fontWeight: 600 }}>{g.scorer}</span>
-                {g.assister && <span>(ast: {g.assister})</span>}
-                <span style={{ color: '#00FF85' }}>⚽</span>
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)', padding: '2px 0' }}>
+                <span style={{ color: '#ffffff', fontWeight: 700 }}>{g.scorer}</span>
+                {g.assister && <span style={{ opacity: 0.7 }}>(ast: {g.assister})</span>}
+                <span style={{ color: '#00FF85', fontSize: 12 }}>⚽</span>
               </div>
             ))}
-            <div style={{ display: 'flex', gap: 8, marginTop: 4, fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)' }}>
-              {aSaves > 0 && <span>🧤 {aSaves}</span>}
-              {ra > 0 && <span>🟥 {ra}</span>}
-              {ya > 0 && <span>🟨 {ya}</span>}
-            </div>
+            {(ya > 0 || ra > 0 || aSaves > 0) && (
+              <div style={{ display: 'flex', gap: 10, marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)', justifyContent: 'flex-end' }}>
+                {aSaves > 0 && <span>🧤 {aSaves}</span>}
+                {ra > 0 && <span>🟥 {ra}</span>}
+                {ya > 0 && <span>🟨 {ya}</span>}
+              </div>
+            )}
           </div>
         </div>
       </div>
