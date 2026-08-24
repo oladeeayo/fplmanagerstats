@@ -88,20 +88,33 @@ function isToday(dateStr: string): boolean {
   return new Date(dateStr).toDateString() === new Date().toDateString();
 }
 
-// Map football-data.org team name/TLA to FPL team
-function findFPLTeam(
-  fdName: string,
-  fdTLA: string,
-  fplTeams: Map<number, Team>,
-): Team | undefined {
-  for (const t of fplTeams.values()) {
-    if (t.short_name === fdTLA || t.name.toLowerCase() === fdName.toLowerCase()) return t;
-  }
-  // Fuzzy match on TLA
-  for (const t of fplTeams.values()) {
-    if (t.short_name.toLowerCase() === fdTLA.toLowerCase()) return t;
-  }
-  return undefined;
+// football-data.org team ID → FPL team ID mapping (2025/26 PL)
+const FD_TO_FPL: Record<number, number> = {
+  57: 1,   // Arsenal
+  58: 2,   // Aston Villa
+  1044: 3, // Bournemouth
+  402: 4,  // Brentford
+  397: 5,  // Brighton
+  61: 6,   // Chelsea
+  405: 7,  // Coventry City
+  354: 8,  // Crystal Palace
+  62: 9,   // Everton
+  63: 10,  // Fulham
+  322: 11, // Hull City
+  356: 12, // Ipswich Town
+  341: 13, // Leeds
+  64: 14,  // Liverpool
+  65: 15,  // Man City
+  66: 16,  // Man Utd
+  67: 17,  // Newcastle
+  675: 18, // Nottingham Forest
+  73: 19,  // Tottenham
+  350: 20, // Sunderland
+};
+
+function findFPLTeamById(fdTeamId: number, fplTeams: Map<number, Team>): Team | undefined {
+  const fplId = FD_TO_FPL[fdTeamId];
+  return fplId ? fplTeams.get(fplId) : undefined;
 }
 
 /* ── Component ─────────────────────────────────────────────────────────── */
@@ -169,7 +182,8 @@ function LiveCentreComponent() {
         if (fdMatches.length > 0) {
           // Use football-data.org events with real timestamps
           for (const fdMatch of fdMatches) {
-            const fplTeam = findFPLTeam(fdMatch.homeTeam.name, fdMatch.homeTeam.tla, teamMap);
+            const fplTeam = findFPLTeamById(fdMatch.homeTeam.id, teamMap)
+              || findFPLTeamById(fdMatch.awayTeam.id, teamMap);
             if (!fplTeam) continue;
 
             // Find matching FPL fixture
@@ -680,7 +694,7 @@ function ScoreCard({
         </span>
       </div>
 
-      <div style={{ padding: '14px 10px 6px', textAlign: 'center' }}>
+      <div style={{ padding: '14px 10px 4px', textAlign: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flex: 1 }}>
             <img src={TEAM_BADGE(home?.code ?? 0)} alt={home?.short_name} style={{ width: 28, height: 28 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
@@ -695,7 +709,7 @@ function ScoreCard({
           </div>
         </div>
 
-        <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+        <div style={{ marginTop: 4, display: 'flex', gap: 8 }}>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
             {goals.filter(g => g.teamSide === 'h').map((g, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)' }}>
