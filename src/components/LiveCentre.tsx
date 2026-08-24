@@ -551,8 +551,9 @@ function ScoreCard({
   const rh = fixture.stats.find(s => s.identifier === 'red_cards')?.h.length ?? 0;
   const ra = fixture.stats.find(s => s.identifier === 'red_cards')?.a.length ?? 0;
   const ss = fixture.stats.find(s => s.identifier === 'saves');
-  let saves = 0;
-  if (ss) { for (const e of ss.h) saves += e.value; for (const e of ss.a) saves += e.value; }
+  let hSaves = 0;
+  let aSaves = 0;
+  if (ss) { for (const e of ss.h) hSaves += e.value; for (const e of ss.a) aSaves += e.value; }
 
   return (
     <div style={{
@@ -616,44 +617,54 @@ function ScoreCard({
           </div>
         </div>
 
-        {/* Goals — grouped by team */}
-        {goals.length > 0 && (
-          <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {goals.map((g, i) => {
-              const team = teams.get(g.teamId);
-              return (
-                <div key={i} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                  fontSize: 11, fontFamily: 'var(--font-mono)',
-                  color: 'var(--md-sys-color-on-surface-variant)',
-                }}>
-                  <img
-                    src={TEAM_BADGE(team?.code ?? 0)}
-                    style={{ width: 14, height: 14, flexShrink: 0 }}
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                  <span style={{ color: '#00FF85' }}>⚽</span>
-                  <span style={{ color: '#ffffff', fontWeight: 600 }}>{g.scorer}</span>
-                  {g.assister && (
-                    <span>(ast: {g.assister})</span>
-                  )}
-                </div>
-              );
-            })}
+        {/* Goals + Stats — split by team */}
+        <div style={{ marginTop: 14, display: 'flex', gap: 8 }}>
+          {/* Home side */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {goals.filter(g => g.teamSide === 'h').map((g, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                fontSize: 10, fontFamily: 'var(--font-mono)',
+                color: 'var(--md-sys-color-on-surface-variant)',
+              }}>
+                <span style={{ color: '#00FF85' }}>⚽</span>
+                <span style={{ color: '#ffffff', fontWeight: 600 }}>{g.scorer}</span>
+                {g.assister && <span>(ast: {g.assister})</span>}
+              </div>
+            ))}
+            <div style={{
+              display: 'flex', gap: 8, marginTop: 4,
+              fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)',
+            }}>
+              {yh > 0 && <span>🟨 {yh}</span>}
+              {rh > 0 && <span>🟥 {rh}</span>}
+              {hSaves > 0 && <span>🧤 {hSaves}</span>}
+            </div>
           </div>
-        )}
 
-        {/* Stats */}
-        {(yh + ya + rh + ra + saves > 0) && (
-          <div style={{
-            display: 'flex', justifyContent: 'center', gap: 10, marginTop: 10,
-            fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)',
-          }}>
-            {yh + ya > 0 && <span>🟨 {yh + ya}</span>}
-            {rh + ra > 0 && <span>🟥 {rh + ra}</span>}
-            {saves > 0 && <span>🧤 {saves}</span>}
+          {/* Away side */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'flex-end' }}>
+            {goals.filter(g => g.teamSide === 'a').map((g, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                fontSize: 10, fontFamily: 'var(--font-mono)',
+                color: 'var(--md-sys-color-on-surface-variant)',
+              }}>
+                <span style={{ color: '#ffffff', fontWeight: 600 }}>{g.scorer}</span>
+                {g.assister && <span>(ast: {g.assister})</span>}
+                <span style={{ color: '#00FF85' }}>⚽</span>
+              </div>
+            ))}
+            <div style={{
+              display: 'flex', gap: 8, marginTop: 4,
+              fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)',
+            }}>
+              {aSaves > 0 && <span>🧤 {aSaves}</span>}
+              {ra > 0 && <span>🟥 {ra}</span>}
+              {ya > 0 && <span>🟨 {ya}</span>}
+            </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
