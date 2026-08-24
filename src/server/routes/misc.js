@@ -195,10 +195,13 @@ router.get('/bootstrap-static', async (req, res) => {
   }
 });
 
-// ---- Fixtures (proxied from FPL API, 5min cache) ----
+// ---- Fixtures (proxied from FPL API) ----
+// ?live=1 uses a short 15s cache for live-score updates
 router.get('/fixtures', async (req, res) => {
   try {
-    const data = await getCachedApiData(FIXTURES_URL, BOOTSTRAP_CACHE_TTL);
+    const isLive = req.query.live === '1';
+    const ttl = isLive ? 15 * 1000 : BOOTSTRAP_CACHE_TTL;
+    const data = await getCachedApiData(FIXTURES_URL, ttl);
     const event = Number(req.query.event);
     if (event && Array.isArray(data)) {
       return res.json(data.filter(f => f.event === event));

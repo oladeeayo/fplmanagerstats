@@ -94,13 +94,15 @@ function LiveCentreComponent() {
         bootstrap.events?.find((e: { is_next: boolean }) => e.is_next)?.id ??
         1;
 
-      const fixtureRes = await fetch('/api/fixtures');
+      // Use ?live=1 for 15s cache instead of 30min
+      const fixtureRes = await fetch('/api/fixtures?live=1');
       const allFixtures: Fixture[] = await fixtureRes.json();
       const gwFixtures = Array.isArray(allFixtures)
         ? allFixtures.filter((f: Fixture) => f.event === currentGW)
         : [];
       setFixtures(gwFixtures);
 
+      // Only build events from live fixtures
       const liveFixtures = gwFixtures.filter(isLive);
       if (liveFixtures.length > 0) {
         const events: LiveEvent[] = [];
@@ -250,7 +252,7 @@ function LiveCentreComponent() {
 
   useEffect(() => {
     if (autoRefresh) {
-      intervalRef.current = setInterval(fetchData, 30_000);
+      intervalRef.current = setInterval(fetchData, 15_000);
     }
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -359,7 +361,7 @@ function LiveCentreComponent() {
             LIVE
           </span>
           <span style={{ fontSize: 13, color: '#ffffff', fontWeight: 600 }}>
-            {liveFixtures.length} {liveFixtures.length === 1 ? 'match' : 'matches'} in progress
+            {liveFixtures.length} {liveFixtures.length === 1 ? 'match' : 'matches'}
           </span>
         </div>
         <button
@@ -398,7 +400,7 @@ function LiveCentreComponent() {
         ))}
       </div>
 
-      {/* Live Event Feed — centred, larger */}
+      {/* Live Event Feed — full width, centred content */}
       <div style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center',
       }}>
@@ -426,9 +428,9 @@ function LiveCentreComponent() {
         </h2>
         <div style={{
           display: 'flex', flexDirection: 'column', gap: 8,
-          maxHeight: 500, overflowY: 'auto',
-          width: '100%', maxWidth: 560,
-          padding: '16px 20px', borderRadius: 14,
+          maxHeight: 600, overflowY: 'auto',
+          width: '100%',
+          padding: '16px 24px', borderRadius: 14,
           background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
         }}>
           {filteredEvents.length === 0 && (
@@ -520,7 +522,6 @@ function MatchCard({
         transition: 'all 0.15s ease',
       }}
     >
-      {/* Status bar */}
       <div style={{
         padding: '6px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         background: live ? 'rgba(255,0,90,0.08)' : 'rgba(255,255,255,0.02)',
@@ -538,7 +539,6 @@ function MatchCard({
         </span>
       </div>
 
-      {/* Score */}
       <div style={{ padding: '16px 12px 12px', textAlign: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
           <div style={{ flex: 1, textAlign: 'right' }}>
