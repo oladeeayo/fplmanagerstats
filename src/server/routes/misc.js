@@ -199,10 +199,28 @@ router.get('/bootstrap-static', async (req, res) => {
 router.get('/fixtures', async (req, res) => {
   try {
     const data = await getCachedApiData(FIXTURES_URL, BOOTSTRAP_CACHE_TTL);
+    const event = Number(req.query.event);
+    if (event && Array.isArray(data)) {
+      return res.json(data.filter(f => f.event === event));
+    }
     res.json(data);
   } catch (e) {
     logger.error({ err: e }, 'Fixtures error');
     res.status(500).json({ error: 'Failed to fetch fixtures' });
+  }
+});
+
+// ---- Live Gameweek Data (proxied to avoid CORS) ----
+router.get('/live/:gw', async (req, res) => {
+  try {
+    const gw = Number(req.params.gw);
+    if (!gw || gw < 1 || gw > 38) return res.status(400).json({ error: 'Invalid gameweek' });
+    const url = `https://fantasy.premierleague.com/api/event/${gw}/live/`;
+    const data = await getCachedApiData(url, 30 * 1000);
+    res.json(data);
+  } catch (e) {
+    logger.error({ err: e }, 'Live data error');
+    res.status(500).json({ error: 'Failed to fetch live data' });
   }
 });
 

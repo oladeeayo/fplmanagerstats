@@ -138,11 +138,15 @@ function LiveCentreComponent() {
         1;
 
       const fixtureRes = await fetch(`/api/fixtures?event=${currentGW}`);
-      const fixtureData: Fixture[] = await fixtureRes.json();
+      let fixtureData: Fixture[] = await fixtureRes.json();
+      // If server doesn't filter, filter client-side
+      if (Array.isArray(fixtureData)) {
+        fixtureData = fixtureData.filter((f: Fixture) => f.event === currentGW);
+      }
       setFixtures(fixtureData);
 
       if (fixtureData.length > 0 && fixtureData.some(isLive)) {
-        const liveRes = await fetch(`https://fantasy.premierleague.com/api/event/${currentGW}/live/`);
+        const liveRes = await fetch(`/api/live/${currentGW}`);
         const liveData = await liveRes.json();
         const lm = new Map<number, LiveElement>();
         liveData.elements.forEach((el: LiveElement) => lm.set(el.id, el));
