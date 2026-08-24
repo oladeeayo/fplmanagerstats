@@ -164,7 +164,6 @@ function LiveCentreComponent() {
       // Fetch user's squad to determine player ownership for impact column
       try {
         const managerId = (window as any).FPL?.state?.managerId || localStorage.getItem('fplManagerId');
-        console.log('[LiveCentre] managerId:', managerId);
         if (managerId) {
           const squadRes = await fetch(`/api/manager-squad/${managerId}?gw=${currentGW}`);
           const squadData = await squadRes.json();
@@ -173,12 +172,10 @@ function LiveCentreComponent() {
             if (p.id) owned.add(p.id);
           });
           ownedPlayerIdsRef.current = owned;
-          console.log('[LiveCentre] owned player IDs:', [...owned]);
         } else {
           ownedPlayerIdsRef.current = new Set();
-          console.log('[LiveCentre] No managerId found');
         }
-      } catch (e) { ownedPlayerIdsRef.current = new Set(); console.error('[LiveCentre] Squad fetch failed:', e); }
+      } catch { ownedPlayerIdsRef.current = new Set(); }
 
       const fixtureRes = await fetch('/api/fixtures?live=1');
       const allFixtures: Fixture[] = await fixtureRes.json();
@@ -213,10 +210,7 @@ function LiveCentreComponent() {
             const fplFixture = todayLive.find(f =>
               (f.team_h === fplTeam.id) || (f.team_a === fplTeam.id)
             );
-            if (!fplFixture) {
-              console.log('[LiveCentre] No FPL fixture match for FD match:', fdMatch.homeTeam.name, 'vs', fdMatch.awayTeam.name, 'fplTeam:', fplTeam.short_name, 'todayLive:', todayLive.map(f => `${f.team_h}-${f.team_a}`));
-              continue;
-            }
+            if (!fplFixture) continue;
 
             const homeTeam = teamMap.get(fplFixture.team_h)!;
             const awayTeam = teamMap.get(fplFixture.team_a)!;
@@ -266,14 +260,13 @@ function LiveCentreComponent() {
 
             const events: Event[] = [];
 
-            // Debug: log team IDs
-            console.log('[LiveCentre] FD match teams:', { fdHome: fdMatch.homeTeam.id, fdAway: fdMatch.awayTeam.id, fplHome: homeTeam.id, fplHomeShort: homeTeam.short_name, fplAway: awayTeam.id, fplAwayShort: awayTeam.short_name });
+            // Convert FD team IDs to FPL team IDs for correct comparison
+            const fdHomeFplId = FD_TO_FPL[fdMatch.homeTeam.id] ?? fdMatch.homeTeam.id;
+            const fdAwayFplId = FD_TO_FPL[fdMatch.awayTeam.id] ?? fdMatch.awayTeam.id;
 
             for (const goal of fdMatch.goals) {
-              const team = goal.team?.id === homeTeam.id ? homeTeam : awayTeam;
-              const scorerName = goal.scorer?.name ?? 'Unknown';
-              const scorerPlayer = findPlayerByName(scorerName, team.id);
-              if (!scorerPlayer) console.log('[LiveCentre] No match for scorer:', scorerName, 'team:', team.short_name, 'teamId:', team.id);
+              const goalFplTeamId = FD_TO_FPL[goal.team?.id ?? 0] ?? goal.team?.id;
+              const team = goalFplTeamId === homeTeam.id ? homeTeam : awayTeam;
               events.push({
                 minute: goal.minute,
                 injuryTime: goal.injuryTime ?? 0,
@@ -296,7 +289,8 @@ function LiveCentreComponent() {
             }
 
             for (const booking of fdMatch.bookings) {
-              const team = booking.team?.id === homeTeam.id ? homeTeam : awayTeam;
+              const bookFplTeamId = FD_TO_FPL[booking.team?.id ?? 0] ?? booking.team?.id;
+              const team = bookFplTeamId === homeTeam.id ? homeTeam : awayTeam;
               const cardType = booking.card === 'RED' ? 'Red Card' : 'Yellow Card';
               const pts = booking.card === 'RED' ? -3 : -1;
               const bookPlayer = findPlayerByName(booking.player?.name ?? '', team.id);
