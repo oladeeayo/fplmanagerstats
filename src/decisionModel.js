@@ -50,11 +50,11 @@ function buildTransferPlans({ squad, allPlayers, bank, freeTransfers, strategy }
   const sales = [...squad].sort((a, b) => adjustedScore(a, strategy) - adjustedScore(b, strategy));
   const plans = [];
 
-  // Minimum thresholds to avoid absurd low-value transfers
-  const MIN_NET_GAIN_FREE = 3.0;   // Minimum net xPts gain for a free transfer to be worth making
-  const MIN_NET_GAIN_HIT = 6.0;    // Minimum net xPts gain to justify a -4 hit
-  const MIN_NEXT_GAIN = 1.0;       // Minimum single-GW improvement to consider
-  const MIN_XPTSPM_IMPROVEMENT = 0.05; // Minimum xPts/£m efficiency improvement
+  // Minimum thresholds — calibrated for early-season projection noise
+  const MIN_NET_GAIN_FREE = 2.0;   // Free transfer must project ≥2.0 xPts net gain over horizon (~0.4/GW)
+  const MIN_NET_GAIN_HIT = 5.0;    // Hit must project ≥5.0 xPts net gain (1pt margin above -4 hit cost)
+  const MIN_NEXT_GAIN = 0.5;       // Single-GW improvement floor — low bar early season (high variance)
+  const MIN_XPTSPM_IMPROVEMENT = 0.03; // Allow modest efficiency upgrades (3% better per £m)
 
   for (const outgoing of sales.slice(0, 10)) {
     candidates
@@ -129,7 +129,11 @@ function buildTransferPlans({ squad, allPlayers, bank, freeTransfers, strategy }
       });
     }
   }
-  return [...oneTransferPlans, ...doublePlans].sort((a, b) => b.netGain - a.netGain).slice(0, 18);
+  // Guarantee a mix: always surface top singles, then fill with doubles
+  const topSingles = oneTransferPlans.slice(0, 8);
+  const remainingDoubles = doublePlans.filter(d => !topSingles.some(s => s.id === d.id));
+  const topDoubles = remainingDoubles.sort((a, b) => b.netGain - a.netGain).slice(0, 10);
+  return [...topSingles, ...topDoubles].sort((a, b) => b.netGain - a.netGain).slice(0, 18);
 }
 
 function buildOptimalSquad(allPlayers, budget, strategy) {
