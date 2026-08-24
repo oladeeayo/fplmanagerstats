@@ -160,20 +160,18 @@ async function getCachedApiData(url, maxAgeMs = 60 * 1000, { bypassCache = false
       if (cached) return cached;
     } catch (e) { /* fall back to in-memory */ }
   }
-  if (!bypassCache) {
-    const cached = upstreamCache.get(url);
-    if (cached?.data && Date.now() - cached.timestamp < maxAgeMs) return cached.data;
-    if (cached?.request) return cached.request;
-  }
+  const cached = bypassCache ? undefined : upstreamCache.get(url);
+  if (!bypassCache && cached?.data && Date.now() - cached.timestamp < maxAgeMs) return cached.data;
+  if (!bypassCache && cached?.request) return cached.request;
 
   const request = apiGet(url).then(async ({ data }) => {
-    upstreamCache.set(url, { data, timestamp: Date.now() });
-    if (redis) {
+    if (!bypassCache) upstreamCache.set(url, { data, timestamp: Date.now() });
+    if (!bypassCache && redis) {
       try { await redis.setex(cacheKey, ttlSeconds, data); } catch (e) { /* ignore */ }
     }
-    if (isBootstrapUrl) {
+    if (!bypassCache && isBootstrapUrl) {
       snapshotManager.saveRollingBackup(data, null);
-    } else if (isFixturesUrl) {
+    } else if (!bypassCache && isFixturesUrl) {
       snapshotManager.saveRollingBackup(null, data);
     }
     return data;
@@ -184,7 +182,7 @@ async function getCachedApiData(url, maxAgeMs = 60 * 1000, { bypassCache = false
     if (isFixturesUrl && snap?.fixtures) return snap.fixtures;
     throw error;
   });
-  upstreamCache.set(url, { ...cached, request });
+  if (!bypassCache) upstreamCache.set(url, { ...cached, request });
   try {
     return await request;
   } finally {
