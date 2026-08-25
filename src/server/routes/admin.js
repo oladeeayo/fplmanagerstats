@@ -695,17 +695,17 @@ router.get('/gw-summary', async (req, res) => {
 
     md += `*Other Notable Stats*\n\n`;
 
-    // Helper: list all tied names, cap at 5
-    function listManagers(managers, cap) {
-      if (managers.length <= cap) {
+    // Helper: list all tied names — show actual count when >5
+    function listManagers(managers) {
+      if (managers.length <= 5) {
         return managers.map(m => `*${m.teamName}*`).join(', ');
       }
-      return `${cap} managers (${managers.slice(0, cap).map(m => `*${m.teamName}*`).join(', ')}...)`;
+      return `${managers.length} managers (${managers.slice(0, 5).map(m => `*${m.teamName}*`).join(', ')}...)`;
     }
 
-    md += `\u{1F9E0} *Highest Points on Bench (no BB):* ${listManagers(highestBenchManagers, 5)} – ${highestBenchPoints} points\n`;
-    md += `\u{1F52D} *Highest Captain Points:* ${listManagers(topCaptains, 5)} – ${topCaptainPoints} points\n`;
-    md += `\u{1F53B} *Lowest Captain Points:* ${listManagers(lowestCaptain, 5)} – ${bottomCaptainPoints} points\n`;
+    md += `\u{1F9E0} *Highest Points on Bench (no BB):* ${listManagers(highestBenchManagers)} – ${highestBenchPoints} points\n`;
+    md += `\u{1F52D} *Highest Captain Points:* ${listManagers(topCaptains)} – ${topCaptainPoints} points\n`;
+    md += `\u{1F53B} *Lowest Captain Points:* ${listManagers(lowestCaptain)} – ${bottomCaptainPoints} points\n`;
     md += `\u{1F4CA} *League Average:* ${Math.round(leagueAvg)} points\n`;
     md += `---\n\n`;
 
