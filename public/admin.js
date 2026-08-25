@@ -457,8 +457,9 @@ const Admin = (() => {
       </div>
     </div>`;
 
-    // Table with center-aligned numbers
-    html += `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+    // Table wrapper with padding
+    html += `<div style="padding:12px 24px;">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
       <thead>
         <tr style="background:#2c3e50;color:#ffffff;">
           <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;">Rank</th>
@@ -474,7 +475,13 @@ const Admin = (() => {
       <tbody>
         ${tableRows}
       </tbody>
-    </table>`;
+    </table>
+    </div>`;
+
+    // Footer
+    html += `<div style="padding:10px 24px;border-top:1px solid #e9ecef;text-align:center;background:#f8f9fa;">
+      <div style="font-size:10px;color:#999;font-family:'JetBrains Mono',monospace;letter-spacing:0.04em;">Generated with <strong>fplmanager.xyz</strong></div>
+    </div>`;
 
     html += `</div>`;
     container.innerHTML = html;
