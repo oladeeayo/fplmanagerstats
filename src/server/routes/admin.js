@@ -655,17 +655,17 @@ router.get('/gw-summary', async (req, res) => {
     const sadEmojis = ['\u{1F62D}', '\u{1F622}', '\u{1F615}', '\u{1F615}', '\u{1F615}'];
 
     let md = '';
-    md += `*Top 4 Managers of The Week – GW ${targetGW}*\n`;
-    md += `(Top points = *${top4.map(m => m.gwPoints).join(', ')} → all included*)\n\n`;
+    md += `*Top 4 Managers of The Week – GW ${targetGW}*\n\n`;
 
+    const rankEmojis = ['1\uFE0F\u20E3','2\uFE0F\u20E3','3\uFE0F\u20E3','4\uFE0F\u20E3'];
     top4.forEach((m, i) => {
-      md += `${['\u2460','\u2461','\u2462','\u2463'][i]} *${m.teamName}* – ${m.gwPoints} points ${medals[i]}\n`;
+      md += `${rankEmojis[i]} *${m.teamName}* – ${m.gwPoints} points ${medals[i]}\n`;
     });
     md += `---\n\n`;
 
     md += `*Bottom 4 Managers of The Week – GW ${targetGW}*\n\n`;
     bottom4.forEach((m, i) => {
-      md += `${['\u2460','\u2461','\u2462','\u2463'][i]} *${m.teamName}* – ${m.gwPoints} points ${sadEmojis[i]}\n`;
+      md += `${rankEmojis[i]} *${m.teamName}* – ${m.gwPoints} points ${sadEmojis[i]}\n`;
     });
     md += `---\n\n`;
 
