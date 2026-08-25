@@ -625,14 +625,16 @@ router.get('/gw-summary', async (req, res) => {
     const nonBBManagers = sorted.filter(m => m.chipPlayed !== 'bboost');
     const highestBench = [...nonBBManagers].sort((a, b) => b.benchPoints - a.benchPoints)[0];
 
-    // Captain points
+    // Captain points — list all tied at highest/lowest
     const sortedByCaptain = [...sorted].sort((a, b) => b.captainPoints - a.captainPoints);
-    const highestCaptain = sortedByCaptain[0];
-    const lowestCaptain = [...sorted].filter(m => m.captainPoints === sortedByCaptain[sortedByCaptain.length - 1].captainPoints);
-
-    // All tied at top captain points
-    const topCaptainPoints = highestCaptain.captainPoints;
+    const topCaptainPoints = sortedByCaptain[0].captainPoints;
     const topCaptains = sorted.filter(m => m.captainPoints === topCaptainPoints);
+    const bottomCaptainPoints = sortedByCaptain[sortedByCaptain.length - 1].captainPoints;
+    const lowestCaptain = sorted.filter(m => m.captainPoints === bottomCaptainPoints);
+
+    // Highest bench — all tied, excluding BB users
+    const highestBenchPoints = nonBBManagers.length > 0 ? Math.max(...nonBBManagers.map(m => m.benchPoints)) : 0;
+    const highestBenchManagers = nonBBManagers.filter(m => m.benchPoints === highestBenchPoints);
 
     // Chip users
     const tripleCaptainUsers = sorted.filter(m => m.chipPlayed === '3xc');
@@ -669,10 +671,19 @@ router.get('/gw-summary', async (req, res) => {
     });
     md += `---\n\n`;
 
-    md += `*Other Notable Stats*\n`;
-    md += `\u{1F9E0} *Highest Points on Bench:* *${highestBench.teamName}* – ${highestBench.benchPoints} points\n`;
-    md += `\u{1F52D} *Highest Captain Points:* ${topCaptains.map(m => `*${m.teamName}*`).join(', ')} – ${topCaptainPoints} points each\n`;
-    md += `\u{1F53B} *Lowest Captain Points:* ${lowestCaptain.map(m => `*${m.teamName}*`).join(', ')} – ${lowestCaptain[0].captainPoints} points\n`;
+    md += `*Other Notable Stats*\n\n`;
+
+    // Helper: list all tied names, cap at 5
+    function listManagers(managers, cap) {
+      if (managers.length <= cap) {
+        return managers.map(m => `*${m.teamName}*`).join(', ');
+      }
+      return `${cap} managers (${managers.slice(0, cap).map(m => `*${m.teamName}*`).join(', ')}...)`;
+    }
+
+    md += `\u{1F9E0} *Highest Points on Bench (no BB):* ${listManagers(highestBenchManagers, 5)} – ${highestBenchPoints} points\n`;
+    md += `\u{1F52D} *Highest Captain Points:* ${listManagers(topCaptains, 5)} – ${topCaptainPoints} points\n`;
+    md += `\u{1F53B} *Lowest Captain Points:* ${listManagers(lowestCaptain, 5)} – ${bottomCaptainPoints} points\n`;
     md += `\u{1F4CA} *League Average:* ${Math.round(leagueAvg)} points\n`;
     md += `---\n\n`;
 
@@ -717,9 +728,12 @@ router.get('/gw-summary', async (req, res) => {
       leagueAvg: Math.round(leagueAvg * 10) / 10,
       top4,
       bottom4,
-      highestBench,
+      highestBenchManagers,
+      highestBenchPoints,
       topCaptains,
+      topCaptainPoints,
       lowestCaptain,
+      bottomCaptainPoints,
       chipSections: chipSections.map(s => ({ name: s.name, users: s.users.map(u => u.teamName) })),
       biggestClimbers,
       biggestFallers,
