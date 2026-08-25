@@ -597,13 +597,33 @@ router.get('/gw-summary', async (req, res) => {
     const sorted = [...managerData].sort((a, b) => b.gwPoints - a.gwPoints);
     const leagueAvg = sorted.reduce((s, m) => s + m.gwPoints, 0) / sorted.length;
 
-    // Top 4
-    const top4 = sorted.slice(0, 4);
-    // Bottom 4
-    const bottom4 = sorted.slice(-4).reverse();
+    // Tie-aware top/bottom 4: if tied managers share a position, include all of them
+    function getTopNWithTies(arr, n) {
+      const result = [];
+      let positionsUsed = 0;
+      for (let i = 0; i < arr.length && positionsUsed < n; i++) {
+        result.push(arr[i]);
+        // Count how many managers have the same points as this one
+        const nextIdx = i + 1;
+        if (nextIdx < arr.length && arr[nextIdx].gwPoints === arr[i].gwPoints) {
+          // Same points as next — don't count as new position yet
+        } else {
+          positionsUsed++;
+        }
+      }
+      return result;
+    }
+    function getBottomNWithTies(arr, n) {
+      const reversed = [...arr].reverse();
+      const result = getTopNWithTies(reversed, n);
+      return result.reverse();
+    }
+    const top4 = getTopNWithTies(sorted, 4);
+    const bottom4 = getBottomNWithTies(sorted, 4);
 
-    // Highest bench points
-    const highestBench = [...sorted].sort((a, b) => b.benchPoints - a.benchPoints)[0];
+    // Highest bench points (EXCLUDE bench boost users)
+    const nonBBManagers = sorted.filter(m => m.chipPlayed !== 'bboost');
+    const highestBench = [...nonBBManagers].sort((a, b) => b.benchPoints - a.benchPoints)[0];
 
     // Captain points
     const sortedByCaptain = [...sorted].sort((a, b) => b.captainPoints - a.captainPoints);
@@ -639,15 +659,13 @@ router.get('/gw-summary', async (req, res) => {
     md += `(Top points = *${top4.map(m => m.gwPoints).join(', ')} → all included*)\n\n`;
 
     top4.forEach((m, i) => {
-      const chipTag = m.chipPlayed ? ` [${m.chipPlayed.toUpperCase().replace('3XC','TC').replace('BBOOST','BB').replace('FREEHIT','FH').replace('WILDCARD','WC')}]` : '';
-      md += `${['\u2460','\u2461','\u2462','\u2463'][i]} *${m.teamName}* – ${m.gwPoints} points ${medals[i]}${chipTag}\n`;
+      md += `${['\u2460','\u2461','\u2462','\u2463'][i]} *${m.teamName}* – ${m.gwPoints} points ${medals[i]}\n`;
     });
     md += `---\n\n`;
 
     md += `*Bottom 4 Managers of The Week – GW ${targetGW}*\n\n`;
     bottom4.forEach((m, i) => {
-      const chipTag = m.chipPlayed ? ` [${m.chipPlayed.toUpperCase().replace('3XC','TC').replace('BBOOST','BB').replace('FREEHIT','FH').replace('WILDCARD','WC')}]` : '';
-      md += `${['\u2460','\u2461','\u2462','\u2463'][i]} *${m.teamName}* – ${m.gwPoints} points ${sadEmojis[i]}${chipTag}\n`;
+      md += `${['\u2460','\u2461','\u2462','\u2463'][i]} *${m.teamName}* – ${m.gwPoints} points ${sadEmojis[i]}\n`;
     });
     md += `---\n\n`;
 

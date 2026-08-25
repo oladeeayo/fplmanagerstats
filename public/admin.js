@@ -374,81 +374,84 @@ const Admin = (() => {
 
   function renderGWImage(data) {
     const container = document.getElementById('gw-image-preview');
-    const bgColor = '#0f1a14';
-    const cardBg = '#162319';
-    const accentGreen = '#00ff85';
-    const accentRed = '#ff4d4d';
-    const textWhite = '#ffffff';
-    const textMuted = '#8ba396';
-    const border = '#1f3a2a';
 
-    let html = `<div id="gw-image-canvas" style="width:600px;background:${bgColor};font-family:'Inter',system-ui,sans-serif;color:${textWhite};padding:0;overflow:hidden;">`;
-
-    // Header
-    html += `<div style="background:linear-gradient(135deg,#0a1f12,#162d1e);padding:24px 28px 20px;border-bottom:2px solid ${accentGreen};">
-      <div style="font-size:11px;color:${accentGreen};text-transform:uppercase;letter-spacing:0.1em;font-weight:600;font-family:'JetBrains Mono',monospace;">FPL League Recap</div>
-      <div style="font-size:22px;font-weight:800;margin-top:4px;">${escapeHTML(data.leagueName)} – GW ${data.gw}</div>
-      <div style="font-size:12px;color:${textMuted};margin-top:4px;">${data.totalManagers} managers • League avg: ${data.leagueAvg} pts</div>
-    </div>`;
-
-    // Top 4
-    html += `<div style="padding:20px 28px 16px;">
-      <div style="font-size:12px;font-weight:700;color:${accentGreen};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">\u{1F3C6} Top 4 of The Week</div>`;
-    data.top4.forEach((m, i) => {
-      const medals = ['\u{1F947}','\u{1F948}','\u{1F949}','\u{1F44F}'];
-      const bg = i === 0 ? 'rgba(0,255,133,0.08)' : 'transparent';
-      html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:${bg};border-radius:6px;margin-bottom:4px;">
-        <span style="font-size:13px;">${medals[i]} <strong>${escapeHTML(m.teamName)}</strong></span>
-        <span style="font-size:14px;font-weight:800;color:${accentGreen};">${m.gwPoints} pts</span>
-      </div>`;
-    });
-    html += `</div>`;
-
-    // Bottom 4
-    html += `<div style="padding:0 28px 16px;">
-      <div style="font-size:12px;font-weight:700;color:${accentRed};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">\u{1F53B} Bottom 4 of The Week</div>`;
-    data.bottom4.forEach((m, i) => {
-      const sadEmojis = ['\u{1F62D}','\u{1F622}','\u{1F615}','\u{1F615}'];
-      html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-radius:6px;margin-bottom:4px;">
-        <span style="font-size:13px;">${sadEmojis[i]} <strong>${escapeHTML(m.teamName)}</strong></span>
-        <span style="font-size:14px;font-weight:800;color:${accentRed};">${m.gwPoints} pts</span>
-      </div>`;
-    });
-    html += `</div>`;
-
-    // Stats row
-    html += `<div style="padding:0 28px 16px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      <div style="background:${cardBg};border:1px solid ${border};border-radius:8px;padding:12px;text-align:center;">
-        <div style="font-size:10px;color:${textMuted};text-transform:uppercase;font-weight:600;">Highest Bench</div>
-        <div style="font-size:14px;font-weight:700;margin-top:4px;">${escapeHTML(data.highestBench.teamName)}</div>
-        <div style="font-size:18px;font-weight:800;color:${accentGreen};">${data.highestBench.benchPoints} pts</div>
-      </div>
-      <div style="background:${cardBg};border:1px solid ${border};border-radius:8px;padding:12px;text-align:center;">
-        <div style="font-size:10px;color:${textMuted};text-transform:uppercase;font-weight:600;">Top Captain</div>
-        <div style="font-size:14px;font-weight:700;margin-top:4px;">${data.topCaptains.map(m => escapeHTML(m.teamName)).join(', ')}</div>
-        <div style="font-size:18px;font-weight:800;color:${accentGreen};">${data.topCaptains[0].captainPoints} pts</div>
-      </div>
-    </div>`;
-
-    // Chips section
-    if (data.chipSections.length > 0) {
-      html += `<div style="padding:0 28px 16px;">
-        <div style="font-size:12px;font-weight:700;color:${textWhite};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">\u{1F3AF} Chips Used</div>`;
-      data.chipSections.forEach(section => {
-        html += `<div style="margin-bottom:8px;">
-          <div style="font-size:11px;color:${accentGreen};font-weight:600;">${section.name}</div>`;
-        section.users.forEach(u => {
-          html += `<div style="font-size:12px;color:${textMuted};padding-left:12px;">• ${escapeHTML(u)}</div>`;
-        });
-        html += `</div>`;
-      });
-      html += `</div>`;
+    // Color scale for point difference (green=good, red=bad)
+    function getPointDiffColor(diff) {
+      if (diff >= 0) return { bg: '#c6efce', text: '#006100' }; // green
+      const absDiff = Math.abs(diff);
+      if (absDiff <= 10) return { bg: '#d4edda', text: '#155724' }; // light green
+      if (absDiff <= 30) return { bg: '#fff3cd', text: '#856404' }; // yellow
+      if (absDiff <= 60) return { bg: '#ffeeba', text: '#856404' }; // orange-yellow
+      if (absDiff <= 100) return { bg: '#f8d7da', text: '#721c24' }; // light red
+      if (absDiff <= 200) return { bg: '#f5c6cb', text: '#721c24' }; // red
+      return { bg: '#e74c3c', text: '#ffffff' }; // dark red, white text
     }
 
-    // Footer
-    html += `<div style="padding:16px 28px 20px;border-top:1px solid ${border};">
-      <div style="font-size:12px;color:${textMuted};text-align:center;">\u{1F389} Congratulations to <strong style="color:${accentGreen}">${escapeHTML(data.top4[0].teamName)}</strong> for topping GW ${data.gw}!</div>
+    function getRankChangeDisplay(lastRank, rank) {
+      if (!lastRank || lastRank === rank) return { text: '— 0', color: '#666' };
+      const diff = lastRank - rank;
+      if (diff > 0) return { text: `\u2191 ${diff}`, color: '#27ae60' };
+      return { text: `\u2193 ${Math.abs(diff)}`, color: '#e74c3c' };
+    }
+
+    function formatNum(n) {
+      if (!n && n !== 0) return 'N/A';
+      return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+
+    const managers = data.allManagers;
+    const leaderPoints = managers.length > 0 ? managers[0].totalPoints : 0;
+
+    // Build table rows
+    let tableRows = '';
+    managers.forEach((m, i) => {
+      const ptDiff = m.totalPoints - leaderPoints;
+      const ptColor = getPointDiffColor(ptDiff);
+      const rankChange = getRankChangeDisplay(m.lastRank, m.rank);
+      const isTop4 = data.top4.some(t => t.entryId === m.entryId);
+      const isBottom4 = data.bottom4.some(b => b.entryId === m.entryId);
+      const rowBg = i % 2 === 0 ? '#ffffff' : '#f8f9fa';
+      const highlightBg = isTop4 ? 'rgba(0,128,0,0.06)' : isBottom4 ? 'rgba(255,0,0,0.04)' : rowBg;
+
+      tableRows += `<tr style="background:${highlightBg};">
+        <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;text-align:center;font-weight:600;font-size:13px;">${m.rank}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;font-size:13px;">${escapeHTML(m.managerName)}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;font-weight:600;font-size:13px;">${escapeHTML(m.teamName)}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;text-align:right;font-weight:600;font-size:13px;">${formatNum(m.totalPoints)}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;text-align:center;font-size:13px;color:${rankChange.color};">${rankChange.text}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;text-align:right;font-weight:800;font-size:13px;background:${ptColor.bg};color:${ptColor.text};">${ptDiff}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;text-align:right;font-size:13px;">${formatNum(m.overallRank)}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;text-align:right;font-weight:700;font-size:14px;color:#2c3e50;">${m.gwPoints}</td>
+      </tr>`;
+    });
+
+    let html = `<div id="gw-image-canvas" style="width:780px;background:#ffffff;font-family:'Inter',system-ui,sans-serif;color:#2c3e50;padding:0;overflow:hidden;">`;
+
+    // Header banner
+    html += `<div style="background:#1a5276;padding:20px 24px 16px;">
+      <div style="font-size:11px;color:#85c1e9;text-transform:uppercase;letter-spacing:0.1em;font-weight:600;font-family:'JetBrains Mono',monospace;">FPL League Standing</div>
+      <div style="font-size:20px;font-weight:800;color:#ffffff;margin-top:4px;">${escapeHTML(data.leagueName)} — GW ${data.gw}</div>
+      <div style="font-size:12px;color:#aed6f1;margin-top:4px;">${data.totalManagers} managers • League avg: ${data.leagueAvg} pts</div>
     </div>`;
+
+    // Table
+    html += `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="background:#2c3e50;color:#ffffff;">
+          <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;">Rank</th>
+          <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.04em;">Manager Name</th>
+          <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.04em;">Team Name</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;font-weight:700;letter-spacing:0.04em;">Total Points</th>
+          <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;">Rank Change</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;font-weight:700;letter-spacing:0.04em;">Point Diff</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;font-weight:700;letter-spacing:0.04em;">Overall Rank</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;font-weight:700;letter-spacing:0.04em;">GW Pts</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${tableRows}
+      </tbody>
+    </table>`;
 
     html += `</div>`;
     container.innerHTML = html;
