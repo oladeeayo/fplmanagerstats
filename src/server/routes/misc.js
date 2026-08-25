@@ -2221,6 +2221,8 @@ router.get('/manager-squad/:managerId', async (req, res) => {
     const gw = parseInt(req.query.gw) || null;
     const bootstrap = await getCachedApiData(BOOTSTRAP_URL);
     const activeGW = gw || bootstrap.events?.find(e => e.is_current)?.id || bootstrap.events?.find(e => e.is_next)?.id || 1;
+    const currentEvent = bootstrap.events?.find(e => e.is_current);
+    const currentGWFinished = currentEvent ? currentEvent.finished : true;
     
     const [managerData, picksData, historyData, fixturesData] = await Promise.all([
       getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/`),
@@ -2236,7 +2238,9 @@ router.get('/manager-squad/:managerId', async (req, res) => {
     const allFixtures = fixturesData || [];
     const teamFixturesMap = {};
     allFixtures.forEach(f => {
-      if (!f.event || f.event < activeGW) return;
+      // If current GW is in progress, skip it — show next 2 upcoming
+      const fixtureGW = currentGWFinished ? activeGW : activeGW + 1;
+      if (!f.event || f.event < fixtureGW) return;
       [f.team_h, f.team_a].forEach(teamId => {
         if (!teamFixturesMap[teamId]) teamFixturesMap[teamId] = [];
         const isHome = f.team_h === teamId;
@@ -2294,6 +2298,14 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       }
     });
 
+    // Compute squad stats for header
+    const allSquad = [...starting11, ...bench];
+    const scored = allSquad.filter(p => (elementsMap.get(p.id)?.goals_scored || 0) > 0).length;
+    const assisted = allSquad.filter(p => (elementsMap.get(p.id)?.assists || 0) > 0).length;
+    const cleanSheets = allSquad.filter(p => (elementsMap.get(p.id)?.clean_sheets || 0) > 0).length;
+    const doubleFigures = allSquad.filter(p => (p.gwPoints || 0) >= 10).length;
+    const hauled = allSquad.filter(p => (p.gwPoints || 0) >= 10).length;
+
     res.json({
       managerId,
       managerName: `${managerData.player_first_name || ''} ${managerData.player_last_name || ''}`.trim(),
@@ -2307,7 +2319,8 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       chipsUsed,
       gw: activeGW,
       starting11,
-      bench
+      bench,
+      squadStats: { scored, assisted, cleanSheets, doubleFigures, hauled }
     });
   } catch (err) {
     logger.error({ err: err.message }, 'Manager squad error');

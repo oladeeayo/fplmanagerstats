@@ -3187,6 +3187,18 @@ const FPL = {
             const activeChip = data.activeChip ? data.activeChip.toUpperCase() : 'None';
             const chipsUsed = data.chipsUsed || [];
             const squadVal = data.value ? `£${data.value}m` : '--';
+            const stats = data.squadStats || {};
+
+            // Update header with squad stats
+            if (subEl) {
+                const statItems = [];
+                if (stats.scored > 0) statItems.push(`<span style="color:#00FF85;">${stats.scored} scored</span>`);
+                if (stats.assisted > 0) statItems.push(`<span style="color:#6496ff;">${stats.assisted} assisted</span>`);
+                if (stats.cleanSheets > 0) statItems.push(`<span style="color:#c084fc;">${stats.cleanSheets} CS</span>`);
+                if (stats.doubleFigures > 0) statItems.push(`<span style="color:#ffa600;">${stats.doubleFigures} double fig</span>`);
+                if (stats.hauled > 0) statItems.push(`<span style="color:#ff4d4d;">${stats.hauled} hauled</span>`);
+                subEl.innerHTML = `Manager: ${this.decodeHTML(managerName || 'FPL Manager')} • Rank #${rank ? rank.toLocaleString() : '--'} • Total: ${total ? total.toLocaleString() : '--'} pts${statItems.length > 0 ? '<br>' + statItems.join(' • ') : ''}`;
+            }
             const bankVal = data.bank ? `£${data.bank}m` : '--';
 
             // Group starting XI into pitch rows: GKP, DEF, MID, FWD
