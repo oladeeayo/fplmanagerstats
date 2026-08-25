@@ -2320,11 +2320,10 @@ router.get('/manager-squad/:managerId', async (req, res) => {
             goals: current ? (current.goals_scored || 0) : 0,
             assists: current ? (current.assists || 0) : 0,
             cleanSheet: current ? (current.clean_sheets || 0) : 0,
-            defcon: current ? (current.defensive_contribution || 0) : 0,
             minutes: current ? (current.minutes || 0) : 0,
           };
         } catch {
-          return { id: pid, goals: 0, assists: 0, cleanSheet: 0, defcon: 0, minutes: 0 };
+          return { id: pid, goals: 0, assists: 0, cleanSheet: 0, minutes: 0 };
         }
       }));
       results.forEach(r => { playerGwStats[r.id] = r; });
@@ -2338,7 +2337,6 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       if (p.posType !== 1 && p.posType !== 2) return false;
       return (playerGwStats[p.id]?.cleanSheet || 0) > 0;
     }).length;
-    const defcon = allSquad.filter(p => (playerGwStats[p.id]?.defcon || 0) > 0).length;
     const hauled = allSquad.filter(p => (p.gwPoints || 0) >= 10).length;
 
     res.json({
@@ -2353,7 +2351,7 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       gw: activeGW,
       starting11,
       bench,
-      squadStats: { scored, assisted, cleanSheets, defcon, hauled }
+      squadStats: { scored, assisted, cleanSheets, hauled }
     });
   } catch (err) {
     logger.error({ err: err.message }, 'Manager squad error');
