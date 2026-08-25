@@ -377,14 +377,14 @@ const Admin = (() => {
 
     // Color scale for point difference (green=good, red=bad)
     function getPointDiffColor(diff) {
-      if (diff >= 0) return { bg: '#c6efce', text: '#006100' }; // green
+      if (diff >= 0) return { bg: '#c6efce', text: '#006100' };
       const absDiff = Math.abs(diff);
-      if (absDiff <= 10) return { bg: '#d4edda', text: '#155724' }; // light green
-      if (absDiff <= 30) return { bg: '#fff3cd', text: '#856404' }; // yellow
-      if (absDiff <= 60) return { bg: '#ffeeba', text: '#856404' }; // orange-yellow
-      if (absDiff <= 100) return { bg: '#f8d7da', text: '#721c24' }; // light red
-      if (absDiff <= 200) return { bg: '#f5c6cb', text: '#721c24' }; // red
-      return { bg: '#e74c3c', text: '#ffffff' }; // dark red, white text
+      if (absDiff <= 10) return { bg: '#d4edda', text: '#155724' };
+      if (absDiff <= 30) return { bg: '#fff3cd', text: '#856404' };
+      if (absDiff <= 60) return { bg: '#ffeeba', text: '#856404' };
+      if (absDiff <= 100) return { bg: '#f8d7da', text: '#721c24' };
+      if (absDiff <= 200) return { bg: '#f5c6cb', text: '#721c24' };
+      return { bg: '#e74c3c', text: '#ffffff' };
     }
 
     function getRankChangeDisplay(lastRank, rank) {
@@ -401,6 +401,13 @@ const Admin = (() => {
 
     const managers = data.allManagers;
     const leaderPoints = managers.length > 0 ? managers[0].totalPoints : 0;
+    const fplAvg = 55; // approximate PL-wide average per GW
+    const leagueVsFpl = data.leagueAvg - fplAvg;
+    const leagueVsFplSign = leagueVsFpl >= 0 ? '+' : '';
+    const leagueVsFplColor = leagueVsFpl >= 0 ? '#27ae60' : '#e74c3c';
+
+    // Center-align helper for numeric columns
+    const numCenter = 'text-align:center;font-weight:600;font-size:13px;';
 
     // Build table rows
     let tableRows = '';
@@ -414,38 +421,45 @@ const Admin = (() => {
       const highlightBg = isTop4 ? 'rgba(0,128,0,0.06)' : isBottom4 ? 'rgba(255,0,0,0.04)' : rowBg;
 
       tableRows += `<tr style="background:${highlightBg};">
-        <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;text-align:center;font-weight:600;font-size:13px;">${m.rank}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;${numCenter}">${m.rank}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;font-size:13px;">${escapeHTML(m.managerName)}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;font-weight:600;font-size:13px;">${escapeHTML(m.teamName)}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;text-align:right;font-weight:600;font-size:13px;">${formatNum(m.totalPoints)}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;text-align:center;font-size:13px;color:${rankChange.color};">${rankChange.text}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;text-align:right;font-weight:800;font-size:13px;background:${ptColor.bg};color:${ptColor.text};">${ptDiff}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;text-align:right;font-size:13px;">${formatNum(m.overallRank)}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;text-align:right;font-weight:700;font-size:14px;color:#2c3e50;">${m.gwPoints}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;${numCenter}">${formatNum(m.totalPoints)}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;text-align:center;font-size:13px;color:${rankChange.color};font-weight:600;">${rankChange.text}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;text-align:center;font-weight:800;font-size:13px;background:${ptColor.bg};color:${ptColor.text};">${ptDiff}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;${numCenter}">${formatNum(m.overallRank)}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;${numCenter}">${m.gwPoints}</td>
       </tr>`;
     });
 
     let html = `<div id="gw-image-canvas" style="width:780px;background:#ffffff;font-family:'Inter',system-ui,sans-serif;color:#2c3e50;padding:0;overflow:hidden;">`;
 
-    // Header banner
-    html += `<div style="background:#1a5276;padding:20px 24px 16px;">
+    // Header banner — centered
+    html += `<div style="background:#1a5276;padding:20px 24px 16px;text-align:center;">
       <div style="font-size:11px;color:#85c1e9;text-transform:uppercase;letter-spacing:0.1em;font-weight:600;font-family:'JetBrains Mono',monospace;">FPL League Standing</div>
-      <div style="font-size:20px;font-weight:800;color:#ffffff;margin-top:4px;">${escapeHTML(data.leagueName)} — GW ${data.gw}</div>
-      <div style="font-size:12px;color:#aed6f1;margin-top:4px;">${data.totalManagers} managers • League avg: ${data.leagueAvg} pts</div>
+      <div style="font-size:22px;font-weight:900;color:#ffffff;margin-top:6px;">${escapeHTML(data.leagueName)}</div>
+      <div style="font-size:14px;color:#d4e6f1;margin-top:6px;font-weight:600;">GW ${data.gw} • ${data.totalManagers} managers</div>
+      <div style="font-size:13px;color:#aed6f1;margin-top:6px;">
+        League avg: <strong>${data.leagueAvg}</strong> pts
+        <span style="margin:0 8px;color:#5dade2;">|</span>
+        FPL avg: <strong>${fplAvg}</strong> pts
+        <span style="margin:0 8px;color:#5dade2;">|</span>
+        Diff: <strong style="color:${leagueVsFplColor}">${leagueVsFplSign}${leagueVsFpl.toFixed(1)}</strong>
+      </div>
     </div>`;
 
-    // Table
+    // Table with center-aligned numbers
     html += `<table style="width:100%;border-collapse:collapse;font-size:13px;">
       <thead>
         <tr style="background:#2c3e50;color:#ffffff;">
           <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;">Rank</th>
           <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.04em;">Manager Name</th>
           <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.04em;">Team Name</th>
-          <th style="padding:8px 10px;text-align:right;font-size:11px;font-weight:700;letter-spacing:0.04em;">Total Points</th>
-          <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;">Rank Change</th>
-          <th style="padding:8px 10px;text-align:right;font-size:11px;font-weight:700;letter-spacing:0.04em;">Point Diff</th>
-          <th style="padding:8px 10px;text-align:right;font-size:11px;font-weight:700;letter-spacing:0.04em;">Overall Rank</th>
-          <th style="padding:8px 10px;text-align:right;font-size:11px;font-weight:700;letter-spacing:0.04em;">GW Pts</th>
+          <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;">Total Pts</th>
+          <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;">Rank Chg</th>
+          <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;">Pt Diff</th>
+          <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;">Overall Rank</th>
+          <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;">GW Pts</th>
         </tr>
       </thead>
       <tbody>
