@@ -3207,34 +3207,18 @@ const FPL = {
                     capBadge = `<span style="position:absolute;top:-4px;right:-4px;background:#00E5FF;color:#000;font-weight:900;font-size:9px;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.6);">V</span>`;
                 }
 
-                // Calculate displayed GW points (apply captain multiplier)
-                const isTC = activeChip === '3XC' && p.isCaptain;
-                const ptsMultiplier = isTC ? 3 : (p.isCaptain ? 2 : 1);
-                const displayPts = (p.gwPoints ?? 0) * ptsMultiplier;
-                const gwPtsColor = displayPts >= 12 ? '#00FF85' : displayPts >= 6 ? '#fff' : displayPts > 0 ? '#FFA726' : '#666';
-                
-                // Build ultra-compact fixture strip
-                const fixtures = (p.nextFixtures || []).slice(0, 3);
-                const fixtureHTML = fixtures.map(fx => {
-                    const fdrBg = `var(--fdr-${fx.fdr})`;
-                    const fdrClr = fx.fdr <= 2 ? '#fff' : fx.fdr === 3 ? '#1a1a1a' : '#fff';
-                    return `<span style="background:${fdrBg};color:${fdrClr};font-size:7px;font-weight:800;font-family:var(--font-mono);padding:0 3px;border-radius:2px;line-height:1.4;">${fx.isHome ? 'H' : 'A'}${fx.opponent}</span>`;
-                }).join('');
-
                 return `
-                    <div style="display:flex;flex-direction:column;align-items:center;min-width:60px;max-width:90px;flex:1 1 0;position:relative;">
-                        <div style="position:relative;width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid ${p.isCaptain ? '#00FF85' : 'rgba(255,255,255,0.15)'};overflow:visible;display:flex;align-items:center;justify-content:center;">
-                            <img src="${photoUrl}" onerror="if(this.src!=='${plFallback}'&&'${plFallback}'){this.src='${plFallback}';}else{this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2246%22 height=%2246%22 viewBox=%220 0 24 24%22 fill=%22%23777%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E';}" style="width:100%;height:100%;object-fit:cover;object-position:top;border-radius:50%;" alt="${p.name}">
+                    <div style="display:flex;flex-direction:column;align-items:center;min-width:70px;max-width:100px;flex:1 1 0;position:relative;">
+                        <div style="position:relative;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid ${p.isCaptain ? '#00FF85' : 'rgba(255,255,255,0.15)'};overflow:visible;display:flex;align-items:center;justify-content:center;">
+                            <img src="${photoUrl}" onerror="if(this.src!=='${plFallback}'&&'${plFallback}'){this.src='${plFallback}';}else{this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22 viewBox=%220 0 24 24%22 fill=%22%23777%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E';}" style="width:100%;height:100%;object-fit:cover;object-position:top;border-radius:50%;" alt="${p.name}">
                             ${capBadge}
-                            <span style="position:absolute;top:-6px;left:-6px;background:rgba(0,0,0,0.85);border:1px solid ${gwPtsColor};color:${gwPtsColor};font-weight:900;font-size:9px;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);box-shadow:0 2px 4px rgba(0,0,0,0.5);">${displayPts}</span>
                         </div>
-                        <div style="margin-top:4px;background:rgba(0,0,0,0.85);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:2px 4px;text-align:center;width:100%;">
-                            <div style="font-weight:700;font-size:10px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(p.name)}</div>
-                            <div style="display:flex;justify-content:space-between;align-items:center;font-size:8px;margin-top:1px;">
+                        <div style="margin-top:4px;background:rgba(0,0,0,0.85);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:4px 6px;text-align:center;width:100%;">
+                            <div style="font-weight:700;font-size:11px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(p.name)}</div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;font-size:9px;margin-top:2px;">
                                 <span style="color:#8ba396;">${p.team}</span>
                                 <span style="color:#00FF85;font-weight:800;font-family:var(--font-mono);">£${p.cost}m</span>
                             </div>
-                            ${fixtures.length > 0 ? `<div style="display:flex;justify-content:center;flex-wrap:wrap;gap:1px;margin-top:3px;">${fixtureHTML}</div>` : ''}
                         </div>
                     </div>
                 `;
@@ -3302,6 +3286,40 @@ const FPL = {
                         `).join('')}
                     </div>
                     ` : ''}
+
+                    <!-- Next 2 GW Fixtures Section -->
+                    <div style="background:rgba(0,0,0,0.75);border:1px solid rgba(0,255,133,0.25);padding:10px 12px;margin-top:8px;border-radius:10px;">
+                        <div style="font-size:10px;font-family:var(--font-mono);color:#8ba396;font-weight:800;letter-spacing:0.05em;text-align:center;margin-bottom:8px;">NEXT 2 GW FIXTURES</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                            ${(() => {
+                                const allPlayers = [...starting11, ...bench];
+                                const teamFixtures = {};
+                                allPlayers.forEach(p => {
+                                    if (!teamFixtures[p.team]) teamFixtures[p.team] = [];
+                                    (p.nextFixtures || []).slice(0, 2).forEach(f => {
+                                        if (!teamFixtures[p.team].find(tf => tf.gw === f.gw)) {
+                                            teamFixtures[p.team].push(f);
+                                        }
+                                    });
+                                });
+                                return Object.entries(teamFixtures).map(([team, fixtures]) => `
+                                    <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px;">
+                                        <div style="font-size:11px;font-weight:700;color:#fff;margin-bottom:6px;">${team}</div>
+                                        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                                            ${fixtures.map(f => {
+                                                const fdrBg = `var(--fdr-${f.fdr})`;
+                                                const fdrClr = f.fdr <= 2 ? '#fff' : f.fdr === 3 ? '#1a1a1a' : '#fff';
+                                                return `<div style="background:${fdrBg};color:${fdrClr};font-size:10px;font-weight:700;font-family:var(--font-mono);padding:3px 6px;border-radius:4px;text-align:center;min-width:40px;">
+                                                    <div style="font-size:8px;opacity:0.8;">GW${f.gw}</div>
+                                                    <div>${f.isHome ? 'H' : 'A'} ${f.opponent}</div>
+                                                </div>`;
+                                            }).join('')}
+                                        </div>
+                                    </div>
+                                `).join('');
+                            })()}
+                        </div>
+                    </div>
                 </div>
             `;
         } catch (err) {

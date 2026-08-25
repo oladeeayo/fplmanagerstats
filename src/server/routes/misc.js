@@ -2267,7 +2267,7 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       const el = elementsMap.get(p.element);
       if (!el) return;
       const team = teamsMap.get(el.team);
-      const playerFixtures = (teamFixturesMap[el.team] || []).slice(0, 3);
+      const playerFixtures = (teamFixturesMap[el.team] || []).slice(0, 2);
       const playerObj = {
         id: el.id,
         code: el.code,
