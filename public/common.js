@@ -3214,7 +3214,7 @@ const FPL = {
                 const fixtureHTML = fixtures.map(fx => {
                     const fdrBg = `var(--fdr-${fx.fdr})`;
                     const fdrClr = fx.fdr <= 2 ? '#fff' : fx.fdr === 3 ? '#1a1a1a' : '#fff';
-                    return `<span style="background:${fdrBg};color:${fdrClr};font-size:7px;font-weight:800;font-family:var(--font-mono);padding:0 3px;border-radius:2px;line-height:1.4;">${fx.isHome ? 'H' : 'A'}${fx.opponent}</span>`;
+                    return `<span style="background:${fdrBg};color:${fdrClr};font-weight:800;font-family:var(--font-mono);padding:0 3px;border-radius:2px;line-height:1.4;display:inline-flex;align-items:baseline;gap:1px;"><span style="font-size:5px;opacity:0.8;">${fx.isHome ? 'H' : 'A'}</span><span style="font-size:7px;">${fx.opponent}</span></span>`;
                 }).join('');
 
                 return `
