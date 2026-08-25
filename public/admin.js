@@ -496,40 +496,59 @@ const Admin = (() => {
     });
   }
 
-  function downloadImage() {
-    const canvas = document.getElementById('gw-image-canvas');
-    if (!canvas) return;
-    // Use html2canvas if available, else instruct user
+  async function renderToCanvas() {
+    const el = document.getElementById('gw-image-canvas');
+    if (!el) return null;
     if (typeof html2canvas !== 'undefined') {
-      html2canvas(canvas, { scale: 2, backgroundColor: '#0f1a14' }).then(c => {
-        const link = document.createElement('a');
-        link.download = `gw-${gwSummaryData?.gw || 'summary'}.png`;
-        link.href = c.toDataURL('image/png');
-        link.click();
-      });
-    } else {
-      // Fallback: use canvas API via SVG foreignObject
-      const width = canvas.offsetWidth * 2;
-      const height = canvas.offsetHeight * 2;
-      const svgData = `<svg xmlns='http://www.w3.org/2000/svg' width='${width}' height='${height}'><foreignObject width='100%' height='100%'><div xmlns='http://www.w3.org/1999/xhtml' style='width:${canvas.offsetWidth}px;transform:scale(2);transform-origin:top left;background:#0f1a14;'>${canvas.outerHTML}</div></foreignObject></svg>`;
+      return await html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+    }
+    // Fallback via SVG foreignObject
+    const width = el.offsetWidth * 2;
+    const height = el.offsetHeight * 2;
+    const svgData = `<svg xmlns='http://www.w3.org/2000/svg' width='${width}' height='${height}'><foreignObject width='100%' height='100%'><div xmlns='http://www.w3.org/1999/xhtml' style='width:${el.offsetWidth}px;transform:scale(2);transform-origin:top left;background:#ffffff;'>${el.outerHTML}</div></foreignObject></svg>`;
+    return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => {
         const c = document.createElement('canvas');
         c.width = width;
         c.height = height;
-        const ctx = c.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        const link = document.createElement('a');
-        link.download = `gw-${gwSummaryData?.gw || 'summary'}.png`;
-        link.href = c.toDataURL('image/png');
-        link.click();
+        c.getContext('2d').drawImage(img, 0, 0);
+        resolve(c);
       };
+      img.onerror = () => resolve(null);
       img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+    });
+  }
+
+  async function copyImage() {
+    const c = await renderToCanvas();
+    if (!c) return;
+    try {
+      const blob = await new Promise(resolve => c.toBlob(resolve, 'image/png'));
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blob })
+      ]);
+      const btn = document.getElementById('gw-copy-img-btn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy Image'; }, 2000);
+    } catch (e) {
+      // Fallback: open in new tab for manual copy
+      const url = c.toDataURL('image/png');
+      window.open(url, '_blank');
     }
+  }
+
+  async function downloadImage() {
+    const c = await renderToCanvas();
+    if (!c) return;
+    const link = document.createElement('a');
+    link.download = `gw-${gwSummaryData?.gw || 'summary'}.png`;
+    link.href = c.toDataURL('image/png');
+    link.click();
   }
 
   // Populate GW selector on load
   populateGWSelector();
 
-  return { login, logout, setPeriod, goPage, goManagerPage, generateGWSummary, copyMarkdown, downloadImage };
+  return { login, logout, setPeriod, goPage, goManagerPage, generateGWSummary, copyMarkdown, copyImage, downloadImage };
 })();

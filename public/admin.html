@@ -285,11 +285,14 @@
             </div>
             <!-- Image preview -->
             <div>
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:6px;flex-wrap:wrap;">
                 <span style="font-size:11px;color:#8ba396;font-weight:600;text-transform:uppercase;font-family:'JetBrains Mono',monospace;">Image Preview</span>
-                <button onclick="Admin.downloadImage()" style="padding:4px 12px;background:rgba(100,150,255,0.12);color:#6496ff;border:1px solid rgba(100,150,255,0.3);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:'JetBrains Mono',monospace;">Download PNG</button>
+                <div style="display:flex;gap:6px;">
+                  <button onclick="Admin.copyImage()" id="gw-copy-img-btn" style="padding:4px 12px;background:rgba(0,255,133,0.12);color:#00ff85;border:1px solid rgba(0,255,133,0.3);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:'JetBrains Mono',monospace;">Copy Image</button>
+                  <button onclick="Admin.downloadImage()" style="padding:4px 12px;background:rgba(100,150,255,0.12);color:#6496ff;border:1px solid rgba(100,150,255,0.3);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:'JetBrains Mono',monospace;">Download PNG</button>
+                </div>
               </div>
-              <div id="gw-image-preview" style="background:#0d1210;border:1px solid #1A2E28;border-radius:8px;padding:16px;max-height:500px;overflow-x:auto;overflow-y:auto;"></div>
+              <div id="gw-image-preview" style="background:#0d1210;border:1px solid #1A2E28;border-radius:8px;padding:16px;overflow-x:auto;"></div>
             </div>
           </div>
         </div>
