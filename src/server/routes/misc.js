@@ -1176,7 +1176,8 @@ router.get('/team-projections', async (req, res) => {
     const matchProjections = gwFixtures.map(f => {
       const homeTeam = getTeam(f.team_h);
       const awayTeam = getTeam(f.team_a);
-      const proj = teamProj.projectFixture(homeTeam.short_name, awayTeam.short_name, teamProj.computeTeamRatings());
+      const { ratings } = teamProj.computeTeamRatings(teams, fixtures);
+      const proj = teamProj.projectFixture(homeTeam.short_name, awayTeam.short_name, ratings);
 
       return {
         id: f.id,
@@ -1312,7 +1313,7 @@ router.get('/goals-projections', async (req, res) => {
       currentGW,
       ranked,
       perGW,
-      modelVersion: 'Dixon-Coles (2024-25 xG data)',
+      modelVersion: 'Dixon-Coles (historical + current season blend)',
     });
   } catch (e) {
     logger.error({ err: e }, 'Goals projections error');
@@ -1383,7 +1384,7 @@ router.get('/goals-conceded', async (req, res) => {
       currentGW,
       ranked,
       perGW,
-      modelVersion: 'Dixon-Coles (2024-25 xG data)',
+      modelVersion: 'Dixon-Coles (historical + current season blend)',
     });
   } catch (e) {
     logger.error({ err: e }, 'Goals conceded error');

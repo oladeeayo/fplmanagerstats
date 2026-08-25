@@ -19,55 +19,163 @@ function tau(x, y, lambda, mu, rho) {
   return 1;
 }
 
-// --- Team strength ratings derived from 2024-25 xG data ---
+// --- Team strength ratings derived from historical xG data + current season results ---
 // α = attack strength (positive = scores more)
 // β = defense weakness (positive = concedes more)
 // Derived by log-transforming per-game xG and centering around league average
 
-const LEAGUE_AVG_XG = 1.38; // 2024-25 PL average xG per team per game
 const HOME_ADVANTAGE = 0.22; // log-scale home advantage (~1.25x multiplier)
 const RHO = -0.13; // Dixon-Coles low-score dependence parameter
 
-// 2024-25 PL xG data (per game)
-const TEAM_XG_DATA = {
-  'LIV': { xG: 2.24, xGA: 1.00 },
-  'ARS': { xG: 1.66, xGA: 0.92 },
-  'MCI': { xG: 1.85, xGA: 1.31 },
-  'CHE': { xG: 1.81, xGA: 1.30 },
-  'NEW': { xG: 1.75, xGA: 1.24 },
-  'BOU': { xG: 1.77, xGA: 1.31 },
-  'BHA': { xG: 1.59, xGA: 1.46 },
-  'CRY': { xG: 1.63, xGA: 1.34 },
-  'AVL': { xG: 1.51, xGA: 1.31 },
-  'BRE': { xG: 1.62, xGA: 1.49 },
-  'FUL': { xG: 1.33, xGA: 1.29 },
-  'NFO': { xG: 1.23, xGA: 1.32 },
-  'TOT': { xG: 1.57, xGA: 1.75 },
-  'MUN': { xG: 1.43, xGA: 1.47 },
-  'WHU': { xG: 1.24, xGA: 1.59 },
-  'EVE': { xG: 1.10, xGA: 1.26 },
-  'WOL': { xG: 1.18, xGA: 1.55 },
-  'LEE': { xG: 1.02, xGA: 1.45 }, // promoted
-  'SUN': { xG: 0.94, xGA: 1.53 }, // promoted
-  'COV': { xG: 0.85, xGA: 1.60 }, // promoted
-  'IPS': { xG: 0.79, xGA: 1.68 }, // promoted
-  'HUL': { xG: 0.77, xGA: 1.72 }, // promoted
+// Historical baseline xG data (used as prior, blended with current season results)
+// These represent a multi-year average of team attacking/defensive output
+const HISTORICAL_XG_DATA = {
+  'LIV': { xG: 2.10, xGA: 1.05 },
+  'ARS': { xG: 1.72, xGA: 1.00 },
+  'MCI': { xG: 1.95, xGA: 1.15 },
+  'CHE': { xG: 1.75, xGA: 1.25 },
+  'NEW': { xG: 1.65, xGA: 1.20 },
+  'BOU': { xG: 1.55, xGA: 1.30 },
+  'BHA': { xG: 1.55, xGA: 1.40 },
+  'CRY': { xG: 1.45, xGA: 1.30 },
+  'AVL': { xG: 1.55, xGA: 1.30 },
+  'BRE': { xG: 1.50, xGA: 1.40 },
+  'FUL': { xG: 1.35, xGA: 1.30 },
+  'NFO': { xG: 1.25, xGA: 1.30 },
+  'TOT': { xG: 1.60, xGA: 1.55 },
+  'MUN': { xG: 1.50, xGA: 1.40 },
+  'WHU': { xG: 1.30, xGA: 1.45 },
+  'EVE': { xG: 1.20, xGA: 1.30 },
+  'WOL': { xG: 1.25, xGA: 1.45 },
+  'LEE': { xG: 1.10, xGA: 1.50 },
+  'SUN': { xG: 1.00, xGA: 1.50 },
+  'COV': { xG: 0.95, xGA: 1.55 },
+  'IPS': { xG: 0.90, xGA: 1.60 },
+  'HUL': { xG: 0.85, xGA: 1.65 },
 };
 
-// Compute attack/defense ratings from xG data
-function computeTeamRatings() {
+// Compute current season actual stats from completed FPL fixtures
+function computeCurrentSeasonStats(teams, fixtures) {
+  const current = {};
+  const currentGW = fixtures.reduce((max, f) => f.finished ? Math.max(max, f.event) : max, 0);
+
+  teams.forEach(t => {
+    current[t.short_name] = {
+      goalsFor: 0, goalsAgainst: 0,
+      homeGF: 0, homeGA: 0, homeGames: 0,
+      awayGF: 0, awayGA: 0, awayGames: 0,
+      cleanSheets: 0, totalGames: 0,
+      points: 0,
+    };
+  });
+
+  const finished = fixtures.filter(f => f.finished && f.team_h_score != null);
+
+  finished.forEach(f => {
+    const home = teams.find(t => t.id === f.team_h);
+    const away = teams.find(t => t.id === f.team_a);
+    if (!home || !away) return;
+    const hs = current[home.short_name];
+    const as = current[away.short_name];
+    if (!hs || !as) return;
+
+    hs.goalsFor += f.team_h_score;
+    hs.goalsAgainst += f.team_a_score;
+    hs.homeGF += f.team_h_score;
+    hs.homeGA += f.team_a_score;
+    hs.homeGames++;
+    hs.totalGames++;
+    if (f.team_a_score === 0) hs.cleanSheets++;
+    if (f.team_h_score > f.team_a_score) hs.points += 3;
+    else if (f.team_h_score === f.team_a_score) hs.points += 1;
+
+    as.goalsFor += f.team_a_score;
+    as.goalsAgainst += f.team_h_score;
+    as.awayGF += f.team_a_score;
+    as.awayGA += f.team_h_score;
+    as.awayGames++;
+    as.totalGames++;
+    if (f.team_h_score === 0) as.cleanSheets++;
+    if (f.team_a_score > f.team_h_score) as.points += 3;
+    else if (f.team_a_score === f.team_h_score) as.points += 1;
+  });
+
+  return { stats: current, currentGW, gamesPlayed: finished.length };
+}
+
+// Compute blend weight for current season data based on how many GWs have been played
+// GW 0-3: mostly historical (10-25% current)
+// GW 10: ~40% current
+// GW 19: ~55% current
+// GW 25+: ~70% current, capped at 80%
+function getCurrentSeasonWeight(gamesPlayed) {
+  if (gamesPlayed <= 0) return 0;
+  // Logistic-like curve: starts low, ramps up, caps at 0.80
+  const raw = 0.80 * (1 - Math.exp(-0.08 * gamesPlayed));
+  return Math.min(0.80, Math.max(0, raw));
+}
+
+// Build blended team ratings from historical + current season data
+function computeTeamRatings(teams, fixtures) {
   const ratings = {};
+  const { stats, currentGW, gamesPlayed } = computeCurrentSeasonStats(teams || [], fixtures || []);
+  const currentWeight = getCurrentSeasonWeight(gamesPlayed);
+  const historicalWeight = 1 - currentWeight;
 
-  for (const [shortName, data] of Object.entries(TEAM_XG_DATA)) {
-    // α = log(xG / league_avg) — positive means above average attack
-    const alpha = Math.log(data.xG / LEAGUE_AVG_XG);
-    // β = log(xGA / league_avg) — positive means above average defense weakness
-    const beta = Math.log(data.xGA / LEAGUE_AVG_XG);
+  // Compute league-average actual stats for centering
+  const teamNames = Object.keys(stats);
+  const avgGFPG = teamNames.length > 0
+    ? teamNames.reduce((s, n) => s + (stats[n].totalGames > 0 ? stats[n].goalsFor / stats[n].totalGames : 1.38), 0) / teamNames.length
+    : 1.38;
+  const avgGAPG = teamNames.length > 0
+    ? teamNames.reduce((s, n) => s + (stats[n].totalGames > 0 ? stats[n].goalsAgainst / stats[n].totalGames : 1.38), 0) / teamNames.length
+    : 1.38;
+  const leagueAvg = (avgGFPG + avgGAPG) / 2 || 1.38;
 
-    ratings[shortName] = { alpha, beta, xG: data.xG, xGA: data.xGA };
+  // For each team, blend historical baseline with current season actuals
+  for (const shortName of Object.keys(HISTORICAL_XG_DATA)) {
+    const hist = HISTORICAL_XG_DATA[shortName];
+    const cur = stats[shortName];
+
+    let xG, xGA;
+
+    if (cur && cur.totalGames >= 1) {
+      // Current season actual goals per game (home/away weighted)
+      const homeGFPG = cur.homeGames > 0 ? cur.homeGF / cur.homeGames : hist.xG * 0.55;
+      const awayGFPG = cur.awayGames > 0 ? cur.awayGF / cur.awayGames : hist.xG * 0.45;
+      const homeGAPG = cur.homeGames > 0 ? cur.homeGA / cur.homeGames : hist.xGA * 0.45;
+      const awayGAPG = cur.awayGames > 0 ? cur.awayGA / cur.awayGames : hist.xGA * 0.55;
+
+      // Blend: use home/away splits from actual results when enough data, else overall
+      const curXG = (homeGFPG + awayGFPG) / 2;
+      const curXGA = (homeGAPG + awayGAPG) / 2;
+
+      xG = hist.xG * historicalWeight + curXG * currentWeight;
+      xGA = hist.xGA * historicalWeight + curXGA * currentWeight;
+    } else {
+      // No completed games yet — use historical only
+      xG = hist.xG;
+      xGA = hist.xGA;
+    }
+
+    // Clamp to reasonable PL bounds
+    xG = Math.max(0.6, Math.min(3.0, xG));
+    xGA = Math.max(0.6, Math.min(3.0, xGA));
+
+    // Compute Dixon-Coles alpha/beta
+    const alpha = Math.log(xG / leagueAvg);
+    const beta = Math.log(xGA / leagueAvg);
+
+    ratings[shortName] = {
+      alpha, beta,
+      xG: Math.round(xG * 100) / 100,
+      xGA: Math.round(xGA * 100) / 100,
+      currentWeight: Math.round(currentWeight * 100),
+      source: cur && cur.totalGames > 0 ? 'blended' : 'historical',
+    };
   }
 
-  return ratings;
+  return { ratings, currentWeight, gamesPlayed, currentGW };
 }
 
 // --- Compute match expected goals using Dixon-Coles formula ---
@@ -155,7 +263,7 @@ function projectFixture(homeTeam, awayTeam, ratings) {
 
 // --- Project all fixtures for a gameweek ---
 function projectGameweek(fixtures, teams, teamIdMap) {
-  const ratings = computeTeamRatings();
+  const { ratings } = computeTeamRatings(teams, fixtures);
 
   return fixtures.map(f => {
     const homeTeam = teamIdMap[f.team_h] || '???';
@@ -176,7 +284,7 @@ function projectGameweek(fixtures, teams, teamIdMap) {
 
 // --- Multi-GW team projections ---
 function projectMultiGWTeams(teams, fixtures, teamIdMap, startGW, horizon) {
-  const ratings = computeTeamRatings();
+  const { ratings } = computeTeamRatings(teams, fixtures);
   const results = {};
 
   // Initialize
@@ -260,13 +368,14 @@ module.exports = {
   poissonPMF,
   tau,
   computeTeamRatings,
+  computeCurrentSeasonStats,
+  getCurrentSeasonWeight,
   computeMatchXG,
   computeMatchProbs,
   projectFixture,
   projectGameweek,
   projectMultiGWTeams,
-  TEAM_XG_DATA,
-  LEAGUE_AVG_XG,
+  HISTORICAL_XG_DATA,
   HOME_ADVANTAGE,
   RHO,
 };
