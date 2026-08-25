@@ -335,7 +335,16 @@ const Admin = (() => {
       opt.textContent = `GW ${gw}`;
       sel.appendChild(opt);
     }
-    sel.value = 38; // default to latest completed GW
+    // Auto-select the most recently completed GW from bootstrap data
+    fetch('/api/bootstrap-static')
+      .then(r => r.json())
+      .then(bs => {
+        const events = bs.events || [];
+        const completed = events.filter(e => e.finished);
+        const latestCompleted = completed.length > 0 ? completed[completed.length - 1].id : 1;
+        sel.value = latestCompleted;
+      })
+      .catch(() => { sel.value = 6; }); // fallback
   }
 
   async function generateGWSummary() {
