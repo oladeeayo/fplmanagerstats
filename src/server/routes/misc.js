@@ -2302,44 +2302,21 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       }
     });
 
-    // Fetch per-GW player history for accurate current GW stats
+    // Compute squad stats from bootstrap element data (fast, no extra API calls)
     const allSquad = [...starting11, ...bench];
-    const squadIds = allSquad.map(p => p.id);
-    const prevGW = activeGW > 1 ? activeGW - 1 : null;
-
-    // Fetch each player's element summary in batches
-    const BATCH = 8;
-    const playerGwStats = {};
-    for (let i = 0; i < squadIds.length; i += BATCH) {
-      const batch = squadIds.slice(i, i + BATCH);
-      const results = await Promise.all(batch.map(async (pid) => {
-        try {
-          const data = await getCachedApiData(
-            `https://fantasy.premierleague.com/api/element-summary/${pid}/`
-          );
-          const current = (data.history || []).find(h => h.round === activeGW);
-          const prev = prevGW ? (data.history || []).find(h => h.round === prevGW) : null;
-          return {
-            id: pid,
-            goals: current ? (current.goals_scored || 0) : 0,
-            assists: current ? (current.assists || 0) : 0,
-            cleanSheet: current ? (current.clean_sheets || 0) : 0,
-            minutes: current ? (current.minutes || 0) : 0,
-          };
-        } catch {
-          return { id: pid, goals: 0, assists: 0, cleanSheet: 0, minutes: 0 };
-        }
-      }));
-      results.forEach(r => { playerGwStats[r.id] = r; });
-    }
-
-    // Compute stats from per-GW data
-    const scored = allSquad.filter(p => (playerGwStats[p.id]?.goals || 0) > 0).length;
-    const assisted = allSquad.filter(p => (playerGwStats[p.id]?.assists || 0) > 0).length;
+    const scored = allSquad.filter(p => {
+      const el = elementsMap.get(p.id);
+      return el && (el.goals_scored || 0) > 0;
+    }).length;
+    const assisted = allSquad.filter(p => {
+      const el = elementsMap.get(p.id);
+      return el && (el.assists || 0) > 0;
+    }).length;
     // CS only for GKP and DEF
     const cleanSheets = allSquad.filter(p => {
       if (p.posType !== 1 && p.posType !== 2) return false;
-      return (playerGwStats[p.id]?.cleanSheet || 0) > 0;
+      const el = elementsMap.get(p.id);
+      return el && (el.clean_sheets || 0) > 0;
     }).length;
     const hauled = allSquad.filter(p => (p.gwPoints || 0) >= 10).length;
 
