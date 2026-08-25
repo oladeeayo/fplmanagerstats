@@ -46,7 +46,7 @@ async function fetchMatchEvents() {
     }
 
     const data = await resp.json();
-    const now = Date.now();
+    const nowMs = Date.now();
     logger.info({ matchCount: data.matches?.length ?? 0, season }, 'football-data.org response received');
 
     const matches = (data.matches || [])
@@ -55,7 +55,7 @@ async function fetchMatchEvents() {
         if (['IN_PLAY', 'PAUSED', 'TIMED'].includes(m.status)) return true;
         if (m.status === 'FINISHED') {
           const matchEnd = new Date(m.utcDate).getTime() + 2 * 60 * 60 * 1000;
-          return now < matchEnd;
+          return nowMs < matchEnd;
         }
         return false;
       })
@@ -99,7 +99,7 @@ async function fetchMatchEvents() {
         })),
       }));
 
-    return { matches, fetchedAt: now };
+    return { matches, fetchedAt: nowMs };
   } catch (err) {
     logger.error({ err: err.message }, 'football-data.org fetch error');
     return null;
