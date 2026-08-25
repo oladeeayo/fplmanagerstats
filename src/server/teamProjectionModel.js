@@ -103,24 +103,38 @@ function computeCurrentSeasonStats(teams, fixtures) {
   return { stats: current, currentGW, gamesPlayed: finished.length };
 }
 
-// Compute blend weight for current season data based on how many GWs have been played
-// GW 0-3: mostly historical (10-25% current)
-// GW 10: ~40% current
-// GW 19: ~55% current
-// GW 25+: ~70% current, capped at 80%
+// Promoted teams this season (use historical baseline much longer)
+const PROMOTED_TEAMS = new Set(['LEE', 'SUN', 'COV', 'IPS', 'HUL']);
+
+// Minimum matches per team before current season data starts blending in
+const MIN_MATCHES_FOR_BLEND = 5;
+
+// Compute blend weight for current season data
+// Requires MIN_MATCHES_FOR_BLEND per team before any blending kicks in
+// Then ramps slowly: 10 matches → ~15%, 19 → ~30%, 38 → ~50%
 function getCurrentSeasonWeight(gamesPlayed) {
-  if (gamesPlayed <= 0) return 0;
-  // Logistic-like curve: starts low, ramps up, caps at 0.80
-  const raw = 0.80 * (1 - Math.exp(-0.08 * gamesPlayed));
-  return Math.min(0.80, Math.max(0, raw));
+  if (gamesPlayed < MIN_MATCHES_FOR_BLEND) return 0;
+  // Very slow ramp: only 50% influence at end of a full season
+  const adjusted = gamesPlayed - MIN_MATCHES_FOR_BLEND;
+  const raw = 0.55 * (1 - Math.exp(-0.04 * adjusted));
+  return Math.min(0.55, Math.max(0, raw));
 }
 
-// Build blended team ratings from historical + current season data
+// Promoted teams get a reduced blend weight (1 match means nothing)
+function getTeamBlendWeight(gamesPlayed, teamShortName) {
+  const base = getCurrentSeasonWeight(gamesPlayed);
+  if (PROMOTED_TEAMS.has(teamShortName)) {
+    // Promoted teams need 8+ matches before blending, cap at 35%
+    if (gamesPlayed < 8) return 0;
+    return Math.min(0.35, base * 0.6);
+  }
+  return base;
+}
+
+// Build blended team ratings from historical + current season data + H2H adjustments
 function computeTeamRatings(teams, fixtures) {
   const ratings = {};
   const { stats, currentGW, gamesPlayed } = computeCurrentSeasonStats(teams || [], fixtures || []);
-  const currentWeight = getCurrentSeasonWeight(gamesPlayed);
-  const historicalWeight = 1 - currentWeight;
 
   // Compute league-average actual stats for centering
   const teamNames = Object.keys(stats);
@@ -136,24 +150,26 @@ function computeTeamRatings(teams, fixtures) {
   for (const shortName of Object.keys(HISTORICAL_XG_DATA)) {
     const hist = HISTORICAL_XG_DATA[shortName];
     const cur = stats[shortName];
+    const teamGames = cur ? cur.totalGames : 0;
+    const teamWeight = getTeamBlendWeight(teamGames, shortName);
+    const historicalWeight = 1 - teamWeight;
 
     let xG, xGA;
 
-    if (cur && cur.totalGames >= 1) {
+    if (teamGames >= MIN_MATCHES_FOR_BLEND && teamWeight > 0) {
       // Current season actual goals per game (home/away weighted)
       const homeGFPG = cur.homeGames > 0 ? cur.homeGF / cur.homeGames : hist.xG * 0.55;
       const awayGFPG = cur.awayGames > 0 ? cur.awayGF / cur.awayGames : hist.xG * 0.45;
       const homeGAPG = cur.homeGames > 0 ? cur.homeGA / cur.homeGames : hist.xGA * 0.45;
       const awayGAPG = cur.awayGames > 0 ? cur.awayGA / cur.awayGames : hist.xGA * 0.55;
 
-      // Blend: use home/away splits from actual results when enough data, else overall
       const curXG = (homeGFPG + awayGFPG) / 2;
       const curXGA = (homeGAPG + awayGAPG) / 2;
 
-      xG = hist.xG * historicalWeight + curXG * currentWeight;
-      xGA = hist.xGA * historicalWeight + curXGA * currentWeight;
+      xG = hist.xG * historicalWeight + curXG * teamWeight;
+      xGA = hist.xGA * historicalWeight + curXGA * teamWeight;
     } else {
-      // No completed games yet — use historical only
+      // Not enough matches yet — use historical only
       xG = hist.xG;
       xGA = hist.xGA;
     }
@@ -170,15 +186,52 @@ function computeTeamRatings(teams, fixtures) {
       alpha, beta,
       xG: Math.round(xG * 100) / 100,
       xGA: Math.round(xGA * 100) / 100,
-      currentWeight: Math.round(currentWeight * 100),
-      source: cur && cur.totalGames > 0 ? 'blended' : 'historical',
+      currentWeight: Math.round(teamWeight * 100),
+      source: teamGames >= MIN_MATCHES_FOR_BLEND && teamWeight > 0 ? 'blended' : 'historical',
+      promoted: PROMOTED_TEAMS.has(shortName),
     };
   }
 
-  return { ratings, currentWeight, gamesPlayed, currentGW };
+  return { ratings, gamesPlayed, currentGW };
 }
 
-// --- Compute match expected goals using Dixon-Coles formula ---
+// --- H2H historical matchup adjustments (avg goal diff over last 3 seasons) ---
+// Positive = home team scores more on average against this opponent
+// Negative = home team scores less on average against this opponent
+const H2H_ADJUSTMENTS = {
+  'LIV-ARS': 0.15, 'ARS-LIV': -0.10, 'LIV-MCI': 0.20, 'MCI-LIV': -0.15,
+  'LIV-CHE': 0.25, 'CHE-LIV': -0.15, 'LIV-EVE': 0.35, 'EVE-LIV': -0.30,
+  'LIV-TOT': 0.20, 'TOT-LIV': -0.15, 'LIV-MUN': 0.30, 'MUN-LIV': -0.20,
+  'ARS-MCI': 0.10, 'MCI-ARS': -0.05, 'ARS-CHE': 0.15, 'CHE-ARS': -0.10,
+  'ARS-TOT': 0.20, 'TOT-ARS': -0.15, 'ARS-MUN': 0.20, 'MUN-ARS': -0.15,
+  'MCI-CHE': 0.15, 'CHE-MCI': -0.10, 'MCI-TOT': 0.25, 'TOT-MCI': -0.20,
+  'MCI-NEW': 0.20, 'NEW-MCI': -0.15, 'MCI-AVL': 0.15, 'AVL-MCI': -0.10,
+  'CHE-TOT': 0.10, 'TOT-CHE': -0.05, 'CHE-BHA': 0.15, 'BHA-CHE': -0.10,
+  'NEW-TOT': 0.15, 'TOT-NEW': -0.10, 'NEW-BHA': 0.10, 'BHA-NEW': -0.05,
+  'AVL-CHE': 0.05, 'CHE-AVL': 0.00, 'AVL-TOT': 0.10, 'TOT-AVL': -0.05,
+  'BRE-ARS': -0.15, 'ARS-BRE': 0.20, 'BRE-MCI': -0.20, 'MCI-BRE': 0.25,
+  'BOU-LIV': -0.10, 'LIV-BOU': 0.15, 'BOU-ARS': -0.10, 'ARS-BOU': 0.15,
+  'CRY-LIV': -0.15, 'LIV-CRY': 0.20, 'CRY-ARS': -0.15, 'ARS-CRY': 0.20,
+  'FUL-LIV': -0.15, 'LIV-FUL': 0.20, 'FUL-ARS': -0.10, 'ARS-FUL': 0.15,
+  'NFO-LIV': -0.10, 'LIV-NFO': 0.15, 'NFO-ARS': -0.10, 'ARS-NFO': 0.15,
+  'WHU-LIV': -0.10, 'LIV-WHU': 0.15, 'WHU-ARS': -0.10, 'ARS-WHU': 0.15,
+  'WOL-LIV': -0.10, 'LIV-WOL': 0.15, 'WOL-ARS': -0.10, 'ARS-WOL': 0.15,
+  'EVE-LIV': -0.30, 'LIV-EVE': 0.35, 'EVE-ARS': -0.10, 'ARS-EVE': 0.15,
+  'LEE-LIV': -0.10, 'LIV-LEE': 0.15, 'LEE-ARS': -0.10, 'ARS-LEE': 0.15,
+  'SUN-LIV': -0.10, 'LIV-SUN': 0.15, 'SUN-ARS': -0.10, 'ARS-SUN': 0.15,
+  'FUL-CRY': 0.05, 'CRY-FUL': -0.05, 'BOU-BRE': 0.05, 'BRE-BOU': -0.05,
+  'WHU-EVE': 0.10, 'EVE-WHU': -0.05, 'NFO-WOL': 0.10, 'WOL-NFO': -0.05,
+  'EVE-WOL': 0.10, 'WOL-EVE': -0.05, 'BRE-NFO': 0.05, 'NFO-BRE': -0.05,
+  'TOT-WOL': 0.15, 'WOL-TOT': -0.10, 'TOT-BRE': 0.15, 'BRE-TOT': -0.10,
+  'MUN-WOL': 0.15, 'WOL-MUN': -0.10, 'MUN-TOT': 0.10, 'TOT-MUN': 0.00,
+};
+
+function getH2HAdjustment(homeTeam, awayTeam) {
+  const key = `${homeTeam}-${awayTeam}`;
+  return H2H_ADJUSTMENTS[key] || 0;
+}
+
+// --- Compute match expected goals using Dixon-Coles formula + H2H ---
 function computeMatchXG(homeTeam, awayTeam, ratings) {
   const home = ratings[homeTeam];
   const away = ratings[awayTeam];
@@ -189,13 +242,16 @@ function computeMatchXG(homeTeam, awayTeam, ratings) {
 
   // λ = exp(α_home + β_away + γ)  — home team expected goals
   // μ = exp(α_away + β_home)       — away team expected goals
-  const lambda = Math.exp(home.alpha + away.beta + HOME_ADVANTAGE);
-  const mu = Math.exp(away.alpha + home.beta);
+  const h2h = getH2HAdjustment(homeTeam, awayTeam);
+  const h2hAway = getH2HAdjustment(awayTeam, homeTeam);
+
+  const lambda = Math.exp(home.alpha + away.beta + HOME_ADVANTAGE + h2h * 0.3);
+  const mu = Math.exp(away.alpha + home.beta + h2hAway * 0.3);
 
   return {
     homeXG: Math.round(lambda * 100) / 100,
     awayXG: Math.round(mu * 100) / 100,
-    source: 'dixon-coles',
+    source: 'dixon-coles+h2h',
   };
 }
 
@@ -370,12 +426,16 @@ module.exports = {
   computeTeamRatings,
   computeCurrentSeasonStats,
   getCurrentSeasonWeight,
+  getTeamBlendWeight,
   computeMatchXG,
   computeMatchProbs,
   projectFixture,
   projectGameweek,
   projectMultiGWTeams,
   HISTORICAL_XG_DATA,
+  H2H_ADJUSTMENTS,
+  PROMOTED_TEAMS,
+  MIN_MATCHES_FOR_BLEND,
   HOME_ADVANTAGE,
   RHO,
 };
