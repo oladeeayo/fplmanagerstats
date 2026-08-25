@@ -322,5 +322,181 @@ const Admin = (() => {
     if (e.key === 'Enter') login();
   });
 
-  return { login, logout, setPeriod, goPage, goManagerPage };
+  // ---- GW Summary Generator ----
+  let gwSummaryData = null;
+
+  function populateGWSelector() {
+    const sel = document.getElementById('gw-selector');
+    if (!sel) return;
+    sel.innerHTML = '';
+    for (let gw = 1; gw <= 38; gw++) {
+      const opt = document.createElement('option');
+      opt.value = gw;
+      opt.textContent = `GW ${gw}`;
+      sel.appendChild(opt);
+    }
+    sel.value = 38; // default to latest completed GW
+  }
+
+  async function generateGWSummary() {
+    const leagueId = parseInt(document.getElementById('gw-league-id').value);
+    const gw = parseInt(document.getElementById('gw-selector').value);
+    if (!leagueId) return;
+
+    const btn = document.getElementById('gw-gen-btn');
+    const loading = document.getElementById('gw-summary-loading');
+    const output = document.getElementById('gw-summary-output');
+    btn.disabled = true;
+    btn.textContent = 'Loading...';
+    loading.style.display = 'block';
+    output.style.display = 'none';
+
+    try {
+      const data = await api(`/api/admin/gw-summary?leagueId=${leagueId}&gw=${gw}`);
+      gwSummaryData = data;
+
+      // Render markdown (unescaped for WhatsApp)
+      const mdBox = document.getElementById('gw-markdown-box');
+      mdBox.textContent = data.markdown;
+
+      // Render image preview
+      renderGWImage(data);
+
+      output.style.display = 'block';
+    } catch (e) {
+      alert('Error: ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Generate';
+      loading.style.display = 'none';
+    }
+  }
+
+  function renderGWImage(data) {
+    const container = document.getElementById('gw-image-preview');
+    const bgColor = '#0f1a14';
+    const cardBg = '#162319';
+    const accentGreen = '#00ff85';
+    const accentRed = '#ff4d4d';
+    const textWhite = '#ffffff';
+    const textMuted = '#8ba396';
+    const border = '#1f3a2a';
+
+    let html = `<div id="gw-image-canvas" style="width:600px;background:${bgColor};font-family:'Inter',system-ui,sans-serif;color:${textWhite};padding:0;overflow:hidden;">`;
+
+    // Header
+    html += `<div style="background:linear-gradient(135deg,#0a1f12,#162d1e);padding:24px 28px 20px;border-bottom:2px solid ${accentGreen};">
+      <div style="font-size:11px;color:${accentGreen};text-transform:uppercase;letter-spacing:0.1em;font-weight:600;font-family:'JetBrains Mono',monospace;">FPL League Recap</div>
+      <div style="font-size:22px;font-weight:800;margin-top:4px;">${escapeHTML(data.leagueName)} – GW ${data.gw}</div>
+      <div style="font-size:12px;color:${textMuted};margin-top:4px;">${data.totalManagers} managers • League avg: ${data.leagueAvg} pts</div>
+    </div>`;
+
+    // Top 4
+    html += `<div style="padding:20px 28px 16px;">
+      <div style="font-size:12px;font-weight:700;color:${accentGreen};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">\u{1F3C6} Top 4 of The Week</div>`;
+    data.top4.forEach((m, i) => {
+      const medals = ['\u{1F947}','\u{1F948}','\u{1F949}','\u{1F44F}'];
+      const bg = i === 0 ? 'rgba(0,255,133,0.08)' : 'transparent';
+      html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:${bg};border-radius:6px;margin-bottom:4px;">
+        <span style="font-size:13px;">${medals[i]} <strong>${escapeHTML(m.teamName)}</strong></span>
+        <span style="font-size:14px;font-weight:800;color:${accentGreen};">${m.gwPoints} pts</span>
+      </div>`;
+    });
+    html += `</div>`;
+
+    // Bottom 4
+    html += `<div style="padding:0 28px 16px;">
+      <div style="font-size:12px;font-weight:700;color:${accentRed};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">\u{1F53B} Bottom 4 of The Week</div>`;
+    data.bottom4.forEach((m, i) => {
+      const sadEmojis = ['\u{1F62D}','\u{1F622}','\u{1F615}','\u{1F615}'];
+      html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-radius:6px;margin-bottom:4px;">
+        <span style="font-size:13px;">${sadEmojis[i]} <strong>${escapeHTML(m.teamName)}</strong></span>
+        <span style="font-size:14px;font-weight:800;color:${accentRed};">${m.gwPoints} pts</span>
+      </div>`;
+    });
+    html += `</div>`;
+
+    // Stats row
+    html += `<div style="padding:0 28px 16px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div style="background:${cardBg};border:1px solid ${border};border-radius:8px;padding:12px;text-align:center;">
+        <div style="font-size:10px;color:${textMuted};text-transform:uppercase;font-weight:600;">Highest Bench</div>
+        <div style="font-size:14px;font-weight:700;margin-top:4px;">${escapeHTML(data.highestBench.teamName)}</div>
+        <div style="font-size:18px;font-weight:800;color:${accentGreen};">${data.highestBench.benchPoints} pts</div>
+      </div>
+      <div style="background:${cardBg};border:1px solid ${border};border-radius:8px;padding:12px;text-align:center;">
+        <div style="font-size:10px;color:${textMuted};text-transform:uppercase;font-weight:600;">Top Captain</div>
+        <div style="font-size:14px;font-weight:700;margin-top:4px;">${data.topCaptains.map(m => escapeHTML(m.teamName)).join(', ')}</div>
+        <div style="font-size:18px;font-weight:800;color:${accentGreen};">${data.topCaptains[0].captainPoints} pts</div>
+      </div>
+    </div>`;
+
+    // Chips section
+    if (data.chipSections.length > 0) {
+      html += `<div style="padding:0 28px 16px;">
+        <div style="font-size:12px;font-weight:700;color:${textWhite};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">\u{1F3AF} Chips Used</div>`;
+      data.chipSections.forEach(section => {
+        html += `<div style="margin-bottom:8px;">
+          <div style="font-size:11px;color:${accentGreen};font-weight:600;">${section.name}</div>`;
+        section.users.forEach(u => {
+          html += `<div style="font-size:12px;color:${textMuted};padding-left:12px;">• ${escapeHTML(u)}</div>`;
+        });
+        html += `</div>`;
+      });
+      html += `</div>`;
+    }
+
+    // Footer
+    html += `<div style="padding:16px 28px 20px;border-top:1px solid ${border};">
+      <div style="font-size:12px;color:${textMuted};text-align:center;">\u{1F389} Congratulations to <strong style="color:${accentGreen}">${escapeHTML(data.top4[0].teamName)}</strong> for topping GW ${data.gw}!</div>
+    </div>`;
+
+    html += `</div>`;
+    container.innerHTML = html;
+  }
+
+  function copyMarkdown() {
+    if (!gwSummaryData) return;
+    navigator.clipboard.writeText(gwSummaryData.markdown).then(() => {
+      const btn = document.getElementById('gw-copy-btn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+    });
+  }
+
+  function downloadImage() {
+    const canvas = document.getElementById('gw-image-canvas');
+    if (!canvas) return;
+    // Use html2canvas if available, else instruct user
+    if (typeof html2canvas !== 'undefined') {
+      html2canvas(canvas, { scale: 2, backgroundColor: '#0f1a14' }).then(c => {
+        const link = document.createElement('a');
+        link.download = `gw-${gwSummaryData?.gw || 'summary'}.png`;
+        link.href = c.toDataURL('image/png');
+        link.click();
+      });
+    } else {
+      // Fallback: use canvas API via SVG foreignObject
+      const width = canvas.offsetWidth * 2;
+      const height = canvas.offsetHeight * 2;
+      const svgData = `<svg xmlns='http://www.w3.org/2000/svg' width='${width}' height='${height}'><foreignObject width='100%' height='100%'><div xmlns='http://www.w3.org/1999/xhtml' style='width:${canvas.offsetWidth}px;transform:scale(2);transform-origin:top left;background:#0f1a14;'>${canvas.outerHTML}</div></foreignObject></svg>`;
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = width;
+        c.height = height;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const link = document.createElement('a');
+        link.download = `gw-${gwSummaryData?.gw || 'summary'}.png`;
+        link.href = c.toDataURL('image/png');
+        link.click();
+      };
+      img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+    }
+  }
+
+  // Populate GW selector on load
+  populateGWSelector();
+
+  return { login, logout, setPeriod, goPage, goManagerPage, generateGWSummary, copyMarkdown, downloadImage };
 })();

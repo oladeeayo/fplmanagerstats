@@ -466,4 +466,252 @@ router.post('/snapshot/toggle', (req, res) => {
   res.json({ ok: true, status: snapshotManager.getSnapshotStatus() });
 });
 
+// ---- GW Summary Generator (WhatsApp-formatted markdown + image) ----
+router.get('/gw-summary', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const { getCachedApiData, BOOTSTRAP_URL } = require('../cache');
+    const leagueId = parseInt(req.query.leagueId) || 110773;
+    const gw = parseInt(req.query.gw);
+
+    if (!leagueId) return res.status(400).json({ error: 'leagueId is required' });
+
+    // Fetch bootstrap for player data
+    const bs = await getCachedApiData(BOOTSTRAP_URL);
+    const players = {};
+    (bs.elements || []).forEach(p => {
+      players[p.id] = {
+        webName: p.web_name,
+        team: p.team,
+        elementType: p.element_type,
+        eventPoints: p.event_points || 0,
+      };
+    });
+    const teams = {};
+    (bs.teams || []).forEach(t => { teams[t.id] = t.short_name; });
+
+    const activeEvent = (bs.events || []).find(e => e.is_current);
+    const targetGW = gw || (activeEvent ? (activeEvent.finished ? activeEvent.id : activeEvent.id - 1) : 1);
+
+    // Fetch league standings (all pages)
+    let allEntries = [];
+    for (let page = 1; page <= 5; page++) {
+      try {
+        const data = await getCachedApiData(
+          `https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/?page_standings=${page}`
+        );
+        const results = data?.standings?.results || [];
+        if (results.length === 0) break;
+        allEntries = allEntries.concat(results);
+        if (results.length < 50) break;
+      } catch { break; }
+    }
+
+    if (allEntries.length === 0) {
+      return res.status(404).json({ error: 'No managers found in this league' });
+    }
+
+    const leagueName = allEntries[0]?.league_name || 'League';
+
+    // Fetch history + picks for each manager (in batches to avoid hammering the API)
+    const BATCH = 10;
+    const managerData = [];
+
+    for (let i = 0; i < allEntries.length; i += BATCH) {
+      const batch = allEntries.slice(i, i + BATCH);
+      const batchResults = await Promise.all(batch.map(async (entry) => {
+        try {
+          const [historyRes, picksRes] = await Promise.all([
+            getCachedApiData(`https://fantasy.premierleague.com/api/entry/${entry.entry}/history/`),
+            getCachedApiData(`https://fantasy.premierleague.com/api/entry/${entry.entry}/event/${targetGW}/picks/`),
+          ]);
+
+          // Find GW data
+          const gwData = (historyRes.current || []).find(c => c.event === targetGW);
+          const gwPoints = gwData ? gwData.points : 0;
+
+          // Chips used this GW
+          const chipsUsed = (historyRes.chips || []).filter(c => c.event === targetGW).map(c => c.name);
+
+          // Picks analysis
+          const picks = picksRes?.picks || [];
+          let benchPoints = 0;
+          let captainPoints = 0;
+          let captainName = '';
+          let vcName = '';
+          let chipPlayed = chipsUsed.length > 0 ? chipsUsed[0] : null;
+
+          picks.forEach(p => {
+            const playerInfo = players[p.element];
+            if (!playerInfo) return;
+            if (p.position > 11) {
+              benchPoints += playerInfo.eventPoints;
+            }
+            if (p.is_captain) {
+              captainName = playerInfo.webName;
+              captainPoints = playerInfo.eventPoints * p.multiplier;
+            }
+            if (p.is_vice_captain) {
+              vcName = playerInfo.webName;
+            }
+          });
+
+          return {
+            rank: entry.rank,
+            lastRank: entry.last_rank || entry.rank,
+            teamName: entry.entry_name,
+            managerName: entry.player_name,
+            entryId: entry.entry,
+            totalPoints: entry.total,
+            gwPoints,
+            captainName,
+            captainPoints,
+            vcName,
+            benchPoints,
+            chipPlayed,
+            overallRank: historyRes?.current?.[historyRes.current.length - 1]?.overall_rank || null,
+          };
+        } catch (e) {
+          return {
+            rank: entry.rank,
+            lastRank: entry.last_rank || entry.rank,
+            teamName: entry.entry_name,
+            managerName: entry.player_name,
+            entryId: entry.entry,
+            totalPoints: entry.total,
+            gwPoints: 0,
+            captainName: '',
+            captainPoints: 0,
+            vcName: '',
+            benchPoints: 0,
+            chipPlayed: null,
+            overallRank: null,
+            error: true,
+          };
+        }
+      }));
+      managerData.push(...batchResults);
+    }
+
+    // Sort by GW points
+    const sorted = [...managerData].sort((a, b) => b.gwPoints - a.gwPoints);
+    const leagueAvg = sorted.reduce((s, m) => s + m.gwPoints, 0) / sorted.length;
+
+    // Top 4
+    const top4 = sorted.slice(0, 4);
+    // Bottom 4
+    const bottom4 = sorted.slice(-4).reverse();
+
+    // Highest bench points
+    const highestBench = [...sorted].sort((a, b) => b.benchPoints - a.benchPoints)[0];
+
+    // Captain points
+    const sortedByCaptain = [...sorted].sort((a, b) => b.captainPoints - a.captainPoints);
+    const highestCaptain = sortedByCaptain[0];
+    const lowestCaptain = [...sorted].filter(m => m.captainPoints === sortedByCaptain[sortedByCaptain.length - 1].captainPoints);
+
+    // All tied at top captain points
+    const topCaptainPoints = highestCaptain.captainPoints;
+    const topCaptains = sorted.filter(m => m.captainPoints === topCaptainPoints);
+
+    // Chip users
+    const tripleCaptainUsers = sorted.filter(m => m.chipPlayed === '3xc');
+    const benchBoostUsers = sorted.filter(m => m.chipPlayed === 'bboost');
+    const freeHitUsers = sorted.filter(m => m.chipPlayed === 'freehit');
+    const wildcardUsers = sorted.filter(m => m.chipPlayed === 'wildcard');
+
+    // Biggest movers
+    const biggestClimbers = [...sorted]
+      .filter(m => m.lastRank !== m.rank)
+      .sort((a, b) => (b.lastRank - b.rank) - (a.lastRank - a.rank))
+      .slice(0, 3);
+    const biggestFallers = [...sorted]
+      .filter(m => m.lastRank !== m.rank)
+      .sort((a, b) => (a.lastRank - a.rank) - (b.lastRank - b.rank))
+      .slice(0, 3);
+
+    // Build WhatsApp markdown
+    const medals = ['\u{1F3C6}', '\u{1F948}', '\u{1F3C9}', '\u{1F44F}'];
+    const sadEmojis = ['\u{1F62D}', '\u{1F622}', '\u{1F615}', '\u{1F615}', '\u{1F615}'];
+
+    let md = '';
+    md += `*Top 4 Managers of The Week – GW ${targetGW}*\n`;
+    md += `(Top points = *${top4.map(m => m.gwPoints).join(', ')} → all included*)\n\n`;
+
+    top4.forEach((m, i) => {
+      const chipTag = m.chipPlayed ? ` [${m.chipPlayed.toUpperCase().replace('3XC','TC').replace('BBOOST','BB').replace('FREEHIT','FH').replace('WILDCARD','WC')}]` : '';
+      md += `${['\u2460','\u2461','\u2462','\u2463'][i]} *${m.teamName}* – ${m.gwPoints} points ${medals[i]}${chipTag}\n`;
+    });
+    md += `---\n\n`;
+
+    md += `*Bottom 4 Managers of The Week – GW ${targetGW}*\n\n`;
+    bottom4.forEach((m, i) => {
+      const chipTag = m.chipPlayed ? ` [${m.chipPlayed.toUpperCase().replace('3XC','TC').replace('BBOOST','BB').replace('FREEHIT','FH').replace('WILDCARD','WC')}]` : '';
+      md += `${['\u2460','\u2461','\u2462','\u2463'][i]} *${m.teamName}* – ${m.gwPoints} points ${sadEmojis[i]}${chipTag}\n`;
+    });
+    md += `---\n\n`;
+
+    md += `*Other Notable Stats*\n`;
+    md += `\u{1F9E0} *Highest Points on Bench:* *${highestBench.teamName}* – ${highestBench.benchPoints} points\n`;
+    md += `\u{1F52D} *Highest Captain Points:* ${topCaptains.map(m => `*${m.teamName}*`).join(', ')} – ${topCaptainPoints} points each\n`;
+    md += `\u{1F53B} *Lowest Captain Points:* ${lowestCaptain.map(m => `*${m.teamName}*`).join(', ')} – ${lowestCaptain[0].captainPoints} points\n`;
+    md += `\u{1F4CA} *League Average:* ${Math.round(leagueAvg)} points\n`;
+    md += `---\n\n`;
+
+    // Chip section
+    const chipSections = [
+      { name: 'Triple Captain', emoji: '\u{1F3AF}', users: tripleCaptainUsers },
+      { name: 'Bench Boost', emoji: '\u{1F3AF}', users: benchBoostUsers },
+      { name: 'Free Hit', emoji: '\u{1F3AF}', users: freeHitUsers },
+      { name: 'Wildcard', emoji: '\u{1F3AF}', users: wildcardUsers },
+    ].filter(s => s.users.length > 0);
+
+    if (chipSections.length > 0) {
+      md += `*Managers Who Used Chips*\n\n`;
+      chipSections.forEach(section => {
+        md += `${section.emoji} *${section.name}*\n`;
+        section.users.forEach(m => { md += `– *${m.teamName}*\n`; });
+        md += `\n`;
+      });
+    }
+
+    // Biggest movers
+    if (biggestClimbers.length > 0 || biggestFallers.length > 0) {
+      md += `*Rank Movers*\n`;
+      biggestClimbers.forEach(m => {
+        const diff = m.lastRank - m.rank;
+        md += `\u{2B06}\u{FE0F} *${m.teamName}* – moved up ${diff} spot${diff > 1 ? 's' : ''} (now #${m.rank})\n`;
+      });
+      biggestFallers.forEach(m => {
+        const diff = m.rank - m.lastRank;
+        md += `\u{2B07}\u{FE0F} *${m.teamName}* – dropped ${diff} spot${diff > 1 ? 's' : ''} (now #${m.rank})\n`;
+      });
+      md += `---\n\n`;
+    }
+
+    md += `\u{1F389}Congratulations to *${top4[0].teamName}* for topping *GW ${targetGW}* with a massive *${top4[0].gwPoints} points*! \u{1F525}\u{1F3C6}`;
+
+    res.json({
+      leagueId,
+      leagueName,
+      gw: targetGW,
+      totalManagers: sorted.length,
+      leagueAvg: Math.round(leagueAvg * 10) / 10,
+      top4,
+      bottom4,
+      highestBench,
+      topCaptains,
+      lowestCaptain,
+      chipSections: chipSections.map(s => ({ name: s.name, users: s.users.map(u => u.teamName) })),
+      biggestClimbers,
+      biggestFallers,
+      markdown: md,
+      allManagers: sorted,
+    });
+  } catch (e) {
+    logger.error({ err: e }, 'GW summary error');
+    res.status(500).json({ error: 'Failed to generate GW summary: ' + e.message });
+  }
+});
+
 module.exports = router;
