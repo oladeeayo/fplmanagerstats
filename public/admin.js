@@ -441,10 +441,10 @@ const Admin = (() => {
       </tr>`;
     });
 
-    let html = `<div id="gw-image-canvas" style="width:780px;background:#ffffff;font-family:'Inter',system-ui,sans-serif;color:#2c3e50;padding:0;overflow:hidden;">`;
+    let html = `<div id="gw-image-canvas" style="width:860px;background:#ffffff;font-family:'Inter',system-ui,sans-serif;color:#2c3e50;padding:0;overflow:hidden;">`;
 
     // Header banner — centered
-    html += `<div style="background:#1a5276;padding:20px 24px 16px;text-align:center;">
+    html += `<div style="background:#1a5276;padding:20px 32px 16px;text-align:center;">
       <div style="font-size:11px;color:#85c1e9;text-transform:uppercase;letter-spacing:0.1em;font-weight:600;font-family:'JetBrains Mono',monospace;">FPL League Standing</div>
       <div style="font-size:22px;font-weight:900;color:#ffffff;margin-top:6px;">${escapeHTML(data.leagueName)}</div>
       <div style="font-size:14px;color:#d4e6f1;margin-top:6px;font-weight:600;">GW ${data.gw} • ${data.totalManagers} managers</div>
@@ -458,7 +458,7 @@ const Admin = (() => {
     </div>`;
 
     // Table wrapper with padding
-    html += `<div style="padding:12px 24px;">
+    html += `<div style="padding:12px 32px;">
     <table style="width:100%;border-collapse:collapse;font-size:13px;">
       <thead>
         <tr style="background:#2c3e50;color:#ffffff;">
@@ -479,7 +479,7 @@ const Admin = (() => {
     </div>`;
 
     // Footer
-    html += `<div style="padding:10px 24px;border-top:1px solid #e9ecef;text-align:center;background:#f8f9fa;">
+    html += `<div style="padding:10px 32px;border-top:1px solid #e9ecef;text-align:center;background:#f8f9fa;">
       <div style="font-size:10px;color:#999;font-family:'JetBrains Mono',monospace;letter-spacing:0.04em;">Generated with <strong>fplmanager.xyz</strong></div>
     </div>`;
 
