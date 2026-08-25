@@ -164,11 +164,9 @@ function LiveCentreComponent() {
       // Fetch user's squad to determine player ownership for impact column
       try {
         const managerId = (window as any).FPL?.state?.managerId || localStorage.getItem('fplManagerId');
-        console.log('[LiveCentre] managerId:', managerId, 'hasLeague:', leagueId);
         if (managerId) {
           const squadRes = await fetch(`/api/manager-squad/${managerId}?gw=${currentGW}`);
           const squadData = await squadRes.json();
-          console.log('[LiveCentre] squad response:', { starting11: squadData.starting11?.length, bench: squadData.bench?.length, ids: [...(squadData.starting11 || []), ...(squadData.bench || [])].map((p: any) => p.id) });
           const owned = new Set<number>();
           [...(squadData.starting11 || []), ...(squadData.bench || [])].forEach((p: any) => {
             if (p.id) owned.add(p.id);
@@ -269,10 +267,11 @@ function LiveCentreComponent() {
             for (const goal of fdMatch.goals) {
               const goalFplTeamId = FD_TO_FPL[goal.team?.id ?? 0] ?? goal.team?.id;
               const team = goalFplTeamId === homeTeam.id ? homeTeam : awayTeam;
+              const scorerPlayer = findPlayerByName(goal.scorer?.name ?? '', team.id);
               events.push({
                 minute: goal.minute,
                 injuryTime: goal.injuryTime ?? 0,
-                playerName: scorerName,
+                playerName: goal.scorer?.name ?? 'Unknown',
                 playerId: scorerPlayer?.id ?? 0,
                 teamId: team.id, teamCode: team.code, teamShort: team.short_name,
                 eventType: 'Goal', points: 5,
@@ -309,7 +308,7 @@ function LiveCentreComponent() {
             // Sort by minute then injury time
             events.sort((a, b) => a.minute - b.minute || a.injuryTime - b.injuryTime);
 
-            console.log('[LiveCentre] FD events:', events.map(e => ({ name: e.playerName, playerId: e.playerId, teamId: e.teamId, type: e.eventType })));
+
 
             // Convert to FeedRows
             for (let i = 0; i < events.length; i++) {
@@ -768,7 +767,7 @@ function ScoreCard({
         </span>
       </div>
 
-      <div style={{ padding: '14px 10px 4px', textAlign: 'center' }}>
+      <div style={{ padding: '14px 10px 10px', textAlign: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flex: 1 }}>
             <img src={TEAM_BADGE(home?.code ?? 0)} alt={home?.short_name} style={{ width: 28, height: 28 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
@@ -786,14 +785,14 @@ function ScoreCard({
         <div style={{ marginTop: 8, display: 'flex', gap: 12 }}>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
             {goals.filter(g => g.teamSide === 'h').map((g, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)', padding: '2px 0' }}>
-                <span style={{ color: '#00FF85', fontSize: 12 }}>⚽</span>
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)', padding: '3px 0' }}>
+                <span style={{ color: '#00FF85', fontSize: 13 }}>⚽</span>
                 <span style={{ color: '#ffffff', fontWeight: 700 }}>{g.scorer}</span>
                 {g.assister && <span style={{ opacity: 0.7 }}>(ast: {g.assister})</span>}
               </div>
             ))}
             {(yh > 0 || rh > 0 || hSaves > 0) && (
-              <div style={{ display: 'flex', gap: 10, marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)' }}>
+              <div style={{ display: 'flex', gap: 12, marginTop: 10, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.08)', fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)' }}>
                 {yh > 0 && <span>🟨 {yh}</span>}
                 {rh > 0 && <span>🟥 {rh}</span>}
                 {hSaves > 0 && <span>🧤 {hSaves}</span>}
@@ -802,14 +801,14 @@ function ScoreCard({
           </div>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
             {goals.filter(g => g.teamSide === 'a').map((g, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)', padding: '2px 0' }}>
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)', padding: '3px 0' }}>
                 <span style={{ color: '#ffffff', fontWeight: 700 }}>{g.scorer}</span>
                 {g.assister && <span style={{ opacity: 0.7 }}>(ast: {g.assister})</span>}
-                <span style={{ color: '#00FF85', fontSize: 12 }}>⚽</span>
+                <span style={{ color: '#00FF85', fontSize: 13 }}>⚽</span>
               </div>
             ))}
             {(ya > 0 || ra > 0 || aSaves > 0) && (
-              <div style={{ display: 'flex', gap: 10, marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)', justifyContent: 'flex-end' }}>
+              <div style={{ display: 'flex', gap: 12, marginTop: 10, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.08)', fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--md-sys-color-on-surface-variant)', justifyContent: 'flex-end' }}>
                 {aSaves > 0 && <span>🧤 {aSaves}</span>}
                 {ra > 0 && <span>🟥 {ra}</span>}
                 {ya > 0 && <span>🟨 {ya}</span>}
