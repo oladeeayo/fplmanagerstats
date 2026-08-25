@@ -2298,12 +2298,24 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       }
     });
 
-    // Compute squad stats for header
+    // Compute squad stats for header using FPL element stats
     const allSquad = [...starting11, ...bench];
-    const scored = allSquad.filter(p => (elementsMap.get(p.id)?.goals_scored || 0) > 0).length;
-    const assisted = allSquad.filter(p => (elementsMap.get(p.id)?.assists || 0) > 0).length;
-    const cleanSheets = allSquad.filter(p => (elementsMap.get(p.id)?.clean_sheets || 0) > 0).length;
-    const doubleFigures = allSquad.filter(p => (p.gwPoints || 0) >= 10).length;
+    const scored = allSquad.filter(p => {
+      const el = elementsMap.get(p.id);
+      return el && (el.goals_scored || 0) > 0;
+    }).length;
+    const assisted = allSquad.filter(p => {
+      const el = elementsMap.get(p.id);
+      return el && (el.assists || 0) > 0;
+    }).length;
+    const cleanSheets = allSquad.filter(p => {
+      const el = elementsMap.get(p.id);
+      return el && (el.clean_sheets || 0) > 0;
+    }).length;
+    const saves = allSquad.filter(p => {
+      const el = elementsMap.get(p.id);
+      return el && (el.saves || 0) >= 3;
+    }).length;
     const hauled = allSquad.filter(p => (p.gwPoints || 0) >= 10).length;
 
     res.json({
@@ -2320,7 +2332,7 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       gw: activeGW,
       starting11,
       bench,
-      squadStats: { scored, assisted, cleanSheets, doubleFigures, hauled }
+      squadStats: { scored, assisted, cleanSheets, saves, hauled }
     });
   } catch (err) {
     logger.error({ err: err.message }, 'Manager squad error');
