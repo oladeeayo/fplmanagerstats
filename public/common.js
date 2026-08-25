@@ -3197,7 +3197,7 @@ const FPL = {
                 if (stats.cleanSheets > 0) statItems.push(`<span style="color:#c084fc;">${stats.cleanSheets} CS</span>`);
                 if (stats.defcon > 0) statItems.push(`<span style="color:#ffa600;">${stats.defcon} defcon</span>`);
                 if (stats.hauled > 0) statItems.push(`<span style="color:#ff4d4d;">${stats.hauled} hauled</span>`);
-                subEl.innerHTML = `Manager: ${this.decodeHTML(managerName || 'FPL Manager')} • Rank #${rank ? rank.toLocaleString() : '--'} • Total: ${total ? total.toLocaleString() : '--'} pts${statItems.length > 0 ? '<br>' + statItems.join(' • ') : ''}`;
+                subEl.innerHTML = `Manager: ${this.decodeHTML(managerName || 'FPL Manager')}${statItems.length > 0 ? ' • ' + statItems.join(' • ') : ''}`;
             }
             const bankVal = data.bank ? `£${data.bank}m` : '--';
 

@@ -2298,32 +2298,53 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       }
     });
 
-    // Compute squad stats for header using FPL element stats
+    // Fetch per-GW player history for accurate current GW stats
     const allSquad = [...starting11, ...bench];
-    const scored = allSquad.filter(p => {
-      const el = elementsMap.get(p.id);
-      return el && (el.goals_scored || 0) > 0;
-    }).length;
-    const assisted = allSquad.filter(p => {
-      const el = elementsMap.get(p.id);
-      return el && (el.assists || 0) > 0;
-    }).length;
+    const squadIds = allSquad.map(p => p.id);
+    const prevGW = activeGW > 1 ? activeGW - 1 : null;
+
+    // Fetch each player's element summary in batches
+    const BATCH = 8;
+    const playerGwStats = {};
+    for (let i = 0; i < squadIds.length; i += BATCH) {
+      const batch = squadIds.slice(i, i + BATCH);
+      const results = await Promise.all(batch.map(async (pid) => {
+        try {
+          const data = await getCachedApiData(
+            `https://fantasy.premierleague.com/api/element-summary/${pid}/`
+          );
+          const current = (data.history || []).find(h => h.round === activeGW);
+          const prev = prevGW ? (data.history || []).find(h => h.round === prevGW) : null;
+          return {
+            id: pid,
+            goals: current ? (current.goals_scored || 0) : 0,
+            assists: current ? (current.assists || 0) : 0,
+            cleanSheet: current ? (current.clean_sheets || 0) : 0,
+            defcon: current ? (current.defensive_contribution || 0) : 0,
+            minutes: current ? (current.minutes || 0) : 0,
+          };
+        } catch {
+          return { id: pid, goals: 0, assists: 0, cleanSheet: 0, defcon: 0, minutes: 0 };
+        }
+      }));
+      results.forEach(r => { playerGwStats[r.id] = r; });
+    }
+
+    // Compute stats from per-GW data
+    const scored = allSquad.filter(p => (playerGwStats[p.id]?.goals || 0) > 0).length;
+    const assisted = allSquad.filter(p => (playerGwStats[p.id]?.assists || 0) > 0).length;
+    // CS only for GKP and DEF
     const cleanSheets = allSquad.filter(p => {
-      const el = elementsMap.get(p.id);
-      return el && (el.clean_sheets || 0) > 0;
+      if (p.posType !== 1 && p.posType !== 2) return false;
+      return (playerGwStats[p.id]?.cleanSheet || 0) > 0;
     }).length;
-    const defcon = allSquad.filter(p => {
-      const el = elementsMap.get(p.id);
-      return el && (el.defensive_contribution || 0) > 0;
-    }).length;
+    const defcon = allSquad.filter(p => (playerGwStats[p.id]?.defcon || 0) > 0).length;
     const hauled = allSquad.filter(p => (p.gwPoints || 0) >= 10).length;
 
     res.json({
       managerId,
       managerName: `${managerData.player_first_name || ''} ${managerData.player_last_name || ''}`.trim(),
       entryName: managerData.name,
-      overallRank: managerData.summary_overall_rank,
-      overallPoints: managerData.summary_overall_points,
       eventTotal: managerData.summary_event_points,
       value: (managerData.last_deadline_value / 10).toFixed(1),
       bank: (managerData.last_deadline_bank / 10).toFixed(1),
