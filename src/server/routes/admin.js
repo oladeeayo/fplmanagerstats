@@ -495,12 +495,16 @@ router.get('/gw-summary', async (req, res) => {
 
     // Fetch league standings (all pages)
     let allEntries = [];
+    let leagueName = 'League';
     for (let page = 1; page <= 5; page++) {
       try {
         const data = await getCachedApiData(
           `https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/?page_standings=${page}`
         );
         const results = data?.standings?.results || [];
+        if (page === 1) {
+          leagueName = data?.league?.name || 'League';
+        }
         if (results.length === 0) break;
         allEntries = allEntries.concat(results);
         if (results.length < 50) break;
@@ -510,8 +514,6 @@ router.get('/gw-summary', async (req, res) => {
     if (allEntries.length === 0) {
       return res.status(404).json({ error: 'No managers found in this league' });
     }
-
-    const leagueName = allEntries[0]?.league_name || 'League';
 
     // Fetch history + picks for each manager (in batches to avoid hammering the API)
     const BATCH = 10;
