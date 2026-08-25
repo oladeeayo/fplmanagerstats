@@ -2312,9 +2312,9 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       const el = elementsMap.get(p.id);
       return el && (el.clean_sheets || 0) > 0;
     }).length;
-    const saves = allSquad.filter(p => {
+    const defcon = allSquad.filter(p => {
       const el = elementsMap.get(p.id);
-      return el && (el.saves || 0) >= 3;
+      return el && (el.defensive_contribution || 0) > 0;
     }).length;
     const hauled = allSquad.filter(p => (p.gwPoints || 0) >= 10).length;
 
@@ -2332,7 +2332,7 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       gw: activeGW,
       starting11,
       bench,
-      squadStats: { scored, assisted, cleanSheets, saves, hauled }
+      squadStats: { scored, assisted, cleanSheets, defcon, hauled }
     });
   } catch (err) {
     logger.error({ err: err.message }, 'Manager squad error');
