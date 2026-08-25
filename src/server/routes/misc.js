@@ -2222,7 +2222,9 @@ router.get('/manager-squad/:managerId', async (req, res) => {
     const bootstrap = await getCachedApiData(BOOTSTRAP_URL);
     const activeGW = gw || bootstrap.events?.find(e => e.is_current)?.id || bootstrap.events?.find(e => e.is_next)?.id || 1;
     const currentEvent = bootstrap.events?.find(e => e.is_current);
-    const currentGWFinished = currentEvent ? currentEvent.finished : true;
+    const nextEvent = bootstrap.events?.find(e => e.is_next);
+    // If is_current is finished OR is_next exists (meaning current is done), skip to next 2
+    const currentGWFinished = (currentEvent?.finished) || !!nextEvent;
     
     const [managerData, picksData, historyData, fixturesData] = await Promise.all([
       getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/`),
@@ -2238,9 +2240,11 @@ router.get('/manager-squad/:managerId', async (req, res) => {
     const allFixtures = fixturesData || [];
     const teamFixturesMap = {};
     allFixtures.forEach(f => {
-      // If current GW is in progress, skip it — show next 2 upcoming
-      const fixtureGW = currentGWFinished ? activeGW : activeGW + 1;
-      if (!f.event || f.event < fixtureGW) return;
+      // Skip past/finished GWs — always show next 2 upcoming
+      // If current GW is finished, fixtures start from activeGW (next GW)
+      // If current GW is in progress, skip it and start from activeGW + 1
+      const fixtureStart = currentGWFinished ? activeGW : activeGW + 1;
+      if (!f.event || f.event < fixtureStart) return;
       [f.team_h, f.team_a].forEach(teamId => {
         if (!teamFixturesMap[teamId]) teamFixturesMap[teamId] = [];
         const isHome = f.team_h === teamId;
