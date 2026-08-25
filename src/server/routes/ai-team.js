@@ -1,14 +1,14 @@
 const express = require('express');
 const { buildPlayerProjections } = require('../../captaincyModel');
 const { selectOptimalLineup, hasEconomicalReserveGoalkeeper, nextGameweekScore, horizonScore } = require('../../aiTeamModel');
-const { getCachedApiData, BOOTSTRAP_URL, FIXTURES_URL } = require('../cache');
+const { getCachedApiData, BOOTSTRAP_URL, FIXTURES_URL, optionalApiGet } = require('../cache');
 const { heavyEndpointLimiter } = require('../middleware');
 const logger = require('../logger');
 const { sql } = require('../db');
 
 const router = express.Router();
 
-const AI_TEAM_MODEL_VERSION = 'AI Team Engine 8.0';
+const AI_TEAM_MODEL_VERSION = 'AI Team Engine 9.0';
 const SMART_TEAM_MANAGER_ID = 7698060;
 const SMART_TEAM_STORAGE_KEY = `autonomous-smart-team-${SMART_TEAM_MANAGER_ID}`;
 const AI_TEAM_POSITION_LIMITS = { GKP: 2, DEF: 5, MID: 5, FWD: 3 };
@@ -590,6 +590,193 @@ ON CONFLICT (session_id) DO UPDATE SET
   } catch (error) {
     logger.error({ err: error }, 'AI Team error');
     res.status(500).json({ error: 'Failed to build AI Team' });
+  }
+});
+
+// ---- Smart Team Standing (FPL live data for the AI manager) ----
+router.get('/standing', async (req, res) => {
+  try {
+    const [entryData, historyData] = await Promise.all([
+      getCachedApiData(`https://fantasy.premierleague.com/api/entry/${SMART_TEAM_MANAGER_ID}/`),
+      getCachedApiData(`https://fantasy.premierleague.com/api/entry/${SMART_TEAM_MANAGER_ID}/history/`).catch(() => null),
+    ]);
+    const events = (await getCachedApiData(BOOTSTRAP_URL).catch(() => ({})))?.events || [];
+    const currentGW = events.find(e => e.is_current)?.id || events.filter(e => e.finished).length || 1;
+    const nextGW = events.find(e => e.is_next)?.id || currentGW + 1;
+
+    const gwHistory = (historyData?.current || []).map(h => ({
+      gw: h.event,
+      points: h.points,
+      rank: h.rank || null,
+      overallRank: h.overall_rank || null,
+      transfers: h.transfers || 0,
+      transferCost: h.event_transfers_cost || 0,
+      benchedPts: h.points_on_bench || 0,
+    }));
+
+    const gwPoints = gwHistory.find(h => h.gw === currentGW) || null;
+    const freeTransfers = (() => {
+      // Estimate free transfers: start with 1, +1 per GW without a transfer, cap at 5
+      let ft = 1;
+      for (const h of gwHistory) {
+        if (h.transfers === 0) ft = Math.min(5, ft + 1);
+        else ft = 1;
+      }
+      return ft;
+    })();
+
+    res.json({
+      managerId: SMART_TEAM_MANAGER_ID,
+      teamName: entryData.name || '',
+      playerName: [entryData.player_first_name, entryData.player_second_name].filter(Boolean).join(' '),
+      overallPoints: entryData.summary_overall_points || 0,
+      overallRank: entryData.summary_overall_rank || null,
+      currentGW,
+      nextGW,
+      gwPoints: gwPoints?.points || null,
+      gwRank: gwPoints?.rank || null,
+      gwOverallRank: gwPoints?.overallRank || null,
+      gwTransfers: gwPoints?.transfers || 0,
+      gwTransferCost: gwPoints?.transferCost || 0,
+      freeTransfers,
+      gwHistory,
+      lastUpdated: new Date().toISOString(),
+    });
+  } catch (error) {
+    logger.error({ err: error }, 'Smart Team standing error');
+    res.status(500).json({ error: 'Failed to fetch smart team standing' });
+  }
+});
+
+// ---- GW Advisor: captain, transfers, players to watch ----
+router.get('/advisor', async (req, res) => {
+  try {
+    const [bootstrap, fixtures] = await Promise.all([
+      getCachedApiData(BOOTSTRAP_URL),
+      getCachedApiData(FIXTURES_URL),
+    ]);
+    const events = bootstrap.events || [];
+    const elements = bootstrap.elements || [];
+    const teams = bootstrap.teams || [];
+    const teamsById = new Map(teams.map(t => [t.id, t]));
+    const currentGW = events.find(e => e.is_current)?.id || events.filter(e => e.finished).length || 1;
+    const nextGW = events.find(e => e.is_next)?.id || currentGW + 1;
+
+    // Get saved squad
+    const savedRows = sql ? await sql`SELECT * FROM ai_team WHERE session_id = ${SMART_TEAM_STORAGE_KEY} ORDER BY updated_at DESC LIMIT 1` : [];
+    if (!savedRows.length) return res.json({ advisor: null, message: 'No saved smart team found.' });
+    const row = savedRows[0];
+    const squad = row.squad || [];
+    const lineup = row.lineup || {};
+    const starters = lineup.starters || [];
+    const bench = lineup.bench || [];
+    const transferPlan = row.transfers?.plan || [];
+    const plansByStrategy = row.transfers?.plansByStrategy || {};
+
+    // Free transfers estimation
+    let freeTransfers = 1;
+    const historyData = await optionalApiGet(`https://fantasy.premierleague.com/api/entry/${SMART_TEAM_MANAGER_ID}/history/`);
+    const gwHistory = historyData?.current || [];
+    for (const h of gwHistory) {
+      if (h.event >= nextGW) break;
+      if ((h.transfers || 0) === 0) freeTransfers = Math.min(5, freeTransfers + 1);
+      else freeTransfers = 1;
+    }
+
+    // Build player map for lookups
+    const bootstrapMap = new Map(elements.map(e => [e.id, e]));
+    const fixturesByTeam = new Map();
+    fixtures.forEach(f => {
+      [f.team_h, f.team_a].forEach(teamId => {
+        if (!fixturesByTeam.has(teamId)) fixturesByTeam.set(teamId, []);
+        fixturesByTeam.get(teamId).push(f);
+      });
+    });
+
+    // Current GW transfer suggestion from plan
+    const gwTransferPlan = transferPlan.find(p => p.gw === nextGW) || transferPlan.find(p => p.gw === currentGW);
+    const suggestedTransfers = (gwTransferPlan?.transfers || []).slice(0, 2);
+    const transferHit = gwTransferPlan?.hit || 0;
+    const shouldHold = !suggestedTransfers.length;
+
+    // Captain recommendation for next GW: highest xPts from starters (non-GKP)
+    const captainCandidates = starters
+      .filter(p => p.position !== 'GKP')
+      .map(p => {
+        const nextW = (p.weekly || []).find(w => w.gameweek === nextGW);
+        const curW = (p.weekly || []).find(w => w.gameweek === currentGW);
+        const xPts = nextW?.xPts || 0;
+        const form = Number(bootstrapMap.get(p.id)?.form) || 0;
+        const fixtures = (fixturesByTeam.get(p.teamId) || []).filter(f => !f.finished && f.event === nextGW);
+        const fdr = fixtures.length ? Math.min(...fixtures.map(f => (p.teamId === f.team_h ? f.team_h_difficulty : f.team_a_difficulty) || 3)) : 3;
+        return { ...p, nextXPts: xPts, form, fdr, gwPoints: curW?.xPts || 0 };
+      })
+      .sort((a, b) => b.nextXPts - a.nextXPts || b.form - a.form);
+    const captainPick = captainCandidates[0] || null;
+    const vicePick = captainCandidates.find(c => c.id !== captainPick?.id) || captainCandidates[1] || null;
+
+    // Players to watch: top form + good fixtures (not in squad)
+    const squadIds = new Set(squad.map(p => p.id));
+    const watchlist = elements
+      .filter(e => {
+        const form = Number(e.form) || 0;
+        if (form < 4.5) return false;
+        const teamFixtures = (fixturesByTeam.get(e.team) || []).filter(f => !f.finished && f.event >= nextGW && f.event < nextGW + 4);
+        if (!teamFixtures.length) return false;
+        const avgFDR = teamFixtures.reduce((s, f) => s + ((e.team === f.team_h ? f.team_h_difficulty : f.team_a_difficulty) || 3), 0) / teamFixtures.length;
+        return avgFDR <= 2.5;
+      })
+      .map(e => {
+        const team = teamsById.get(e.team);
+        const posMap = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+        const teamFixtures = (fixturesByTeam.get(e.team) || []).filter(f => !f.finished && f.event >= nextGW && f.event < nextGW + 4);
+        const avgFDR = teamFixtures.reduce((s, f) => s + ((e.team === f.team_h ? f.team_h_difficulty : f.team_a_difficulty) || 3), 0) / teamFixtures.length;
+        return {
+          id: e.id,
+          name: e.web_name,
+          team: team?.short_name || '?',
+          teamFull: team?.name || '',
+          position: posMap[e.element_type] || 'MID',
+          cost: (e.now_cost || 0) / 10,
+          form: Number(e.form) || 0,
+          xGI90: Number(e.expected_goal_involvements_per_90) || 0,
+          avgFDR: Math.round(avgFDR * 10) / 10,
+          inSquad: squadIds.has(e.id),
+          upcomingFixtures: teamFixtures.slice(0, 4).map(f => {
+            const isHome = f.team_h === e.team;
+            const oppId = isHome ? f.team_a : f.team_h;
+            const opp = teamsById.get(oppId);
+            return { gw: f.event, opponent: opp?.short_name || '?', home: isHome, fdr: isHome ? (f.team_h_difficulty || 3) : (f.team_a_difficulty || 3) };
+          }),
+        };
+      })
+      .filter(p => !squadIds.has(p.id))
+      .sort((a, b) => b.form - a.form || a.avgFDR - b.avgFDR)
+      .slice(0, 8);
+
+    res.json({
+      nextGW,
+      currentGW,
+      freeTransfers,
+      captain: captainPick ? { id: captainPick.id, name: captainPick.name, team: captainPick.teamFull || captainPick.team, position: captainPick.position, nextXPts: captainPick.nextXPts, form: captainPick.form, fdr: captainPick.fdr } : null,
+      viceCaptain: vicePick ? { id: vicePick.id, name: vicePick.name } : null,
+      transferAdvice: {
+        hold: shouldHold,
+        transfers: suggestedTransfers.map(t => ({
+          out: { id: t.out?.id, name: t.out?.name, position: t.out?.position, team: t.out?.teamFull || t.out?.team },
+          in: { id: t.in?.id, name: t.in?.name, position: t.in?.position, team: t.in?.teamFull || t.in?.team },
+          gain: t.gain || 0,
+          nextGain: t.nextGain || 0,
+        })),
+        hit: transferHit,
+        reason: shouldHold ? 'Your squad looks solid. No urgent transfers needed — roll the free transfer.' : `Suggested ${suggestedTransfers.length} move${suggestedTransfers.length > 1 ? 's' : ''} for a projected +${suggestedTransfers.reduce((s, t) => s + (t.gain || 0), 0).toFixed(1)} xPts gain.`,
+      },
+      playersToWatch: watchlist,
+      lastUpdated: new Date().toISOString(),
+    });
+  } catch (error) {
+    logger.error({ err: error }, 'Smart Team advisor error');
+    res.status(500).json({ error: 'Failed to build GW advisor' });
   }
 });
 

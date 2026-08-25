@@ -76,6 +76,8 @@ const FPL = {
         priceChanges: '/api/price-changes',
         decisionCentre: '/api/v1/decision-centre',
         aiTeam: '/api/ai-team',
+        aiTeamStanding: '/api/ai-team/standing',
+        aiTeamAdvisor: '/api/ai-team/advisor',
         goalsProjections: (gw, horizon) => `/api/goals-projections?gw=${gw || ''}&horizon=${horizon || 6}`,
         goalsConceded: (gw, horizon) => `/api/goals-conceded?gw=${gw || ''}&horizon=${horizon || 6}`,
         rollingFDR: (gw) => `/api/rolling-fdr?gw=${gw || ''}`,
@@ -836,12 +838,21 @@ const FPL = {
             const predictedPts = startersXPts + captainBonus;
             const remaining = Math.round((100 - teamCost) * 10) / 10;
             const autoLocked = Boolean(isLocked ?? meta?.isAutoLocked);
+            // Per-GW xPts for current gameweek
+            const currentGWIdx = 0;
+            const gwXPtsStarters = lineup.starters.reduce((s, p) => s + (p.weekly?.[currentGWIdx]?.xPts || 0), 0);
+            const gwCaptainBonus = lineup.captain ? (lineup.captain.weekly?.[currentGWIdx]?.xPts || 0) : 0;
+            const gwTotalXPts = gwXPtsStarters + gwCaptainBonus;
             summaryEl.innerHTML = `
                 <div class="aiteam-card"><div class="aiteam-card-icon" style="background:rgba(0,255,133,0.12);color:#00FF85;"><span class="material-symbols-outlined">payments</span></div><div class="aiteam-card-data"><span class="aiteam-card-value">\u00A3${teamCost.toFixed(1)}m</span><span class="aiteam-card-label">\u00A3${remaining.toFixed(1)}m left</span></div></div>
-                <div class="aiteam-card"><div class="aiteam-card-icon" style="background:rgba(79,195,247,0.12);color:#4FC3F7;"><span class="material-symbols-outlined">trending_up</span></div><div class="aiteam-card-data"><span class="aiteam-card-value">${predictedPts.toFixed(1)}</span><span class="aiteam-card-label">${gwView === 1 ? 'Next GW' : gwView + ' GWs'} xPts</span></div></div>
+                <div class="aiteam-card"><div class="aiteam-card-icon" style="background:rgba(79,195,247,0.12);color:#4FC3F7;"><span class="material-symbols-outlined">trending_up</span></div><div class="aiteam-card-data"><span class="aiteam-card-value">${gwTotalXPts.toFixed(1)}</span><span class="aiteam-card-label">Next GW xPts</span></div></div>
                 <div class="aiteam-card"><div class="aiteam-card-icon" style="background:rgba(192,132,252,0.12);color:#c084fc;"><span class="material-symbols-outlined">emoji_events</span></div><div class="aiteam-card-data"><span class="aiteam-card-value">${teamXpts.toFixed(1)}</span><span class="aiteam-card-label">Horizon xPts</span></div></div>
                 <div class="aiteam-card aiteam-status-card" aria-label="AI team status"><div class="aiteam-card-icon" style="background:rgba(255,167,38,0.12);color:#FFA726;"><span class="material-symbols-outlined">${autoLocked ? 'lock' : 'auto_awesome'}</span></div><div class="aiteam-card-data"><span class="aiteam-card-value" style="font-size:12px;">${autoLocked ? 'LOCKED' : 'AI BUILT'}</span><span class="aiteam-card-label">${autoLocked ? 'Auto-selected for GW1' : 'Built from live data'}</span></div></div>`;
         }
+
+        // --- Async: Fetch Standing + GW Advisor ---
+        this._fetchSmartTeamStanding();
+        this._fetchSmartTeamAdvisor();
 
         // --- Formation Label ---
         const formLabel = document.getElementById('aiteam-formation-label');
@@ -972,7 +983,7 @@ const FPL = {
             const isVice = (p) => lineup.viceCaptain && p.id === lineup.viceCaptain.id;
             const starterIds = new Set(lineup.starters.map(p => p.id));
             const benchIds = new Set(lineup.bench.map(p => p.id));
-            const all = [...lineup.starters, ...lineup.bench].filter((p, i, l) => p && l.findIndex(x => x.id === p.id) === i);
+            const all = (Array.isArray(squad) && squad.length === 15 ? squad : [...lineup.starters, ...lineup.bench]).filter((p, i, l) => p && l.findIndex(x => x.id === p.id) === i);
             const legendColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
             const counts = { GKP: 0, DEF: 0, MID: 0, FWD: 0 };
             all.forEach(p => counts[p.position]++);
@@ -988,22 +999,25 @@ const FPL = {
                         <thead><tr>
                             <th style="position:sticky;left:0;z-index:4;background:#141916;width:36px;border-right:1px solid rgba(255,255,255,0.08);">#</th>
                             <th class="aiteam-player-cell" style="position:sticky;left:36px;z-index:4;background:#141916;border-right:1px solid rgba(255,255,255,0.08);">Player</th>
-                            <th>Pos</th><th>£</th><th>xPts</th><th>Fixtures</th><th>Role</th><th style="width:70px;">Action</th>
+                            <th>Pos</th><th>£</th><th>GW xPts</th><th>${gwView} GW</th><th>Fixtures</th><th>Role</th><th style="width:70px;">Action</th>
                         </tr></thead>
                         <tbody>${all.map((p, i) => {
                             const s = statusIcons[p.status] || statusIcons.a;
-                            const xp = sumPlayerXPts(p, gwView).toFixed(1);
+                            const gwXPts = p.weekly?.[0]?.xPts || 0;
+                            const totalXPts = sumPlayerXPts(p, gwView).toFixed(1);
                             const role = isCap(p) ? '<span style="color:#FFD700;font-weight:700;">C</span>' : isVice(p) ? '<span style="color:#C0C0C0;">V</span>' : benchIds.has(p.id) ? '<span style="color:#8ba396;">B</span>' : '<span style="color:#00FF85;">S</span>';
                             const fx = (p.upcomingFixtures || []).slice(0, 4).map(f => {
                                 const c = f.fdr <= 2 ? '#00FF85' : f.fdr <= 3 ? '#FFA726' : '#ff4d4d';
                                 return `<span style="display:inline-block;width:20px;height:16px;line-height:16px;text-align:center;font-size:7px;font-weight:700;border-radius:2px;background:${c}22;color:${c};" title="GW${f.gw}: ${f.home?'':'@'}${f.opponent}">${f.opponent}</span>`;
                             }).join('');
+                            const statusDot = s.color !== '#00FF87' ? `<span class="material-symbols-outlined" style="font-size:12px;color:${s.color};" title="${s.label}">${s.icon}</span>` : '';
                             return `<tr>
                                 <td class="aiteam-rank-cell" style="position:sticky;left:0;z-index:2;background:#0e1411;border-right:1px solid rgba(255,255,255,0.08);">${i + 1}</td>
-                                <td class="aiteam-player-cell" style="position:sticky;left:36px;z-index:2;background:#0e1411;border-right:1px solid rgba(255,255,255,0.08);"><div class="aiteam-table-player">${this.teamBadge(p.team, 20)}<div><span class="aiteam-table-player-name" style="font-size:12px;">${p.name}</span><div class="aiteam-table-player-club">${p.teamFull || p.team}</div></div></div></td>
+                                <td class="aiteam-player-cell" style="position:sticky;left:36px;z-index:2;background:#0e1411;border-right:1px solid rgba(255,255,255,0.08);"><div class="aiteam-table-player">${this.teamBadge(p.team, 20)}<div><span class="aiteam-table-player-name" style="font-size:12px;">${p.name} ${statusDot}</span><div class="aiteam-table-player-club">${p.teamFull || p.team}</div></div></div></td>
                                 <td style="text-align:center;"><span style="padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;background:${posColors[p.position]}22;color:${posColors[p.position]};">${p.position}</span></td>
                                 <td style="text-align:center;font-family:var(--font-mono);font-size:11px;color:#B0B0B0;">£${p.cost?.toFixed(1)}m</td>
-                                <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#00FF85;">${xp}</td>
+                                <td style="text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:${gwXPts >= 5 ? '#00FF85' : gwXPts >= 3 ? '#fff' : '#8ba396'};">${gwXPts.toFixed(1)}</td>
+                                <td style="text-align:center;font-family:var(--font-mono);font-size:11px;font-weight:600;color:#00FF85;">${totalXPts}</td>
                                 <td style="text-align:center;font-size:10px;padding:4px 2px;"><div style="display:flex;gap:1px;justify-content:center;">${fx}</div></td>
                                 <td style="text-align:center;font-size:11px;font-weight:600;">${role}</td>
                                 <td style="text-align:center;"><button onclick="FPL.suggestAITeamTransfer(${p.id})" title="Find replacement" style="padding:4px 8px;border:1px solid #294138;border-radius:4px;background:transparent;color:#8ba396;font-size:10px;cursor:pointer;transition:all 0.15s;"><span class="material-symbols-outlined" style="font-size:14px;">swap_horiz</span></button></td>
@@ -1285,6 +1299,162 @@ const FPL = {
 
     applySubCombo(out1Id, in1Id, out2Id, in2Id) {
         return this.applyAITeamTransfers([{ outId: out1Id, inId: in1Id }, { outId: out2Id, inId: in2Id }]);
+    },
+
+    async _fetchSmartTeamStanding() {
+        const standingEl = document.getElementById('aiteam-standing');
+        if (!standingEl) return;
+        try {
+            const standing = await this.apiFetch(this.API.aiTeamStanding);
+            this.state.aiTeamStanding = standing;
+            this._paintStanding(standing);
+        } catch (e) {
+            console.warn('Smart team standing unavailable:', e.message);
+            if (standingEl) standingEl.innerHTML = '';
+        }
+    },
+
+    _paintStanding(standing) {
+        const el = document.getElementById('aiteam-standing');
+        if (!el || !standing) return;
+        const fmt = n => n ? Number(n).toLocaleString() : '--';
+        el.innerHTML = `
+            <div class="aiteam-card"><div class="aiteam-card-icon" style="background:rgba(0,255,133,0.12);color:#00FF85;"><span class="material-symbols-outlined">group</span></div><div class="aiteam-card-data"><span class="aiteam-card-value">${fmt(standing.gwPoints)}</span><span class="aiteam-card-label">GW${standing.currentGW} Points</span></div></div>
+            <div class="aiteam-card"><div class="aiteam-card-icon" style="background:rgba(79,195,247,0.12);color:#4FC3F7;"><span class="material-symbols-outlined">emoji_events</span></div><div class="aiteam-card-data"><span class="aiteam-card-value">${fmt(standing.overallPoints)}</span><span class="aiteam-card-label">Overall Points</span></div></div>
+            <div class="aiteam-card"><div class="aiteam-card-icon" style="background:rgba(192,132,252,0.12);color:#c084fc;"><span class="material-symbols-outlined">public</span></div><div class="aiteam-card-data"><span class="aiteam-card-value">#${fmt(standing.overallRank)}</span><span class="aiteam-card-label">Overall Rank</span></div></div>
+            <div class="aiteam-card"><div class="aiteam-card-icon" style="background:rgba(255,167,38,0.12);color:#FFA726;"><span class="material-symbols-outlined">swap_horiz</span></div><div class="aiteam-card-data"><span class="aiteam-card-value">${standing.freeTransfers}</span><span class="aiteam-card-label">Free Transfers</span></div></div>`;
+        // Also render GW history timeline if available
+        const historyEl = document.getElementById('aiteam-gw-history');
+        if (historyEl && standing.gwHistory?.length) {
+            const maxPts = Math.max(...standing.gwHistory.map(h => h.points || 0), 1);
+            historyEl.innerHTML = `<div style="margin-bottom:6px;"><span style="font-size:11px;font-weight:800;color:#8ba396;letter-spacing:0.08em;font-family:var(--font-mono);text-transform:uppercase;">SMART TEAM SCORES PER GW</span></div>
+                <div style="display:flex;align-items:flex-end;gap:3px;height:80px;padding:8px 0;">
+                    ${standing.gwHistory.map(h => {
+                        const pct = Math.max(8, (h.points / maxPts) * 100);
+                        const isCur = h.gw === standing.currentGW;
+                        const col = isCur ? '#00FF85' : h.points >= 50 ? '#4FC3F7' : h.points >= 30 ? '#FFA726' : '#8ba396';
+                        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;" title="GW${h.gw}: ${h.points}pts (Rank: ${h.rank ? '#' + h.rank.toLocaleString() : '--'})">
+                            <span style="font-size:9px;font-weight:700;color:${col};font-family:var(--font-mono);">${h.points}</span>
+                            <div style="width:100%;height:${pct}%;background:${col};border-radius:2px 2px 0 0;opacity:${isCur ? 1 : 0.65};"></div>
+                            <span style="font-size:8px;color:#5a6e60;font-family:var(--font-mono);">${h.gw}</span>
+                        </div>`;
+                    }).join('')}
+                </div>`;
+        }
+    },
+
+    async _fetchSmartTeamAdvisor() {
+        const advisorEl = document.getElementById('aiteam-advisor');
+        if (!advisorEl) return;
+        try {
+            const advisor = await this.apiFetch(this.API.aiTeamAdvisor);
+            this.state.aiTeamAdvisor = advisor;
+            this._paintAdvisor(advisor);
+        } catch (e) {
+            console.warn('Smart team advisor unavailable:', e.message);
+            if (advisorEl) advisorEl.innerHTML = '';
+        }
+    },
+
+    _paintAdvisor(advisor) {
+        const el = document.getElementById('aiteam-advisor');
+        if (!el || !advisor) return;
+        const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
+        const fdrColor = fdr => fdr <= 2 ? '#00FF85' : fdr <= 3 ? '#FFA726' : '#ff4d4d';
+        let html = '';
+
+        // --- Captain Pick ---
+        if (advisor.captain) {
+            const c = advisor.captain;
+            html += `<div style="margin-bottom:20px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <span class="material-symbols-outlined" style="color:#FFD700;font-size:20px;">star</span>
+                    <span style="font-size:11px;font-weight:800;color:#FFD700;letter-spacing:0.08em;font-family:var(--font-mono);text-transform:uppercase;">RECOMMENDED CAPTAIN - GW${advisor.nextGW}</span>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:linear-gradient(135deg,#1a1f10 0%,#0e1e14 100%);border:1px solid rgba(255,215,0,0.3);border-radius:10px;">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <div style="width:42px;height:42px;border-radius:50%;background:rgba(255,215,0,0.12);display:grid;place-items:center;">
+                            <span style="font-weight:800;color:#FFD700;font-size:14px;">${c.position}</span>
+                        </div>
+                        <div>
+                            <div style="font-size:15px;font-weight:800;color:#fff;">${this.escapeHTML(c.name)} <span style="color:${posColors[c.position] || '#fff'};font-size:11px;">${c.position}</span></div>
+                            <div style="font-size:11px;color:#8ba396;">${c.team} \u00B7 Form: ${c.form?.toFixed(1) || '--'} \u00B7 FDR: <span style="color:${fdrColor(c.fdr)};">${c.fdr}</span></div>
+                        </div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:20px;font-weight:800;color:#FFD700;font-family:var(--font-mono);">${c.nextXPts?.toFixed(1) || '--'}</div>
+                        <div style="font-size:10px;color:#8ba396;">xPts (doubled)</div>
+                    </div>
+                </div>
+                ${advisor.viceCaptain ? `<div style="font-size:11px;color:#8ba396;margin-top:6px;">Vice: <strong style="color:#C0C0C0;">${advisor.viceCaptain.name}</strong></div>` : ''}
+            </div>`;
+        }
+
+        // --- Transfer Advice ---
+        if (advisor.transferAdvice) {
+            const ta = advisor.transferAdvice;
+            const holdIcon = ta.hold ? 'thumb_up' : 'swap_horiz';
+            const holdColor = ta.hold ? '#00FF85' : '#FFA726';
+            html += `<div style="margin-bottom:20px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <span class="material-symbols-outlined" style="color:${holdColor};font-size:20px;">${holdIcon}</span>
+                    <span style="font-size:11px;font-weight:800;color:${holdColor};letter-spacing:0.08em;font-family:var(--font-mono);text-transform:uppercase;">TRANSFER ADVICE \u00B7 ${ta.hold ? 'HOLD' : `${ta.transfers.length} MOVE${ta.transfers.length > 1 ? 'S' : ''}`}${ta.hit ? ` \u00B7 -${ta.hit} HIT` : ''}</span>
+                </div>
+                <div style="padding:12px 16px;background:#141916;border:1px solid ${holdColor}33;border-radius:10px;">
+                    <div style="font-size:13px;color:#fff;line-height:1.5;">${this.escapeHTML(ta.reason)}</div>
+                    ${ta.transfers.length ? `<div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+                        ${ta.transfers.map(t => `<div style="display:flex;align-items:center;gap:10px;padding:10px;background:#0e1e14;border:1px solid rgba(255,255,255,0.06);border-radius:8px;">
+                            <div style="flex:1;">
+                                <div style="font-size:10px;color:#ff4d4d;font-weight:700;">OUT</div>
+                                <div style="font-size:13px;font-weight:700;color:#fff;">${this.escapeHTML(t.out.name)}</div>
+                                <div style="font-size:10px;color:#8ba396;">${t.out.position} \u00B7 ${t.out.team}</div>
+                            </div>
+                            <span class="material-symbols-outlined" style="color:#8ba396;font-size:20px;">arrow_forward</span>
+                            <div style="flex:1;">
+                                <div style="font-size:10px;color:#00FF85;font-weight:700;">IN</div>
+                                <div style="font-size:13px;font-weight:700;color:#fff;">${this.escapeHTML(t.in.name)}</div>
+                                <div style="font-size:10px;color:#8ba396;">${t.in.position} \u00B7 ${t.in.team}</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-size:13px;font-weight:800;color:#00FF85;font-family:var(--font-mono);">+${(t.gain || 0).toFixed(1)}</div>
+                                <div style="font-size:9px;color:#8ba396;">xPts gain</div>
+                            </div>
+                        </div>`).join('')}
+                    </div>` : ''}
+                    <div style="font-size:11px;color:#8ba396;margin-top:8px;">Free transfers available: <strong style="color:#fff;">${advisor.freeTransfers}</strong></div>
+                </div>
+            </div>`;
+        }
+
+        // --- Players to Watch ---
+        if (advisor.playersToWatch?.length) {
+            html += `<div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                    <span class="material-symbols-outlined" style="color:#c084fc;font-size:20px;">visibility</span>
+                    <span style="font-size:11px;font-weight:800;color:#c084fc;letter-spacing:0.08em;font-family:var(--font-mono);text-transform:uppercase;">PLAYERS TO WATCH - GW${advisor.nextGW}+</span>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;">
+                    ${advisor.playersToWatch.slice(0, 4).map(p => `<div style="padding:12px;background:#141916;border:1px solid rgba(192,132,252,0.2);border-radius:8px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                            <div style="display:flex;align-items:center;gap:6px;">
+                                <span style="padding:2px 6px;border-radius:3px;font-size:9px;font-weight:700;background:${posColors[p.position]}22;color:${posColors[p.position]};">${p.position}</span>
+                                <span style="font-size:13px;font-weight:700;color:#fff;">${this.escapeHTML(p.name)}</span>
+                            </div>
+                            <span style="font-size:11px;font-weight:800;color:#00FF85;font-family:var(--font-mono);">${p.form?.toFixed(1) || '--'}</span>
+                        </div>
+                        <div style="font-size:10px;color:#8ba396;margin-bottom:6px;">${p.teamFull || p.team} \u00B7 \u00A3${p.cost?.toFixed(1)}m \u00B7 xGI/90: ${p.xGI90?.toFixed(2) || '--'}</div>
+                        <div style="display:flex;gap:3px;flex-wrap:wrap;">
+                            ${(p.upcomingFixtures || []).slice(0, 4).map(f => {
+                                const c = fdrColor(f.fdr);
+                                return `<span style="display:inline-block;padding:2px 5px;border-radius:3px;font-size:9px;font-weight:700;background:${c}18;color:${c};">${f.home ? '' : '@'}${f.opponent}</span>`;
+                            }).join('')}
+                        </div>
+                    </div>`).join('')}
+                </div>
+            </div>`;
+        }
+
+        el.innerHTML = html;
     },
 
     // ==================== RENDER: DASHBOARD (GENERAL) ====================
