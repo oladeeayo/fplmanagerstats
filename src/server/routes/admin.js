@@ -662,14 +662,34 @@ router.get('/gw-summary', async (req, res) => {
     md += `*Top 4 Managers of The Week – GW ${targetGW}*\n\n`;
 
     const rankEmojis = ['1\uFE0F\u20E3','2\uFE0F\u20E3','3\uFE0F\u20E3','4\uFE0F\u20E3'];
+
+    // Compute display ranks: tied managers get the same rank number
+    function getDisplayRanks(list) {
+      const ranks = [];
+      let lastPts = null;
+      let currentRank = 0;
+      list.forEach((m) => {
+        if (m.gwPoints !== lastPts) {
+          currentRank++;
+          lastPts = m.gwPoints;
+        }
+        ranks.push(Math.min(currentRank, 4));
+      });
+      return ranks;
+    }
+
+    const top4Ranks = getDisplayRanks(top4);
     top4.forEach((m, i) => {
-      md += `${rankEmojis[i]} *${m.teamName}* – ${m.gwPoints} points ${medals[i]}\n`;
+      const rankIdx = top4Ranks[i] - 1;
+      md += `${rankEmojis[rankIdx]} *${m.teamName}* – ${m.gwPoints} points ${medals[rankIdx]}\n`;
     });
     md += `---\n\n`;
 
     md += `*Bottom 4 Managers of The Week – GW ${targetGW}*\n\n`;
+    const bottom4Ranks = getDisplayRanks(bottom4);
     bottom4.forEach((m, i) => {
-      md += `${rankEmojis[i]} *${m.teamName}* – ${m.gwPoints} points ${sadEmojis[i]}\n`;
+      const rankIdx = bottom4Ranks[i] - 1;
+      md += `${rankEmojis[rankIdx]} *${m.teamName}* – ${m.gwPoints} points ${sadEmojis[rankIdx]}\n`;
     });
     md += `---\n\n`;
 
