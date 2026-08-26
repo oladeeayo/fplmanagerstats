@@ -662,15 +662,21 @@ router.get('/advisor', async (req, res) => {
     const currentGW = events.find(e => e.is_current)?.id || events.filter(e => e.finished).length || 1;
     const nextGW = events.find(e => e.is_next)?.id || currentGW + 1;
 
-    // Get saved squad
-    const savedRows = sql ? await sql`SELECT * FROM ai_team WHERE session_id = ${SMART_TEAM_STORAGE_KEY} ORDER BY updated_at DESC LIMIT 1` : [];
-    if (!savedRows.length) return res.json({ advisor: null, message: 'No saved smart team found.' });
-    const row = savedRows[0];
-    const squad = row.squad || [];
-    const lineup = row.lineup || {};
-    const starters = lineup.starters || [];
-    const bench = lineup.bench || [];
-    const transferPlan = row.transfers?.plan || [];
+    // Get saved squad — try DB first, fall back to POST body
+    let squad = [], starters = [], bench = [], transferPlan = [];
+    if (sql) {
+      try {
+        const savedRows = await sql`SELECT * FROM ai_team WHERE session_id = ${SMART_TEAM_STORAGE_KEY} ORDER BY updated_at DESC LIMIT 1`;
+        if (savedRows.length) {
+          const row = savedRows[0];
+          squad = row.squad || [];
+          starters = (row.lineup || {}).starters || [];
+          bench = (row.lineup || {}).bench || [];
+          transferPlan = row.transfers?.plan || [];
+        }
+      } catch (dbErr) { logger.warn({ err: dbErr }, 'Advisor DB read failed'); }
+    }
+    if (!squad.length) return res.json({ nextGW, currentGW, captain: null, viceCaptain: null, transferAdvice: { hold: true, transfers: [], hit: 0, reason: 'No saved squad found. Build the Smart Team first.' }, playersToWatch: [], freeTransfers: 1 });
     const plansByStrategy = row.transfers?.plansByStrategy || {};
 
     // Free transfers estimation
@@ -720,7 +726,7 @@ router.get('/advisor', async (req, res) => {
     const watchlist = elements
       .filter(e => {
         const form = Number(e.form) || 0;
-        if (form < 4.5) return false;
+        if (form < 3.0) return false; // Lower threshold early season
         const teamFixtures = (fixturesByTeam.get(e.team) || []).filter(f => !f.finished && f.event >= nextGW && f.event < nextGW + 4);
         if (!teamFixtures.length) return false;
         const avgFDR = teamFixtures.reduce((s, f) => s + ((e.team === f.team_h ? f.team_h_difficulty : f.team_a_difficulty) || 3), 0) / teamFixtures.length;
@@ -754,11 +760,15 @@ router.get('/advisor', async (req, res) => {
       .sort((a, b) => b.form - a.form || a.avgFDR - b.avgFDR)
       .slice(0, 8);
 
+    // Also include ep_next as fallback xPts for captain if weekly data is empty
+    const captainXpts = captainPick?.nextXPts || (captainPick?.id ? Number(bootstrapMap.get(captainPick.id)?.ep_next) || 0 : 0);
+    const viceXpts = vicePick?.nextXPts || (vicePick?.id ? Number(bootstrapMap.get(vicePick.id)?.ep_next) || 0 : 0);
+
     res.json({
       nextGW,
       currentGW,
       freeTransfers,
-      captain: captainPick ? { id: captainPick.id, name: captainPick.name, team: captainPick.teamFull || captainPick.team, position: captainPick.position, nextXPts: captainPick.nextXPts, form: captainPick.form, fdr: captainPick.fdr } : null,
+      captain: captainPick ? { id: captainPick.id, name: captainPick.name, team: captainPick.teamFull || captainPick.team, position: captainPick.position, nextXPts: captainXpts, form: captainPick.form, fdr: captainPick.fdr } : null,
       viceCaptain: vicePick ? { id: vicePick.id, name: vicePick.name } : null,
       transferAdvice: {
         hold: shouldHold,

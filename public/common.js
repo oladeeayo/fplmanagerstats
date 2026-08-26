@@ -830,6 +830,63 @@ const FPL = {
             return '#ff4d4d';
         }
 
+        // --- Refresh stale fixtures from live bootstrap data ---
+        const bootstrap = this.state.bootstrapData;
+        if (bootstrap) {
+            const bsElements = bootstrap.elements || [];
+            const bsTeams = bootstrap.teams || [];
+            const bsEvents = bootstrap.events || [];
+            const currentGW = bsEvents.find(e => e.is_current)?.id || bsEvents.filter(e => e.finished).length || 1;
+            const nextGW = bsEvents.find(e => e.is_next)?.id || currentGW + 1;
+            const bsTeamsById = new Map(bsTeams.map(t => [t.id, t]));
+            const bsFixtures = this.state.fixtures || [];
+            const bsFixturesByTeam = new Map();
+            bsFixtures.forEach(f => {
+                [f.team_h, f.team_a].forEach(teamId => {
+                    if (!bsFixturesByTeam.has(teamId)) bsFixturesByTeam.set(teamId, []);
+                    bsFixturesByTeam.get(teamId).push(f);
+                });
+            });
+            const bsMap = new Map(bsElements.map(e => [e.id, e]));
+            [...squad, ...(lineup.starters || []), ...(lineup.bench || [])].forEach(p => {
+                const raw = bsMap.get(p.id);
+                if (!raw) return;
+                const teamId = raw.team;
+                const fixtures = (bsFixturesByTeam.get(teamId) || [])
+                    .filter(f => !f.finished && f.event >= nextGW)
+                    .sort((a, b) => (a.event || 0) - (b.event || 0));
+                const enrichedFixtures = [];
+                const fixturesByGW = new Map();
+                fixtures.forEach(f => {
+                    const isHome = f.team_h === teamId;
+                    const oppId = isHome ? f.team_a : f.team_h;
+                    const opp = bsTeamsById.get(oppId);
+                    const fdr = isHome ? (f.team_h_difficulty || 3) : (f.team_a_difficulty || 3);
+                    const item = { gw: f.event, opponent: opp?.short_name || '?', opponentFull: opp?.name || '?', home: isHome, fdr, kickoff: f.kickoff_time };
+                    if (!fixturesByGW.has(f.event)) fixturesByGW.set(f.event, []);
+                    fixturesByGW.get(f.event).push(item);
+                });
+                fixturesByGW.forEach((gwFixtures, gw) => {
+                    if (gwFixtures.length === 1) enrichedFixtures.push(gwFixtures[0]);
+                    else enrichedFixtures.push(...gwFixtures);
+                });
+                p.upcomingFixtures = enrichedFixtures;
+                // Also refresh weekly xPts if stale (first entry GW < nextGW)
+                if (p.weekly?.length && p.weekly[0]?.gameweek < nextGW) {
+                    const staleWeekly = p.weekly.filter(w => w.gameweek >= nextGW);
+                    if (staleWeekly.length === 0 && p.weekly.length > 1) {
+                        // Shift weekly array to start from nextGW
+                        p.weekly = p.weekly.filter(w => w.gameweek >= nextGW);
+                    }
+                }
+                // Refresh status from bootstrap
+                p.status = raw.status || 'a';
+                p.news = raw.news || '';
+                p.teamFull = bsTeamsById.get(teamId)?.name || p.teamFull;
+                p.teamShort = bsTeamsById.get(teamId)?.short_name || p.teamShort;
+            });
+        }
+
         // --- Summary Bar ---
         const summaryEl = document.getElementById('aiteam-summary');
         if (summaryEl) {
