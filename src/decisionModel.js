@@ -1,4 +1,4 @@
-const { buildPlayerProjections } = require('./captaincyModel');
+const { buildPlayerProjections, buildCaptaincyModel } = require('./captaincyModel');
 const {
   clamp,
   computePlayerStrengthScore,
@@ -28,6 +28,7 @@ const {
   findBestTransferMode,
   optimizeTeamMode,
   monteCarloTransferAnalysis,
+  earlySeasonDampener,
   simulateSquadGW,
   detectNewToPL,
   computeNewLeagueAdjustment,
@@ -73,7 +74,15 @@ function selectLineup(squad, strategy) {
     starters.push(player);
   });
   const bench = ranked.filter(player => !starters.some(starter => starter.id === player.id));
-  const captainPool = starters.filter(player => player.position !== 'GKP').sort((a, b) => b.weekly[0].xPts - a.weekly[0].xPts || b.range.high - a.range.high);
+  // Captain: use captaincyScore.finalScore when available (from the captaincy model),
+  // fall back to weekly xPts. This integrates rotation risk, fixtures, set pieces,
+  // elite pool weighting, and H2H data into the captain pick.
+  const captainPool = starters.filter(player => player.position !== 'GKP').sort((a, b) => {
+    const scoreA = Number(a.captaincyScore?.finalScore) || a.weekly[0].xPts;
+    const scoreB = Number(b.captaincyScore?.finalScore) || b.weekly[0].xPts;
+    if (scoreB !== scoreA) return scoreB - scoreA;
+    return b.weekly[0].xPts - a.weekly[0].xPts || b.range.high - a.range.high;
+  });
   const captain = captainPool[0] || starters[0];
   const viceCaptain = captainPool[1] || starters[1];
   const expectedPoints = round(starters.reduce((sum, player) => sum + player.weekly[0].xPts, 0) + (captain?.weekly[0].xPts || 0));
@@ -85,6 +94,7 @@ function buildTransferPlans({ squad, allPlayers, bank, freeTransfers, strategy, 
   const candidates = allPlayers.filter(player => !squadIds.has(player.id) && player.availability >= 50);
   const sales = [...squad].sort((a, b) => adjustedScore(a, strategy) - adjustedScore(b, strategy));
   const plans = [];
+  const dampener = earlySeasonDampener(currentGW || 1);
 
   // Minimum thresholds — calibrated for early-season projection noise
   const MIN_NET_GAIN_FREE = 2.0;   // Free transfer must project ≥2.0 xPts net gain over horizon (~0.4/GW)
@@ -129,7 +139,7 @@ function buildTransferPlans({ squad, allPlayers, bank, freeTransfers, strategy, 
           hitCost,
           netGain,
           bankAfter: round(bank + (outgoing.sellingPrice ?? outgoing.cost) - incoming.cost),
-          breakEvenProbability: Math.round(Math.max(8, Math.min(92, 50 + netGain * 5 - (100 - incoming.availability) * 0.22))),
+          breakEvenProbability: Math.round(Math.max(8, Math.min(dampener.probabilityCap, 50 + netGain * 5 - (100 - incoming.availability) * 0.22))),
           risk: incoming.confidence === 'High' ? 'Low' : incoming.availability < 75 ? 'High' : 'Medium',
           rationale: `${incoming.name} adds ${netGain.toFixed(1)} hit-adjusted xPts over ${outgoing.name} across the next ${incoming.weekly.length} gameweeks.${incoming.hasMultiSeasonData ? ` Multi-season consistency: ${Math.round((incoming.consistencyScore || 0) * 100)}%.` : ''}${incoming.improvementRatio > 1 ? ` ${Math.round((incoming.improvementRatio - 1) * 100)}% xGI improvement vs last season.` : ''}`,
           // Decision Lab fields
@@ -140,7 +150,7 @@ function buildTransferPlans({ squad, allPlayers, bank, freeTransfers, strategy, 
           recommendation: labRecommendation.category,
           recommendationEmoji: labRecommendation.emoji,
           risks: labRisks,
-          confidence: round(clamp(100 - computeUncertainty(incoming).uncertainty * 100, 15, 95)),
+          confidence: round(clamp(100 - computeUncertainty(incoming).uncertainty * 100, 15, dampener.confidenceCap)),
         });
       });
   }
@@ -321,6 +331,21 @@ async function buildDecisionCentre({ bootstrap, fixtures, manager, picks, histor
   const squad = picks.picks.map(pick => ({ ...projectionMap.get(pick.element), pickPosition: pick.position, purchasePrice: pick.purchase_price ? pick.purchase_price / 10 : null, sellingPrice: pick.selling_price ? pick.selling_price / 10 : null })).filter(player => player.id);
   const bank = Number.isFinite(Number(options.bank)) ? Number(options.bank) : Number(picks.entry_history?.bank || 0) / 10;
   const freeTransfers = Math.max(1, Math.min(5, Number(options.freeTransfers) || 1));
+
+  // Merge captaincy model scores into squad so captain selection uses the full
+  // captaincy model (rotation risk, fixtures, set pieces, elite pool, H2H).
+  try {
+    const targetCaptaincyGW = options.targetGW || projectionData.startGW;
+    const captaincyModel = await buildCaptaincyModel({ bootstrap, fixtures, selectedGW: targetCaptaincyGW });
+    if (captaincyModel?.topPicks) {
+      const captaincyMap = new Map(captaincyModel.topPicks.map(pick => [pick.id, pick.captaincyScore]));
+      squad.forEach(player => {
+        const capScore = captaincyMap.get(player.id);
+        if (capScore) player.captaincyScore = capScore;
+      });
+    }
+  } catch (e) { /* captaincy model failure is non-fatal — fall back to xPts */ }
+
   const lineup = selectLineup(squad, strategy);
   // Preserve FPL's actual bench arrangement (positions 12-15) rather than re-sorting by score
   const fplBench = squad.filter(p => p.pickPosition > 11).sort((a, b) => a.pickPosition - b.pickPosition);
@@ -413,6 +438,22 @@ async function buildSquadAdvice({ bootstrap, fixtures, playerIds, options = {} }
   const projectionMap = new Map(projectionData.projections.map(player => [player.id, player]));
   const squad = [...new Set((playerIds || []).map(Number))].map(id => projectionMap.get(id)).filter(Boolean);
   if (!squad.length) throw new Error('Add players before running the squad review');
+
+  // Merge captaincy model scores into squad so captain selection uses the full
+  // captaincy model (rotation risk, fixtures, set pieces, elite pool, H2H).
+  if (squad.length === 15) {
+    try {
+      const targetCaptaincyGW = options.targetGW || projectionData.startGW;
+      const captaincyModel = await buildCaptaincyModel({ bootstrap, fixtures, selectedGW: targetCaptaincyGW });
+      if (captaincyModel?.topPicks) {
+        const captaincyMap = new Map(captaincyModel.topPicks.map(pick => [pick.id, pick.captaincyScore]));
+        squad.forEach(player => {
+          const capScore = captaincyMap.get(player.id);
+          if (capScore) player.captaincyScore = capScore;
+        });
+      }
+    } catch (e) { /* captaincy model failure is non-fatal — fall back to xPts */ }
+  }
 
   const legal = validSquad(squad);
   const squadCost = round(squad.reduce((sum, player) => sum + player.cost, 0));

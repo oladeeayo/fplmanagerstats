@@ -26,9 +26,20 @@ function horizonScore(player) {
 
 function selectCaptainAndVice(squad, scorePlayer) {
   const scoreFn = typeof scorePlayer === 'function' ? scorePlayer : nextGameweekScore;
+  // Use captaincyScore.finalScore when available (from the captaincy model),
+  // which integrates rotation risk, fixtures, set pieces, elite pool, and H2H.
   const candidates = [...squad].sort((a, b) => {
-    const scoreDiff = scoreFn(b) - scoreFn(a);
-    if (Math.abs(scoreDiff) > 0.01) return scoreDiff;
+    const capA = Number(a.captaincyScore?.finalScore);
+    const capB = Number(b.captaincyScore?.finalScore);
+    const hasCaptScores = Number.isFinite(capA) || Number.isFinite(capB);
+    if (hasCaptScores) {
+      const aScore = Number.isFinite(capA) ? capA : scoreFn(a);
+      const bScore = Number.isFinite(capB) ? capB : scoreFn(b);
+      if (Math.abs(bScore - aScore) > 0.01) return bScore - aScore;
+    } else {
+      const scoreDiff = scoreFn(b) - scoreFn(a);
+      if (Math.abs(scoreDiff) > 0.01) return scoreDiff;
+    }
     const minsA = Number(a.weekly?.[0]?.xMins || a.xMins || 75);
     const minsB = Number(b.weekly?.[0]?.xMins || b.xMins || 75);
     if (minsA !== minsB) return minsB - minsA;

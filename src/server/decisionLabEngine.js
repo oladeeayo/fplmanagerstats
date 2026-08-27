@@ -6,6 +6,24 @@
 function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
 function round(v, p = 1) { return Math.round(v * 10 ** p) / 10 ** p; }
 function lerp(a, b, t) { return a + (b - a) * t; }
+
+// ============================================================
+// EARLY-SEASON CONFIDENCE DAMPENER
+// ============================================================
+// When only 1–2 gameweeks of data exist, projections are dominated by
+// prior/historical estimates. We must cap confidence, probability and
+// sell urgency so the model doesn't over-commit from thin evidence.
+function earlySeasonDampener(currentGW) {
+  const gw = clamp(currentGW || 1, 1, 38);
+  // GW 1-2: very thin evidence — cap hard at ~65 % confidence
+  if (gw <= 2) return { confidenceCap: 65, probabilityCap: 68, urgencyPenalty: 0.45, sellThresholdBoost: 4, label: 'Early season — thin evidence' };
+  // GW 3-5: still noisy — cap at ~78 %
+  if (gw <= 5) return { confidenceCap: 78, probabilityCap: 78, urgencyPenalty: 0.30, sellThresholdBoost: 2.5, label: 'Early season — building evidence' };
+  // GW 6-8: moderate signal — cap at ~86 %
+  if (gw <= 8) return { confidenceCap: 86, probabilityCap: 85, urgencyPenalty: 0.15, sellThresholdBoost: 1, label: 'Moderate sample — improving signal' };
+  // GW 9+: mature model
+  return { confidenceCap: 95, probabilityCap: 92, urgencyPenalty: 0, sellThresholdBoost: 0, label: 'Mature model' };
+}
 function median(arr) {
   if (!arr.length) return 0;
   const s = [...arr].sort((a, b) => a - b);
@@ -463,9 +481,13 @@ function computeTransferDecisionScore(outgoing, incoming, options = {}) {
   const score = round(clamp(rawScore, 0, 100));
 
   // Transfer probability (how often IN outperforms OUT in simulations - simplified)
+  const dampener = earlySeasonDampener(currentGW);
+  const rawProbability = 50 + expectedGain * 5 + fixtureSwing * 3 + roleGain * 0.3 - inUncertainty.uncertainty * 20;
+  // Early season: pull probability toward 50 % (coin-flip) — less data means less edge
+  const seasonAdjustedProbability = lerp(50, rawProbability, 1 - dampener.urgencyPenalty);
   const probabilityTransferWins = clamp(
-    50 + expectedGain * 5 + fixtureSwing * 3 + roleGain * 0.3 - inUncertainty.uncertainty * 20,
-    15, 92
+    Math.round(seasonAdjustedProbability),
+    15, dampener.probabilityCap
   );
 
   // Break-even GW
@@ -931,6 +953,7 @@ function findBestMoveAcrossSquad(squad, allPlayers, options = {}) {
 
 function buildSquadHeatmap(squad, allPlayers, options = {}) {
   const { currentGW = 1, horizon = 5 } = options;
+  const dampener = earlySeasonDampener(currentGW);
 
   return squad.map(player => {
     const horizonPts = computeHorizonPoints(player.weekly, horizon);
@@ -956,21 +979,23 @@ function buildSquadHeatmap(squad, allPlayers, options = {}) {
     let statusPriority = 3;
     const isUnavailable = (player.availability || 100) < 50;
     const hasNoData = (player.minutes || 0) < 90; // less than 1 full match played
+    // Early-season: boost the gain thresholds required to flag players
+    const thresholdBoost = dampener.sellThresholdBoost;
     if (isUnavailable) {
       status = 'PRIORITY SELL';
       statusPriority = 0;
-    } else if (minutesProb.startProbability < 30 && replacementGain >= 6 && hasNoData) {
+    } else if (minutesProb.startProbability < 30 && replacementGain >= 6 + thresholdBoost && hasNoData) {
       // Only PRIORITY SELL if start probability is very low AND there's a clear upgrade AND we have no data
       status = 'PRIORITY SELL';
       statusPriority = 0;
-    } else if (minutesProb.startProbability < 40 && replacementGain >= 8 && strength.score < 45) {
+    } else if (minutesProb.startProbability < 40 && replacementGain >= 8 + thresholdBoost && strength.score < 45) {
       // Strong evidence needed for PRIORITY SELL with some data
       status = 'PRIORITY SELL';
       statusPriority = 0;
-    } else if (replacementGain >= 6 && strength.score < 50) {
+    } else if (replacementGain >= 6 + thresholdBoost && strength.score < 50) {
       status = 'SELL';
       statusPriority = 1;
-    } else if (replacementGain >= 3 || strength.score < 40) {
+    } else if (replacementGain >= 3 + thresholdBoost || strength.score < 40) {
       status = 'MONITOR';
       statusPriority = 2;
     } else if (strength.score >= 75 && minutesProb.startProbability >= 80) {
@@ -1206,6 +1231,7 @@ function buildDecisionTriggers(squad, options = {}) {
 
 function generateYourDecisionBrief(squad, allPlayers, options = {}) {
   const { currentGW = 1, horizon = 5, freeTransfers = 1, bank = 0 } = options;
+  const dampener = earlySeasonDampener(currentGW);
 
   // Best transfer opportunity
   const opportunities = rankAllTransferOpportunities(squad, allPlayers, { freeTransfers, bank, horizon, currentGW });
@@ -1222,7 +1248,7 @@ function generateYourDecisionBrief(squad, allPlayers, options = {}) {
 
   if (bestTransfer && bestGain >= 4.0) {
     action = freeTransfers > 0 ? 'TRANSFER' : 'HIT';
-    confidence = Math.min(90, 60 + bestGain * 4);
+    confidence = Math.min(dampener.confidenceCap, 60 + bestGain * 4);
     const analysis = analyzeTransfer(bestTransfer.out, bestTransfer.in, { currentGW, horizon, freeTransfers });
     transferDetail = {
       out: bestTransfer.out.name,
@@ -1230,7 +1256,7 @@ function generateYourDecisionBrief(squad, allPlayers, options = {}) {
       expectedGain: round(bestGain),
       hitCost: bestTransfer.hitCost || 0,
       breakEvenGW: analysis.breakEvenGW,
-      probabilityWin: analysis.probabilityTransferWins,
+      probabilityWin: Math.min(dampener.probabilityCap, analysis.probabilityTransferWins),
       recommendation: analysis.recommendation,
       urgency: analysis.urgency,
     };
@@ -1241,9 +1267,16 @@ function generateYourDecisionBrief(squad, allPlayers, options = {}) {
     confidence = 55;
   }
 
-  // Captain
+  // Captain — use captaincyScore.finalScore when available (from the captaincy model),
+  // fall back to weekly xPts. This integrates rotation risk, fixture analysis,
+  // set pieces, elite pool weighting, and H2H data into the captain pick.
   const captainPool = squad.filter(p => p.position !== 'GKP' && (p.availability || 0) >= 70);
-  const bestCaptain = captainPool.sort((a, b) => (Number(b.weekly?.[0]?.xPts) || 0) - (Number(a.weekly?.[0]?.xPts) || 0))[0] || null;
+  const bestCaptain = captainPool.sort((a, b) => {
+    const scoreA = Number(a.captaincyScore?.finalScore) || (Number(a.weekly?.[0]?.xPts) || 0);
+    const scoreB = Number(b.captaincyScore?.finalScore) || (Number(b.weekly?.[0]?.xPts) || 0);
+    if (scoreB !== scoreA) return scoreB - scoreA;
+    return (Number(b.weekly?.[0]?.xPts) || 0) - (Number(a.weekly?.[0]?.xPts) || 0);
+  })[0] || null;
 
   // Formation (simplified: suggest best based on squad)
   const positions = { GKP: squad.filter(p => p.position === 'GKP').length, DEF: squad.filter(p => p.position === 'DEF').length, MID: squad.filter(p => p.position === 'MID').length, FWD: squad.filter(p => p.position === 'FWD').length };
@@ -1261,6 +1294,7 @@ function generateYourDecisionBrief(squad, allPlayers, options = {}) {
     reasons.push('No transfer clears the model threshold for immediate action.');
     reasons.push(`Current squad projects well over the next ${horizon} GWs.`);
     if (freeTransfers > 1) reasons.push(`You have ${freeTransfers} free transfers — rolling preserves flexibility.`);
+    if (currentGW <= 5) reasons.push(`Early season: projections are uncertain — patience is recommended.`);
   } else if (action === 'TRANSFER' || action === 'HIT') {
     reasons.push(`${transferDetail.out} → ${transferDetail.in} projects +${transferDetail.expectedGain} xPts over ${horizon} GWs.`);
     if (transferDetail.breakEvenGW) reasons.push(`Break-even in GW${transferDetail.breakEvenGW}.`);
@@ -1275,9 +1309,15 @@ function generateYourDecisionBrief(squad, allPlayers, options = {}) {
     decision: {
       action,
       confidence: round(confidence),
+      earlySeasonWarning: currentGW <= 5 ? dampener.label : null,
     },
     transfer: transferDetail,
-    captain: bestCaptain ? { name: bestCaptain.name, expectedPoints: round(Number(bestCaptain.weekly?.[0]?.xPts) || 0) } : null,
+    captain: bestCaptain ? {
+      name: bestCaptain.name,
+      expectedPoints: round(Number(bestCaptain.weekly?.[0]?.xPts) || 0),
+      captaincyScore: round(Number(bestCaptain.captaincyScore?.finalScore) || 0),
+      captaincyRationale: bestCaptain.captaincyScore?.rationale || null,
+    } : null,
     formation: `${positions.DEF}-${positions.MID}-${positions.FWD}`,
     freeTransfers,
     bank,
@@ -2380,6 +2420,7 @@ module.exports = {
   HORIZONS,
   computeHorizonPoints,
   earlySeasonWeights,
+  earlySeasonDampener,
   bayesianBlend,
   computePlayerStrengthScore,
   computeUncertainty,
