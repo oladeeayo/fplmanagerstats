@@ -30,7 +30,7 @@ router.get('/scatter-data', async (req, res) => {
         // Attacking (summed across players)
         xG: 0, goals: 0,
         xA: 0, assists: 0,
-        xGI: 0, goalInvolvements: 0,
+        xGI: 0, gi: 0,
         // Defensive (team-level: take max across players, not sum)
         xGC: 0, goalsConceded: 0,
         cleanSheets: 0,
@@ -65,7 +65,7 @@ router.get('/scatter-data', async (req, res) => {
       t.xA += xa;
       t.assists += as;
       t.xGI += xgi;
-      t.goalInvolvements += gs + as;
+      t.gi += gs + as;
       // Defensive stats: team-level (duplicated per player), take max
       t._maxXGC = Math.max(t._maxXGC, xgc);
       t._maxGC = Math.max(t._maxGC, gc);
@@ -90,7 +90,7 @@ router.get('/scatter-data', async (req, res) => {
       t.xG90 = round2(t.xG / team90s);
       t.goals90 = round2(t.goals / team90s);
       t.xGI90 = round2(t.xGI / team90s);
-      t.giPer90 = round2(t.goalInvolvements / team90s);
+      t.giPer90 = round2(t.gi / team90s);
       // Round all values
       t.xG = round2(t.xG);
       t.xA = round2(t.xA);
@@ -126,7 +126,6 @@ router.get('/scatter-data', async (req, res) => {
           teamId: el.team,
           teamCode: el.team_code,
           position: posMap[el.element_type] || '?',
-          photo: el.photo,
           code: el.code,
           // Raw stats
           xG: round2(xg),
@@ -134,27 +133,18 @@ router.get('/scatter-data', async (req, res) => {
           xA: round2(xa),
           assists: as,
           xGI: round2(xgi),
-          goalInvolvements: gs + as,
+          gi: gs + as,
           // Per 90
           xG90: round2(xg / nineties),
-          goals90: round2(gs / nineties),
           xGI90: round2(xgi / nineties),
           giPer90: round2((gs + as) / nineties),
-          xA90: round2(xa / nineties),
-          assistsPer90: round2(as / nineties),
           // Other
           minutes: mins,
-          starts: parseInt(el.starts || 0),
           totalPoints: pts,
           ictIndex: round2(inf + crt + thr),
-          influence: round2(inf),
-          creativity: round2(crt),
-          threat: round2(thr),
           bonus,
           form: parseFloat(el.form || 0),
           cost: (el.now_cost || 0) / 10,
-          selectedBy: parseFloat(el.selected_by_percent || 0),
-          ppg: parseFloat(el.points_per_game || 0),
         };
       });
 

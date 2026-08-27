@@ -8799,12 +8799,58 @@ const FPL = {
     },
 
     async renderScatter() {
+        // Show loading state
+        const canvas = document.getElementById('scatter-canvas');
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.getBoundingClientRect();
+            const w = rect.width || 400;
+            const h = Math.min(600, window.innerHeight * 0.55);
+            canvas.width = w * (window.devicePixelRatio || 1);
+            canvas.height = h * (window.devicePixelRatio || 1);
+            canvas.style.height = h + 'px';
+            ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+            ctx.clearRect(0, 0, w, h);
+            ctx.fillStyle = 'rgba(255,255,255,0.3)';
+            ctx.font = '14px "Plus Jakarta Sans", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Loading scatter data...', w / 2, h / 2);
+        }
         const data = await this.loadScatterData();
-        if (!data) return;
+        if (!data) {
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                const rect = canvas.getBoundingClientRect();
+                const w = rect.width || 400;
+                const h = Math.min(600, window.innerHeight * 0.55);
+                ctx.clearRect(0, 0, w, h);
+                ctx.fillStyle = 'rgba(255,100,100,0.5)';
+                ctx.font = '14px "Plus Jakarta Sans", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Failed to load scatter data. Please try again.', w / 2, h / 2);
+            }
+            return;
+        }
         this.state.scatterChartType = this.state.scatterChartType || 'team-xg-goals';
         this.state.scatterPosFilter = this.state.scatterPosFilter || 'all';
         this.drawScatterChart();
         this.renderScatterTable();
+        // Set up resize redraw (debounced)
+        this._setupScatterResize();
+    },
+
+    _setupScatterResize() {
+        if (this._scatterResizeBound) return;
+        this._scatterResizeBound = true;
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                if (this.state.activeTab === 'scatter') {
+                    this.drawScatterChart();
+                }
+            }, 250);
+        });
     },
 
     switchScatterChart(chartType) {
@@ -8849,7 +8895,7 @@ const FPL = {
                 subtitle: 'Teams above the line are converting expected chances into actual returns.',
                 xKey: 'xGI', yKey: 'goalInvolvements',
                 xLabel: 'Expected Goal Involvements (xGI)', yLabel: 'Goal Involvements (G+A)',
-                xField: 'xGI', yField: 'goalInvolvements',
+                xField: 'xGI', yField: 'gi',
                 useLogos: true, usePhotos: false,
             },
             'team-xgc-conceded': {
@@ -8867,7 +8913,7 @@ const FPL = {
                 subtitle: 'Players above the line are outperforming their expected returns.',
                 xKey: 'xGI', yKey: 'goalInvolvements',
                 xLabel: 'Expected Goal Involvements (xGI)', yLabel: 'Goal Involvements (G+A)',
-                xField: 'xGI', yField: 'goalInvolvements',
+                xField: 'xGI', yField: 'gi',
                 useLogos: false, usePhotos: true,
                 filterByMinutes: 45,
             },
@@ -8917,13 +8963,15 @@ const FPL = {
 
         const dpr = window.devicePixelRatio || 1;
         const rect = canvas.getBoundingClientRect();
-        const W = rect.width;
-        const H = 600;
+        const W = rect.width || canvas.parentElement?.offsetWidth || 400;
+        const H = Math.min(600, Math.max(320, window.innerHeight * 0.55));
         canvas.width = W * dpr;
         canvas.height = H * dpr;
         canvas.style.height = H + 'px';
+        canvas.style.width = '100%';
         const ctx = canvas.getContext('2d');
         ctx.scale(dpr, dpr);
+        if (W <= 0) return; // Skip if layout not ready; resize observer will retry
 
         // Clear
         ctx.clearRect(0, 0, W, H);
@@ -9198,11 +9246,11 @@ const FPL = {
             tooltip.style.cssText = 'position:fixed;display:none;z-index:10000;background:rgba(12,16,14,0.95);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px 16px;pointer-events:none;font-size:12px;color:#fff;box-shadow:0 8px 24px rgba(0,0,0,0.5);max-width:240px;backdrop-filter:blur(8px);';
             document.body.appendChild(tooltip);
         }
-        canvas.addEventListener('mousemove', (e) => {
+        const handleHitTest = (clientX, clientY) => {
             if (!this._scatterHoverData || this._scatterHoverData.length === 0) return;
             const rect = canvas.getBoundingClientRect();
-            const mx = e.clientX - rect.left;
-            const my = e.clientY - rect.top;
+            const mx = clientX - rect.left;
+            const my = clientY - rect.top;
             let hit = null;
             for (const pt of this._scatterHoverData) {
                 const dx = mx - pt.x;
@@ -9229,19 +9277,35 @@ const FPL = {
                 }
                 tooltip.innerHTML = html;
                 tooltip.style.display = 'block';
-                const tx = e.clientX + 16;
-                const ty = e.clientY - 10;
+                const tx = clientX + 16;
+                const ty = clientY - 10;
                 tooltip.style.left = tx + 'px';
                 tooltip.style.top = ty + 'px';
                 // Keep tooltip on screen
                 const ttRect = tooltip.getBoundingClientRect();
-                if (ttRect.right > window.innerWidth - 10) tooltip.style.left = (e.clientX - ttRect.width - 16) + 'px';
-                if (ttRect.bottom > window.innerHeight - 10) tooltip.style.top = (e.clientY - ttRect.height - 10) + 'px';
+                if (ttRect.right > window.innerWidth - 10) tooltip.style.left = (clientX - ttRect.width - 16) + 'px';
+                if (ttRect.bottom > window.innerHeight - 10) tooltip.style.top = (clientY - ttRect.height - 10) + 'px';
+                tooltip.style.zIndex = '10000';
             } else {
                 tooltip.style.display = 'none';
             }
-        });
+        };
+
+        canvas.addEventListener('mousemove', (e) => handleHitTest(e.clientX, e.clientY));
         canvas.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+        // Touch support for mobile
+        canvas.addEventListener('touchstart', (e) => {
+            const touch = e.touches[0];
+            handleHitTest(touch.clientX, touch.clientY);
+        }, { passive: true });
+        canvas.addEventListener('touchmove', (e) => {
+            const touch = e.touches[0];
+            handleHitTest(touch.clientX, touch.clientY);
+        }, { passive: true });
+        canvas.addEventListener('touchend', () => {
+            // Delay hide so user can read tooltip
+            setTimeout(() => { tooltip.style.display = 'none'; }, 2000);
+        }, { passive: true });
     },
 
     renderScatterTable() {
