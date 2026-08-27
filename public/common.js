@@ -5166,6 +5166,22 @@ const FPL = {
             const teams = data.teams || [];
             const currentGW = data.currentGW || '';
 
+            // Check if the current GW is finished — show waiting state
+            const bootstrap = this.state.bootstrapData;
+            const events = bootstrap?.events || [];
+            const activeEvent = events.find(e => e.id === currentGW);
+            if (activeEvent?.finished && !data.stale) {
+                // GW is done, find next upcoming GW
+                const nextEvent = events.find(e => e.is_next);
+                const nextGW = nextEvent?.id || (currentGW + 1);
+                container.innerHTML = `<div class="tn-empty">
+                    <span class="material-symbols-outlined" style="font-size:48px;color:#8ba396;">hourglass_empty</span>
+                    <p style="font-size:15px;font-weight:600;color:#ffffff;margin:12px 0 4px;">GW ${currentGW} is over</p>
+                    <p style="font-size:13px;color:#8ba396;">Team news for GW ${nextGW} will appear here once fixtures are confirmed and press conferences are held.</p>
+                </div>`;
+                return;
+            }
+
             let html = `<div class="tn-wrap">`;
 
             if (teams.length === 0) {

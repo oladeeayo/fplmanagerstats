@@ -106,6 +106,11 @@ app.get('/api/team-news', async (req, res) => {
     const events = data.events || [];
     const currentGW = events.find(e => e.is_current)?.id || events.find(e => e.is_next)?.id || 1;
 
+    // Clear stale cache when GW changes
+    if (lastTeamNewsResponse && lastTeamNewsResponse.currentGW !== currentGW) {
+      lastTeamNewsResponse = null;
+    }
+
     const teamMap = {};
     teams.forEach(t => { teamMap[t.id] = { id: t.id, name: t.name, short: t.short_name }; });
 
