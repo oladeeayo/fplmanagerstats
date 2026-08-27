@@ -27,11 +27,11 @@ router.get('/scatter-data', async (req, res) => {
         name: t.name,
         short: t.short_name,
         code: t.code,
-        // Attacking
+        // Attacking (summed across players)
         xG: 0, goals: 0,
         xA: 0, assists: 0,
         xGI: 0, goalInvolvements: 0,
-        // Defensive
+        // Defensive (team-level: take max across players, not sum)
         xGC: 0, goalsConceded: 0,
         cleanSheets: 0,
         // General
@@ -39,6 +39,8 @@ router.get('/scatter-data', async (req, res) => {
         minutes: 0,
         // Per 90 (calculated later)
         xG90: 0, goals90: 0, xGI90: 0, giPer90: 0,
+        // Track max defensive values across players
+        _maxXGC: 0, _maxGC: 0, _maxCS: 0,
       };
     });
 
@@ -57,17 +59,29 @@ router.get('/scatter-data', async (req, res) => {
       const cs = parseInt(el.clean_sheets || 0);
       const pts = parseInt(el.total_points || 0);
 
+      // Attacking stats: individual contributions, safe to sum
       t.xG += xg;
       t.goals += gs;
       t.xA += xa;
       t.assists += as;
       t.xGI += xgi;
       t.goalInvolvements += gs + as;
-      t.xGC += xgc;
-      t.goalsConceded += gc;
-      t.cleanSheets += cs;
+      // Defensive stats: team-level (duplicated per player), take max
+      t._maxXGC = Math.max(t._maxXGC, xgc);
+      t._maxGC = Math.max(t._maxGC, gc);
+      t._maxCS = Math.max(t._maxCS, cs);
       t.totalPoints += pts;
       t.minutes += mins;
+    });
+
+    // Apply max defensive values as team totals
+    Object.values(teamStats).forEach(t => {
+      t.xGC = t._maxXGC;
+      t.goalsConceded = t._maxGC;
+      t.cleanSheets = t._maxCS;
+      delete t._maxXGC;
+      delete t._maxGC;
+      delete t._maxCS;
     });
 
     // Calculate per-90 stats for teams (total team minutes / 11)
