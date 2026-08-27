@@ -112,6 +112,51 @@
         .form-good { color: var(--fdr-2); }
         .form-average { color: var(--fdr-3); }
         .form-poor { color: var(--fdr-5); }
+        .scatter-type-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.04);
+            color: var(--md-sys-color-on-surface-variant);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .scatter-type-btn:hover {
+            background: rgba(255,255,255,0.08);
+            color: var(--md-sys-color-on-surface);
+        }
+        .scatter-type-btn.active {
+            background: rgba(0,255,133,0.12);
+            border-color: rgba(0,255,133,0.4);
+            color: #00FF85;
+        }
+        .scatter-pos-btn {
+            padding: 4px 12px;
+            border-radius: 6px;
+            border: 1px solid transparent;
+            background: transparent;
+            color: #B0B0B0;
+            font-size: 11px;
+            font-weight: 700;
+            font-family: var(--font-mono);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .scatter-pos-btn:hover {
+            color: var(--md-sys-color-on-surface);
+            background: rgba(255,255,255,0.06);
+        }
+        .scatter-pos-btn.active {
+            background: rgba(0,255,133,0.16);
+            color: #00FF85;
+            border-color: rgba(0,255,133,0.4);
+        }
         .stat-detail { font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); margin-top: var(--space-xs); }
         .own-pos-btn { background: transparent; color: var(--md-sys-color-on-surface-variant); border: 1px solid transparent; padding: 5px 14px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all var(--transition-fast); }
         .own-pos-btn:hover { color: var(--md-sys-color-on-surface); background: rgba(255,255,255,0.08); }
@@ -157,6 +202,7 @@
                         <a href="/tactics" class="sidebar-nav-item" data-tab="zones" onclick="event.preventDefault();FPL.navigateTo('zones')"><span class="material-symbols-outlined">sports</span> Tactics</a>
                         <a href="/set-pieces" class="sidebar-nav-item" data-tab="setpieces" onclick="event.preventDefault();FPL.navigateTo('setpieces')"><span class="material-symbols-outlined">sports_motorsports</span> Set Pieces</a>
                         <a href="/player-advanced" class="sidebar-nav-item" data-tab="playeradvanced" onclick="event.preventDefault();FPL.navigateTo('playeradvanced')"><span class="material-symbols-outlined">analytics</span> Player Advanced Stats</a>
+                        <a href="/scatter" class="sidebar-nav-item" data-tab="scatter" onclick="event.preventDefault();FPL.navigateTo('scatter')"><span class="material-symbols-outlined">scatter_plot</span> Scatter</a>
                     </div>
                 </div>
                 <div class="sidebar-section-group">
@@ -1285,6 +1331,71 @@
                             <div class="aiteam-view" data-view="breakdown">
                                 <div id="aiteam-gw-breakdown"></div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SCATTER PLOTS -->
+                <div id="content-scatter" class="tab-content">
+                    <div style="margin-bottom:24px;">
+                        <h1 style="font-size:28px;font-weight:700;color:var(--md-sys-color-on-surface);margin:0;font-family:var(--font-display);">Scatter <span style="color:#00FF85;">Analysis</span></h1>
+                        <p style="font-size:14px;color:var(--md-sys-color-on-surface-variant);margin-top:8px;">Visualize expected vs actual performance for teams and players.</p>
+                    </div>
+
+                    <!-- Chart Type Selector -->
+                    <div style="display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap;" id="scatter-type-buttons">
+                        <button class="scatter-type-btn active" data-chart="team-xg-goals" onclick="FPL.switchScatterChart('team-xg-goals')">
+                            <span class="material-symbols-outlined" style="font-size:18px;">sports_soccer</span> xG vs Goals (Teams)
+                        </button>
+                        <button class="scatter-type-btn" data-chart="team-xgi-gi" onclick="FPL.switchScatterChart('team-xgi-gi')">
+                            <span class="material-symbols-outlined" style="font-size:18px;">sports_soccer</span> xGI vs GI (Teams)
+                        </button>
+                        <button class="scatter-type-btn" data-chart="player-xgi-gi" onclick="FPL.switchScatterChart('player-xgi-gi')">
+                            <span class="material-symbols-outlined" style="font-size:18px;">person</span> xGI vs GI (Players)
+                        </button>
+                        <button class="scatter-type-btn" data-chart="player-xg-goals" onclick="FPL.switchScatterChart('player-xg-goals')">
+                            <span class="material-symbols-outlined" style="font-size:18px;">person</span> xG vs Goals (Players)
+                        </button>
+                        <button class="scatter-type-btn" data-chart="player-ict-pts" onclick="FPL.switchScatterChart('player-ict-pts')">
+                            <span class="material-symbols-outlined" style="font-size:18px;">person</span> ICT vs Points (Players)
+                        </button>
+                        <button class="scatter-type-btn" data-chart="team-xgc-conceded" onclick="FPL.switchScatterChart('team-xgc-conceded')">
+                            <span class="material-symbols-outlined" style="font-size:18px;">sports_soccer</span> xGC vs Conceded (Teams)
+                        </button>
+                    </div>
+
+                    <!-- Position Filter for player charts -->
+                    <div id="scatter-pos-filter" style="display:flex;gap:6px;margin-bottom:16px;align-items:center;">
+                        <span style="font-size:11px;color:var(--md-sys-color-on-surface-variant);font-weight:700;text-transform:uppercase;font-family:var(--font-mono);margin-right:4px;">Position:</span>
+                        <button class="scatter-pos-btn active" data-pos="all" onclick="FPL.filterScatterPos('all')">ALL</button>
+                        <button class="scatter-pos-btn" data-pos="GKP" onclick="FPL.filterScatterPos('GKP')">GKP</button>
+                        <button class="scatter-pos-btn" data-pos="DEF" onclick="FPL.filterScatterPos('DEF')">DEF</button>
+                        <button class="scatter-pos-btn" data-pos="MID" onclick="FPL.filterScatterPos('MID')">MID</button>
+                        <button class="scatter-pos-btn" data-pos="FWD" onclick="FPL.filterScatterPos('FWD')">FWD</button>
+                    </div>
+
+                    <!-- Chart Container -->
+                    <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;padding:24px;margin-bottom:24px;">
+                        <div id="scatter-chart-title" style="text-align:center;margin-bottom:16px;">
+                            <h2 style="font-size:20px;font-weight:700;color:var(--md-sys-color-on-surface);margin:0;">xG vs Goals</h2>
+                            <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin-top:4px;">Teams above the line are overperforming, below are underperforming.</p>
+                        </div>
+                        <div style="position:relative;width:100%;overflow:hidden;">
+                            <canvas id="scatter-canvas" style="width:100%;height:600px;display:block;"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Data Table -->
+                    <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;overflow:hidden;">
+                        <div style="padding:16px 20px;border-bottom:1px solid var(--md-sys-color-outline-variant);display:flex;justify-content:space-between;align-items:center;">
+                            <h3 style="font-size:16px;font-weight:700;color:var(--md-sys-color-on-surface);margin:0;">Data Table</h3>
+                            <span id="scatter-table-count" style="font-size:12px;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);"></span>
+                        </div>
+                        <div style="overflow-x:auto;max-height:400px;overflow-y:auto;">
+                            <table id="scatter-table" style="width:100%;border-collapse:collapse;font-size:13px;">
+                                <thead id="scatter-table-head"></thead>
+                                <tbody id="scatter-table-body"></tbody>
+                            </table>
                         </div>
                     </div>
                 </div>

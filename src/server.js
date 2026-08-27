@@ -29,6 +29,7 @@ const decisionRoutes = require('./server/routes/decision');
 const aiTeamRoutes = require('./server/routes/ai-team');
 const ownershipRoutes = require('./server/routes/ownership');
 const miscRoutes = require('./server/routes/misc');
+const scatterRoutes = require('./server/routes/scatter');
 const { getCachedApiData, BOOTSTRAP_URL, snapshotManager } = require('./server/cache');
 
 const app = express();
@@ -84,6 +85,7 @@ app.use('/api/ai-team', aiTeamRoutes);
 app.use('/api', decisionRoutes);
 app.use('/api/ownership', ownershipRoutes);
 app.use('/api', miscRoutes);
+app.use('/api', scatterRoutes);
 app.use('/api/admin', adminRoutes);
 
 // Team News — FPL bootstrap API + FFS injury scrape with manager quotes

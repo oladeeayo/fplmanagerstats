@@ -83,6 +83,7 @@ const FPL = {
         rollingFDR: (gw) => `/api/rolling-fdr?gw=${gw || ''}`,
         managerLookup: (id) => `/api/manager-lookup/${id}`,
         managerLeagues: (id) => `/api/manager-leagues/${id}`,
+        scatterData: '/api/scatter-data',
     },
 
     async apiFetch(url) {
@@ -554,7 +555,7 @@ const FPL = {
     },
 
     navigateTo(tab) {
-        const validTabs = ['general', 'manager', 'decision', 'league', 'players', 'zones', 'fixtures', 'teamnews', 'captain', 'ownership', 'setpieces', 'aiteam', 'playeradvanced'];
+        const validTabs = ['general', 'manager', 'decision', 'league', 'players', 'zones', 'fixtures', 'teamnews', 'captain', 'ownership', 'setpieces', 'aiteam', 'playeradvanced', 'scatter'];
         if (!validTabs.includes(tab)) tab = 'general';
         this.state.activeTab = tab;
 
@@ -602,6 +603,7 @@ const FPL = {
             case 'setpieces': return this.renderSetPieces();
             case 'aiteam': return this.renderAITeam();
             case 'playeradvanced': return this.loadPlayerAdvanced();
+            case 'scatter': return this.renderScatter();
             case 'livecentre': return; // React handles this tab
         }
     },
@@ -8742,6 +8744,562 @@ const FPL = {
             });
         });
     }
+
+    // ===================== SCATTER PLOTS =====================
+    async loadScatterData() {
+        const cacheKey = 'scatter-data';
+        let data = this.getCachedTabData(cacheKey);
+        if (!data) {
+            try {
+                data = await this.apiFetch(this.API.scatterData);
+                this.setCachedTabData(cacheKey, data);
+            } catch (err) {
+                console.error('Scatter data fetch error:', err);
+                return null;
+            }
+        }
+        this.state.scatterData = data;
+        return data;
+    },
+
+    async renderScatter() {
+        const data = await this.loadScatterData();
+        if (!data) return;
+        this.state.scatterChartType = this.state.scatterChartType || 'team-xg-goals';
+        this.state.scatterPosFilter = this.state.scatterPosFilter || 'all';
+        this.drawScatterChart();
+        this.renderScatterTable();
+    },
+
+    switchScatterChart(chartType) {
+        this.state.scatterChartType = chartType;
+        // Update button states
+        document.querySelectorAll('.scatter-type-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.chart === chartType);
+        });
+        // Show/hide position filter
+        const posFilter = document.getElementById('scatter-pos-filter');
+        if (posFilter) {
+            posFilter.style.display = chartType.startsWith('player-') ? 'flex' : 'none';
+        }
+        this.drawScatterChart();
+        this.renderScatterTable();
+    },
+
+    filterScatterPos(pos) {
+        this.state.scatterPosFilter = pos;
+        document.querySelectorAll('.scatter-pos-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.pos === pos);
+        });
+        this.drawScatterChart();
+        this.renderScatterTable();
+    },
+
+    _getScatterConfig() {
+        const chartType = this.state.scatterChartType || 'team-xg-goals';
+        const configs = {
+            'team-xg-goals': {
+                isTeam: true,
+                title: 'xG vs Goals (Teams)',
+                subtitle: 'Teams above the diagonal line are overperforming their xG, below are underperforming.',
+                xKey: 'xG', yKey: 'goals',
+                xLabel: 'Expected Goals (xG)', yLabel: 'Goals Scored',
+                xField: 'xG', yField: 'goals',
+                useLogos: true, usePhotos: false,
+            },
+            'team-xgi-gi': {
+                isTeam: true,
+                title: 'xGI vs Goal Involvements (Teams)',
+                subtitle: 'Teams above the line are converting expected chances into actual returns.',
+                xKey: 'xGI', yKey: 'goalInvolvements',
+                xLabel: 'Expected Goal Involvements (xGI)', yLabel: 'Goal Involvements (G+A)',
+                xField: 'xGI', yField: 'goalInvolvements',
+                useLogos: true, usePhotos: false,
+            },
+            'team-xgc-conceded': {
+                isTeam: true,
+                title: 'xGC vs Goals Conceded (Teams)',
+                subtitle: 'Teams above the line are conceding more than expected — defensive issues.',
+                xKey: 'xGC', yKey: 'goalsConceded',
+                xLabel: 'Expected Goals Conceded (xGC)', yLabel: 'Goals Conceded',
+                xField: 'xGC', yField: 'goalsConceded',
+                useLogos: true, usePhotos: false,
+            },
+            'player-xgi-gi': {
+                isTeam: false,
+                title: 'xGI vs Goal Involvements (Players)',
+                subtitle: 'Players above the line are outperforming their expected returns.',
+                xKey: 'xGI', yKey: 'goalInvolvements',
+                xLabel: 'Expected Goal Involvements (xGI)', yLabel: 'Goal Involvements (G+A)',
+                xField: 'xGI', yField: 'goalInvolvements',
+                useLogos: false, usePhotos: true,
+                filterByMinutes: 45,
+            },
+            'player-xg-goals': {
+                isTeam: false,
+                title: 'xG vs Goals (Players)',
+                subtitle: 'Players above the line are clinical finishers — scoring more than expected.',
+                xKey: 'xG', yKey: 'goals',
+                xLabel: 'Expected Goals (xG)', yLabel: 'Goals Scored',
+                xField: 'xG', yField: 'goals',
+                useLogos: false, usePhotos: true,
+                filterByMinutes: 45,
+            },
+            'player-ict-pts': {
+                isTeam: false,
+                title: 'ICT Index vs Total Points (Players)',
+                subtitle: 'Players above the line are overperforming their ICT Index with actual FPL points.',
+                xKey: 'ictIndex', yKey: 'totalPoints',
+                xLabel: 'ICT Index', yLabel: 'Total FPL Points',
+                xField: 'ictIndex', yField: 'totalPoints',
+                useLogos: false, usePhotos: true,
+                filterByMinutes: 45,
+            },
+        };
+        return configs[chartType] || configs['team-xg-goals'];
+    },
+
+    drawScatterChart() {
+        const config = this._getScatterConfig();
+        const data = this.state.scatterData;
+        if (!data) return;
+
+        // Update title
+        const titleEl = document.getElementById('scatter-chart-title');
+        if (titleEl) {
+            titleEl.innerHTML = `<h2 style="font-size:20px;font-weight:700;color:var(--md-sys-color-on-surface);margin:0;">${config.title}</h2><p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin-top:4px;">${config.subtitle}</p>`;
+        }
+
+        // Get items
+        let items = config.isTeam ? (data.teams || []) : (data.players || []);
+        if (!config.isTeam && this.state.scatterPosFilter && this.state.scatterPosFilter !== 'all') {
+            items = items.filter(p => p.position === this.state.scatterPosFilter);
+        }
+
+        const canvas = document.getElementById('scatter-canvas');
+        if (!canvas) return;
+
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        const W = rect.width;
+        const H = 600;
+        canvas.width = W * dpr;
+        canvas.height = H * dpr;
+        canvas.style.height = H + 'px';
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+
+        // Clear
+        ctx.clearRect(0, 0, W, H);
+
+        // Padding
+        const pad = { top: 30, right: 40, bottom: 60, left: 70 };
+        const chartW = W - pad.left - pad.right;
+        const chartH = H - pad.top - pad.bottom;
+
+        // Compute axis ranges
+        const xVals = items.map(d => d[config.xField] || 0);
+        const yVals = items.map(d => d[config.yField] || 0);
+        let xMin = Math.min(...xVals);
+        let xMax = Math.max(...xVals);
+        let yMin = Math.min(...yVals);
+        let yMax = Math.max(...yVals);
+
+        // Add padding to ranges (10%)
+        const xPad = (xMax - xMin) * 0.12 || 1;
+        const yPad = (yMax - yMin) * 0.12 || 1;
+        xMin = Math.max(0, xMin - xPad);
+        xMax = xMax + xPad;
+        yMin = Math.max(0, yMin - yPad);
+        yMax = yMax + yPad;
+
+        const toX = v => pad.left + ((v - xMin) / (xMax - xMin)) * chartW;
+        const toY = v => pad.top + chartH - ((v - yMin) / (yMax - yMin)) * chartH;
+
+        // Grid lines
+        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+        ctx.lineWidth = 1;
+        const xTicks = niceScale(xMin, xMax, 6);
+        const yTicks = niceScale(yMin, yMax, 6);
+        xTicks.forEach(v => {
+            const x = toX(v);
+            ctx.beginPath(); ctx.moveTo(x, pad.top); ctx.lineTo(x, pad.top + chartH); ctx.stroke();
+        });
+        yTicks.forEach(v => {
+            const y = toY(v);
+            ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + chartW, y); ctx.stroke();
+        });
+
+        // Axis labels
+        ctx.fillStyle = 'rgba(255,255,255,0.45)';
+        ctx.font = '11px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        xTicks.forEach(v => {
+            ctx.fillText(v.toFixed(v % 1 === 0 ? 0 : 1), toX(v), pad.top + chartH + 20);
+        });
+        ctx.textAlign = 'right';
+        yTicks.forEach(v => {
+            ctx.fillText(v.toFixed(v % 1 === 0 ? 0 : 1), pad.left - 8, toY(v) + 4);
+        });
+
+        // Axis titles
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        ctx.font = '12px "Plus Jakarta Sans", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(config.xLabel, pad.left + chartW / 2, H - 10);
+        ctx.save();
+        ctx.translate(16, pad.top + chartH / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText(config.yLabel, 0, 0);
+        ctx.restore();
+
+        // Diagonal line (y=x reference)
+        const diagStart = Math.max(xMin, yMin);
+        const diagEnd = Math.min(xMax, yMax);
+        if (diagStart < diagEnd) {
+            ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 4]);
+            ctx.beginPath();
+            ctx.moveTo(toX(diagStart), toY(diagStart));
+            ctx.lineTo(toX(diagEnd), toY(diagEnd));
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // Mean lines (dashed)
+        const xMean = xVals.reduce((s, v) => s + v, 0) / xVals.length;
+        const yMean = yVals.reduce((s, v) => s + v, 0) / yVals.length;
+        ctx.strokeStyle = 'rgba(0,255,133,0.25)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 5]);
+        // Vertical mean
+        ctx.beginPath(); ctx.moveTo(toX(xMean), pad.top); ctx.lineTo(toX(xMean), pad.top + chartH); ctx.stroke();
+        // Horizontal mean
+        ctx.beginPath(); ctx.moveTo(pad.left, toY(yMean)); ctx.lineTo(pad.left + chartW, toY(yMean)); ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Quadrant labels
+        ctx.font = '10px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        const quadAlpha = 0.25;
+        const midX = toX(xMean);
+        const midY = toY(yMean);
+        // Top-left: high actual, low expected (overperforming)
+        ctx.fillStyle = `rgba(0,255,133,${quadAlpha})`;
+        ctx.fillText('Overperforming', pad.left + (midX - pad.left) / 2, pad.top + 16);
+        // Top-right: high actual, high expected (elite)
+        ctx.fillStyle = `rgba(56,189,248,${quadAlpha})`;
+        ctx.fillText('Elite', midX + (pad.left + chartW - midX) / 2, pad.top + 16);
+        // Bottom-left: low actual, low expected
+        ctx.fillStyle = `rgba(148,163,184,${quadAlpha})`;
+        ctx.fillText('Low Output', pad.left + (midX - pad.left) / 2, pad.top + chartH - 6);
+        // Bottom-right: low actual, high expected (underperforming)
+        ctx.fillStyle = `rgba(255,0,90,${quadAlpha})`;
+        ctx.fillText('Underperforming', midX + (pad.left + chartW - midX) / 2, pad.top + chartH - 6);
+
+        // Draw data points
+        if (config.isTeam && config.useLogos) {
+            // Draw team logos
+            const logoSize = Math.min(36, Math.max(24, chartW / items.length * 0.6));
+            const loaded = {};
+            let pendingCount = 0;
+            items.forEach(item => {
+                const logoUrl = this.getTeamLogo(item.short);
+                if (!logoUrl) return;
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                pendingCount++;
+                img.onload = () => {
+                    loaded[item.id] = img;
+                    pendingCount--;
+                    if (pendingCount === 0) this._drawTeamScatterPoints(ctx, items, config, toX, toY, loaded, logoSize);
+                };
+                img.onerror = () => { pendingCount--;
+                    if (pendingCount === 0) this._drawTeamScatterPoints(ctx, items, config, toX, toY, loaded, logoSize);
+                };
+                img.src = logoUrl;
+            });
+            if (pendingCount === 0) this._drawTeamScatterPoints(ctx, items, config, toX, toY, {}, logoSize);
+        } else if (!config.isTeam && config.usePhotos) {
+            // Draw player points with color by position
+            const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
+            this._scatterHoverData = [];
+            items.forEach(item => {
+                const x = toX(item[config.xField] || 0);
+                const y = toY(item[config.yField] || 0);
+                const color = posColors[item.position] || '#B0B0B0';
+                const radius = Math.min(7, Math.max(3, 2 + (item.totalPoints || 0) / 15));
+
+                // Glow
+                ctx.beginPath();
+                ctx.arc(x, y, radius + 3, 0, Math.PI * 2);
+                ctx.fillStyle = color + '18';
+                ctx.fill();
+
+                // Dot
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                this._scatterHoverData.push({ x, y, r: radius + 3, item, config });
+
+                // Label for notable players
+                if ((item[config.xField] > xMean * 1.5 || item[config.yField] > yMean * 1.5 || item.totalPoints > yMean * 2) && items.length < 50) {
+                    ctx.font = '10px "Plus Jakarta Sans", sans-serif';
+                    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(item.name, x, y - radius - 5);
+                    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                    ctx.font = '9px "JetBrains Mono", monospace';
+                    ctx.fillText(item.team, x, y - radius - 16);
+                }
+            });
+
+            // Position legend
+            this._drawPositionLegend(ctx, W, pad);
+
+            // Tooltip handling
+            this._setupScatterTooltip(canvas);
+        }
+
+        // Season watermark
+        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        ctx.font = '11px "JetBrains Mono", monospace';
+        ctx.textAlign = 'right';
+        const gw = data.currentGW || 1;
+        ctx.fillText(`GW${gw} · ${data.teams?.[0] ? '2025-26' : '2025-26'}`, W - pad.right, pad.top + chartH + 45);
+    },
+
+    _drawTeamScatterPoints(ctx, items, config, toX, toY, loaded, logoSize) {
+        ctx.clearRect(0, 0, ctx.canvas.width / (window.devicePixelRatio || 1), ctx.canvas.height / (window.devicePixelRatio || 1));
+        // Redraw grid, labels etc
+        // Actually we need to redraw everything since we cleared. Let's just draw the points on top.
+        // The canvas was cleared by clearRect in drawScatterChart - we need a different approach.
+        // Let's just overlay the logos on the existing canvas.
+        items.forEach(item => {
+            const x = toX(item[config.xField] || 0);
+            const y = toY(item[config.yField] || 0);
+            const img = loaded[item.id];
+            if (img) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(x, y, logoSize / 2, 0, Math.PI * 2);
+                ctx.clip();
+                // White background circle
+                ctx.fillStyle = '#fff';
+                ctx.fill();
+                // Draw image
+n                ctx.drawImage(img, x - logoSize / 2, y - logoSize / 2, logoSize, logoSize);
+                ctx.restore();
+                // Border
+                ctx.beginPath();
+                ctx.arc(x, y, logoSize / 2, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            } else {
+                // Fallback: colored circle with team short
+                ctx.beginPath();
+                ctx.arc(x, y, logoSize / 2, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0,255,133,0.15)';
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(0,255,133,0.4)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 10px "JetBrains Mono", monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(item.short, x, y);
+                ctx.textBaseline = 'alphabetic';
+            }
+            // Label below
+            ctx.font = '10px "Plus Jakarta Sans", sans-serif';
+            ctx.fillStyle = 'rgba(255,255,255,0.65)';
+            ctx.textAlign = 'center';
+            ctx.fillText(item.short, x, y + logoSize / 2 + 13);
+        });
+        this._scatterHoverData = [];
+        items.forEach(item => {
+            const x = toX(item[config.xField] || 0);
+            const y = toY(item[config.yField] || 0);
+            this._scatterHoverData.push({ x, y, r: logoSize / 2 + 4, item, config });
+        });
+        this._setupScatterTooltip(document.getElementById('scatter-canvas'));
+    },
+
+    _drawPositionLegend(ctx, W, pad) {
+        const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
+        const labels = ['GKP', 'DEF', 'MID', 'FWD'];
+        ctx.font = '10px "JetBrains Mono", monospace';
+        ctx.textAlign = 'left';
+        let xPos = W - pad.right - 180;
+        labels.forEach(pos => {
+            const color = posColors[pos];
+            ctx.beginPath();
+            ctx.arc(xPos, pad.top + 10, 5, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.fillStyle = 'rgba(255,255,255,0.6)';
+            ctx.fillText(pos, xPos + 10, pad.top + 14);
+            xPos += 45;
+        });
+    },
+
+    _setupScatterTooltip(canvas) {
+        if (!canvas || canvas._scatterTooltipSet) return;
+        canvas._scatterTooltipSet = true;
+        let tooltip = document.getElementById('scatter-tooltip');
+        if (!tooltip) {
+            tooltip = document.createElement('div');
+            tooltip.id = 'scatter-tooltip';
+            tooltip.style.cssText = 'position:fixed;display:none;z-index:10000;background:rgba(12,16,14,0.95);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px 16px;pointer-events:none;font-size:12px;color:#fff;box-shadow:0 8px 24px rgba(0,0,0,0.5);max-width:240px;backdrop-filter:blur(8px);';
+            document.body.appendChild(tooltip);
+        }
+        canvas.addEventListener('mousemove', (e) => {
+            if (!this._scatterHoverData || this._scatterHoverData.length === 0) return;
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            let hit = null;
+            for (const pt of this._scatterHoverData) {
+                const dx = mx - pt.x;
+                const dy = my - pt.y;
+                if (dx * dx + dy * dy < pt.r * pt.r) { hit = pt; break; }
+            }
+            if (hit) {
+                const item = hit.item;
+                const config = hit.config;
+                const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
+                const posColor = posColors[item.position] || '#B0B0B0';
+                let html = '';
+                if (config.isTeam) {
+                    html = `<div style="font-weight:700;font-size:14px;margin-bottom:6px;">${item.name}</div>`;
+                    html += `<div style="color:#8ba396;font-family:var(--font-mono);font-size:11px;">${config.xLabel}: <b style="color:#00FF85;">${item[config.xField]}</b></div>`;
+                    html += `<div style="color:#8ba396;font-family:var(--font-mono);font-size:11px;">${config.yLabel}: <b style="color:#00FF85;">${item[config.yField]}</b></div>`;
+                    if (item.totalPoints) html += `<div style="color:#8ba396;font-family:var(--font-mono);font-size:11px;margin-top:4px;">Total Pts: <b style="color:#fff;">${item.totalPoints}</b></div>`;
+                } else {
+                    html = `<div style="font-weight:700;font-size:14px;margin-bottom:2px;">${item.name}</div>`;
+                    html += `<div style="color:${posColor};font-size:10px;font-family:var(--font-mono);margin-bottom:6px;"><span style="padding:1px 4px;border-radius:3px;background:${posColor}20;">${item.position}</span> ${item.team} · £${item.cost?.toFixed(1) || '?'}m</div>`;
+                    html += `<div style="color:#8ba396;font-family:var(--font-mono);font-size:11px;">${config.xLabel}: <b style="color:#00FF85;">${item[config.xField]}</b></div>`;
+                    html += `<div style="color:#8ba396;font-family:var(--font-mono);font-size:11px;">${config.yLabel}: <b style="color:#00FF85;">${item[config.yField]}</b></div>`;
+                    html += `<div style="color:#8ba396;font-family:var(--font-mono);font-size:11px;margin-top:4px;">Pts: <b style="color:#fff;">${item.totalPoints}</b> · Mins: ${item.minutes} · Bonus: ${item.bonus}</div>`;
+                }
+                tooltip.innerHTML = html;
+                tooltip.style.display = 'block';
+                const tx = e.clientX + 16;
+                const ty = e.clientY - 10;
+                tooltip.style.left = tx + 'px';
+                tooltip.style.top = ty + 'px';
+                // Keep tooltip on screen
+                const ttRect = tooltip.getBoundingClientRect();
+                if (ttRect.right > window.innerWidth - 10) tooltip.style.left = (e.clientX - ttRect.width - 16) + 'px';
+                if (ttRect.bottom > window.innerHeight - 10) tooltip.style.top = (e.clientY - ttRect.height - 10) + 'px';
+            } else {
+                tooltip.style.display = 'none';
+            }
+        });
+        canvas.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+    },
+
+    renderScatterTable() {
+        const config = this._getScatterConfig();
+        const data = this.state.scatterData;
+        if (!data) return;
+
+        let items = config.isTeam ? (data.teams || []) : (data.players || []);
+        if (!config.isTeam && this.state.scatterPosFilter && this.state.scatterPosFilter !== 'all') {
+            items = items.filter(p => p.position === this.state.scatterPosFilter);
+        }
+
+        // Sort by y descending
+        items = [...items].sort((a, b) => (b[config.yField] || 0) - (a[config.yField] || 0));
+
+        const thead = document.getElementById('scatter-table-head');
+        const tbody = document.getElementById('scatter-table-body');
+        const countEl = document.getElementById('scatter-table-count');
+        if (!thead || !tbody) return;
+
+        if (countEl) countEl.textContent = `${items.length} items`;
+
+        const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
+
+        if (config.isTeam) {
+            thead.innerHTML = `<tr style="background:rgba(255,255,255,0.03);font-size:11px;font-family:var(--font-mono);color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;">
+                <th style="padding:10px 16px;text-align:left;">Team</th>
+                <th style="padding:10px 12px;text-align:center;">${config.xLabel}</th>
+                <th style="padding:10px 12px;text-align:center;">${config.yLabel}</th>
+                <th style="padding:10px 12px;text-align:center;">Diff</th>
+                <th style="padding:10px 12px;text-align:center;">Pts</th>
+            </tr>`;
+            tbody.innerHTML = items.map((item, idx) => {
+                const diff = (item[config.yField] || 0) - (item[config.xField] || 0);
+                const diffColor = diff > 0 ? '#00FF85' : diff < 0 ? '#FF005A' : '#fff';
+                const diffStr = diff > 0 ? `+${diff.toFixed(2)}` : diff.toFixed(2);
+                const isEven = idx % 2 === 1;
+                return `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);${isEven ? 'background:rgba(255,255,255,0.02);' : ''}">
+                    <td style="padding:10px 16px;"><div style="display:flex;align-items:center;gap:10px;">${this.teamBadge(item.short, 22)}<span style="font-weight:600;">${item.name}</span></div></td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-weight:600;color:#B0B0B0;">${item[config.xField]}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-weight:700;color:#00FF85;">${item[config.yField]}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-weight:700;color:${diffColor};">${diffStr}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-weight:700;color:#fff;">${item.totalPoints || '-'}</td>
+                </tr>`;
+            }).join('');
+        } else {
+            thead.innerHTML = `<tr style="background:rgba(255,255,255,0.03);font-size:11px;font-family:var(--font-mono);color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;">
+                <th style="padding:10px 16px;text-align:left;">Player</th>
+                <th style="padding:10px 12px;text-align:center;">${config.xLabel}</th>
+                <th style="padding:10px 12px;text-align:center;">${config.yLabel}</th>
+                <th style="padding:10px 12px;text-align:center;">Diff</th>
+                <th style="padding:10px 12px;text-align:center;">Pts</th>
+                <th style="padding:10px 12px;text-align:center;">Cost</th>
+            </tr>`;
+            tbody.innerHTML = items.slice(0, 60).map((item, idx) => {
+                const diff = (item[config.yField] || 0) - (item[config.xField] || 0);
+                const diffColor = diff > 0 ? '#00FF85' : diff < 0 ? '#FF005A' : '#fff';
+                const diffStr = diff > 0 ? `+${diff.toFixed(2)}` : diff.toFixed(2);
+                const posColor = posColors[item.position] || '#B0B0B0';
+                const isEven = idx % 2 === 1;
+                return `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);${isEven ? 'background:rgba(255,255,255,0.02);' : ''}">
+                    <td style="padding:10px 16px;"><div style="display:flex;align-items:center;gap:10px;">
+                        <div class="player-photo-shell" style="width:32px;height:32px;border-radius:50%;border:1px solid #333;">${this.playerPhotoMarkup({ ...item, fotmobId: this.state.fotmobPlayerIds?.[String(item.code)] }, `${this.escapeHTML(item.name)} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;', true)}</div>
+                        <div><div style="font-weight:700;font-size:12px;">${item.name}</div>
+                        <div style="font-size:10px;color:#8ba396;font-family:var(--font-mono);"><span style="color:${posColor};font-weight:700;">${item.position}</span> ${item.team}</div></div>
+                    </div></td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-weight:600;color:#B0B0B0;">${item[config.xField]}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-weight:700;color:#00FF85;">${item[config.yField]}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-weight:700;color:${diffColor};">${diffStr}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-weight:700;color:#fff;">${item.totalPoints}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);color:#B0B0B0;">£${(item.cost || 0).toFixed(1)}m</td>
+                </tr>`;
+            }).join('');
+        }
+    },
 };
+
+// Nice scale helper for axis ticks
+function niceScale(min, max, maxTicks) {
+    const range = max - min || 1;
+    const roughStep = range / (maxTicks - 1);
+    const mag = Math.pow(10, Math.floor(Math.log10(roughStep)));
+    const residual = roughStep / mag;
+    let niceStep;
+    if (residual <= 1.5) niceStep = 1 * mag;
+    else if (residual <= 3) niceStep = 2 * mag;
+    else if (residual <= 7) niceStep = 5 * mag;
+    else niceStep = 10 * mag;
+    const niceMin = Math.floor(min / niceStep) * niceStep;
+    const niceMax = Math.ceil(max / niceStep) * niceStep;
+    const ticks = [];
+    for (let v = niceMin; v <= niceMax + niceStep * 0.5; v += niceStep) {
+        ticks.push(Math.round(v * 1000) / 1000);
+    }
+    return ticks;
+}
 
 window.FPL = FPL;
