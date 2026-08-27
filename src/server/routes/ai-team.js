@@ -1,6 +1,16 @@
 const express = require('express');
 const { buildPlayerProjections } = require('../../captaincyModel');
 const { selectOptimalLineup, hasEconomicalReserveGoalkeeper, nextGameweekScore, horizonScore } = require('../../aiTeamModel');
+const {
+  evaluateTransferHorizons,
+  hitAwareDecision,
+  evaluatePlayerTriggers,
+  antiReactionCheck,
+  rankChipStrategy,
+  generateDecisionBrief,
+  scorePlayerHoldValue,
+  squadHealthCheck,
+} = require('../aiTeamSeasonEngine');
 const { getCachedApiData, BOOTSTRAP_URL, FIXTURES_URL, optionalApiGet } = require('../cache');
 const { heavyEndpointLimiter } = require('../middleware');
 const logger = require('../logger');
@@ -538,12 +548,46 @@ router.post('/', heavyEndpointLimiter, async (req, res) => {
         optimizerVersion: 8,
         optimizer: 'fixed balanced squad with weekly best-XI and competitive bench-cover objective',
       ...lineupSelection.audit,
-    };
+    };    // ---- AI TEAM SEASON ENGINE ENHANCEMENTS ----
+    // Player triggers for the selected squad
+    const squadTriggers = selected.map(p => ({
+      name: p.name, id: p.id, position: p.position,
+      ...evaluatePlayerTriggers(p),
+    }));
+
+    // Squad health check
+    const health = squadHealthCheck(selected, projectionData.gameweeks);
+
+    // Multi-horizon transfer analysis for the best planned transfer
+    const bestPlannedTransfer = transferPlan.find(p => p.transfers && p.transfers.length > 0)?.transfers[0];
+    let transferHorizons = null;
+    let transferHitAnalysis = null;
+    let transferAntiReaction = null;
+    if (bestPlannedTransfer?.out && bestPlannedTransfer?.in) {
+      transferHorizons = evaluateTransferHorizons(bestPlannedTransfer.out, bestPlannedTransfer.in, null, projectionData.gameweeks);
+      transferHitAnalysis = hitAwareDecision(transferHorizons, freeTransfers);
+      transferAntiReaction = antiReactionCheck(
+        { incoming: bestPlannedTransfer.in, outgoing: bestPlannedTransfer.out, horizonGains: transferHorizons },
+        selected, currentGW || nextGW
+      );
+    }
+
+    // Enhanced chip strategy with ranking
+    const chipRanking = rankChipStrategy(
+      chipSchedule.map(c => ({ gw: c.gw, chip: c.chip, value: c.score || c.expectedGain || 0, reason: c.reason || '' })),
+      (history?.chips || []).map(c => c.name)
+    );
+
+    // Decision brief
+    const decisionBrief = generateDecisionBrief(
+      selected, starters, bench, captain, viceCaptain,
+      transferPlan, chipRanking,
+      currentGW || nextGW, nextGW, freeTransfers
+    );
 
     const result = {
       meta: {
-        schemaVersion: '2.0',
-        modelVersion: AI_TEAM_MODEL_VERSION,
+        schemaVersion: '2.0', modelVersion: AI_TEAM_MODEL_VERSION,
         generatedAt: new Date().toISOString(),
         strategy, budget, horizon,
         targetGW: nextGW, currentGW,
@@ -566,7 +610,20 @@ router.post('/', heavyEndpointLimiter, async (req, res) => {
         quality: qualityAudit,
       },
        transfers: { plan: transferPlan, plansByStrategy },
-      chips: { schedule: chipSchedule },
+      chips: { schedule: chipSchedule, strategy: chipRanking },
+      // AI Team Season Engine enhancements
+      decisionBrief,
+      squadHealth: {
+        avgScore: health.avgScore,
+        urgency: health.urgency,
+        weakestPlayers: health.weakestPlayers.map(p => ({ name: p.player.name, position: p.player.position, score: p.score, verdict: p.verdict })),
+      },
+      playerTriggers: squadTriggers,
+      transferAnalysis: transferHorizons ? {
+        horizons: transferHorizons,
+        hitAnalysis: transferHitAnalysis,
+        antiReaction: transferAntiReaction,
+      } : null,
     };
 
     // Auto-save to DB (locked if GW1)
@@ -764,6 +821,17 @@ router.get('/advisor', async (req, res) => {
     const captainXpts = captainPick?.nextXPts || (captainPick?.id ? Number(bootstrapMap.get(captainPick.id)?.ep_next) || 0 : 0);
     const viceXpts = vicePick?.nextXPts || (vicePick?.id ? Number(bootstrapMap.get(vicePick.id)?.ep_next) || 0 : 0);
 
+    // ---- AI TEAM SEASON ENGINE: Advisor Enhancements ----
+    const advisorTriggers = squad.map(p => ({
+      name: p.name, id: p.id, position: p.position,
+      ...evaluatePlayerTriggers(p),
+    }));
+    const advisorHealth = squadHealthCheck(squad, projectionData?.gameweeks || []);
+    const advisorChipStrategy = rankChipStrategy(
+      (row.chips?.schedule || []).map(c => ({ gw: c.gw, chip: c.chip, value: c.score || c.expectedGain || 0, reason: c.reason || '' })),
+      []
+    );
+
     res.json({
       nextGW,
       currentGW,
@@ -782,6 +850,14 @@ router.get('/advisor', async (req, res) => {
         reason: shouldHold ? 'Your squad looks solid. No urgent transfers needed — roll the free transfer.' : `Suggested ${suggestedTransfers.length} move${suggestedTransfers.length > 1 ? 's' : ''} for a projected +${suggestedTransfers.reduce((s, t) => s + (t.gain || 0), 0).toFixed(1)} xPts gain.`,
       },
       playersToWatch: watchlist,
+      // AI Team Season Engine enhancements
+      playerTriggers: advisorTriggers,
+      squadHealth: {
+        avgScore: advisorHealth.avgScore,
+        urgency: advisorHealth.urgency,
+        weakestPlayers: advisorHealth.weakestPlayers.map(p => ({ name: p.player.name, position: p.player.position, score: p.score, verdict: p.verdict })),
+      },
+      chipStrategy: advisorChipStrategy,
       lastUpdated: new Date().toISOString(),
     });
   } catch (error) {

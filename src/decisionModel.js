@@ -1,4 +1,40 @@
 const { buildPlayerProjections } = require('./captaincyModel');
+const {
+  clamp,
+  computePlayerStrengthScore,
+  computeUncertainty,
+  computeTransferDecisionScore,
+  classifyTransferUrgency,
+  classifyRecommendation,
+  devilAdvocate,
+  rankAllTransferOpportunities,
+  evaluateRollTransfer,
+  detectPreHaulCandidates,
+  detectRegressionRisks,
+  findBestMoveAcrossSquad,
+  computeMinutesProbability,
+  detectRegression,
+  earlySeasonWeights,
+  bayesianBlend,
+  analyzeTransfer,
+  buildSquadHeatmap,
+  dontSellProtection,
+  dontBuyProtection,
+  findTransferAlternatives,
+  buildDecisionTriggers,
+  generateYourDecisionBrief,
+  optimizeChips,
+  analyzeTransferMode,
+  findBestTransferMode,
+  optimizeTeamMode,
+  monteCarloTransferAnalysis,
+  simulateSquadGW,
+  detectNewToPL,
+  computeNewLeagueAdjustment,
+  applyNewLeagueAdjustment,
+  computePromotedAdjustment,
+  HORIZONS,
+} = require('./server/decisionLabEngine');
 
 const POSITION_LIMITS = { GKP: 2, DEF: 5, MID: 5, FWD: 3 };
 const START_MINIMUMS = { GKP: 1, DEF: 3, MID: 2, FWD: 1 };
@@ -44,7 +80,7 @@ function selectLineup(squad, strategy) {
   return { starters, bench, captain, viceCaptain, expectedPoints };
 }
 
-function buildTransferPlans({ squad, allPlayers, bank, freeTransfers, strategy }) {
+function buildTransferPlans({ squad, allPlayers, bank, freeTransfers, strategy, currentGW, horizon }) {
   const squadIds = new Set(squad.map(player => player.id));
   const candidates = allPlayers.filter(player => !squadIds.has(player.id) && player.availability >= 50);
   const sales = [...squad].sort((a, b) => adjustedScore(a, strategy) - adjustedScore(b, strategy));
@@ -76,6 +112,15 @@ function buildTransferPlans({ squad, allPlayers, bank, freeTransfers, strategy }
         if (nextGain < MIN_NEXT_GAIN && horizonGain < MIN_NET_GAIN_FREE) return;
         // Reject lateral moves: incoming must be meaningfully better per-£m
         if (xptsPerMpmImprovement < MIN_XPTSPM_IMPROVEMENT && horizonGain < 3.0) return;
+        // Decision Lab enhanced scoring
+        const labDecision = computeTransferDecisionScore(outgoing, incoming, {
+          horizon: horizon || 5, freeTransfers, currentGW: currentGW || 1,
+        });
+        const labUrgency = classifyTransferUrgency(labDecision, {
+          incomingAvailability: incoming.availability || 100,
+        });
+        const labRecommendation = classifyRecommendation(labDecision.score, 100 - computeUncertainty(incoming).uncertainty * 100);
+        const labRisks = devilAdvocate(outgoing, incoming, labDecision);
         plans.push({
           id: `${outgoing.id}-${incoming.id}`,
           transfers: [{ out: outgoing, in: incoming }],
@@ -87,6 +132,15 @@ function buildTransferPlans({ squad, allPlayers, bank, freeTransfers, strategy }
           breakEvenProbability: Math.round(Math.max(8, Math.min(92, 50 + netGain * 5 - (100 - incoming.availability) * 0.22))),
           risk: incoming.confidence === 'High' ? 'Low' : incoming.availability < 75 ? 'High' : 'Medium',
           rationale: `${incoming.name} adds ${netGain.toFixed(1)} hit-adjusted xPts over ${outgoing.name} across the next ${incoming.weekly.length} gameweeks.${incoming.hasMultiSeasonData ? ` Multi-season consistency: ${Math.round((incoming.consistencyScore || 0) * 100)}%.` : ''}${incoming.improvementRatio > 1 ? ` ${Math.round((incoming.improvementRatio - 1) * 100)}% xGI improvement vs last season.` : ''}`,
+          // Decision Lab fields
+          decisionScore: labDecision.score,
+          probabilityTransferWins: labDecision.probabilityTransferWins,
+          breakEvenGW: labDecision.breakEvenGW,
+          urgency: labUrgency,
+          recommendation: labRecommendation.category,
+          recommendationEmoji: labRecommendation.emoji,
+          risks: labRisks,
+          confidence: round(clamp(100 - computeUncertainty(incoming).uncertainty * 100, 15, 95)),
         });
       });
   }
@@ -260,6 +314,8 @@ function buildLiveAnalysis(picks, liveData, projectionMap, manager) {
 
 async function buildDecisionCentre({ bootstrap, fixtures, manager, picks, history, rivals = [], liveData = null, options = {} }) {
   const strategy = normalizeStrategy(options.strategy);
+  const currentGW = bootstrap.events?.find(e => e.is_current)?.id || bootstrap.events?.find(e => e.is_next)?.id || 1;
+  const horizon = Number(options.horizon) || 5;
   const projectionData = await buildPlayerProjections({ bootstrap, fixtures, startGW: options.targetGW, horizon: options.horizon });
   const projectionMap = new Map(projectionData.projections.map(player => [player.id, player]));
   const squad = picks.picks.map(pick => ({ ...projectionMap.get(pick.element), pickPosition: pick.position, purchasePrice: pick.purchase_price ? pick.purchase_price / 10 : null, sellingPrice: pick.selling_price ? pick.selling_price / 10 : null })).filter(player => player.id);
@@ -269,14 +325,50 @@ async function buildDecisionCentre({ bootstrap, fixtures, manager, picks, histor
   // Preserve FPL's actual bench arrangement (positions 12-15) rather than re-sorting by score
   const fplBench = squad.filter(p => p.pickPosition > 11).sort((a, b) => a.pickPosition - b.pickPosition);
   if (fplBench.length === lineup.bench.length) lineup.bench = fplBench;
-  const transferPlans = buildTransferPlans({ squad, allPlayers: projectionData.projections, bank, freeTransfers, strategy });
+  const transferPlans = buildTransferPlans({ squad, allPlayers: projectionData.projections, bank, freeTransfers, strategy, currentGW, horizon });
   const optimalSquad = buildOptimalSquad(projectionData.projections.filter(player => player.availability >= 50), Number(options.budget) || 100, strategy);
   const chips = buildChipPlan({ squad, gameweeks: projectionData.gameweeks, usedChips: (history.chips || []).map(chip => chip.name), strategy });
   const alerts = buildAlerts(squad, transferPlans);
   const rollValue = round(Math.max(0, (transferPlans[0]?.netGain || 0) < 2.5 ? 1.5 : 0));
 
+  // Decision Lab enhanced analysis
+  const labRollEvaluation = evaluateRollTransfer(squad, projectionData.projections, {
+    freeTransfers, bank, horizon, currentGW,
+  });
+
+  // Player strength scores for all projected players
+  const playerStrengths = new Map();
+  for (const player of projectionData.projections) {
+    const strength = computePlayerStrengthScore(player, { currentGW, horizon });
+    const uncertainty = computeUncertainty(player);
+    const minutes = computeMinutesProbability(player);
+    const bayesian = bayesianBlend(player, currentGW);
+    playerStrengths.set(player.id, { ...strength, uncertainty, minutes, bayesian });
+  }
+
+  // Pre-haul candidates and regression risks across the market
+  const preHaulCandidates = detectPreHaulCandidates(projectionData.projections);
+  const regressionRisks = detectRegressionRisks(projectionData.projections);
+
+  // Squad-level opportunity cost
+  const squadOpportunityCost = findBestMoveAcrossSquad(squad, projectionData.projections, {
+    freeTransfers, bank, horizon, currentGW,
+  });
+
+  // Evidence weights for current gameweek
+  const evidenceWeights = earlySeasonWeights(currentGW);
+
+  // Enhanced transfer plans with full Decision Lab analysis
+  const enhancedTransferPlans = transferPlans.slice(0, 6).map(plan => {
+    const outPlayer = plan.transfers[0]?.out;
+    const inPlayer = plan.transfers[0]?.in;
+    if (!outPlayer || !inPlayer) return plan;
+    const labAnalysis = analyzeTransfer(outPlayer, inPlayer, { currentGW, horizon, freeTransfers });
+    return { ...plan, labAnalysis };
+  });
+
   return {
-    meta: { schemaVersion: '1.0', modelVersion: 'Decision Engine 1.0', generatedAt: new Date().toISOString(), strategy, targetGW: projectionData.startGW, gameweeks: projectionData.gameweeks, warnings: ['Public FPL data reflects the latest published deadline. Pending transfers and exact free-transfer state require manual overrides.', 'Projection ranges are scenario bands, not betting-market probabilities.'] },
+    meta: { schemaVersion: '2.0', modelVersion: 'Decision Lab Engine 2.0', generatedAt: new Date().toISOString(), strategy, targetGW: projectionData.startGW, gameweeks: projectionData.gameweeks, currentGW, horizon, evidenceWeights, warnings: ['Public FPL data reflects the latest published deadline. Pending transfers and exact free-transfer state require manual overrides.', 'Projection ranges are scenario bands, not betting-market probabilities.', 'Decision scores are model estimates, not guarantees. Football is inherently stochastic.'] },
     manager: { id: manager.id, name: `${manager.player_first_name} ${manager.player_last_name}`.trim(), teamName: manager.name, rank: manager.summary_overall_rank || null, points: manager.summary_overall_points || 0, bank, squadValue: round(squad.reduce((sum, player) => sum + player.cost, 0)), freeTransfers, chipsUsed: (history.chips || []).map(chip => chip.name) },
     squad,
     lineup,
@@ -285,7 +377,27 @@ async function buildDecisionCentre({ bootstrap, fixtures, manager, picks, histor
       { type: 'captain', priority: 'high', title: `Captain ${lineup.captain?.name || '--'}`, expectedGain: lineup.captain?.weekly[0].xPts || 0, reason: `${lineup.captain?.weekly[0].xPts.toFixed(1) || '0.0'} xPts with a ${lineup.captain?.range.low.toFixed(1) || '0.0'}-${lineup.captain?.range.high.toFixed(1) || '0.0'} horizon range.` },
       { type: 'lineup', priority: 'medium', title: `${lineup.expectedPoints.toFixed(1)} projected GW points`, expectedGain: 0, reason: `Best legal XI with ${lineup.bench.map(player => player.name).join(', ') || 'no bench'} benched.` },
     ],
-    transfers: { rollValue, plans: transferPlans, optimalSquad },
+    transfers: { rollValue, plans: transferPlans, optimalSquad, rollEvaluation: labRollEvaluation, topTransferAnalyses: enhancedTransferPlans },
+    decisionLab: {
+      squadOpportunityCost,
+      preHaulCandidates: preHaulCandidates.map(c => ({ name: c.player.name, team: c.player.team, position: c.player.position, xGI90: c.xGI90, form: c.form, ownership: c.ownership, signal: c.signal })),
+      regressionRisks: regressionRisks.map(r => ({ name: r.player.name, team: r.player.team, position: r.player.position, status: r.status, signal: r.signal, explanation: r.explanation, ownership: r.ownership })),
+      playerStrengths: Array.from(playerStrengths.entries()).map(([id, data]) => ({ id, ...data })).slice(0, 60),
+      evidenceWeights,
+      // New Decision Lab product features
+      squadHeatmap: buildSquadHeatmap(squad, projectionData.projections, { currentGW, horizon }),
+      decisionTriggers: buildDecisionTriggers(squad),
+      yourDecision: generateYourDecisionBrief(squad, projectionData.projections, { currentGW, horizon, freeTransfers, bank }),
+      chipStrategy: optimizeChips(squad, projectionData.projections, { currentGW, horizon: 8, usedChips: (history.chips || []).map(c => c.name) }),
+      // Mode support: analyzeTransfer / findBestTransfer / optimizeTeam
+      mode: options.mode || 'optimizeTeam',
+      transferAnalysis: options.mode === 'analyzeTransfer' && options.transferIn && options.transferOut
+        ? analyzeTransferMode(options.transferOut, options.transferIn, squad, projectionData.projections, { currentGW, horizon, freeTransfers })
+        : null,
+      bestTransferSearch: options.mode === 'findBestTransfer'
+        ? findBestTransferMode(squad, projectionData.projections, { currentGW, horizon, freeTransfers, bank })
+        : null,
+    },
     chips,
     rivals: buildRivalAnalysis(squad, rivals, projectionMap),
     live: buildLiveAnalysis(picks, liveData, projectionMap, manager),
@@ -323,6 +435,8 @@ async function buildSquadAdvice({ bootstrap, fixtures, playerIds, options = {} }
   const rankedWithinPosition = Object.fromEntries(['GKP', 'DEF', 'MID', 'FWD'].map(position => [position,
     projectionData.projections.filter(player => player.position === position).sort((a, b) => adjustedScore(b, strategy) - adjustedScore(a, strategy))
   ]));
+  const currentGW = bootstrap.events?.find(e => e.is_current)?.id || bootstrap.events?.find(e => e.is_next)?.id || 1;
+  const horizon = Number(options.horizon) || projectionData.horizon;
   const critiques = squad.map(player => {
     const replacement = bestReplacementByPlayer.get(player.id) || null;
     const positionPool = rankedWithinPosition[player.position];
@@ -339,7 +453,28 @@ async function buildSquadAdvice({ bootstrap, fixtures, playerIds, options = {} }
     reasons.push(`${player.xPtsPerMillion.toFixed(2)} xPts/£m and ${percentile}th position percentile`);
     reasons.push(...riskReasons);
     if (replacement) reasons.push(`${replacement.name} projects ${replacement.horizonGain.toFixed(1)} more horizon xPts${replacement.hitCost ? ` before a -${replacement.hitCost} hit` : ''}`);
-    return { player, verdict, priority: verdict === 'Sell' ? 'high' : verdict === 'Consider replacing' ? 'medium' : verdict === 'Monitor' ? 'watch' : 'keep', percentile, reasons, replacement };
+    // Decision Lab enhanced critique
+    const labStrength = computePlayerStrengthScore(player, { currentGW, horizon });
+    const labUncertainty = computeUncertainty(player);
+    const labMinutes = computeMinutesProbability(player);
+    const labRegression = detectRegression(player);
+    return {
+      player,
+      verdict,
+      priority: verdict === 'Sell' ? 'high' : verdict === 'Consider replacing' ? 'medium' : verdict === 'Monitor' ? 'watch' : 'keep',
+      percentile,
+      reasons,
+      replacement,
+      // Decision Lab fields
+      strengthScore: labStrength.score,
+      strengthComponents: labStrength.components,
+      uncertaintyTier: labUncertainty.tier,
+      uncertainty: labUncertainty.uncertainty,
+      roleSecurity: labMinutes.roleSecurity,
+      roleSecurityScore: labMinutes.roleSecurityScore,
+      startProbability: labMinutes.startProbability,
+      regression: labRegression,
+    };
   }).sort((a, b) => ({ high: 0, medium: 1, watch: 2, keep: 3 }[a.priority] - { high: 0, medium: 1, watch: 2, keep: 3 }[b.priority]) || a.player.totalXpts - b.player.totalXpts);
 
   const topPlan = transferPlans[0] || null;
@@ -365,15 +500,33 @@ async function buildSquadAdvice({ bootstrap, fixtures, playerIds, options = {} }
       ? `${topPlan.transfers.map(move => `${move.out.name} to ${move.in.name}`).join(' and ')} is the strongest modeled move at +${topPlan.netGain.toFixed(1)} net xPts.`
       : `The model prefers patience: no transfer clears a strong hit-adjusted threshold.`;
 
+  // Decision Lab squad-level insights
+  const evidenceWeights = earlySeasonWeights(currentGW);
+  const labRollEvaluation = squad.length === 15 ? evaluateRollTransfer(squad, projectionData.projections, {
+    freeTransfers, bank, horizon, currentGW,
+  }) : null;
+  const preHaulCandidates = detectPreHaulCandidates(projectionData.projections).slice(0, 5);
+  const regressionRisks = detectRegressionRisks(projectionData.projections).slice(0, 5);
+
   return {
-    meta: { modelVersion: 'Squad Advisor 1.0', generatedAt: new Date().toISOString(), strategy, gameweeks: projectionData.gameweeks, warnings: ['Projections are uncertain, especially before stable minutes and role data exist.', 'Confirm prices, free transfers, bank and chip availability before acting.'] },
+    meta: { modelVersion: 'Squad Advisor 2.0', generatedAt: new Date().toISOString(), strategy, gameweeks: projectionData.gameweeks, currentGW, horizon, evidenceWeights, warnings: ['Projections are uncertain, especially before stable minutes and role data exist.', 'Confirm prices, free transfers, bank and chip availability before acting.', 'Decision scores are model estimates, not guarantees.'] },
     summary: { legal, squadCost, bank, headline, urgentPlayers, horizonXpts: round(squad.reduce((sum, player) => sum + player.totalXpts, 0)) },
     squad,
     lineup,
     critiques,
-    transfers: { rollRecommended: !topPlan || topPlan.netGain < 2.5, plans: transferPlans.slice(0, 8) },
+    transfers: { rollRecommended: !topPlan || topPlan.netGain < 2.5, plans: transferPlans.slice(0, 8), rollEvaluation: labRollEvaluation },
     chips: { ...chips, recommendations: chipRecommendations, wildcardPressure: wildcard?.expectedGain || 0 },
     alerts: squad.length === 15 ? buildAlerts(squad, transferPlans) : [],
+    decisionLab: {
+      preHaulCandidates: preHaulCandidates.map(c => ({ name: c.player.name, team: c.player.team, position: c.player.position, xGI90: c.xGI90, form: c.form, ownership: c.ownership, signal: c.signal })),
+      regressionRisks: regressionRisks.map(r => ({ name: r.player.name, team: r.player.team, position: r.player.position, status: r.status, signal: r.signal, explanation: r.explanation, ownership: r.ownership })),
+      evidenceWeights,
+      // Squad heatmap and triggers
+      squadHeatmap: squad.length === 15 ? buildSquadHeatmap(squad, projectionData.projections, { currentGW, horizon }) : [],
+      decisionTriggers: squad.length === 15 ? buildDecisionTriggers(squad) : [],
+      yourDecision: squad.length === 15 ? generateYourDecisionBrief(squad, projectionData.projections, { currentGW, horizon, freeTransfers, bank }) : null,
+      chipStrategy: optimizeChips(squad, projectionData.projections, { currentGW, horizon: 8, usedChips: options.usedChips || [] }),
+    },
   };
 }
 

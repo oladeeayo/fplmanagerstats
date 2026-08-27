@@ -7329,6 +7329,14 @@ const FPL = {
         if (backtest) backtest.innerHTML = `<div class="decision-model-score"><strong>${data.backtest.mae != null ? data.backtest.mae.toFixed(1) : '--'}</strong><span>${data.backtest.mae != null ? 'baseline MAE' : 'collecting'}</span></div><p>${this.escapeHTML(data.backtest.message)}</p><small>${data.backtest.sample} completed comparisons · ${data.meta.modelVersion}</small>`;
         const warnings = document.getElementById('decision-warnings');
         if (warnings) warnings.innerHTML = data.meta.warnings.map(warning => `<div class="decision-assumption"><span class="material-symbols-outlined">info</span><p>${this.escapeHTML(warning)}</p></div>`).join('');
+
+        // --- NEW: Decision Lab Engine enhancements ---
+        this.paintDecisionBrief(data);
+        this.paintSquadIntelligence(data);
+        this.paintRollEvaluation(data);
+        this.paintChipStrategy(data);
+        this.paintTransferScores(data);
+
         this.setDecisionView(this.state.decisionView || 'overview');
     },
 
@@ -7426,6 +7434,279 @@ const FPL = {
         const card = player => `<article class="decision-compare-card"><div class="decision-compare-name"><span>${player.position}</span><div><h3>${this.escapeHTML(player.name)}</h3><small>${player.team} · £${player.cost.toFixed(1)}m</small></div></div><div class="decision-range"><span style="left:${Math.min(88, player.range.low * 2)}%;width:${Math.max(6, (player.range.high - player.range.low) * 2)}%"></span><i style="left:${Math.min(96, player.range.expected * 2)}%"></i></div><div class="decision-compare-metrics"><span><b>${player.totalXpts.toFixed(1)}</b> xPts</span><span><b>${player.range.low.toFixed(1)}-${player.range.high.toFixed(1)}</b> range</span><span><b>${player.weekly[0].xMins}</b> xMins</span><span><b>${player.xGI90.toFixed(2)}</b> xGI/90</span><span><b>${player.returnProbability}%</b> return</span><span><b>${player.haulProbability}%</b> haul</span><span><b>${player.ownership.toFixed(1)}%</b> owned</span><span><b>${player.xPtsPerMillion.toFixed(2)}</b> xPts/£m</span></div></article>`;
         const winner = first.totalXpts >= second.totalXpts ? first : second;
         container.innerHTML = `<div class="decision-compare-grid">${card(first)}${card(second)}</div><div class="decision-verdict"><span class="material-symbols-outlined">analytics</span><p><b>${this.escapeHTML(winner.name)}</b> leads the ${data.meta.gameweeks.length}-gameweek projection by ${Math.abs(first.totalXpts - second.totalXpts).toFixed(1)} xPts. Use the range and xMins to judge whether that edge fits your risk mode.</p></div>`;
+    },
+
+    // ==================== DECISION LAB ENGINE ENHANCEMENTS ====================
+
+    paintDecisionBrief(data) {
+        const container = document.getElementById('decision-brief');
+        if (!container || !data?.decisionLab?.yourDecision) return;
+        const brief = data.decisionLab.yourDecision;
+        const action = brief.decision?.action || 'ROLL';
+        const confidence = brief.decision?.confidence || 70;
+        const actionColor = action === 'ROLL' ? '#00FF85' : action === 'TRANSFER' ? '#4ECDC4' : action === 'HIT' ? '#FFA600' : action === 'MONITOR' ? '#F9D243' : '#B0B0B0';
+        const actionEmoji = action === 'ROLL' ? '🟢' : action === 'TRANSFER' ? '🟢' : action === 'HIT' ? '🟠' : action === 'MONITOR' ? '🟡' : '⚪';
+
+        let transferHtml = '';
+        if (brief.transfer) {
+            const t = brief.transfer;
+            const simText = t.simulation?.winProbability ? `Win: ${t.simulation.winProbability.incomingWins}%` : '';
+            transferHtml = `<div style="margin-top:12px;padding:12px;background:rgba(0,255,133,0.04);border:1px solid rgba(0,255,133,0.15);border-radius:10px;">
+                <div style="display:flex;align-items:center;gap:8px;font-size:13px;">
+                    <span style="color:#FF005A;font-weight:700;">${this.escapeHTML(t.out)}</span>
+                    <span class="material-symbols-outlined" style="font-size:16px;color:#8ba396;">arrow_forward</span>
+                    <span style="color:#00FF85;font-weight:700;">${this.escapeHTML(t.in)}</span>
+                    <span style="margin-left:auto;font-family:var(--font-mono);font-weight:700;color:#00FF85;">+${t.expectedGain.toFixed(1)}</span>
+                </div>
+                <div style="display:flex;gap:12px;margin-top:6px;font-size:11px;color:#8ba396;">
+                    <span>Break-even: GW${t.breakEvenGW || '?'}</span>
+                    <span>Win prob: ${t.probabilityTransferWins || '?'}%</span>
+                    ${t.hitCost ? `<span style="color:#FFA600;">Hit: -${t.hitCost}</span>` : ''}
+                    ${simText ? `<span>${simText}</span>` : ''}
+                </div>
+            </div>`;
+        }
+
+        let reasonsHtml = (brief.reasons || []).map(r => `<li style="font-size:12px;color:#B0B0B0;padding:2px 0;">${this.escapeHTML(r)}</li>`).join('');
+        let risksHtml = (brief.risks || []).map(r => `<li style="font-size:12px;color:#FF005A;padding:2px 0;">⚠ ${this.escapeHTML(r.name)} — ${this.escapeHTML(r.status)}</li>`).join('');
+        let triggersHtml = (brief.triggers || []).slice(0, 4).map(t => {
+            const pColor = t.priority === 'critical' ? '#FF005A' : t.priority === 'high' ? '#FFA600' : '#F9D243';
+            return `<li style="font-size:11px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05);"><span style="color:${pColor};font-weight:700;text-transform:uppercase;font-size:10px;">${t.priority}</span> <span style="color:#B0B0B0;">${this.escapeHTML(t.player)}: ${this.escapeHTML(t.detail)}</span></li>`;
+        }).join('');
+
+        container.innerHTML = `<div style="margin-bottom:20px;padding:20px;background:linear-gradient(135deg,rgba(0,255,133,0.03),rgba(0,200,100,0.02));border:1px solid rgba(0,255,133,0.12);border-radius:14px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:12px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <span style="font-size:24px;">${actionEmoji}</span>
+                    <div>
+                        <div style="font-size:10px;font-family:var(--font-mono);color:#8ba396;text-transform:uppercase;letter-spacing:0.08em;">YOUR GW${brief.gw || '?'} DECISION</div>
+                        <div style="font-size:22px;font-weight:900;color:${actionColor};font-family:var(--font-mono);">${action}</div>
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:10px;font-family:var(--font-mono);color:#8ba396;">CONFIDENCE</div>
+                    <div style="font-size:20px;font-weight:900;color:#fff;font-family:var(--font-mono);">${confidence}%</div>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:12px;">
+                <div style="padding:8px;background:rgba(255,255,255,0.03);border-radius:8px;text-align:center;">
+                    <div style="font-size:10px;color:#8ba396;font-family:var(--font-mono);">CAPTAIN</div>
+                    <div style="font-size:13px;font-weight:700;color:#fff;margin-top:2px;">${brief.captain ? this.escapeHTML(brief.captain.name) : '--'}</div>
+                    <div style="font-size:11px;color:#00FF85;font-family:var(--font-mono);">${brief.captain ? brief.captain.expectedPoints.toFixed(1) : '--'} xPts</div>
+                </div>
+                <div style="padding:8px;background:rgba(255,255,255,0.03);border-radius:8px;text-align:center;">
+                    <div style="font-size:10px;color:#8ba396;font-family:var(--font-mono);">FORMATION</div>
+                    <div style="font-size:13px;font-weight:700;color:#fff;margin-top:2px;">${brief.formation || '--'}</div>
+                </div>
+                <div style="padding:8px;background:rgba(255,255,255,0.03);border-radius:8px;text-align:center;">
+                    <div style="font-size:10px;color:#8ba396;font-family:var(--font-mono);">FREE TRANSFERS</div>
+                    <div style="font-size:13px;font-weight:700;color:#fff;margin-top:2px;">${brief.freeTransfers || 1}</div>
+                </div>
+                <div style="padding:8px;background:rgba(255,255,255,0.03);border-radius:8px;text-align:center;">
+                    <div style="font-size:10px;color:#8ba396;font-family:var(--font-mono);">BANK</div>
+                    <div style="font-size:13px;font-weight:700;color:#fff;margin-top:2px;">£${(brief.bank || 0).toFixed(1)}m</div>
+                </div>
+            </div>
+            ${transferHtml}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+                <div>
+                    <div style="font-size:10px;color:#8ba396;font-family:var(--font-mono);margin-bottom:4px;">WHY?</div>
+                    <ul style="list-style:none;padding:0;margin:0;">${reasonsHtml || '<li style="font-size:12px;color:#8ba396;">No specific reasons.</li>'}</ul>
+                </div>
+                <div>
+                    <div style="font-size:10px;color:#8ba396;font-family:var(--font-mono);margin-bottom:4px;">RISKS</div>
+                    <ul style="list-style:none;padding:0;margin:0;">${risksHtml || '<li style="font-size:12px;color:#8ba396;">No material risks.</li>'}</ul>
+                </div>
+            </div>
+            ${triggersHtml ? `<div style="margin-top:12px;padding:10px;background:rgba(255,165,0,0.04);border:1px solid rgba(255,165,0,0.15);border-radius:8px;">
+                <div style="font-size:10px;color:#FFA600;font-family:var(--font-mono);margin-bottom:6px;">WHAT COULD CHANGE THIS?</div>
+                <ul style="list-style:none;padding:0;margin:0;">${triggersHtml}</ul>
+            </div>` : ''}
+        </div>`;
+    },
+
+    paintSquadIntelligence(data) {
+        const container = document.getElementById('decision-squad-intel');
+        if (!container) return;
+        const lab = data?.decisionLab || {};
+        const heatmap = lab.squadHeatmap || [];
+        const preHaul = lab.preHaulCandidates || [];
+        const regression = lab.regressionRisks || [];
+        if (!heatmap.length && !preHaul.length && !regression.length) { container.innerHTML = ''; return; }
+
+        // Status colors
+        const statusColor = s => ({ 'KEEP': '#00FF85', 'HOLD': '#4ECDC4', 'MONITOR': '#F9D243', 'SELL': '#FF9400', 'PRIORITY SELL': '#FF005A' }[s] || '#B0B0B0');
+        const statusBg = s => ({ 'KEEP': 'rgba(0,255,133,0.08)', 'HOLD': 'rgba(78,205,196,0.08)', 'MONITOR': 'rgba(249,210,67,0.08)', 'SELL': 'rgba(255,148,0,0.08)', 'PRIORITY SELL': 'rgba(255,0,90,0.08)' }[s] || 'rgba(255,255,255,0.03)');
+
+        let heatmapHtml = '';
+        if (heatmap.length) {
+            heatmapHtml = `<div style="margin-bottom:20px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                    <h3 style="font-size:14px;font-weight:700;color:#fff;margin:0;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:18px;color:#00FF85;">grid_on</span> Squad Heatmap</h3>
+                    <span style="font-size:11px;color:#8ba396;">${heatmap.filter(p => ['SELL','PRIORITY SELL'].includes(p.status)).length} need attention</span>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;">
+                    ${heatmap.map(p => `<div style="padding:10px;background:${statusBg(p.status)};border:1px solid ${statusColor(p.status)}22;border-radius:8px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;">
+                            <div>
+                                <span style="font-size:12px;font-weight:700;color:#fff;">${this.escapeHTML(p.name)}</span>
+                                <span style="font-size:10px;color:#8ba396;margin-left:4px;">${p.position} · ${p.team}</span>
+                            </div>
+                            <span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:${statusColor(p.status)}20;color:${statusColor(p.status)};">${p.status}</span>
+                        </div>
+                        <div style="display:flex;gap:8px;margin-top:6px;font-size:10px;color:#8ba396;">
+                            <span>${p.horizonXPts} xPts</span>
+                            <span>${p.startProbability}% start</span>
+                            <span>${p.risk} risk</span>
+                            ${p.replacementGain > 0 ? `<span style="color:#00FF85;">+${p.replacementGain} upgrade</span>` : ''}
+                        </div>
+                    </div>`).join('')}
+                </div>
+            </div>`;
+        }
+
+        let preHaulHtml = '';
+        if (preHaul.length) {
+            preHaulHtml = `<div style="margin-bottom:16px;padding:14px;background:rgba(0,255,133,0.04);border:1px solid rgba(0,255,133,0.15);border-radius:10px;">
+                <div style="font-size:11px;font-weight:700;color:#00FF85;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">trending_up</span> Pre-Haul Candidates — Buy Before Points</div>
+                ${preHaul.slice(0, 5).map(p => `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px;">
+                    <span style="color:#fff;font-weight:600;">${this.escapeHTML(p.name)} <small style="color:#8ba396;">${p.team} · ${p.position}</small></span>
+                    <div style="display:flex;gap:10px;font-family:var(--font-mono);">
+                        <span style="color:#00FF85;">${p.xGI90} xGI/90</span>
+                        <span style="color:#B0B0B0;">${p.ownership}% own</span>
+                    </div>
+                </div>`).join('')}
+            </div>`;
+        }
+
+        let regressionHtml = '';
+        if (regression.length) {
+            regressionHtml = `<div style="margin-bottom:16px;padding:14px;background:rgba(255,0,90,0.04);border:1px solid rgba(255,0,90,0.15);border-radius:10px;">
+                <div style="font-size:11px;font-weight:700;color:#FF005A;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">warning</span> Regression Risks — Sell Before Drop</div>
+                ${regression.slice(0, 5).map(p => `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px;">
+                    <span style="color:#fff;font-weight:600;">${this.escapeHTML(p.name)} <small style="color:#8ba396;">${p.team} · ${p.position}</small></span>
+                    <div style="display:flex;gap:10px;font-family:var(--font-mono);">
+                        <span style="color:#FF005A;">${p.status}</span>
+                        <span style="color:#B0B0B0;">${p.ownership}% own</span>
+                    </div>
+                </div>`).join('')}
+            </div>`;
+        }
+
+        container.innerHTML = `${heatmapHtml}${preHaulHtml}${regressionHtml}`;
+    },
+
+    paintRollEvaluation(data) {
+        const container = document.getElementById('decision-roll-eval');
+        if (!container) return;
+        const roll = data?.transfers?.rollEvaluation;
+        if (!roll) { container.innerHTML = ''; return; }
+
+        const color = roll.rollRecommended ? '#00FF85' : '#FFA600';
+        const label = roll.rollRecommended ? 'ROLL RECOMMENDED' : 'TRANSFER AVAILABLE';
+
+        container.innerHTML = `<div style="margin-bottom:16px;padding:14px;background:rgba(${roll.rollRecommended ? '0,255,133' : '255,165,0'},0.04);border:1px solid rgba(${roll.rollRecommended ? '0,255,133' : '255,165,0'},0.15);border-radius:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <span class="material-symbols-outlined" style="font-size:20px;color:${color};">${roll.rollRecommended ? 'pause_circle' : 'swap_horiz'}</span>
+                <div>
+                    <div style="font-size:10px;font-family:var(--font-mono);color:${color};text-transform:uppercase;">${label}</div>
+                    <div style="font-size:13px;color:#B0B0B0;margin-top:2px;">${this.escapeHTML(roll.reason || '')}</div>
+                </div>
+            </div>
+            <div style="display:flex;gap:16px;font-family:var(--font-mono);font-size:12px;">
+                <div style="text-align:center;"><div style="color:#fff;font-weight:700;">${roll.bestGain}</div><div style="color:#8ba396;font-size:10px;">best gain</div></div>
+                <div style="text-align:center;"><div style="color:#fff;font-weight:700;">${roll.ftBankValue}</div><div style="color:#8ba396;font-size:10px;">FT bank value</div></div>
+            </div>
+        </div>`;
+    },
+
+    paintChipStrategy(data) {
+        const container = document.getElementById('decision-chip-strategy');
+        if (!container) return;
+        const strategy = data?.decisionLab?.chipStrategy;
+        if (!strategy) { container.innerHTML = ''; return; }
+
+        const chips = ['WC', 'FH', 'BB', 'TC'];
+        const chipNames = { WC: 'Wildcard', FH: 'Free Hit', BB: 'Bench Boost', TC: 'Triple Captain' };
+        const chipColors = { WC: '#00FF85', FH: '#4ECDC4', BB: '#FFA600', TC: '#FF005A' };
+
+        const bestOverall = strategy.bestOverallChip;
+        const shouldUse = strategy.shouldUseChipNow;
+
+        container.innerHTML = `<div style="margin-bottom:16px;padding:16px;background:rgba(0,255,133,0.03);border:1px solid rgba(0,255,133,0.12);border-radius:10px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                <h3 style="font-size:14px;font-weight:700;color:#fff;margin:0;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:18px;color:#00FF85;">casino</span> Chip Strategy</h3>
+                ${shouldUse && bestOverall ? `<span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:4px;background:rgba(0,255,133,0.15);color:#00FF85;">USE ${bestOverall.chip} NOW</span>` : '<span style="font-size:11px;color:#8ba396;">Save all chips</span>'}
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+                ${chips.map(chip => {
+                    const s = strategy[chip] || {};
+                    const used = s.used;
+                    const color = chipColors[chip];
+                    return `<div style="padding:10px;background:${used ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.04)'};border:1px solid ${used ? 'rgba(255,255,255,0.05)' : color + '22'};border-radius:8px;text-align:center;${used ? 'opacity:0.5;' : ''}">
+                        <div style="font-size:10px;color:${color};font-family:var(--font-mono);font-weight:700;">${chipNames[chip]}</div>
+                        <div style="font-size:18px;font-weight:900;color:${used ? '#555' : '#fff'};font-family:var(--font-mono);margin:4px 0;">${used ? 'USED' : s.bestValue || 0}</div>
+                        <div style="font-size:10px;color:#8ba396;">${used ? 'Already used' : s.bestGW ? `Best: GW${s.bestGW}` : 'No window'}</div>
+                    </div>`;
+                }).join('')}
+            </div>
+        </div>`;
+    },
+
+    paintTransferScores(data) {
+        const container = document.getElementById('decision-transfer-plans');
+        if (!container || !data?.transfers?.plans?.length) return;
+        const plans = data.transfers.plans;
+
+        const urgencyColor = u => ({ 'ACT NOW': '#FF005A', 'THIS GW': '#00FF85', 'MONITOR': '#F9D243', 'WAIT': '#FFA600', 'AVOID': '#FF005A' }[u] || '#B0B0B0');
+        const recColor = r => ({ 'Strong Buy': '#00FF85', 'Buy': '#4ECDC4', 'Consider': '#F9D243', 'Monitor': '#FFA600', 'Wait': '#FF9400', 'Hold': '#FF005A', 'Avoid': '#FF005A' }[r] || '#B0B0B0');
+
+        container.innerHTML = `<div class="decision-transfer-grid">${plans.slice(0, 10).map((plan, index) => {
+            const ds = plan.decisionScore || null;
+            const urgency = plan.urgency || null;
+            const rec = plan.recommendation || null;
+            const conf = plan.confidence || null;
+            const sim = plan.simulation || null;
+            const risks = plan.risks || [];
+
+            let badgesHtml = '';
+            if (ds) badgesHtml += `<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(0,255,133,0.1);color:#00FF85;font-family:var(--font-mono);">Score: ${ds}</span>`;
+            if (urgency) badgesHtml += `<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:${urgencyColor(urgency)}20;color:${urgencyColor(urgency)};">${urgency}</span>`;
+            if (rec) badgesHtml += `<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:${recColor(rec)}20;color:${recColor(rec)};">${rec}</span>`;
+            if (conf) badgesHtml += `<span style="font-size:10px;color:#8ba396;">${conf}% conf</span>`;
+
+            let simHtml = '';
+            if (sim?.winProbability) {
+                simHtml = `<div style="margin-top:8px;padding:8px;background:rgba(255,255,255,0.03);border-radius:6px;font-size:11px;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                        <span style="color:#8ba396;">Win probability</span>
+                        <span style="color:#00FF85;font-weight:700;">${sim.winProbability.incomingWins}%</span>
+                    </div>
+                    <div style="height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;">
+                        <div style="height:100%;width:${sim.winProbability.incomingWins}%;background:linear-gradient(90deg,#00FF85,#4ECDC4);border-radius:2px;"></div>
+                    </div>
+                    ${sim.riskMetrics ? `<div style="display:flex;gap:12px;margin-top:6px;color:#8ba396;">
+                        <span>Gain prob: ${sim.riskMetrics.probabilityOfGain}%</span>
+                        <span>Loss prob: ${sim.riskMetrics.probabilityOfSignificantLoss}%</span>
+                    </div>` : ''}
+                </div>`;
+            }
+
+            let risksHtml = '';
+            if (risks.length) {
+                risksHtml = `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">${risks.slice(0, 3).map(r => `<span style="font-size:9px;padding:2px 5px;border-radius:3px;background:rgba(255,165,0,0.1);color:#FFA600;">${this.escapeHTML(r.type)}</span>`).join('')}</div>`;
+            }
+
+            return `<article class="decision-transfer-card" style="position:relative;">
+                <div class="decision-plan-rank">${index + 1}</div>
+                <div class="decision-transfer-moves">${plan.transfers.map(move => `<div><span class="sell">${this.escapeHTML(move.out.name)}</span><span class="material-symbols-outlined">arrow_forward</span><span class="buy">${this.escapeHTML(move.in.name)}</span></div>`).join('')}</div>
+                <div style="display:flex;flex-wrap:wrap;gap:4px;margin:6px 0;">${badgesHtml}</div>
+                <div class="decision-plan-metrics"><span><b>+${plan.netGain.toFixed(1)}</b> net xPts</span><span>${plan.breakEvenProbability}% break-even</span><span>£${plan.bankAfter.toFixed(1)}m bank</span><span>${plan.risk} risk</span></div>
+                ${simHtml}
+                ${risksHtml}
+                <p>${this.escapeHTML(plan.rationale)}</p>
+            </article>`;
+        }).join('')}</div>`;
     },
 
     // ==================== MAIN RENDER ====================

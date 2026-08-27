@@ -1104,6 +1104,19 @@ async function buildPlayerProjections({ bootstrap, fixtures, startGW, horizon = 
       starterScore: firstCandidate?.starterScore ?? estimateStarterScore(player, teamExperience, teamPositionCosts, { xMins: weekly[0]?.xMins || 0 }),
       starterTier: firstCandidate?.starterTier || starterTierFor(firstCandidate?.starterScore ?? estimateStarterScore(player, teamExperience, teamPositionCosts)),
       isStarter: firstCandidate?.isStarter ?? estimateStarterScore(player, teamExperience, teamPositionCosts) >= 55,
+      // Decision Lab: multi-horizon xPts
+      horizonXpts: {
+        gw1: round(weekly[0]?.xPts || 0),
+        gw3: round(weekly.slice(0, 3).reduce((s, w) => s + w.xPts, 0)),
+        gw5: round(weekly.slice(0, 5).reduce((s, w) => s + w.xPts, 0)),
+        gw8: round(weekly.reduce((s, w) => s + w.xPts, 0)),
+      },
+      // Decision Lab: extended uncertainty intervals
+      uncertainty: clamp(0.18 + ((90 - Math.min(xMins, 90)) / 90 * 0.42) + ((1 - availability) * 0.35), 0.16, 0.72),
+      // Decision Lab: minutes probability breakdown
+      minutesProbability: {
+        expectedMinutes: clamp(xMins, 0, 90),
+      },
     };
   }).sort((a, b) => b.totalXpts - a.totalXpts || b.xPtsPerMillion - a.xPtsPerMillion);
 
