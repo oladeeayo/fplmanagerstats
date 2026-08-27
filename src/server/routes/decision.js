@@ -39,6 +39,9 @@ async function analyzeManager(managerId, playerData, leagueId = null) {
   const currentPicksData = await optionalApiGet(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${currentGameweek}/picks/`);
   const currentPicks = currentPicksData?.picks || [];
 
+  // Pre-fetch all current squad player histories in parallel
+  await Promise.all(currentPicks.map(p => getGlobalPlayerHistory(p.element).catch(() => null)));
+
   for (const pick of currentPicks) {
     const player = playerData.elements.find(p => p.id === pick.element);
     if (!player) continue;
@@ -81,11 +84,11 @@ async function analyzeManager(managerId, playerData, leagueId = null) {
     await Promise.all(batch);
   }
 
-  // Pre-fetch player histories in controlled batches to avoid FPL API rate limits
+  // Pre-fetch player histories in parallel batches (avoid FPL API rate limits)
   const allPlayerIds = [...new Set(
     gwPickResults.filter(Boolean).flatMap(picksData => picksData.picks.map(p => p.element))
   )];
-  const PH_BATCH = 4;
+  const PH_BATCH = 10;
   for (let i = 0; i < allPlayerIds.length; i += PH_BATCH) {
     const batch = allPlayerIds.slice(i, i + PH_BATCH);
     await Promise.all(batch.map(pid => getGlobalPlayerHistory(pid).catch(() => null)));
@@ -100,8 +103,7 @@ async function analyzeManager(managerId, playerData, leagueId = null) {
 
     for (const pick of picks) {
       const playerId = pick.element, player = playerData.elements.find(p => p.id == playerId);
-      if (!player) continue;
-      const ph = await getGlobalPlayerHistory(playerId);
+      if (!player) continue;      const ph = await getGlobalPlayerHistory(playerId);
       const gwHistory = (ph.history || []).find(h => h.round === gw);
       const pts = gwHistory ? gwHistory.total_points : 0;
 
@@ -127,12 +129,13 @@ async function analyzeManager(managerId, playerData, leagueId = null) {
           expectedAssists: player.expected_assists,
           expectedGoalsTotal: player.expected_goals,
           elementId: player.id, code: player.code,
-          nextFixtures: (await getGlobalPlayerHistory(playerId)).fixtures?.slice(0, 5).map(f => {
+          nextFixtures: (ph.fixtures || []).slice(0, 5).map(f => {
             const ih = f.is_home;
             const op = playerData.teams.find(t => t.id === (ih ? f.team_a : f.team_h));
             return { opponent: op ? op.short_name : '?', isHome: ih, difficulty: f.difficulty };
           }) || []
         };
+
       }
 
       const inStarting11 = pick.position <= 11, isCaptain = pick.is_captain;
@@ -270,6 +273,8 @@ async function analyzeManager(managerId, playerData, leagueId = null) {
 }
 
 const managerCache = {};
+const decisionCentreCache = new Map();
+const DECISION_CENTRE_CACHE_TTL = 90 * 1000; // 90 seconds
 
 router.post('/v1/decision-centre', heavyEndpointLimiter, async (req, res) => {
   const managerId = parsePositiveId(req.body?.managerId);
@@ -277,6 +282,13 @@ router.post('/v1/decision-centre', heavyEndpointLimiter, async (req, res) => {
   const requestedGW = Math.max(1, Math.min(38, Number.parseInt(req.body?.targetGW, 10) || 1));
   const horizon = Math.max(1, Math.min(8, Number.parseInt(req.body?.horizon, 10) || 5));
   const rivalIds = [...new Set((req.body?.rivalIds || []).map(parsePositiveId).filter(Boolean))].filter(id => id !== managerId).slice(0, 5);
+
+  // Serve from recent cache if available (avoids re-running heavy model)
+  const cacheKey = `${managerId}:${req.body?.targetGW}:${horizon}:${rivalIds.join(',')}`;
+  const cached = decisionCentreCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < DECISION_CENTRE_CACHE_TTL) {
+    return res.json(cached.data);
+  }
 
   try {
     const [bootstrap, fixtures, manager, history] = await Promise.all([
@@ -292,6 +304,10 @@ router.post('/v1/decision-centre', heavyEndpointLimiter, async (req, res) => {
     if (!picks?.picks?.length) return res.status(409).json({ error: 'This manager does not yet have a published squad. Try again after the first deadline.' });
     const liveData = currentGW ? await optionalApiGet(`https://fantasy.premierleague.com/api/event/${currentGW}/live/`) : null;
 
+    // Pre-fetch player histories in parallel so buildDecisionCentre uses cache
+    const squadPlayerIds = (picks.picks || []).map(p => p.element).filter(Boolean);
+    await Promise.all(squadPlayerIds.map(id => getGlobalPlayerHistory(id).catch(() => null)));
+
     const rivals = (await Promise.all(rivalIds.map(async id => {
       const [entry, rivalPicks] = await Promise.all([
         optionalApiGet(`https://fantasy.premierleague.com/api/entry/${id}/`),
@@ -301,7 +317,11 @@ router.post('/v1/decision-centre', heavyEndpointLimiter, async (req, res) => {
       return { id, name: `${entry.player_first_name} ${entry.player_last_name}`.trim(), teamName: entry.name, rank: entry.summary_overall_rank, picks: rivalPicks.picks };
     }))).filter(Boolean);
 
-    res.json(await buildDecisionCentre({ bootstrap, fixtures, manager: { ...manager, id: managerId }, picks, history, rivals, liveData, options: { ...req.body, targetGW: req.body?.targetGW || nextGW, horizon } }));
+    const result = await buildDecisionCentre({ bootstrap, fixtures, manager: { ...manager, id: managerId }, picks, history, rivals, liveData, options: { ...req.body, targetGW: req.body?.targetGW || nextGW, horizon } });
+    // Cache the result briefly to avoid recomputation on rapid re-requests
+    const cacheKey = `${managerId}:${nextGW}:${horizon}:${rivalIds.join(',')}`;
+    decisionCentreCache.set(cacheKey, { data: result, ts: Date.now() });
+    res.json(result);
   } catch (error) {
     logger.error({ err: error }, 'Decision centre error');
     const status = error.response?.status === 404 ? 404 : 500;
@@ -313,8 +333,14 @@ router.get('/analyze-manager/:managerId', heavyEndpointLimiter, async (req, res)
   const managerId = parsePositiveId(req.params.managerId);
   if (!managerId) return res.status(400).json({ error: 'Invalid manager ID' });
   try {
+    // Serve from recent cache to avoid re-running the heavy analysis
+    const cached = managerCache[managerId];
+    if (cached && cached._cachedAt && Date.now() - cached._cachedAt < 120 * 1000) {
+      return res.json(cached);
+    }
     const bs = await getCachedApiData(BOOTSTRAP_URL);
     const result = await analyzeManager(managerId, bs);
+    result._cachedAt = Date.now();
     managerCache[managerId] = result;
     res.json(result);
   } catch (e) {

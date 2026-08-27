@@ -188,6 +188,7 @@ router.get('/search-managers', async (req, res) => {
 router.get('/bootstrap-static', async (req, res) => {
   try {
     const data = await getCachedApiData(BOOTSTRAP_URL, BOOTSTRAP_CACHE_TTL);
+    res.setHeader('Cache-Control', 'public, max-age=120, stale-while-revalidate=300');
     res.json(data);
   } catch (e) {
     logger.error({ err: e }, 'Bootstrap static error');
@@ -203,6 +204,7 @@ router.get('/fixtures', async (req, res) => {
     const data = isLive
       ? await getCachedApiData(FIXTURES_URL, 0, { bypassCache: true })
       : await getCachedApiData(FIXTURES_URL, BOOTSTRAP_CACHE_TTL);
+    if (!isLive) res.setHeader('Cache-Control', 'public, max-age=120, stale-while-revalidate=300');
     const event = Number(req.query.event);
     if (event && Array.isArray(data)) {
       return res.json(data.filter(f => f.event === event));
@@ -268,7 +270,7 @@ router.get('/league-standings/:leagueId', heavyEndpointLimiter, async (req, res)
     const enriched = [];
     const entries = standings;
 
-    const batchSize = 3;
+    const batchSize = 8; // parallelize more aggressively — cache handles rate limits
     for (let i = 0; i < entries.length; i += batchSize) {
       const batch = entries.slice(i, i + batchSize);
       const results = await Promise.allSettled(batch.map(async e => {

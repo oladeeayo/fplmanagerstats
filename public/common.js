@@ -35,7 +35,7 @@ const FPL = {
 
     // Client-side tab data cache (avoids re-fetching when switching tabs)
     _tabCache: new Map(),
-    _tabCacheTTL: 2 * 60 * 1000, // 2 minutes
+    _tabCacheTTL: 5 * 60 * 1000, // 5 minutes — data only changes when GW results update
 
     getCachedTabData(key) {
         const cached = this._tabCache.get(key);
@@ -86,33 +86,52 @@ const FPL = {
         scatterData: '/api/scatter-data',
     },
 
+    _pendingFetches: new Map(),
+
     async apiFetch(url) {
+        // Deduplicate in-flight requests for the same URL
+        if (this._pendingFetches.has(url)) return this._pendingFetches.get(url);
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 20000);
-        try {
-            const res = await window.fetch(url, { signal: controller.signal });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            return await res.json();
-        } catch (err) {
-            console.error(`Fetch error for ${url}:`, err);
-            if (err.name === 'AbortError') throw new Error('The FPL data request timed out. Please try again.');
-            throw err;
-        } finally {
-            clearTimeout(timeout);
-        }
+        const timeout = setTimeout(() => controller.abort(), 30000);
+        const promise = (async () => {
+            try {
+                const res = await window.fetch(url, { signal: controller.signal });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return await res.json();
+            } catch (err) {
+                console.error(`Fetch error for ${url}:`, err);
+                if (err.name === 'AbortError') throw new Error('The FPL data request timed out. Please try again.');
+                throw err;
+            } finally {
+                clearTimeout(timeout);
+                this._pendingFetches.delete(url);
+            }
+        })();
+        this._pendingFetches.set(url, promise);
+        return promise;
     },
 
+    // In-flight request deduplication (same POST body → reuse pending promise)
+    _pendingPosts: new Map(),
+
     async apiPost(url, body) {
+        const bodyKey = url + '|' + JSON.stringify(body);
+        if (this._pendingPosts.has(bodyKey)) return this._pendingPosts.get(bodyKey);
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 60000);
-        try {
-            const res = await window.fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: controller.signal });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-            return data;
-        } finally {
-            clearTimeout(timeout);
-        }
+        const timeout = setTimeout(() => controller.abort(), 90000);
+        const promise = (async () => {
+            try {
+                const res = await window.fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: controller.signal });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+                return data;
+            } finally {
+                clearTimeout(timeout);
+                this._pendingPosts.delete(bodyKey);
+            }
+        })();
+        this._pendingPosts.set(bodyKey, promise);
+        return promise;
     },
 
     async apiPut(url, body) {
