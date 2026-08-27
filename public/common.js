@@ -8743,7 +8743,7 @@ const FPL = {
                 document.addEventListener('mouseup', onMouseUp);
             });
         });
-    }
+    },
 
     // ===================== SCATTER PLOTS =====================
     async loadScatterData() {
@@ -9094,7 +9094,7 @@ const FPL = {
                 ctx.fillStyle = '#fff';
                 ctx.fill();
                 // Draw image
-n                ctx.drawImage(img, x - logoSize / 2, y - logoSize / 2, logoSize, logoSize);
+                ctx.drawImage(img, x - logoSize / 2, y - logoSize / 2, logoSize, logoSize);
                 ctx.restore();
                 // Border
                 ctx.beginPath();
