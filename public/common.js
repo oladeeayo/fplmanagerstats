@@ -8996,24 +8996,28 @@ const FPL = {
         ctx.beginPath(); ctx.moveTo(pad.left, toY(yMean)); ctx.lineTo(pad.left + chartW, toY(yMean)); ctx.stroke();
         ctx.setLineDash([]);
 
-        // Quadrant labels
+        // Quadrant labels — context-aware based on chart type
         ctx.font = '10px "JetBrains Mono", monospace';
         ctx.textAlign = 'center';
         const quadAlpha = 0.25;
         const midX = toX(xMean);
         const midY = toY(yMean);
-        // Top-left: high actual, low expected (overperforming)
+        const isDefensive = chartType === 'team-xgc-conceded';
+        const qLabels = isDefensive
+            ? { highLow: 'Leaky', highHigh: 'Bad Defense', lowLow: 'Solid Defense', lowHigh: 'Overperforming' }
+            : { highLow: 'Overperforming', highHigh: 'Elite', lowLow: 'Low Output', lowHigh: 'Underperforming' };
+        // Top-left: high actual, low expected
         ctx.fillStyle = `rgba(0,255,133,${quadAlpha})`;
-        ctx.fillText('Overperforming', pad.left + (midX - pad.left) / 2, pad.top + 16);
-        // Top-right: high actual, high expected (elite)
+        ctx.fillText(qLabels.highLow, pad.left + (midX - pad.left) / 2, pad.top + 16);
+        // Top-right: high actual, high expected
         ctx.fillStyle = `rgba(56,189,248,${quadAlpha})`;
-        ctx.fillText('Elite', midX + (pad.left + chartW - midX) / 2, pad.top + 16);
+        ctx.fillText(qLabels.highHigh, midX + (pad.left + chartW - midX) / 2, pad.top + 16);
         // Bottom-left: low actual, low expected
         ctx.fillStyle = `rgba(148,163,184,${quadAlpha})`;
-        ctx.fillText('Low Output', pad.left + (midX - pad.left) / 2, pad.top + chartH - 6);
-        // Bottom-right: low actual, high expected (underperforming)
+        ctx.fillText(qLabels.lowLow, pad.left + (midX - pad.left) / 2, pad.top + chartH - 6);
+        // Bottom-right: low actual, high expected
         ctx.fillStyle = `rgba(255,0,90,${quadAlpha})`;
-        ctx.fillText('Underperforming', midX + (pad.left + chartW - midX) / 2, pad.top + chartH - 6);
+        ctx.fillText(qLabels.lowHigh, midX + (pad.left + chartW - midX) / 2, pad.top + chartH - 6);
 
         // Draw data points
         if (config.isTeam && config.useLogos) {
