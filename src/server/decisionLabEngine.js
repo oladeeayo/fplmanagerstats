@@ -322,17 +322,37 @@ function computeMinutesProbability(player) {
   const minutes = player.minutes || 0;
   const starts = player.starts || 0;
   const totalGWs = Math.max(1, Math.ceil(minutes / 90));
-
-  const startRate = totalGWs > 0 ? starts / totalGWs : 0;
-  const avgMinutes = starts > 0 ? minutes / starts : minutes / Math.max(totalGWs, 1);
   const availability = (player.availability || 100) / 100;
   const starterScore = player.starterScore || 50;
+  const xMins = player.xMins || 0;
 
-  // Start probability: weighted blend of historical start rate and starter score
-  const startProb = clamp(
-    startRate * 0.5 + (starterScore / 100) * 0.3 + availability * 0.2,
-    0, 1
-  );
+  const startRate = totalGWs > 0 ? starts / totalGWs : 0;
+  const avgMinutes = starts > 0 ? minutes / starts : (minutes > 0 ? minutes / Math.max(totalGWs, 1) : 0);
+
+  // Early-season: when there's no current-season data (minutes < 180), lean heavily
+  // on xMins and starterScore rather than the raw start rate which is meaningless at 0/0.
+  const hasData = minutes >= 180; // at least 2 full matches of data
+  let startProb;
+  if (hasData) {
+    // Normal: blend historical start rate with starter score
+    startProb = clamp(
+      startRate * 0.5 + (starterScore / 100) * 0.3 + availability * 0.2,
+      0, 1
+    );
+  } else {
+    // Early season: use xMins as primary signal (it already encodes historical data)
+    const xMinsProb = clamp(xMins / 90, 0, 1);
+    startProb = clamp(
+      xMinsProb * 0.5 + (starterScore / 100) * 0.3 + availability * 0.2,
+      0, 1
+    );
+    // Floor: never drop below 50% for available players with non-zero xMins
+    if (availability >= 0.9 && xMins >= 60) {
+      startProb = Math.max(startProb, 0.65);
+    } else if (availability >= 0.75 && xMins >= 45) {
+      startProb = Math.max(startProb, 0.50);
+    }
+  }
 
   // 60+ minute probability: if starts, probability of playing 60+
   const sixtyPlusGivenStart = avgMinutes >= 75 ? 0.88 : avgMinutes >= 60 ? 0.72 : 0.50;
@@ -930,9 +950,21 @@ function buildSquadHeatmap(squad, allPlayers, options = {}) {
       : 0;
 
     // Player status classification
+    // PRIORITY SELL requires strong evidence: low minutes AND poor role security AND high replacement gain
+    // Don't flag players just because start probability is low early in the season
     let status = 'HOLD';
     let statusPriority = 3;
-    if (minutesProb.startProbability < 40 || (player.availability || 100) < 50) {
+    const isUnavailable = (player.availability || 100) < 50;
+    const hasNoData = (player.minutes || 0) < 90; // less than 1 full match played
+    if (isUnavailable) {
+      status = 'PRIORITY SELL';
+      statusPriority = 0;
+    } else if (minutesProb.startProbability < 30 && replacementGain >= 6 && hasNoData) {
+      // Only PRIORITY SELL if start probability is very low AND there's a clear upgrade AND we have no data
+      status = 'PRIORITY SELL';
+      statusPriority = 0;
+    } else if (minutesProb.startProbability < 40 && replacementGain >= 8 && strength.score < 45) {
+      // Strong evidence needed for PRIORITY SELL with some data
       status = 'PRIORITY SELL';
       statusPriority = 0;
     } else if (replacementGain >= 6 && strength.score < 50) {
