@@ -1006,6 +1006,8 @@ async function buildCaptaincyModel({ bootstrap, fixtures, selectedGW }) {
       comparison: buildComparison(bestPick, rankedDifferential),
     } : null,
     topPicks,
+    // Full scored candidate list for squad-level captaincy merge
+    scoredCandidates: candidates.map((c, i) => ({ id: c.id, name: c.name, captaincyScore: c.captaincyScore, rank: i + 1 })),
   };
 }
 

@@ -337,8 +337,9 @@ async function buildDecisionCentre({ bootstrap, fixtures, manager, picks, histor
   try {
     const targetCaptaincyGW = options.targetGW || projectionData.startGW;
     const captaincyModel = await buildCaptaincyModel({ bootstrap, fixtures, selectedGW: targetCaptaincyGW });
-    if (captaincyModel?.topPicks) {
-      const captaincyMap = new Map(captaincyModel.topPicks.map(pick => [pick.id, pick.captaincyScore]));
+    if (captaincyModel?.scoredCandidates) {
+      // Build a lookup from ALL scored candidates — not just topPicks (top 5)
+      const captaincyMap = new Map(captaincyModel.scoredCandidates.map(c => [c.id, c.captaincyScore]));
       squad.forEach(player => {
         const capScore = captaincyMap.get(player.id);
         if (capScore) player.captaincyScore = capScore;
@@ -445,8 +446,8 @@ async function buildSquadAdvice({ bootstrap, fixtures, playerIds, options = {} }
     try {
       const targetCaptaincyGW = options.targetGW || projectionData.startGW;
       const captaincyModel = await buildCaptaincyModel({ bootstrap, fixtures, selectedGW: targetCaptaincyGW });
-      if (captaincyModel?.topPicks) {
-        const captaincyMap = new Map(captaincyModel.topPicks.map(pick => [pick.id, pick.captaincyScore]));
+      if (captaincyModel?.scoredCandidates) {
+        const captaincyMap = new Map(captaincyModel.scoredCandidates.map(c => [c.id, c.captaincyScore]));
         squad.forEach(player => {
           const capScore = captaincyMap.get(player.id);
           if (capScore) player.captaincyScore = capScore;
@@ -486,9 +487,18 @@ async function buildSquadAdvice({ bootstrap, fixtures, playerIds, options = {} }
     if (player.availability < 75) riskReasons.push(`${player.availability}% availability${player.news ? `: ${player.news}` : ''}`);
     if ((player.weekly[0]?.xMins || 0) < 60) riskReasons.push(`${player.weekly[0]?.xMins || 0} expected minutes next GW`);
     if (!player.weekly[0]?.fixtures?.length) riskReasons.push('blank next gameweek');
-    const weakProjection = player.totalXpts < projectionData.horizon * 2.6;
-    const transferCase = replacement && replacement.netGain >= (replacement.hitCost ? 4.5 : 2.5);
-    const verdict = riskReasons.length && transferCase ? 'Sell' : transferCase ? 'Consider replacing' : weakProjection ? 'Monitor' : 'Keep';
+    // Early-season: dramatically raise the bar for negative verdicts.
+    // After 1-3 GWs the projections are too noisy to recommend selling or monitoring
+    // players who are available and playing — default to Keep unless there's strong evidence.
+    const isEarlySeason = currentGW <= 3;
+    const weakProjectionThreshold = isEarlySeason ? projectionData.horizon * 1.0 : projectionData.horizon * 2.6;
+    const transferNetThreshold = isEarlySeason ? (replacement?.hitCost ? 8.0 : 5.0) : (replacement?.hitCost ? 4.5 : 2.5);
+    const weakProjection = player.totalXpts < weakProjectionThreshold;
+    const transferCase = replacement && replacement.netGain >= transferNetThreshold;
+    // Early season: only flag Sell for unavailable players or blanks; ignore weakProjection entirely
+    const verdict = isEarlySeason
+      ? (riskReasons.length && player.availability < 50 ? 'Sell' : riskReasons.length && player.availability < 75 ? 'Monitor' : transferCase ? 'Monitor' : 'Keep')
+      : (riskReasons.length && transferCase ? 'Sell' : transferCase ? 'Consider replacing' : weakProjection ? 'Monitor' : 'Keep');
     const reasons = [];
     reasons.push(`${player.totalXpts.toFixed(1)} xPts over ${projectionData.horizon} GWs (${player.range.low.toFixed(1)}-${player.range.high.toFixed(1)} range)`);
     reasons.push(`${player.xPtsPerMillion.toFixed(2)} xPts/£m and ${percentile}th position percentile`);
