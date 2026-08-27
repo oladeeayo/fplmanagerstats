@@ -2366,7 +2366,7 @@ router.get('/dashboard/overview', async (req, res) => {
     const gwAverage = currentEvent?.average_entry_score || 42;
     const highestScore = currentEvent?.highest_score || 118;
     const transferCount = nextEvent?.transfers_made ?? currentEvent?.transfers_made ?? 0;
-    const totalTransfers = transferCount > 0 ? (transferCount / 1000000).toFixed(1) + 'M' : '--';
+    const totalTransfers = transferCount > 0 ? transferCount.toLocaleString() : '--';
 
     const mostSelected = [...elements]
       .sort((a, b) => parseFloat(b.selected_by_percent) - parseFloat(a.selected_by_percent))
@@ -2439,18 +2439,32 @@ router.get('/dashboard/overview', async (req, res) => {
       .slice(0, 2);
 
     const priceChanges = [
-      ...priceRisers.map(p => ({
-        name: p.web_name,
-        team: getTeam(p.team)?.short_name || 'FPL',
-        price: '£' + (p.now_cost / 10).toFixed(1) + 'm',
-        direction: 'up'
-      })),
-      ...priceFallers.map(p => ({
-        name: p.web_name,
-        team: getTeam(p.team)?.short_name || 'FPL',
-        price: '£' + (p.now_cost / 10).toFixed(1) + 'm',
-        direction: 'down'
-      }))
+      ...priceRisers.map(p => {
+        const netTransfers = (p.transfers_in_event || 0) - (p.transfers_out_event || 0);
+        const ownership = parseFloat(p.selected_by_percent) || 1;
+        const velocity = netTransfers / Math.max(ownership, 1) * 100;
+        const percent = Math.min(99, Math.max(5, Math.round(Math.abs(velocity) * 1.2)));
+        return {
+          name: p.web_name,
+          team: getTeam(p.team)?.short_name || 'FPL',
+          price: '£' + (p.now_cost / 10).toFixed(1) + 'm',
+          direction: 'up',
+          percent
+        };
+      }),
+      ...priceFallers.map(p => {
+        const netTransfers = (p.transfers_in_event || 0) - (p.transfers_out_event || 0);
+        const ownership = parseFloat(p.selected_by_percent) || 1;
+        const velocity = netTransfers / Math.max(ownership, 1) * 100;
+        const percent = Math.min(99, Math.max(5, Math.round(Math.abs(velocity) * 1.2)));
+        return {
+          name: p.web_name,
+          team: getTeam(p.team)?.short_name || 'FPL',
+          price: '£' + (p.now_cost / 10).toFixed(1) + 'm',
+          direction: 'down',
+          percent
+        };
+      })
     ];
 
     const injuryNews = [...elements]

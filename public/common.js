@@ -1641,7 +1641,8 @@ const FPL = {
                             <div style="font-size:13px;font-weight:700;color:#ffffff;">${pc.name}</div>
                             <div class="mono" style="font-size:10px;color:#8ba396;">${pc.team}</div>
                         </div>
-                        <div style="display:flex;align-items:center;gap:4px;">
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <span class="mono" style="font-size:12px;font-weight:700;color:${pc.direction === 'up' ? '#00ff85' : '#FF005A'};">${pc.percent != null ? pc.percent + '%' : '--'}</span>
                             <span class="mono" style="font-size:13px;font-weight:700;color:#ffffff;">${pc.price}</span>
                             <span class="material-symbols-outlined" style="font-size:16px;color:${pc.direction === 'up' ? '#00ff85' : '#FF005A'};">${pc.direction === 'up' ? 'arrow_upward' : 'arrow_downward'}</span>
                         </div>
@@ -9072,15 +9073,12 @@ const FPL = {
         ctx.font = '11px "JetBrains Mono", monospace';
         ctx.textAlign = 'right';
         const gw = data.currentGW || 1;
-        ctx.fillText(`GW${gw} · ${data.teams?.[0] ? '2025-26' : '2025-26'}`, W - pad.right, pad.top + chartH + 45);
+        const seasonYear = new Date().getUTCMonth() >= 7 ? `${new Date().getUTCFullYear()}-${new Date().getUTCFullYear()+1}` : `${new Date().getUTCFullYear()-1}-${new Date().getUTCFullYear()}`;
+        ctx.fillText(`GW${gw} · ${seasonYear}`, W - pad.right, pad.top + chartH + 45);
     },
 
     _drawTeamScatterPoints(ctx, items, config, toX, toY, loaded, logoSize) {
-        ctx.clearRect(0, 0, ctx.canvas.width / (window.devicePixelRatio || 1), ctx.canvas.height / (window.devicePixelRatio || 1));
-        // Redraw grid, labels etc
-        // Actually we need to redraw everything since we cleared. Let's just draw the points on top.
-        // The canvas was cleared by clearRect in drawScatterChart - we need a different approach.
-        // Let's just overlay the logos on the existing canvas.
+        // Overlay logos on the existing canvas (grid/axes/labels already drawn by drawScatterChart)
         items.forEach(item => {
             const x = toX(item[config.xField] || 0);
             const y = toY(item[config.yField] || 0);
