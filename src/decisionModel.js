@@ -1,4 +1,5 @@
 const { buildPlayerProjections, buildCaptaincyModel } = require('./captaincyModel');
+const { getEliteEntry, computeCaptaincyScore } = require('../data/elite_top20_captaincy');
 const {
   clamp,
   computePlayerStrengthScore,
@@ -57,6 +58,43 @@ function adjustedScore(player, strategy) {
   return player.totalXpts + player.xPtsPerMillion * 0.04 + consistencyBoost * 0.3;
 }
 
+// Compute a captaincy score for a squad player using data available on them.
+// This is used as a direct fallback (and primary method) so captain selection
+// never depends on a fragile merge from buildCaptaincyModel.
+function computeQuickCaptaincyScore(player) {
+  const eliteEntry = getEliteEntry(player.name);
+  const nextFix = player.weekly?.[0]?.fixtures?.[0] || null;
+  const fdr = nextFix?.fdr || 3;
+  const isHome = nextFix?.isHome ?? true;
+  const xPts = Number(player.weekly?.[0]?.xPts) || 0;
+  const form = Number(player.form) || 0;
+  const ppg = Number(player.ppg) || 0;
+  const xGI90 = Number(player.xGI90) || 0;
+  const hasPenalties = (player.roles || []).some(r => /penalt/i.test(r));
+  const hasFreeKicks = (player.roles || []).some(r => /free.?kick/i.test(r));
+  const hasCorners = (player.roles || []).some(r => /corner/i.test(r));
+  return computeCaptaincyScore({
+    xPts, form, ppg, xGI90,
+    position: player.position,
+    fdr, isHome,
+    eliteScore: eliteEntry?.eliteScore || 0,
+    hasPenalties, hasFreeKicks, hasCorners,
+    minutesReliability: player.minutesReliability || 0,
+    consistencyScore: player.consistencyScore || 0,
+    transferPenalty: player.transferPenalty || 1.0,
+  });
+}
+
+// Ensure every squad player has a captaincyScore — computed directly,
+// not dependent on buildCaptaincyModel merge.
+function ensureCaptaincyScores(squad) {
+  squad.forEach(player => {
+    if (!player.captaincyScore?.finalScore) {
+      player.captaincyScore = computeQuickCaptaincyScore(player);
+    }
+  });
+}
+
 function validSquad(players) {
   if (players.length !== 15) return false;
   const positions = players.reduce((counts, player) => ({ ...counts, [player.position]: (counts[player.position] || 0) + 1 }), {});
@@ -74,12 +112,11 @@ function selectLineup(squad, strategy) {
     starters.push(player);
   });
   const bench = ranked.filter(player => !starters.some(starter => starter.id === player.id));
-  // Captain: use captaincyScore.finalScore when available (from the captaincy model),
-  // fall back to weekly xPts. This integrates rotation risk, fixtures, set pieces,
-  // elite pool weighting, and H2H data into the captain pick.
+  // Captain: use captaincyScore.finalScore (computed via elite_top20_captaincy
+  // formula — considers rotation risk, fixtures, set pieces, elite pool, H2H).
   const captainPool = starters.filter(player => player.position !== 'GKP').sort((a, b) => {
-    const scoreA = Number(a.captaincyScore?.finalScore) || a.weekly[0].xPts;
-    const scoreB = Number(b.captaincyScore?.finalScore) || b.weekly[0].xPts;
+    const scoreA = Number(a.captaincyScore?.finalScore) || 0;
+    const scoreB = Number(b.captaincyScore?.finalScore) || 0;
     if (scoreB !== scoreA) return scoreB - scoreA;
     return b.weekly[0].xPts - a.weekly[0].xPts || b.range.high - a.range.high;
   });
@@ -332,20 +369,10 @@ async function buildDecisionCentre({ bootstrap, fixtures, manager, picks, histor
   const bank = Number.isFinite(Number(options.bank)) ? Number(options.bank) : Number(picks.entry_history?.bank || 0) / 10;
   const freeTransfers = Math.max(1, Math.min(5, Number(options.freeTransfers) || 1));
 
-  // Merge captaincy model scores into squad so captain selection uses the full
-  // captaincy model (rotation risk, fixtures, set pieces, elite pool, H2H).
-  try {
-    const targetCaptaincyGW = options.targetGW || projectionData.startGW;
-    const captaincyModel = await buildCaptaincyModel({ bootstrap, fixtures, selectedGW: targetCaptaincyGW });
-    if (captaincyModel?.scoredCandidates) {
-      // Build a lookup from ALL scored candidates — not just topPicks (top 5)
-      const captaincyMap = new Map(captaincyModel.scoredCandidates.map(c => [c.id, c.captaincyScore]));
-      squad.forEach(player => {
-        const capScore = captaincyMap.get(player.id);
-        if (capScore) player.captaincyScore = capScore;
-      });
-    }
-  } catch (e) { /* captaincy model failure is non-fatal — fall back to xPts */ }
+  // Compute captaincy scores directly for every squad player using the
+  // captaincy scoring formula. This is robust — no merge, no async call,
+  // no silent failure. Every player gets a consistent score.
+  ensureCaptaincyScores(squad);
 
   const lineup = selectLineup(squad, strategy);
   // Preserve FPL's actual bench arrangement (positions 12-15) rather than re-sorting by score
@@ -440,21 +467,8 @@ async function buildSquadAdvice({ bootstrap, fixtures, playerIds, options = {} }
   const squad = [...new Set((playerIds || []).map(Number))].map(id => projectionMap.get(id)).filter(Boolean);
   if (!squad.length) throw new Error('Add players before running the squad review');
 
-  // Merge captaincy model scores into squad so captain selection uses the full
-  // captaincy model (rotation risk, fixtures, set pieces, elite pool, H2H).
-  if (squad.length === 15) {
-    try {
-      const targetCaptaincyGW = options.targetGW || projectionData.startGW;
-      const captaincyModel = await buildCaptaincyModel({ bootstrap, fixtures, selectedGW: targetCaptaincyGW });
-      if (captaincyModel?.scoredCandidates) {
-        const captaincyMap = new Map(captaincyModel.scoredCandidates.map(c => [c.id, c.captaincyScore]));
-        squad.forEach(player => {
-          const capScore = captaincyMap.get(player.id);
-          if (capScore) player.captaincyScore = capScore;
-        });
-      }
-    } catch (e) { /* captaincy model failure is non-fatal — fall back to xPts */ }
-  }
+  // Compute captaincy scores directly for every squad player.
+  ensureCaptaincyScores(squad);
 
   const legal = validSquad(squad);
   const squadCost = round(squad.reduce((sum, player) => sum + player.cost, 0));
