@@ -440,7 +440,7 @@ async function buildDecisionCentre({ bootstrap, fixtures, manager, picks, histor
       // New Decision Lab product features
       squadHeatmap: buildSquadHeatmap(squad, projectionData.projections, { currentGW, horizon }),
       decisionTriggers: buildDecisionTriggers(squad),
-      yourDecision: generateYourDecisionBrief(squad, projectionData.projections, { currentGW, horizon, freeTransfers, bank, storedCaptainId: (picks.picks || []).find(p => p.is_captain)?.element || null, siteMostCaptainedId: bootstrap.events?.find(e => e.is_current || e.is_next)?.most_captained || null }),
+      yourDecision: generateYourDecisionBrief(squad, projectionData.projections, { currentGW, horizon, freeTransfers, bank, storedCaptainId: (picks.picks || []).find(p => p.is_captain)?.element || null }),
       chipStrategy: optimizeChips(squad, projectionData.projections, { currentGW, horizon: 8, usedChips: (history.chips || []).map(c => c.name) }),
       // Mode support: analyzeTransfer / findBestTransfer / optimizeTeam
       mode: options.mode || 'optimizeTeam',

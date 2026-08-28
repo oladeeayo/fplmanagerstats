@@ -1316,11 +1316,10 @@ function generateYourDecisionBrief(squad, allPlayers, options = {}) {
     confidence = 55;
   }
 
-  // Captain — prefer the FPL site's most-captained and the manager's stored captain
-  // (from picks data), then fall back to captaincyScore ranking.
-  // A good model tells the manager what the popular/smart choice is, not just raw xPts.
+  // Captain — use the elite top-20 captaincy list (stored every GW) as the
+  // primary signal. If an elite player is in the squad, they're the pick.
+  // Fall back to stored captain (from FPL picks), then model captaincyScore.
   const storedCaptainId = options.storedCaptainId || null;
-  const siteMostCaptainedId = options.siteMostCaptainedId || null;
   const captainPool = squad.filter(p => p.position !== 'GKP' && (p.availability || 0) >= 70);
 
   // Model's top pick by captaincyScore
@@ -1331,12 +1330,19 @@ function generateYourDecisionBrief(squad, allPlayers, options = {}) {
     return (Number(b.weekly?.[0]?.xPts) || 0) - (Number(a.weekly?.[0]?.xPts) || 0);
   })[0] || null;
 
-  // Priority: site most-captained > stored captain > model pick
-  // If the site's popular pick is in the squad, that's the strongest signal.
+  // Elite players: those with a high eliteScore component in their captaincyScore
+  // (from the stored ELITE_CAPTAINCY_PLAYERS list — Haaland, Palmer, Saka, etc.)
+  const elitePlayers = captainPool
+    .filter(p => (p.captaincyScore?.components?.elite || 0) > 50)
+    .sort((a, b) => (b.captaincyScore?.components?.elite || 0) - (a.captaincyScore?.components?.elite || 0));
+  const eliteCaptain = elitePlayers[0] || null;
+
+  // Stored captain from FPL picks data
   const storedCaptain = storedCaptainId ? captainPool.find(p => p.id === storedCaptainId) : null;
-  const siteMostCaptained = siteMostCaptainedId ? captainPool.find(p => p.id === siteMostCaptainedId) : null;
-  const bestCaptain = siteMostCaptained || storedCaptain || modelCaptain;
-  const captainSource = siteMostCaptained ? 'site_popular' : storedCaptain ? 'stored_choice' : 'model';
+
+  // Priority: elite list > stored captain > model pick
+  const bestCaptain = eliteCaptain || storedCaptain || modelCaptain;
+  const captainSource = eliteCaptain ? 'elite_choice' : storedCaptain ? 'stored_choice' : 'model';
 
   // Formation (simplified: suggest best based on squad)
   const positions = { GKP: squad.filter(p => p.position === 'GKP').length, DEF: squad.filter(p => p.position === 'DEF').length, MID: squad.filter(p => p.position === 'MID').length, FWD: squad.filter(p => p.position === 'FWD').length };
@@ -1380,7 +1386,7 @@ function generateYourDecisionBrief(squad, allPlayers, options = {}) {
       source: captainSource,
       modelPick: modelCaptain ? modelCaptain.name : null,
       storedCaptain: storedCaptain ? storedCaptain.name : null,
-      siteMostCaptained: siteMostCaptained ? siteMostCaptained.name : null,
+      eliteRank: eliteCaptain ? elitePlayers.indexOf(eliteCaptain) + 1 : null,
     } : null,
     formation: `${positions.DEF}-${positions.MID}-${positions.FWD}`,
     freeTransfers,
