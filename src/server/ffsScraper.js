@@ -2,10 +2,14 @@ const axios = require('axios');
 const { parse } = require('node-html-parser');
 
 const FFS_URL = 'https://www.fantasyfootballscout.co.uk/fantasy-football-injuries/';
+const FFS_TEAM_NEWS_URL = 'https://www.fantasyfootballscout.co.uk/team-news/';
 
 let cache = null;
 let cacheTime = 0;
 const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+let teamNewsCache = null;
+let teamNewsCacheTime = 0;
 
 const FFS_TEAM_CODE_MAP = {
   'ars': 'ARS', 'avl': 'AVL', 'bou': 'BOU', 'bre': 'BRE', 'bha': 'BHA',
@@ -99,4 +103,82 @@ async function scrapeFFSInjuries() {
   return results;
 }
 
-module.exports = { scrapeFFSInjuries };
+async function scrapeFFSTeamNews() {
+  if (teamNewsCache && Date.now() - teamNewsCacheTime < CACHE_TTL) return teamNewsCache;
+
+  const resp = await axios.get(FFS_TEAM_NEWS_URL, {
+    timeout: 15000,
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+  });
+
+  const root = parse(resp.data);
+  const results = [];
+
+  // Find all team sections
+  const teamSections = root.querySelectorAll('h2');
+  for (const h2 of teamSections) {
+    const teamName = h2.textContent.trim();
+    if (!teamName || teamName.length > 30) continue;
+
+    // Get the parent container for this team
+    let container = h2.parentElement;
+    if (!container) continue;
+
+    // Find predicted XI (player names in the lineup)
+    const playerImages = container.querySelectorAll('img[alt]');
+    const predictedXI = [];
+    for (const img of playerImages) {
+      const alt = img.getAttribute('alt') || '';
+      if (alt && !alt.includes('badge') && !alt.includes('avatar') && alt.length > 3) {
+        predictedXI.push(alt);
+      }
+    }
+
+    // Find injury info (Out, Doubts, Banned sections)
+    const out = [];
+    const doubts = [];
+    const banned = [];
+    const lists = container.querySelectorAll('ul');
+    for (const ul of lists) {
+      const items = ul.querySelectorAll('li');
+      for (const li of items) {
+        const text = li.textContent.trim();
+        if (!text) continue;
+        // Check parent heading
+        const prev = ul.previousElementSibling;
+        const heading = prev ? prev.textContent.toLowerCase() : '';
+        if (heading.includes('out')) out.push(text);
+        else if (heading.includes('doubt')) doubts.push(text);
+        else if (heading.includes('banned')) banned.push(text);
+      }
+    }
+
+    // Find latest news text
+    const paragraphs = container.querySelectorAll('p');
+    let latestNews = '';
+    for (const p of paragraphs) {
+      const text = p.textContent.trim();
+      if (text.length > 50 && text.includes('.')) {
+        latestNews = text;
+        break;
+      }
+    }
+
+    if (predictedXI.length > 0 || out.length > 0 || doubts.length > 0 || latestNews) {
+      results.push({
+        team: teamName,
+        predictedXI,
+        out,
+        doubts,
+        banned,
+        latestNews,
+      });
+    }
+  }
+
+  teamNewsCache = results;
+  teamNewsCacheTime = Date.now();
+  return results;
+}
+
+module.exports = { scrapeFFSInjuries, scrapeFFSTeamNews };
