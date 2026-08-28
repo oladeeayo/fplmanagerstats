@@ -108,7 +108,10 @@ app.get('/api/team-news', async (req, res) => {
     const teams = data.teams || [];
     const elements = data.elements || [];
     const events = data.events || [];
-    const currentGW = events.find(e => e.is_current)?.id || events.find(e => e.is_next)?.id || 1;
+    const currentEvent = events.find(e => e.is_current);
+    const nextEvent = events.find(e => e.is_next);
+    // If current GW is finished, show next GW's news instead
+    const currentGW = (currentEvent?.finished && nextEvent?.id) ? nextEvent.id : (currentEvent?.id || nextEvent?.id || 1);
 
     // Clear stale cache when GW changes
     if (lastTeamNewsResponse && lastTeamNewsResponse.currentGW !== currentGW) {
