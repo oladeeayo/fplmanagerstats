@@ -8964,7 +8964,8 @@ const FPL = {
         const dpr = window.devicePixelRatio || 1;
         const rect = canvas.getBoundingClientRect();
         const W = rect.width || canvas.parentElement?.offsetWidth || 400;
-        const H = Math.min(600, Math.max(320, window.innerHeight * 0.55));
+        const isMobile = W < 520;
+        const H = isMobile ? Math.min(380, Math.max(260, window.innerHeight * 0.45)) : Math.min(600, Math.max(320, window.innerHeight * 0.55));
         canvas.width = W * dpr;
         canvas.height = H * dpr;
         canvas.style.height = H + 'px';
@@ -8977,7 +8978,7 @@ const FPL = {
         ctx.clearRect(0, 0, W, H);
 
         // Padding
-        const pad = { top: 30, right: 40, bottom: 60, left: 70 };
+        const pad = isMobile ? { top: 16, right: 12, bottom: 40, left: 36 } : { top: 30, right: 40, bottom: 60, left: 70 };
         const chartW = W - pad.left - pad.right;
         const chartH = H - pad.top - pad.bottom;
 
@@ -9016,19 +9017,19 @@ const FPL = {
 
         // Axis labels
         ctx.fillStyle = 'rgba(255,255,255,0.45)';
-        ctx.font = '11px "JetBrains Mono", monospace';
+        ctx.font = (isMobile ? '9px' : '11px') + ' "JetBrains Mono", monospace';
         ctx.textAlign = 'center';
         xTicks.forEach(v => {
-            ctx.fillText(v.toFixed(v % 1 === 0 ? 0 : 1), toX(v), pad.top + chartH + 20);
+            ctx.fillText(v.toFixed(v % 1 === 0 ? 0 : 1), toX(v), pad.top + chartH + (isMobile ? 14 : 20));
         });
         ctx.textAlign = 'right';
         yTicks.forEach(v => {
-            ctx.fillText(v.toFixed(v % 1 === 0 ? 0 : 1), pad.left - 8, toY(v) + 4);
+            ctx.fillText(v.toFixed(v % 1 === 0 ? 0 : 1), pad.left - 4, toY(v) + 4);
         });
 
         // Axis titles
         ctx.fillStyle = 'rgba(255,255,255,0.55)';
-        ctx.font = '12px "Plus Jakarta Sans", sans-serif';
+        ctx.font = (isMobile ? '10px' : '12px') + ' "Plus Jakarta Sans", sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(config.xLabel, pad.left + chartW / 2, H - 10);
         ctx.save();
@@ -9063,7 +9064,8 @@ const FPL = {
         ctx.beginPath(); ctx.moveTo(pad.left, toY(yMean)); ctx.lineTo(pad.left + chartW, toY(yMean)); ctx.stroke();
         ctx.setLineDash([]);
 
-        // Quadrant labels — context-aware based on chart type
+        // Quadrant labels — skip on mobile (too cramped)
+        if (!isMobile) {
         ctx.font = '10px "JetBrains Mono", monospace';
         ctx.textAlign = 'center';
         const quadAlpha = 0.25;
@@ -9085,10 +9087,11 @@ const FPL = {
         // Bottom-right: low actual, high expected
         ctx.fillStyle = `rgba(255,0,90,${quadAlpha})`;
         ctx.fillText(qLabels.lowHigh, midX + (pad.left + chartW - midX) / 2, pad.top + chartH - 6);
+        } // end quadrant labels
 
         // Draw data points
-        if (config.isTeam && config.useLogos) {
-            // Draw team logos
+        if (config.isTeam && config.useLogos && !isMobile) {
+            // Draw team logos (desktop only)
             const logoSize = Math.min(36, Math.max(24, chartW / items.length * 0.6));
             const loaded = {};
             let pendingCount = 0;
@@ -9109,9 +9112,54 @@ const FPL = {
                 img.src = logoUrl;
             });
             if (pendingCount === 0) this._drawTeamScatterPoints(ctx, items, config, toX, toY, {}, logoSize);
-        } else if (!config.isTeam && config.usePhotos) {
-            // Draw player points with color by position
+        } else {
+            // Mobile teams or all players: draw colored dots
             const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
+            const teamColors = ['#00FF85','#38BDF8','#FF6B9D','#FBBF24','#A78BFA','#F97316','#14B8A6','#EF4444','#8B5CF6','#06B6D4','#84CC16','#E879F9','#FB923C','#22D3EE','#F43F5E','#34D399','#818CF8','#FCD34D','#6EE7B7','#FCA5A5'];
+            this._scatterHoverData = [];
+            items.forEach((item, idx) => {
+                const x = toX(item[config.xField] || 0);
+                const y = toY(item[config.yField] || 0);
+                const color = config.isTeam ? teamColors[idx % teamColors.length] : (posColors[item.position] || '#B0B0B0');
+                const radius = config.isTeam ? (isMobile ? 8 : Math.min(7, Math.max(3, 2 + (item.totalPoints || 0) / 15))) : Math.min(7, Math.max(3, 2 + (item.totalPoints || 0) / 15));
+
+                // Glow
+                ctx.beginPath();
+                ctx.arc(x, y, radius + (isMobile ? 2 : 3), 0, Math.PI * 2);
+                ctx.fillStyle = color + '18';
+                ctx.fill();
+
+                // Dot
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                this._scatterHoverData.push({ x, y, r: radius + (isMobile ? 4 : 3), item, config });
+
+                // Label — on mobile only label top outliers; on desktop label if notable and few items
+                const isOutlier = item[config.xField] > xMean * 1.5 || item[config.yField] > yMean * 1.5 || item.totalPoints > yMean * 2;
+                if (isOutlier && (isMobile ? idx < 8 : items.length < 50)) {
+                    ctx.font = (isMobile ? '8px' : '10px') + ' "Plus Jakarta Sans", sans-serif';
+                    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(item.name || item.short, x, y - radius - 4);
+                    if (!isMobile && !config.isTeam) {
+                        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                        ctx.font = '9px "JetBrains Mono", monospace';
+                        ctx.fillText(item.team, x, y - radius - 15);
+                    }
+                }
+            });
+
+            // Legend
+            if (!isMobile) this._drawPositionLegend(ctx, W, pad);
+
+            // Tooltip
+            this._setupScatterTooltip(canvas);
             this._scatterHoverData = [];
             items.forEach(item => {
                 const x = toX(item[config.xField] || 0);
@@ -9273,7 +9321,10 @@ const FPL = {
                     html += `<div style="color:${posColor};font-size:10px;font-family:var(--font-mono);margin-bottom:6px;"><span style="padding:1px 4px;border-radius:3px;background:${posColor}20;">${item.position}</span> ${item.team} · £${item.cost?.toFixed(1) || '?'}m</div>`;
                     html += `<div style="color:#8ba396;font-family:var(--font-mono);font-size:11px;">${config.xLabel}: <b style="color:#00FF85;">${item[config.xField]}</b></div>`;
                     html += `<div style="color:#8ba396;font-family:var(--font-mono);font-size:11px;">${config.yLabel}: <b style="color:#00FF85;">${item[config.yField]}</b></div>`;
-                    html += `<div style="color:#8ba396;font-family:var(--font-mono);font-size:11px;margin-top:4px;">Pts: <b style="color:#fff;">${item.totalPoints}</b> · Mins: ${item.minutes} · Bonus: ${item.bonus}</div>`;
+                    const costChg = item.costChangeEvent || 0;
+                    const costChgColor = costChg > 0 ? '#00FF85' : costChg < 0 ? '#FF005A' : '#8ba396';
+                    const costChgStr = costChg > 0 ? `+£${(costChg/10).toFixed(1)}m` : costChg < 0 ? `-£${(Math.abs(costChg)/10).toFixed(1)}m` : '';
+                    html += `<div style="color:#8ba396;font-family:var(--font-mono);font-size:11px;margin-top:4px;">Pts: <b style="color:#fff;">${item.totalPoints}</b> · Mins: ${item.minutes}${costChgStr ? ` · <span style="color:${costChgColor};">${costChgStr}</span>` : ''}</div>`;
                 }
                 tooltip.innerHTML = html;
                 tooltip.style.display = 'block';
@@ -9359,8 +9410,9 @@ const FPL = {
         const teamNameStyle = `padding:10px 16px;text-align:left;cursor:pointer;user-select:none;position:sticky;left:0;z-index:2;background:#141916;border-right:1px solid rgba(255,255,255,0.08);`;
         const playerNameStyle = `padding:10px 16px;text-align:left;cursor:pointer;user-select:none;min-width:140px;position:sticky;left:0;z-index:2;background:#141916;border-right:1px solid rgba(255,255,255,0.08);`;
 
+        const isTblMobile = window.innerWidth < 520;
         if (config.isTeam) {
-            thead.innerHTML = `<tr style="background:rgba(255,255,255,0.03);font-size:11px;font-family:var(--font-mono);color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;">
+            thead.innerHTML = `<tr style="background:rgba(255,255,255,0.03);font-size:${isTblMobile ? '10px' : '11px'};font-family:var(--font-mono);color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;">
                 <th style="${teamNameStyle}" onclick="FPL.sortScatterTable('name')">Team ${sortIcon('name')}</th>
                 <th style="${thStyle()}" onclick="FPL.sortScatterTable('${config.xField}')">${config.xLabel} ${sortIcon(config.xField)}</th>
                 <th style="${thStyle()}" onclick="FPL.sortScatterTable('${config.yField}')">${config.yLabel} ${sortIcon(config.yField)}</th>
@@ -9373,7 +9425,7 @@ const FPL = {
                 const diffStr = diff > 0 ? `+${diff.toFixed(2)}` : diff.toFixed(2);
                 const isEven = idx % 2 === 1;
                 return `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);${isEven ? 'background:rgba(255,255,255,0.02);' : ''}">
-                    <td style="padding:10px 16px;background:#0e1411;position:sticky;left:0;z-index:1;border-right:1px solid rgba(255,255,255,0.08);"><div style="display:flex;align-items:center;gap:10px;">${this.teamBadge(item.short, 22)}<span style="font-weight:600;">${item.name}</span></div></td>
+                    <td style="padding:8px 12px;background:#0e1411;position:sticky;left:0;z-index:1;border-right:1px solid rgba(255,255,255,0.08);"><div style="display:flex;align-items:center;gap:8px;">${this.teamBadge(item.short, isTblMobile ? 18 : 22)}<span style="font-weight:600;font-size:${isTblMobile ? '11px' : '13px'};">${item.name}</span></div></td>
                     <td style="text-align:center;font-family:var(--font-mono);font-weight:600;color:#B0B0B0;">${item[config.xField]}</td>
                     <td style="text-align:center;font-family:var(--font-mono);font-weight:700;color:#00FF85;">${item[config.yField]}</td>
                     <td style="text-align:center;font-family:var(--font-mono);font-weight:700;color:${diffColor};">${diffStr}</td>
@@ -9381,30 +9433,39 @@ const FPL = {
                 </tr>`;
             }).join('');
         } else {
-            thead.innerHTML = `<tr style="background:rgba(255,255,255,0.03);font-size:11px;font-family:var(--font-mono);color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;">
+            thead.innerHTML = `<tr style="background:rgba(255,255,255,0.03);font-size:${isTblMobile ? '10px' : '11px'};font-family:var(--font-mono);color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;">
                 <th style="${playerNameStyle}" onclick="FPL.sortScatterTable('name')">Player ${sortIcon('name')}</th>
                 <th style="${thStyle()}" onclick="FPL.sortScatterTable('${config.xField}')">${config.xLabel} ${sortIcon(config.xField)}</th>
                 <th style="${thStyle()}" onclick="FPL.sortScatterTable('${config.yField}')">${config.yLabel} ${sortIcon(config.yField)}</th>
                 <th style="${thStyle()}" onclick="FPL.sortScatterTable('diff')">Diff ${sortIcon('diff')}</th>
                 <th style="${thStyle()}" onclick="FPL.sortScatterTable('totalPoints')">Pts ${sortIcon('totalPoints')}</th>
+                <th style="${thStyle()}" onclick="FPL.sortScatterTable('costChangeEvent')">Chg ${sortIcon('costChangeEvent')}</th>
                 <th style="${thStyle()}" onclick="FPL.sortScatterTable('cost')">Cost ${sortIcon('cost')}</th>
             </tr>`;
-            tbody.innerHTML = items.slice(0, 60).map((item, idx) => {
+            tbody.innerHTML = items.slice(0, isTblMobile ? 30 : 60).map((item, idx) => {
                 const diff = (item[config.yField] || 0) - (item[config.xField] || 0);
                 const diffColor = diff > 0 ? '#00FF85' : diff < 0 ? '#FF005A' : '#fff';
                 const diffStr = diff > 0 ? `+${diff.toFixed(2)}` : diff.toFixed(2);
                 const posColor = posColors[item.position] || '#B0B0B0';
                 const isEven = idx % 2 === 1;
-                return `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);${isEven ? 'background:rgba(255,255,255,0.02);' : ''}">
-                    <td style="padding:10px 16px;background:#0e1411;position:sticky;left:0;z-index:1;border-right:1px solid rgba(255,255,255,0.08);"><div style="display:flex;align-items:center;gap:10px;">
+                const cce = item.costChangeEvent || 0;
+                const cceColor = cce > 0 ? '#00FF85' : cce < 0 ? '#FF005A' : '#8ba396';
+                const cceStr = cce > 0 ? `+£${(cce/10).toFixed(1)}` : cce < 0 ? `-£${(Math.abs(cce)/10).toFixed(1)}` : '-';
+                // On mobile: skip photo, smaller text
+                const nameCell = isTblMobile
+                    ? `<td style="padding:8px 12px;background:#0e1411;position:sticky;left:0;z-index:1;border-right:1px solid rgba(255,255,255,0.08);"><div><div style="font-weight:700;font-size:11px;">${item.name}</div><div style="font-size:9px;color:#8ba396;font-family:var(--font-mono);"><span style="color:${posColor};font-weight:700;">${item.position}</span> ${item.team}</div></div></td>`
+                    : `<td style="padding:10px 16px;background:#0e1411;position:sticky;left:0;z-index:1;border-right:1px solid rgba(255,255,255,0.08);"><div style="display:flex;align-items:center;gap:10px;">
                         <div class="player-photo-shell" style="width:32px;height:32px;border-radius:50%;border:1px solid #333;">${this.playerPhotoMarkup({ ...item, fotmobId: this.state.fotmobPlayerIds?.[String(item.code)] }, `${this.escapeHTML(item.name)} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;', true)}</div>
                         <div><div style="font-weight:700;font-size:12px;">${item.name}</div>
                         <div style="font-size:10px;color:#8ba396;font-family:var(--font-mono);"><span style="color:${posColor};font-weight:700;">${item.position}</span> ${item.team}</div></div>
-                    </div></td>
+                    </div></td>`;
+                return `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);${isEven ? 'background:rgba(255,255,255,0.02);' : ''}">
+                    ${nameCell}
                     <td style="text-align:center;font-family:var(--font-mono);font-weight:600;color:#B0B0B0;">${item[config.xField]}</td>
                     <td style="text-align:center;font-family:var(--font-mono);font-weight:700;color:#00FF85;">${item[config.yField]}</td>
                     <td style="text-align:center;font-family:var(--font-mono);font-weight:700;color:${diffColor};">${diffStr}</td>
                     <td style="text-align:center;font-family:var(--font-mono);font-weight:700;color:#fff;">${item.totalPoints}</td>
+                    <td style="text-align:center;font-family:var(--font-mono);font-weight:700;color:${cceColor};">${cceStr}</td>
                     <td style="text-align:center;font-family:var(--font-mono);color:#B0B0B0;">£${(item.cost || 0).toFixed(1)}m</td>
                 </tr>`;
             }).join('');
