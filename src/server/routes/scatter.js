@@ -145,8 +145,6 @@ router.get('/scatter-data', async (req, res) => {
           bonus,
           form: parseFloat(el.form || 0),
           cost: (el.now_cost || 0) / 10,
-          costChangeEvent: parseInt(el.cost_change_event || 0),
-          costChangeStart: parseInt(el.cost_change_start || 0),
         };
       });
 

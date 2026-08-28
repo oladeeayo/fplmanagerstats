@@ -9321,10 +9321,7 @@ const FPL = {
                     html += `<div style="color:${posColor};font-size:10px;font-family:var(--font-mono);margin-bottom:6px;"><span style="padding:1px 4px;border-radius:3px;background:${posColor}20;">${item.position}</span> ${item.team} · £${item.cost?.toFixed(1) || '?'}m</div>`;
                     html += `<div style="color:#8ba396;font-family:var(--font-mono);font-size:11px;">${config.xLabel}: <b style="color:#00FF85;">${item[config.xField]}</b></div>`;
                     html += `<div style="color:#8ba396;font-family:var(--font-mono);font-size:11px;">${config.yLabel}: <b style="color:#00FF85;">${item[config.yField]}</b></div>`;
-                    const costChg = item.costChangeEvent || 0;
-                    const costChgColor = costChg > 0 ? '#00FF85' : costChg < 0 ? '#FF005A' : '#8ba396';
-                    const costChgStr = costChg > 0 ? `+£${(costChg/10).toFixed(1)}m` : costChg < 0 ? `-£${(Math.abs(costChg)/10).toFixed(1)}m` : '';
-                    html += `<div style="color:#8ba396;font-family:var(--font-mono);font-size:11px;margin-top:4px;">Pts: <b style="color:#fff;">${item.totalPoints}</b> · Mins: ${item.minutes}${costChgStr ? ` · <span style="color:${costChgColor};">${costChgStr}</span>` : ''}</div>`;
+                    html += `<div style="color:#8ba396;font-family:var(--font-mono);font-size:11px;margin-top:4px;">Pts: <b style="color:#fff;">${item.totalPoints}</b> · Mins: ${item.minutes} · Bonus: ${item.bonus}</div>`;
                 }
                 tooltip.innerHTML = html;
                 tooltip.style.display = 'block';
@@ -9439,7 +9436,6 @@ const FPL = {
                 <th style="${thStyle()}" onclick="FPL.sortScatterTable('${config.yField}')">${config.yLabel} ${sortIcon(config.yField)}</th>
                 <th style="${thStyle()}" onclick="FPL.sortScatterTable('diff')">Diff ${sortIcon('diff')}</th>
                 <th style="${thStyle()}" onclick="FPL.sortScatterTable('totalPoints')">Pts ${sortIcon('totalPoints')}</th>
-                <th style="${thStyle()}" onclick="FPL.sortScatterTable('costChangeEvent')">Chg ${sortIcon('costChangeEvent')}</th>
                 <th style="${thStyle()}" onclick="FPL.sortScatterTable('cost')">Cost ${sortIcon('cost')}</th>
             </tr>`;
             tbody.innerHTML = items.slice(0, isTblMobile ? 30 : 60).map((item, idx) => {
@@ -9448,9 +9444,7 @@ const FPL = {
                 const diffStr = diff > 0 ? `+${diff.toFixed(2)}` : diff.toFixed(2);
                 const posColor = posColors[item.position] || '#B0B0B0';
                 const isEven = idx % 2 === 1;
-                const cce = item.costChangeEvent || 0;
-                const cceColor = cce > 0 ? '#00FF85' : cce < 0 ? '#FF005A' : '#8ba396';
-                const cceStr = cce > 0 ? `+£${(cce/10).toFixed(1)}` : cce < 0 ? `-£${(Math.abs(cce)/10).toFixed(1)}` : '-';
+
                 // On mobile: skip photo, smaller text
                 const nameCell = isTblMobile
                     ? `<td style="padding:8px 12px;background:#0e1411;position:sticky;left:0;z-index:1;border-right:1px solid rgba(255,255,255,0.08);"><div><div style="font-weight:700;font-size:11px;">${item.name}</div><div style="font-size:9px;color:#8ba396;font-family:var(--font-mono);"><span style="color:${posColor};font-weight:700;">${item.position}</span> ${item.team}</div></div></td>`
@@ -9465,7 +9459,6 @@ const FPL = {
                     <td style="text-align:center;font-family:var(--font-mono);font-weight:700;color:#00FF85;">${item[config.yField]}</td>
                     <td style="text-align:center;font-family:var(--font-mono);font-weight:700;color:${diffColor};">${diffStr}</td>
                     <td style="text-align:center;font-family:var(--font-mono);font-weight:700;color:#fff;">${item.totalPoints}</td>
-                    <td style="text-align:center;font-family:var(--font-mono);font-weight:700;color:${cceColor};">${cceStr}</td>
                     <td style="text-align:center;font-family:var(--font-mono);color:#B0B0B0;">£${(item.cost || 0).toFixed(1)}m</td>
                 </tr>`;
             }).join('');
