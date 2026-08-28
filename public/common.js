@@ -198,6 +198,14 @@ const FPL = {
             this.state.currentGW = deadline.currentGW;
             this.state.selectedGW = this.state.currentGW;
 
+            // Clear stale caches when GW changes
+            const lastGW = localStorage.getItem('fplCurrentGW');
+            if (lastGW && lastGW !== String(deadline.currentGW)) {
+                this._tabCache.clear();
+                localStorage.removeItem('fplDeadlineTime');
+            }
+            localStorage.setItem('fplCurrentGW', String(deadline.currentGW));
+
             // Build team and player maps
             bootstrap.teams.forEach(t => { this.state.teamMap[t.id] = t; });
             bootstrap.elements.forEach(p => {
