@@ -272,28 +272,32 @@ router.get('/price-changes', async (req, res) => {
       };
     };
 
-    // Risers: players whose price went up, plus those strongly predicted to rise
+    // Risers: already risen this GW, or price_change_percent >= 80% (strongly predicted)
     const risers = r.elements
-      .filter(p => p.cost_change_event > 0 || (p.price_change_hourly_rate > 0 && (parseFloat(p.price_change_percent) || 0) > 20))
+      .filter(p => {
+        const pct = parseFloat(p.price_change_percent) || 0;
+        return p.cost_change_event > 0 || (pct >= 80 && p.cost_change_event === 0);
+      })
       .sort((a,b) => {
-        // Already-risen players first, then by hourly rate
+        // Already-risen first, then by price_change_percent descending
         if (a.cost_change_event > 0 && b.cost_change_event <= 0) return -1;
         if (b.cost_change_event > 0 && a.cost_change_event <= 0) return 1;
-        return (b.price_change_hourly_rate || 0) - (a.price_change_hourly_rate || 0);
+        return (parseFloat(b.price_change_percent) || 0) - (parseFloat(a.price_change_percent) || 0);
       })
-      .slice(0, 15)
       .map(map);
 
-    // Fallers: players whose price went down, plus those strongly predicted to fall
+    // Fallers: already fallen this GW, or price_change_percent <= -80% (strongly predicted)
     const fallers = r.elements
-      .filter(p => p.cost_change_event < 0 || (p.price_change_hourly_rate < 0 && (parseFloat(p.price_change_percent) || 0) < -20))
+      .filter(p => {
+        const pct = parseFloat(p.price_change_percent) || 0;
+        return p.cost_change_event < 0 || (pct <= -80 && p.cost_change_event === 0);
+      })
       .sort((a,b) => {
-        // Already-fallen players first, then by absolute hourly rate
+        // Already-fallen first, then by price_change_percent ascending (most negative = most likely)
         if (a.cost_change_event < 0 && b.cost_change_event >= 0) return -1;
         if (b.cost_change_event < 0 && a.cost_change_event >= 0) return 1;
-        return (a.price_change_hourly_rate || 0) - (b.price_change_hourly_rate || 0);
+        return (parseFloat(a.price_change_percent) || 0) - (parseFloat(b.price_change_percent) || 0);
       })
-      .slice(0, 15)
       .map(map);
 
     res.json({ risers, fallers });
@@ -2500,34 +2504,26 @@ router.get('/dashboard/overview', async (req, res) => {
     const priceRisers = [...elements]
       .filter(p => {
         const pct = parseFloat(p.price_change_percent) || 0;
-        const hourlyRate = p.price_change_hourly_rate || 0;
-        // Include: already risen this GW, or positive projection not yet risen
-        return p.cost_change_event > 0 || (pct > 0 && hourlyRate > 0 && p.cost_change_event === 0);
+        // Already risen this GW, or strongly predicted (80%+ threshold)
+        return p.cost_change_event > 0 || (pct >= 80 && p.cost_change_event === 0);
       })
       .map(p => {
         const pct = Math.abs(parseFloat(p.price_change_percent) || 0);
-        const hourlyRate = Math.abs(p.price_change_hourly_rate || 0);
-        return { ...p, percent: Math.min(150, Math.round(pct)), hourlyRate };
+        return { ...p, percent: Math.min(150, Math.round(pct)) };
       })
-      .filter(p => p.percent >= 10)
-      .sort((a, b) => b.hourlyRate - a.hourlyRate)
-      .slice(0, 3);
+      .sort((a, b) => b.percent - a.percent);
 
     const priceFallers = [...elements]
       .filter(p => {
         const pct = parseFloat(p.price_change_percent) || 0;
-        const hourlyRate = p.price_change_hourly_rate || 0;
-        // Include: already fallen this GW, or negative projection not yet fallen
-        return p.cost_change_event < 0 || (pct < 0 && hourlyRate < 0 && p.cost_change_event === 0);
+        // Already fallen this GW, or strongly predicted (80%+ threshold)
+        return p.cost_change_event < 0 || (pct <= -80 && p.cost_change_event === 0);
       })
       .map(p => {
         const pct = Math.abs(parseFloat(p.price_change_percent) || 0);
-        const hourlyRate = Math.abs(p.price_change_hourly_rate || 0);
-        return { ...p, percent: Math.min(150, Math.round(pct)), hourlyRate };
+        return { ...p, percent: Math.min(150, Math.round(pct)) };
       })
-      .filter(p => p.percent >= 10)
-      .sort((a, b) => b.hourlyRate - a.hourlyRate)
-      .slice(0, 3);
+      .sort((a, b) => b.percent - a.percent);
 
     const priceChanges = [
       ...priceRisers.map(p => ({
