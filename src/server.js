@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const helmet = require('helmet');
+const compression = require('compression');
 
 // Sentry — must be imported before any other module
 if (process.env.SENTRY_DSN) {
@@ -37,6 +38,9 @@ const PORT = process.env.PORT || 3000;
 const clientDistPath = path.join(__dirname, '../dist');
 
 app.set('trust proxy', 1);
+
+// Gzip compression — critical for mobile: compresses ~4MB of JS/HTML/CSS/API responses to ~800KB
+app.use(compression({ threshold: 1024, level: 6 }));
 
 app.use(express.static(clientDistPath, {
   maxAge: '1y',
