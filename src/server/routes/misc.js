@@ -2345,8 +2345,10 @@ router.get('/manager-squad/:managerId', async (req, res) => {
 // ---- Dashboard Overview ----
 router.get('/dashboard/overview', async (req, res) => {
   try {
-    const bs = await getCachedApiData(BOOTSTRAP_URL);
-    const fixtures = await getCachedApiData(FIXTURES_URL);
+    const [bs, fixtures] = await Promise.all([
+      getCachedApiData(BOOTSTRAP_URL),
+      getCachedApiData(FIXTURES_URL)
+    ]);
 
     const elements = bs.elements || [];
     const teams = bs.teams || [];
@@ -2356,7 +2358,8 @@ router.get('/dashboard/overview', async (req, res) => {
     const currentGW = currentEvent?.id || 1;
     const projectionGW = nextEvent?.id || currentGW;
 
-    const getTeam = id => teams.find(t => t.id === id);
+    const teamMap = new Map(teams.map(t => [t.id, t]));
+    const getTeam = id => teamMap.get(id);
     const getPosStr = type => {
       if (type === 1) return 'GK';
       if (type === 2) return 'DEF';
@@ -2548,13 +2551,16 @@ router.get('/dashboard/overview', async (req, res) => {
 router.get('/tactics/zones', async (req, res) => {
   try {
     const formation = req.query.formation || '4231';
-    const bs = await getCachedApiData(BOOTSTRAP_URL);
-    const fixtures = await getCachedApiData(FIXTURES_URL);
+    const [bs, fixtures] = await Promise.all([
+      getCachedApiData(BOOTSTRAP_URL),
+      getCachedApiData(FIXTURES_URL)
+    ]);
     
     const elements = bs.elements || [];
     const teams = bs.teams || [];
     const currentGW = bs.events.find(e => e.is_current)?.id || 1;
-    const getTeam = id => teams.find(t => t.id === id);
+    const teamMap = new Map(teams.map(t => [t.id, t]));
+    const getTeam = id => teamMap.get(id);
 
     const playersByPos = {
       1: elements.filter(p => p.element_type === 1 && p.minutes > 0).sort((a, b) => b.total_points - a.total_points),

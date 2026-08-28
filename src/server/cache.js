@@ -19,7 +19,7 @@ if (UPSTASH_URL && UPSTASH_TOKEN) {
 const upstreamCache = new Map();
 const globalPlayerHistoryCache = new Map();
 const geoCache = new Map();
-const CACHE_MAX_ENTRIES = 500;
+const CACHE_MAX_ENTRIES = 1024;
 const GEO_CACHE_TTL = 24 * 60 * 60 * 1000;
 const PLAYER_HISTORY_TTL = 30 * 60; // 30min — FPL history only changes once per GW
 const BOOTSTRAP_URL = 'https://fantasy.premierleague.com/api/bootstrap-static/';

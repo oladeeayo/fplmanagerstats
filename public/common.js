@@ -172,10 +172,8 @@ const FPL = {
         this.hideLoading();
         this.state.playerFilter = 'all';
 
+        // Load deadline from localStorage first, then update from bootstrap
         this.setupDeadlineCountdown(localStorage.getItem('fplDeadlineTime'), localStorage.getItem('fplDeadlineGW'));
-        this.apiFetch(this.API.deadline)
-            .then(deadline => this.setupDeadlineCountdown(deadline?.deadlineTime, deadline?.deadlineGW || deadline?.nextGW))
-            .catch(() => {});
 
         try {
             const [bootstrap, fixtures, fotmobData] = await Promise.all([
@@ -210,17 +208,18 @@ const FPL = {
                 p.positionName = this.state.positionMap[p.element_type] || '';
             });
 
-            // Update deadline display and start countdown
-            if (!this.setupDeadlineCountdown(deadline.deadlineTime, futureEvent?.id || nextEvent?.id || deadline.currentGW)) {
-                // Fallback: fetch deadline independently if initial load failed
-                this.apiFetch(this.API.deadline).then(dl => this.setupDeadlineCountdown(dl?.deadlineTime, dl?.deadlineGW || dl?.nextGW)).catch(() => {});
-            }
+            // Update deadline display and start countdown (from bootstrap data, no extra API call)
+            this.setupDeadlineCountdown(deadline.deadlineTime, futureEvent?.id || nextEvent?.id || deadline.currentGW);
 
-            // Refresh deadline every 5 minutes to stay accurate
+            // Refresh deadline every 30 minutes (only changes once per GW)
             if (this._deadlineRefreshInterval) clearInterval(this._deadlineRefreshInterval);
             this._deadlineRefreshInterval = setInterval(() => {
-                this.apiFetch(this.API.deadline).then(dl => setupDeadlineCountdown(dl?.deadlineTime, dl?.deadlineGW || dl?.nextGW)).catch(() => {});
-            }, 5 * 60 * 1000);
+                this.apiFetch(this.API.bootstrap).then(dl => {
+                    const next = dl.events?.find(e => e.is_next);
+                    const future = dl.events?.find(e => e.deadline_time && new Date(e.deadline_time).getTime() > Date.now());
+                    this.setupDeadlineCountdown(future?.deadline_time || next?.deadline_time, future?.id || next?.id);
+                }).catch(() => {});
+            }, 30 * 60 * 1000);
 
             // Populate GW jump selector
             this.updateFixtureGWJump();
@@ -628,8 +627,13 @@ const FPL = {
     },
 
     async fetchTeamNews() {
-        const data = await this.apiFetch('/api/team-news');
-        if (!data || !Array.isArray(data.teams)) throw new Error('Team news returned an invalid response.');
+        const cacheKey = 'teamnews';
+        let data = this.getCachedTabData(cacheKey);
+        if (!data) {
+            data = await this.apiFetch('/api/team-news');
+            if (!data || !Array.isArray(data.teams)) throw new Error('Team news returned an invalid response.');
+            this.setCachedTabData(cacheKey, data);
+        }
         return data;
     },
 
