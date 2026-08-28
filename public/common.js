@@ -1662,7 +1662,9 @@ const FPL = {
 
             const priceChangesContainer = document.getElementById('dash-price-changes-list');
             if (priceChangesContainer && data.priceChanges) {
-                priceChangesContainer.innerHTML = data.priceChanges.length > 0 ? data.priceChanges.map(pc => `
+                const risers = data.priceChanges.filter(pc => pc.direction === 'up');
+                const fallers = data.priceChanges.filter(pc => pc.direction === 'down');
+                const renderPc = (pc) => `
                     <div style="padding:6px 0;">
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                             <div style="display:flex;align-items:center;gap:6px;">
@@ -1678,8 +1680,21 @@ const FPL = {
                             <span style="font-size:10px;font-weight:600;color:${pc.direction === 'up' ? '#00ff85' : '#FF005A'};white-space:nowrap;">${pc.label}</span>
                             <span class="mono" style="font-size:10px;color:#8ba396;">${pc.percent}%</span>
                         </div>
-                    </div>
-                `).join('') : '<div style="text-align:center;padding:12px;font-size:13px;color:#8ba396;">No price changes predicted</div>';
+                    </div>`;
+                const top5R = risers.slice(0, 5).map(renderPc).join('');
+                const restR = risers.slice(5);
+                const top5F = fallers.slice(0, 5).map(renderPc).join('');
+                const restF = fallers.slice(5);
+                const scrollSection = (title, color, items) => {
+                    if (items.length === 0) return '';
+                    return `<div style="margin-top:4px;">
+                        <div style="font-size:10px;font-weight:600;color:${color};margin-bottom:4px;">${title}</div>
+                        <div style="max-height:180px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:${color}33 transparent;">${items.map(renderPc).join('')}</div>
+                    </div>`;
+                };
+                priceChangesContainer.innerHTML = (risers.length > 0 || fallers.length > 0) ?
+                    top5R + top5F + scrollSection('More Risers ↑', '#00ff85', restR) + scrollSection('More Fallers ↓', '#FF005A', restF) :
+                    '<div style="text-align:center;padding:12px;font-size:13px;color:#8ba396;">No price changes predicted</div>';
             }
 
             const transfersOutContainer = document.getElementById('dash-transfers-out-list');
