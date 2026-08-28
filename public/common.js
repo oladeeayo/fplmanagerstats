@@ -5273,6 +5273,7 @@ const FPL = {
                 <span class="tn-sources-label">Sources:</span>
                 <a href="https://fantasy.premierleague.com/api/bootstrap-static/" target="_blank" rel="noopener">FPL API</a>
                 <a href="https://www.fantasyfootballscout.co.uk/fantasy-football-injuries/" target="_blank" rel="noopener">FFS Injuries</a>
+                <a href="https://www.fantasyfootballhub.co.uk/premier-league-predicted-lineups" target="_blank" rel="noopener">FFH Predicted Lineups</a>
                 <a href="https://www.premierleague.com/en/latest-player-injuries" target="_blank" rel="noopener">PL Injuries</a>
                 <a href="https://www.premierfantasytools.com/premier-league-press-conferences/" target="_blank" rel="noopener">Press Conferences</a>
             </div>`;
