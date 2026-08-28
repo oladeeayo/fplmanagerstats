@@ -2434,42 +2434,56 @@ router.get('/dashboard/overview', async (req, res) => {
       });
 
     const priceRisers = [...elements]
-      .filter(p => p.cost_change_event === 0 && p.transfers_in_event > 50000)
-      .sort((a, b) => b.transfers_in_event - a.transfers_in_event)
-      .slice(0, 2);
+      .filter(p => p.cost_change_event === 0)
+      .map(p => {
+        const netTransfers = (p.transfers_in_event || 0) - (p.transfers_out_event || 0);
+        const ownership = parseFloat(p.selected_by_percent) || 1;
+        // FPL rise threshold decreases each GW; estimate ~0.5% of ownership for early season
+        const riseThreshold = Math.max(5000, ownership * 10);
+        const progress = Math.min(150, Math.round((netTransfers / riseThreshold) * 100));
+        return { ...p, progress, netTransfers };
+      })
+      .filter(p => p.progress >= 50)
+      .sort((a, b) => b.progress - a.progress)
+      .slice(0, 3);
 
     const priceFallers = [...elements]
-      .filter(p => p.cost_change_event === 0 && p.transfers_out_event > 50000)
-      .sort((a, b) => b.transfers_out_event - a.transfers_out_event)
-      .slice(0, 2);
+      .filter(p => p.cost_change_event === 0)
+      .map(p => {
+        const netTransfers = (p.transfers_in_event || 0) - (p.transfers_out_event || 0);
+        const ownership = parseFloat(p.selected_by_percent) || 1;
+        // FPL fall threshold is based on ownership; estimate ~0.5% for low-owned, less for high-owned
+        const fallThreshold = Math.max(2000, ownership * 5);
+        const progress = Math.min(150, Math.round((Math.abs(netTransfers) / fallThreshold) * 100));
+        return { ...p, progress, netTransfers };
+      })
+      .filter(p => p.progress >= 50)
+      .sort((a, b) => b.progress - a.progress)
+      .slice(0, 3);
+
+    const getLabel = (progress, direction) => {
+      if (progress >= 100) return direction === 'up' ? 'Very Likely to Rise' : 'Very Likely to Drop';
+      if (progress >= 80) return direction === 'up' ? 'Likely to Rise' : 'Likely to Drop';
+      return direction === 'up' ? 'Rising' : 'Falling';
+    };
 
     const priceChanges = [
-      ...priceRisers.map(p => {
-        const netTransfers = (p.transfers_in_event || 0) - (p.transfers_out_event || 0);
-        const ownership = parseFloat(p.selected_by_percent) || 1;
-        const velocity = netTransfers / Math.max(ownership, 1) * 100;
-        const percent = Math.min(99, Math.max(5, Math.round(Math.abs(velocity) * 1.2)));
-        return {
-          name: p.web_name,
-          team: getTeam(p.team)?.short_name || 'FPL',
-          price: '£' + (p.now_cost / 10).toFixed(1) + 'm',
-          direction: 'up',
-          percent
-        };
-      }),
-      ...priceFallers.map(p => {
-        const netTransfers = (p.transfers_in_event || 0) - (p.transfers_out_event || 0);
-        const ownership = parseFloat(p.selected_by_percent) || 1;
-        const velocity = netTransfers / Math.max(ownership, 1) * 100;
-        const percent = Math.min(99, Math.max(5, Math.round(Math.abs(velocity) * 1.2)));
-        return {
-          name: p.web_name,
-          team: getTeam(p.team)?.short_name || 'FPL',
-          price: '£' + (p.now_cost / 10).toFixed(1) + 'm',
-          direction: 'down',
-          percent
-        };
-      })
+      ...priceRisers.map(p => ({
+        name: p.web_name,
+        team: getTeam(p.team)?.short_name || 'FPL',
+        price: '£' + (p.now_cost / 10).toFixed(1) + 'm',
+        direction: 'up',
+        percent: p.progress,
+        label: getLabel(p.progress, 'up')
+      })),
+      ...priceFallers.map(p => ({
+        name: p.web_name,
+        team: getTeam(p.team)?.short_name || 'FPL',
+        price: '£' + (p.now_cost / 10).toFixed(1) + 'm',
+        direction: 'down',
+        percent: p.progress,
+        label: getLabel(p.progress, 'down')
+      }))
     ];
 
     const injuryNews = [...elements]

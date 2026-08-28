@@ -1659,18 +1659,23 @@ const FPL = {
             const priceChangesContainer = document.getElementById('dash-price-changes-list');
             if (priceChangesContainer && data.priceChanges) {
                 priceChangesContainer.innerHTML = data.priceChanges.length > 0 ? data.priceChanges.map(pc => `
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;">
-                        <div>
-                            <div style="font-size:13px;font-weight:700;color:#ffffff;">${pc.name}</div>
-                            <div class="mono" style="font-size:10px;color:#8ba396;">${pc.team}</div>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:6px;">
-                            <span class="mono" style="font-size:12px;font-weight:700;color:${pc.direction === 'up' ? '#00ff85' : '#FF005A'};">${pc.percent != null ? pc.percent + '%' : '--'}</span>
+                    <div style="padding:6px 0;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                            <div style="display:flex;align-items:center;gap:6px;">
+                                <span style="font-size:13px;font-weight:700;color:#ffffff;">${pc.name}</span>
+                                <span class="mono" style="font-size:10px;color:#8ba396;">${pc.team}</span>
+                            </div>
                             <span class="mono" style="font-size:13px;font-weight:700;color:#ffffff;">${pc.price}</span>
-                            <span class="material-symbols-outlined" style="font-size:16px;color:${pc.direction === 'up' ? '#00ff85' : '#FF005A'};">${pc.direction === 'up' ? 'arrow_upward' : 'arrow_downward'}</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <div style="flex:1;height:4px;background:#1c2720;border-radius:2px;overflow:hidden;">
+                                <div style="width:${Math.min(100, pc.percent)}%;height:100%;background:${pc.direction === 'up' ? '#00ff85' : '#FF005A'};border-radius:2px;"></div>
+                            </div>
+                            <span style="font-size:10px;font-weight:600;color:${pc.direction === 'up' ? '#00ff85' : '#FF005A'};white-space:nowrap;">${pc.label}</span>
+                            <span class="mono" style="font-size:10px;color:#8ba396;">${pc.percent}%</span>
                         </div>
                     </div>
-                `).join('') : '<div style="text-align:center;padding:12px;font-size:13px;color:#8ba396;">No price changes yet</div>';
+                `).join('') : '<div style="text-align:center;padding:12px;font-size:13px;color:#8ba396;">No price changes predicted</div>';
             }
 
             const transfersOutContainer = document.getElementById('dash-transfers-out-list');
