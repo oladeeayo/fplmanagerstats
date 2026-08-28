@@ -635,13 +635,9 @@ const FPL = {
     },
 
     async fetchTeamNews() {
-        const cacheKey = 'teamnews';
-        let data = this.getCachedTabData(cacheKey);
-        if (!data) {
-            data = await this.apiFetch('/api/team-news');
-            if (!data || !Array.isArray(data.teams)) throw new Error('Team news returned an invalid response.');
-            this.setCachedTabData(cacheKey, data);
-        }
+        // Always fetch fresh team news - it changes each GW
+        const data = await this.apiFetch('/api/team-news?fresh=1');
+        if (!data || !Array.isArray(data.teams)) throw new Error('Team news returned an invalid response.');
         return data;
     },
 

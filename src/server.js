@@ -97,6 +97,7 @@ let lastTeamNewsResponse = null;
 
 app.get('/api/team-news', async (req, res) => {
   const { scrapeFFSInjuries, scrapeFFSTeamNews, scrapePLPredictedLineups } = require('./server/ffsScraper');
+  const forceFresh = req.query.fresh === '1';
 
   try {
     // Fetch all sources in parallel
@@ -115,8 +116,8 @@ app.get('/api/team-news', async (req, res) => {
     // If current GW is finished, show next GW's news instead
     const currentGW = (currentEvent?.finished && nextEvent?.id) ? nextEvent.id : (currentEvent?.id || nextEvent?.id || 1);
 
-    // Clear stale cache when GW changes
-    if (lastTeamNewsResponse && lastTeamNewsResponse.currentGW !== currentGW) {
+    // Clear stale cache when GW changes or force fresh
+    if (forceFresh || (lastTeamNewsResponse && lastTeamNewsResponse.currentGW !== currentGW)) {
       lastTeamNewsResponse = null;
     }
 
