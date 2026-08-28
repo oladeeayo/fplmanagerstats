@@ -237,12 +237,65 @@ router.get('/match-events', (req, res) => {
 });
 
 // ---- Price Changes ----
+// Uses real FPL price change data from bootstrap-static:
+// - cost_change_event: actual change this GW (+1/-1/0)
+// - price_change_percent: current % toward threshold
+// - price_change_hourly_rate: rate of change per hour
+// - price_change_projections: [{offset, projected_percent, likelihood}]
 router.get('/price-changes', async (req, res) => {
   try {
     const r = await getCachedApiData(BOOTSTRAP_URL);
-    const map = p => ({ name: p.web_name, team: (r.teams.find(t=>t.id===p.team)||{}).name, photoId: p.code, change: p.cost_change_event, newCost: p.now_cost, selectedBy: p.selected_by_percent, form: p.form, totalPoints: p.total_points });
-    const risers = r.elements.filter(p => p.cost_change_event > 0).sort((a,b) => b.cost_change_event-a.cost_change_event).slice(0,15).map(map);
-    const fallers = r.elements.filter(p => p.cost_change_event < 0).sort((a,b) => a.cost_change_event-b.cost_change_event).slice(0,15).map(map);
+    const teamMap = new Map(r.teams.map(t => [t.id, t]));
+    const map = p => {
+      const team = teamMap.get(p.team);
+      const pct = parseFloat(p.price_change_percent) || 0;
+      const hourlyRate = p.price_change_hourly_rate || 0;
+      const projections = p.price_change_projections || [];
+      // Find the furthest projected percent
+      const furthestProj = projections.length > 0 ? parseFloat(projections[projections.length - 1].projected_percent) || 0 : pct;
+      return {
+        name: p.web_name, team: team ? team.short_name : 'FPL',
+        photoId: p.code, change: p.cost_change_event,
+        cost: p.now_cost, selectedBy: p.selected_by_percent,
+        form: p.form, totalPoints: p.total_points,
+        // Real FPL price change prediction data
+        priceChangePercent: pct,
+        hourlyRate: hourlyRate,
+        projectedPercent: furthestProj,
+        projections: projections.map(proj => ({
+          offset: proj.offset,
+          percent: parseFloat(proj.projected_percent) || 0,
+          likelihood: proj.likelihood || 0
+        })),
+        lockedUntil: p.price_change_locked_until || null,
+        calibrating: p.price_change_calibrating || false
+      };
+    };
+
+    // Risers: players whose price went up, plus those strongly predicted to rise
+    const risers = r.elements
+      .filter(p => p.cost_change_event > 0 || (p.price_change_hourly_rate > 0 && (parseFloat(p.price_change_percent) || 0) > 20))
+      .sort((a,b) => {
+        // Already-risen players first, then by hourly rate
+        if (a.cost_change_event > 0 && b.cost_change_event <= 0) return -1;
+        if (b.cost_change_event > 0 && a.cost_change_event <= 0) return 1;
+        return (b.price_change_hourly_rate || 0) - (a.price_change_hourly_rate || 0);
+      })
+      .slice(0, 15)
+      .map(map);
+
+    // Fallers: players whose price went down, plus those strongly predicted to fall
+    const fallers = r.elements
+      .filter(p => p.cost_change_event < 0 || (p.price_change_hourly_rate < 0 && (parseFloat(p.price_change_percent) || 0) < -20))
+      .sort((a,b) => {
+        // Already-fallen players first, then by absolute hourly rate
+        if (a.cost_change_event < 0 && b.cost_change_event >= 0) return -1;
+        if (b.cost_change_event < 0 && a.cost_change_event >= 0) return 1;
+        return (a.price_change_hourly_rate || 0) - (b.price_change_hourly_rate || 0);
+      })
+      .slice(0, 15)
+      .map(map);
+
     res.json({ risers, fallers });
   } catch (e) { res.status(500).json({ error: 'Failed' }); }
 });
@@ -1767,7 +1820,7 @@ router.get('/price-predictions', async (req, res) => {
     const teams = bs.teams;
     const getTeam = id => teams.find(t => t.id === id);
 
-    // Price change formula based on transfer velocity and current cost
+    // Use real FPL price change data from the API
     const players = elements
       .filter(p => p.status !== 'u' && p.status !== 's')
       .map(p => {
@@ -1775,16 +1828,15 @@ router.get('/price-predictions', async (req, res) => {
         const cost = p.now_cost || 50;
         const ownership = parseFloat(p.selected_by_percent) || 0;
         
-        // Simple price change velocity model
-        // Positive = likely to rise, Negative = likely to fall
-        const velocity = netTransfers / Math.max(ownership, 1) * 100;
+        // Use the real hourly rate from FPL instead of a broken heuristic
+        const velocity = p.price_change_hourly_rate || 0;
         
-        // Estimate hours until change (rough approximation)
-        const absVelocity = Math.abs(velocity);
+        // Use the real price change percent for hours estimate
+        const pct = Math.abs(parseFloat(p.price_change_percent) || 0);
         let hoursUntilChange = null;
-        if (absVelocity > 50) hoursUntilChange = Math.max(1, Math.round(48 - absVelocity * 0.5));
-        else if (absVelocity > 20) hoursUntilChange = Math.round(48 + (50 - absVelocity) * 2);
-        else if (absVelocity > 5) hoursUntilChange = Math.round(72 + (20 - absVelocity) * 5);
+        if (pct >= 100) hoursUntilChange = 0;
+        else if (pct >= 50) hoursUntilChange = Math.max(1, Math.round((100 - pct) / Math.max(Math.abs(velocity), 1)));
+        else if (pct >= 10) hoursUntilChange = Math.round((100 - pct) / Math.max(Math.abs(velocity), 1));
 
         return {
           id: p.id, name: p.web_name, code: p.code,
@@ -2433,39 +2485,49 @@ router.get('/dashboard/overview', async (req, res) => {
         };
       });
 
+    // Use real FPL price change data from the API
+    // price_change_percent: current % toward threshold (positive=rising, negative=falling)
+    // price_change_hourly_rate: rate of change per hour
+    // price_change_projections: array of {offset, projected_percent, likelihood}
+    // cost_change_event: actual change this GW (+1/-1/0)
+    const getLabel = (pct, direction, alreadyChanged) => {
+      if (alreadyChanged) return direction === 'up' ? 'Risen' : 'Fallen';
+      if (Math.abs(pct) >= 100) return direction === 'up' ? 'Very Likely to Rise' : 'Very Likely to Drop';
+      if (Math.abs(pct) >= 50) return direction === 'up' ? 'Likely to Rise' : 'Likely to Drop';
+      return direction === 'up' ? 'Rising' : 'Falling';
+    };
+
     const priceRisers = [...elements]
-      .filter(p => p.cost_change_event === 0)
-      .map(p => {
-        const netTransfers = (p.transfers_in_event || 0) - (p.transfers_out_event || 0);
-        const ownership = parseFloat(p.selected_by_percent) || 1;
-        // FPL rise threshold decreases each GW; estimate ~0.5% of ownership for early season
-        const riseThreshold = Math.max(5000, ownership * 10);
-        const progress = Math.min(150, Math.round((netTransfers / riseThreshold) * 100));
-        return { ...p, progress, netTransfers };
+      .filter(p => {
+        const pct = parseFloat(p.price_change_percent) || 0;
+        const hourlyRate = p.price_change_hourly_rate || 0;
+        // Include: already risen this GW, or positive projection not yet risen
+        return p.cost_change_event > 0 || (pct > 0 && hourlyRate > 0 && p.cost_change_event === 0);
       })
-      .filter(p => p.progress >= 50)
-      .sort((a, b) => b.progress - a.progress)
+      .map(p => {
+        const pct = Math.abs(parseFloat(p.price_change_percent) || 0);
+        const hourlyRate = Math.abs(p.price_change_hourly_rate || 0);
+        return { ...p, percent: Math.min(150, Math.round(pct)), hourlyRate };
+      })
+      .filter(p => p.percent >= 10)
+      .sort((a, b) => b.hourlyRate - a.hourlyRate)
       .slice(0, 3);
 
     const priceFallers = [...elements]
-      .filter(p => p.cost_change_event === 0)
-      .map(p => {
-        const netTransfers = (p.transfers_in_event || 0) - (p.transfers_out_event || 0);
-        const ownership = parseFloat(p.selected_by_percent) || 1;
-        // FPL fall threshold is based on ownership; estimate ~0.5% for low-owned, less for high-owned
-        const fallThreshold = Math.max(2000, ownership * 5);
-        const progress = Math.min(150, Math.round((Math.abs(netTransfers) / fallThreshold) * 100));
-        return { ...p, progress, netTransfers };
+      .filter(p => {
+        const pct = parseFloat(p.price_change_percent) || 0;
+        const hourlyRate = p.price_change_hourly_rate || 0;
+        // Include: already fallen this GW, or negative projection not yet fallen
+        return p.cost_change_event < 0 || (pct < 0 && hourlyRate < 0 && p.cost_change_event === 0);
       })
-      .filter(p => p.progress >= 50)
-      .sort((a, b) => b.progress - a.progress)
+      .map(p => {
+        const pct = Math.abs(parseFloat(p.price_change_percent) || 0);
+        const hourlyRate = Math.abs(p.price_change_hourly_rate || 0);
+        return { ...p, percent: Math.min(150, Math.round(pct)), hourlyRate };
+      })
+      .filter(p => p.percent >= 10)
+      .sort((a, b) => b.hourlyRate - a.hourlyRate)
       .slice(0, 3);
-
-    const getLabel = (progress, direction) => {
-      if (progress >= 100) return direction === 'up' ? 'Very Likely to Rise' : 'Very Likely to Drop';
-      if (progress >= 80) return direction === 'up' ? 'Likely to Rise' : 'Likely to Drop';
-      return direction === 'up' ? 'Rising' : 'Falling';
-    };
 
     const priceChanges = [
       ...priceRisers.map(p => ({
@@ -2473,16 +2535,16 @@ router.get('/dashboard/overview', async (req, res) => {
         team: getTeam(p.team)?.short_name || 'FPL',
         price: '£' + (p.now_cost / 10).toFixed(1) + 'm',
         direction: 'up',
-        percent: p.progress,
-        label: getLabel(p.progress, 'up')
+        percent: p.percent,
+        label: getLabel(p.percent, 'up', p.cost_change_event > 0)
       })),
       ...priceFallers.map(p => ({
         name: p.web_name,
         team: getTeam(p.team)?.short_name || 'FPL',
         price: '£' + (p.now_cost / 10).toFixed(1) + 'm',
         direction: 'down',
-        percent: p.progress,
-        label: getLabel(p.progress, 'down')
+        percent: p.percent,
+        label: getLabel(p.percent, 'down', p.cost_change_event < 0)
       }))
     ];
 
