@@ -9308,6 +9308,16 @@ const FPL = {
         }, { passive: true });
     },
 
+    sortScatterTable(col) {
+        if (this.state.scatterSortKey === col) {
+            this.state.scatterSortDir *= -1;
+        } else {
+            this.state.scatterSortKey = col;
+            this.state.scatterSortDir = -1;
+        }
+        this.renderScatterTable();
+    },
+
     renderScatterTable() {
         const config = this._getScatterConfig();
         const data = this.state.scatterData;
@@ -9318,8 +9328,19 @@ const FPL = {
             items = items.filter(p => p.position === this.state.scatterPosFilter);
         }
 
-        // Sort by y descending
-        items = [...items].sort((a, b) => (b[config.yField] || 0) - (a[config.yField] || 0));
+        // Apply sort
+        const sortKey = this.state.scatterSortKey || null;
+        const sortDir = this.state.scatterSortDir || -1;
+        if (sortKey) {
+            items = [...items].sort((a, b) => {
+                let va = a[sortKey]; let vb = b[sortKey];
+                if (sortKey === 'diff') { va = (a[config.yField] || 0) - (a[config.xField] || 0); vb = (b[config.yField] || 0) - (b[config.xField] || 0); }
+                if (sortKey === 'name') { return sortDir * String(va || '').localeCompare(String(vb || '')); }
+                return sortDir * ((parseFloat(va) || 0) - (parseFloat(vb) || 0));
+            });
+        } else {
+            items = [...items].sort((a, b) => (b[config.yField] || 0) - (a[config.yField] || 0));
+        }
 
         const thead = document.getElementById('scatter-table-head');
         const tbody = document.getElementById('scatter-table-body');
@@ -9329,14 +9350,22 @@ const FPL = {
         if (countEl) countEl.textContent = `${items.length} items`;
 
         const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
+        const sortIcon = (key) => {
+            const isActive = this.state.scatterSortKey === key;
+            const arrow = (isActive && this.state.scatterSortDir === 1) ? 'arrow_upward' : 'arrow_downward';
+            return `<span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;${isActive ? '' : 'opacity:0.3;'}">${arrow}</span>`;
+        };
+        const thStyle = (col, extra) => `padding:10px 12px;text-align:center;cursor:pointer;user-select:none;white-space:nowrap;${extra || ''}`;
+        const teamNameStyle = `padding:10px 16px;text-align:left;cursor:pointer;user-select:none;position:sticky;left:0;z-index:2;background:#141916;border-right:1px solid rgba(255,255,255,0.08);`;
+        const playerNameStyle = `padding:10px 16px;text-align:left;cursor:pointer;user-select:none;min-width:140px;position:sticky;left:0;z-index:2;background:#141916;border-right:1px solid rgba(255,255,255,0.08);`;
 
         if (config.isTeam) {
             thead.innerHTML = `<tr style="background:rgba(255,255,255,0.03);font-size:11px;font-family:var(--font-mono);color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;">
-                <th style="padding:10px 16px;text-align:left;">Team</th>
-                <th style="padding:10px 12px;text-align:center;">${config.xLabel}</th>
-                <th style="padding:10px 12px;text-align:center;">${config.yLabel}</th>
-                <th style="padding:10px 12px;text-align:center;">Diff</th>
-                <th style="padding:10px 12px;text-align:center;">Pts</th>
+                <th style="${teamNameStyle}" onclick="FPL.sortScatterTable('name')">Team ${sortIcon('name')}</th>
+                <th style="${thStyle()}" onclick="FPL.sortScatterTable('${config.xField}')">${config.xLabel} ${sortIcon(config.xField)}</th>
+                <th style="${thStyle()}" onclick="FPL.sortScatterTable('${config.yField}')">${config.yLabel} ${sortIcon(config.yField)}</th>
+                <th style="${thStyle()}" onclick="FPL.sortScatterTable('diff')">Diff ${sortIcon('diff')}</th>
+                <th style="${thStyle()}" onclick="FPL.sortScatterTable('totalPoints')">Pts ${sortIcon('totalPoints')}</th>
             </tr>`;
             tbody.innerHTML = items.map((item, idx) => {
                 const diff = (item[config.yField] || 0) - (item[config.xField] || 0);
@@ -9344,7 +9373,7 @@ const FPL = {
                 const diffStr = diff > 0 ? `+${diff.toFixed(2)}` : diff.toFixed(2);
                 const isEven = idx % 2 === 1;
                 return `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);${isEven ? 'background:rgba(255,255,255,0.02);' : ''}">
-                    <td style="padding:10px 16px;"><div style="display:flex;align-items:center;gap:10px;">${this.teamBadge(item.short, 22)}<span style="font-weight:600;">${item.name}</span></div></td>
+                    <td style="padding:10px 16px;background:#0e1411;position:sticky;left:0;z-index:1;border-right:1px solid rgba(255,255,255,0.08);"><div style="display:flex;align-items:center;gap:10px;">${this.teamBadge(item.short, 22)}<span style="font-weight:600;">${item.name}</span></div></td>
                     <td style="text-align:center;font-family:var(--font-mono);font-weight:600;color:#B0B0B0;">${item[config.xField]}</td>
                     <td style="text-align:center;font-family:var(--font-mono);font-weight:700;color:#00FF85;">${item[config.yField]}</td>
                     <td style="text-align:center;font-family:var(--font-mono);font-weight:700;color:${diffColor};">${diffStr}</td>
@@ -9353,12 +9382,12 @@ const FPL = {
             }).join('');
         } else {
             thead.innerHTML = `<tr style="background:rgba(255,255,255,0.03);font-size:11px;font-family:var(--font-mono);color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;">
-                <th style="padding:10px 16px;text-align:left;">Player</th>
-                <th style="padding:10px 12px;text-align:center;">${config.xLabel}</th>
-                <th style="padding:10px 12px;text-align:center;">${config.yLabel}</th>
-                <th style="padding:10px 12px;text-align:center;">Diff</th>
-                <th style="padding:10px 12px;text-align:center;">Pts</th>
-                <th style="padding:10px 12px;text-align:center;">Cost</th>
+                <th style="${playerNameStyle}" onclick="FPL.sortScatterTable('name')">Player ${sortIcon('name')}</th>
+                <th style="${thStyle()}" onclick="FPL.sortScatterTable('${config.xField}')">${config.xLabel} ${sortIcon(config.xField)}</th>
+                <th style="${thStyle()}" onclick="FPL.sortScatterTable('${config.yField}')">${config.yLabel} ${sortIcon(config.yField)}</th>
+                <th style="${thStyle()}" onclick="FPL.sortScatterTable('diff')">Diff ${sortIcon('diff')}</th>
+                <th style="${thStyle()}" onclick="FPL.sortScatterTable('totalPoints')">Pts ${sortIcon('totalPoints')}</th>
+                <th style="${thStyle()}" onclick="FPL.sortScatterTable('cost')">Cost ${sortIcon('cost')}</th>
             </tr>`;
             tbody.innerHTML = items.slice(0, 60).map((item, idx) => {
                 const diff = (item[config.yField] || 0) - (item[config.xField] || 0);
@@ -9367,7 +9396,7 @@ const FPL = {
                 const posColor = posColors[item.position] || '#B0B0B0';
                 const isEven = idx % 2 === 1;
                 return `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);${isEven ? 'background:rgba(255,255,255,0.02);' : ''}">
-                    <td style="padding:10px 16px;"><div style="display:flex;align-items:center;gap:10px;">
+                    <td style="padding:10px 16px;background:#0e1411;position:sticky;left:0;z-index:1;border-right:1px solid rgba(255,255,255,0.08);"><div style="display:flex;align-items:center;gap:10px;">
                         <div class="player-photo-shell" style="width:32px;height:32px;border-radius:50%;border:1px solid #333;">${this.playerPhotoMarkup({ ...item, fotmobId: this.state.fotmobPlayerIds?.[String(item.code)] }, `${this.escapeHTML(item.name)} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;', true)}</div>
                         <div><div style="font-weight:700;font-size:12px;">${item.name}</div>
                         <div style="font-size:10px;color:#8ba396;font-family:var(--font-mono);"><span style="color:${posColor};font-weight:700;">${item.position}</span> ${item.team}</div></div>
