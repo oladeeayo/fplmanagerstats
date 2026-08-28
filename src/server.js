@@ -96,14 +96,15 @@ app.use('/api/admin', adminRoutes);
 let lastTeamNewsResponse = null;
 
 app.get('/api/team-news', async (req, res) => {
-  const { scrapeFFSInjuries, scrapeFFSTeamNews } = require('./server/ffsScraper');
+  const { scrapeFFSInjuries, scrapeFFSTeamNews, scrapePLPredictedLineups } = require('./server/ffsScraper');
 
   try {
     // Fetch all sources in parallel
-    const [data, ffsData, ffsTeamNews] = await Promise.all([
+    const [data, ffsData, ffsTeamNews, plLineups] = await Promise.all([
       getCachedApiData(BOOTSTRAP_URL, 5 * 60 * 1000),
       scrapeFFSInjuries().catch(() => []),
       scrapeFFSTeamNews().catch(() => []),
+      scrapePLPredictedLineups().catch(() => []),
     ]);
 
     const teams = data.teams || [];
@@ -224,6 +225,7 @@ app.get('/api/team-news', async (req, res) => {
       teams: sorted,
       ffsCount: (ffsData || []).length,
       ffsTeamNews: ffsTeamNews || [],
+      plLineups: plLineups || [],
     };
     res.json(lastTeamNewsResponse);
   } catch (err) {

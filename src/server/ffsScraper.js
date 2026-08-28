@@ -181,4 +181,97 @@ async function scrapeFFSTeamNews() {
   return results;
 }
 
-module.exports = { scrapeFFSInjuries, scrapeFFSTeamNews };
+// PL Predicted Lineups scraper
+const PL_NEWS_URL = 'https://www.premierleague.com/en/news';
+let plLineupsCache = null;
+let plLineupsCacheTime = 0;
+const PL_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
+async function scrapePLPredictedLineups() {
+  if (plLineupsCache && Date.now() - plLineupsCacheTime < PL_CACHE_TTL) return plLineupsCache;
+
+  try {
+    // Step 1: Find the latest predicted lineups article
+    const newsResp = await axios.get(PL_NEWS_URL, {
+      timeout: 15000,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+    });
+    const newsRoot = parse(newsResp.data);
+
+    // Find link to predicted lineups article
+    const links = newsRoot.querySelectorAll('a[href]');
+    let articleUrl = null;
+    for (const link of links) {
+      const href = link.getAttribute('href') || '';
+      const text = link.textContent.toLowerCase();
+      if ((text.includes('predicted') && text.includes('line')) || href.includes('predicted-line')) {
+        articleUrl = href.startsWith('http') ? href : `https://www.premierleague.com${href}`;
+        break;
+      }
+    }
+
+    if (!articleUrl) {
+      plLineupsCache = [];
+      plLineupsCacheTime = Date.now();
+      return [];
+    }
+
+    // Step 2: Fetch the article
+    const articleResp = await axios.get(articleUrl, {
+      timeout: 15000,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+    });
+    const articleRoot = parse(articleResp.data);
+
+    // Step 3: Extract team news from article sections
+    const results = [];
+    const headings = articleRoot.querySelectorAll('h3, h4');
+
+    for (const h of headings) {
+      const text = h.textContent.trim();
+      // Match patterns like "Arsenal v Coventry predicted line-ups" or "Crystal Palace predicted line-ups"
+      const match = text.match(/^(.+?)(?:\s+v\s+|\s+predicted)/i);
+      if (!match) continue;
+
+      const teamName = match[1].trim();
+      if (teamName.length > 30 || teamName.length < 3) continue;
+
+      // Get the content after this heading
+      let content = '';
+      let nextEl = h.nextElementSibling;
+      while (nextEl && !['H3', 'H4'].includes(nextEl.tagName)) {
+        content += nextEl.textContent + '\n';
+        nextEl = nextEl.nextElementSibling;
+      }
+
+      // Extract key info
+      const news = content.replace(/\s+/g, ' ').trim();
+      if (news.length < 20) continue;
+
+      // Extract manager quotes
+      const quoteMatch = news.match(/"[^"]{20,}"/g);
+      const managerQuote = quoteMatch ? quoteMatch[0] : null;
+
+      // Extract injury info
+      const outMatch = news.match(/(?:out|ruled out|unavailable|missing)[^.!?]*[.!?]/gi);
+      const injuryNews = outMatch ? outMatch[0] : null;
+
+      results.push({
+        team: teamName,
+        news: news.substring(0, 500),
+        managerQuote,
+        injuryNews,
+        source: articleUrl,
+      });
+    }
+
+    plLineupsCache = results;
+    plLineupsCacheTime = Date.now();
+    return results;
+  } catch (err) {
+    console.error('PL lineups scrape error:', err.message);
+    return plLineupsCache || [];
+  }
+}
+
+module.exports = { scrapeFFSInjuries, scrapeFFSTeamNews, scrapePLPredictedLineups };
