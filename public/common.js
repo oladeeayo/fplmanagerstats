@@ -9160,47 +9160,6 @@ const FPL = {
 
             // Tooltip
             this._setupScatterTooltip(canvas);
-            this._scatterHoverData = [];
-            items.forEach(item => {
-                const x = toX(item[config.xField] || 0);
-                const y = toY(item[config.yField] || 0);
-                const color = posColors[item.position] || '#B0B0B0';
-                const radius = Math.min(7, Math.max(3, 2 + (item.totalPoints || 0) / 15));
-
-                // Glow
-                ctx.beginPath();
-                ctx.arc(x, y, radius + 3, 0, Math.PI * 2);
-                ctx.fillStyle = color + '18';
-                ctx.fill();
-
-                // Dot
-                ctx.beginPath();
-                ctx.arc(x, y, radius, 0, Math.PI * 2);
-                ctx.fillStyle = color;
-                ctx.fill();
-                ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-                ctx.lineWidth = 1;
-                ctx.stroke();
-
-                this._scatterHoverData.push({ x, y, r: radius + 3, item, config });
-
-                // Label for notable players
-                if ((item[config.xField] > xMean * 1.5 || item[config.yField] > yMean * 1.5 || item.totalPoints > yMean * 2) && items.length < 50) {
-                    ctx.font = '10px "Plus Jakarta Sans", sans-serif';
-                    ctx.fillStyle = 'rgba(255,255,255,0.7)';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(item.name, x, y - radius - 5);
-                    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-                    ctx.font = '9px "JetBrains Mono", monospace';
-                    ctx.fillText(item.team, x, y - radius - 16);
-                }
-            });
-
-            // Position legend
-            this._drawPositionLegend(ctx, W, pad);
-
-            // Tooltip handling
-            this._setupScatterTooltip(canvas);
         }
 
         // Season watermark
