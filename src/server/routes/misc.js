@@ -2431,12 +2431,12 @@ router.get('/dashboard/overview', async (req, res) => {
       });
 
     const priceRisers = [...elements]
-      .filter(p => p.cost_change_event > 0 || p.transfers_in_event > 50000)
+      .filter(p => p.cost_change_event === 0 && p.transfers_in_event > 50000)
       .sort((a, b) => b.transfers_in_event - a.transfers_in_event)
       .slice(0, 2);
 
     const priceFallers = [...elements]
-      .filter(p => p.cost_change_event < 0 || p.transfers_out_event > 50000)
+      .filter(p => p.cost_change_event === 0 && p.transfers_out_event > 50000)
       .sort((a, b) => b.transfers_out_event - a.transfers_out_event)
       .slice(0, 2);
 
