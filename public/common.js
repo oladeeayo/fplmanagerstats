@@ -9069,7 +9069,7 @@ const FPL = {
         const quadAlpha = 0.25;
         const midX = toX(xMean);
         const midY = toY(yMean);
-        const isDefensive = chartType === 'team-xgc-conceded';
+        const isDefensive = (this.state.scatterChartType || 'team-xg-goals') === 'team-xgc-conceded';
         const qLabels = isDefensive
             ? { highLow: 'Leaky', highHigh: 'Bad Defense', lowLow: 'Solid Defense', lowHigh: 'Overperforming' }
             : { highLow: 'Overperforming', highHigh: 'Elite', lowLow: 'Low Output', lowHigh: 'Underperforming' };
