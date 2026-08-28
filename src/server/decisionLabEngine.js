@@ -973,39 +973,88 @@ function buildSquadHeatmap(squad, allPlayers, options = {}) {
       : 0;
 
     // Player status classification
-    // PRIORITY SELL requires strong evidence: low minutes AND poor role security AND high replacement gain
-    // Don't flag players just because start probability is low early in the season
+    // A good model requires 2-3 GWs of evidence before flagging players.
+    // After 1 GW the projections are dominated by priors — flagging is noise.
+    // Only truly unavailable players get PRIORITY SELL before GW2.
     let status = 'HOLD';
     let statusPriority = 3;
     const isUnavailable = (player.availability || 100) < 50;
     const hasNoData = (player.minutes || 0) < 90; // less than 1 full match played
-    // Early-season: boost the gain thresholds required to flag players
     const thresholdBoost = dampener.sellThresholdBoost;
+
     if (isUnavailable) {
+      // Always flag truly unavailable players regardless of GW
       status = 'PRIORITY SELL';
       statusPriority = 0;
-    } else if (minutesProb.startProbability < 30 && replacementGain >= 6 + thresholdBoost && hasNoData) {
-      // Only PRIORITY SELL if start probability is very low AND there's a clear upgrade AND we have no data
-      status = 'PRIORITY SELL';
-      statusPriority = 0;
-    } else if (minutesProb.startProbability < 40 && replacementGain >= 8 + thresholdBoost && strength.score < 45) {
-      // Strong evidence needed for PRIORITY SELL with some data
-      status = 'PRIORITY SELL';
-      statusPriority = 0;
-    } else if (replacementGain >= 6 + thresholdBoost && strength.score < 50) {
-      status = 'SELL';
-      statusPriority = 1;
-    } else if (replacementGain >= 3 + thresholdBoost || strength.score < 40) {
-      status = 'MONITOR';
-      statusPriority = 2;
-    } else if (strength.score >= 75 && minutesProb.startProbability >= 80) {
-      status = 'KEEP';
-      statusPriority = 4;
+    } else if (currentGW <= 1) {
+      // GW1 only: one match is not enough evidence to recommend selling anyone.
+      // Default to HOLD unless the player is genuinely the weakest option
+      // with strong evidence of a clear upgrade.
+      if (minutesProb.startProbability < 15 && replacementGain >= 14 && strength.score < 25) {
+        status = 'MONITOR';
+        statusPriority = 2;
+      } else {
+        status = 'HOLD';
+        statusPriority = 3;
+      }
+    } else if (currentGW <= 2) {
+      // GW2: still very thin evidence — require much stronger thresholds
+      if (minutesProb.startProbability < 20 && replacementGain >= 12 && strength.score < 35) {
+        status = 'PRIORITY SELL';
+        statusPriority = 0;
+      } else if (replacementGain >= 10 && strength.score < 40) {
+        status = 'SELL';
+        statusPriority = 1;
+      } else if (replacementGain >= 7 || strength.score < 32) {
+        status = 'MONITOR';
+        statusPriority = 2;
+      } else {
+        status = 'HOLD';
+        statusPriority = 3;
+      }
+    } else if (currentGW <= 3) {
+      // GW3: starting to build evidence, but still cautious
+      if (minutesProb.startProbability < 25 && replacementGain >= 8 + thresholdBoost && hasNoData) {
+        status = 'PRIORITY SELL';
+        statusPriority = 0;
+      } else if (minutesProb.startProbability < 35 && replacementGain >= 10 + thresholdBoost && strength.score < 40) {
+        status = 'PRIORITY SELL';
+        statusPriority = 0;
+      } else if (replacementGain >= 7 + thresholdBoost && strength.score < 45) {
+        status = 'SELL';
+        statusPriority = 1;
+      } else if (replacementGain >= 5 + thresholdBoost || strength.score < 35) {
+        status = 'MONITOR';
+        statusPriority = 2;
+      } else if (strength.score >= 70 && minutesProb.startProbability >= 75) {
+        status = 'KEEP';
+        statusPriority = 4;
+      }
+    } else {
+      // GW4+: more normal thresholds, but still with some dampening
+      if (minutesProb.startProbability < 30 && replacementGain >= 6 + thresholdBoost && hasNoData) {
+        status = 'PRIORITY SELL';
+        statusPriority = 0;
+      } else if (minutesProb.startProbability < 40 && replacementGain >= 8 + thresholdBoost && strength.score < 45) {
+        status = 'PRIORITY SELL';
+        statusPriority = 0;
+      } else if (replacementGain >= 6 + thresholdBoost && strength.score < 50) {
+        status = 'SELL';
+        statusPriority = 1;
+      } else if (replacementGain >= 3 + thresholdBoost && strength.score < 42) {
+        status = 'MONITOR';
+        statusPriority = 2;
+      } else if (strength.score >= 75 && minutesProb.startProbability >= 80) {
+        status = 'KEEP';
+        statusPriority = 4;
+      }
     }
 
-    // Risk level
-    const risk = minutesProb.rotationProbability > 30 ? 'High'
-      : minutesProb.rotationProbability > 15 ? 'Medium'
+    // Risk level: dampen early season — rotationProbability is unreliable with thin data
+    const rotThreshold = currentGW <= 1 ? 55 : currentGW <= 2 ? 40 : currentGW <= 3 ? 35 : 30;
+    const medThreshold = currentGW <= 1 ? 35 : currentGW <= 2 ? 25 : currentGW <= 3 ? 20 : 15;
+    const risk = minutesProb.rotationProbability > rotThreshold ? 'High'
+      : minutesProb.rotationProbability > medThreshold ? 'Medium'
       : 'Low';
 
     return {
@@ -1267,16 +1316,27 @@ function generateYourDecisionBrief(squad, allPlayers, options = {}) {
     confidence = 55;
   }
 
-  // Captain — use captaincyScore.finalScore when available (from the captaincy model),
-  // fall back to weekly xPts. This integrates rotation risk, fixture analysis,
-  // set pieces, elite pool weighting, and H2H data into the captain pick.
+  // Captain — prefer the FPL site's most-captained and the manager's stored captain
+  // (from picks data), then fall back to captaincyScore ranking.
+  // A good model tells the manager what the popular/smart choice is, not just raw xPts.
+  const storedCaptainId = options.storedCaptainId || null;
+  const siteMostCaptainedId = options.siteMostCaptainedId || null;
   const captainPool = squad.filter(p => p.position !== 'GKP' && (p.availability || 0) >= 70);
-  const bestCaptain = captainPool.sort((a, b) => {
+
+  // Model's top pick by captaincyScore
+  const modelCaptain = captainPool.sort((a, b) => {
     const scoreA = Number(a.captaincyScore?.finalScore) || (Number(a.weekly?.[0]?.xPts) || 0);
     const scoreB = Number(b.captaincyScore?.finalScore) || (Number(b.weekly?.[0]?.xPts) || 0);
     if (scoreB !== scoreA) return scoreB - scoreA;
     return (Number(b.weekly?.[0]?.xPts) || 0) - (Number(a.weekly?.[0]?.xPts) || 0);
   })[0] || null;
+
+  // Priority: site most-captained > stored captain > model pick
+  // If the site's popular pick is in the squad, that's the strongest signal.
+  const storedCaptain = storedCaptainId ? captainPool.find(p => p.id === storedCaptainId) : null;
+  const siteMostCaptained = siteMostCaptainedId ? captainPool.find(p => p.id === siteMostCaptainedId) : null;
+  const bestCaptain = siteMostCaptained || storedCaptain || modelCaptain;
+  const captainSource = siteMostCaptained ? 'site_popular' : storedCaptain ? 'stored_choice' : 'model';
 
   // Formation (simplified: suggest best based on squad)
   const positions = { GKP: squad.filter(p => p.position === 'GKP').length, DEF: squad.filter(p => p.position === 'DEF').length, MID: squad.filter(p => p.position === 'MID').length, FWD: squad.filter(p => p.position === 'FWD').length };
@@ -1317,6 +1377,10 @@ function generateYourDecisionBrief(squad, allPlayers, options = {}) {
       expectedPoints: round(Number(bestCaptain.weekly?.[0]?.xPts) || 0),
       captaincyScore: round(Number(bestCaptain.captaincyScore?.finalScore) || 0),
       captaincyRationale: bestCaptain.captaincyScore?.rationale || null,
+      source: captainSource,
+      modelPick: modelCaptain ? modelCaptain.name : null,
+      storedCaptain: storedCaptain ? storedCaptain.name : null,
+      siteMostCaptained: siteMostCaptained ? siteMostCaptained.name : null,
     } : null,
     formation: `${positions.DEF}-${positions.MID}-${positions.FWD}`,
     freeTransfers,

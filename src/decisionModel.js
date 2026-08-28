@@ -427,7 +427,7 @@ async function buildDecisionCentre({ bootstrap, fixtures, manager, picks, histor
     lineup,
     decisions: [
       { type: 'transfer', priority: transferPlans[0]?.netGain >= 4 ? 'high' : 'medium', title: transferPlans[0] ? transferPlans[0].transfers.map(move => `${move.out.name} to ${move.in.name}`).join(', ') : 'Roll the transfer', expectedGain: transferPlans[0]?.netGain || rollValue, reason: transferPlans[0]?.rationale || 'No available move clears the model threshold.' },
-      { type: 'captain', priority: 'high', title: `Captain ${lineup.captain?.name || '--'}`, expectedGain: lineup.captain?.weekly[0].xPts || 0, reason: `${lineup.captain?.weekly[0].xPts.toFixed(1) || '0.0'} xPts with a ${lineup.captain?.range.low.toFixed(1) || '0.0'}-${lineup.captain?.range.high.toFixed(1) || '0.0'} horizon range.` },
+      { type: 'captain', priority: 'high', title: `Captain ${lineup.captain?.name || '--'}`, expectedGain: lineup.captain?.weekly[0].xPts || 0, reason: `${lineup.captain?.weekly[0].xPts.toFixed(1) || '0.0'} xPts with a ${lineup.captain?.range.low.toFixed(1) || '0.0'}-${lineup.captain?.range.high.toFixed(1) || '0.0'} horizon range.`, ...(lineup.captain?.captaincyScore?.finalScore ? { captaincyScore: lineup.captain.captaincyScore.finalScore } : {}) },
       { type: 'lineup', priority: 'medium', title: `${lineup.expectedPoints.toFixed(1)} projected GW points`, expectedGain: 0, reason: `Best legal XI with ${lineup.bench.map(player => player.name).join(', ') || 'no bench'} benched.` },
     ],
     transfers: { rollValue, plans: transferPlans, optimalSquad, rollEvaluation: labRollEvaluation, topTransferAnalyses: enhancedTransferPlans },
@@ -440,7 +440,7 @@ async function buildDecisionCentre({ bootstrap, fixtures, manager, picks, histor
       // New Decision Lab product features
       squadHeatmap: buildSquadHeatmap(squad, projectionData.projections, { currentGW, horizon }),
       decisionTriggers: buildDecisionTriggers(squad),
-      yourDecision: generateYourDecisionBrief(squad, projectionData.projections, { currentGW, horizon, freeTransfers, bank }),
+      yourDecision: generateYourDecisionBrief(squad, projectionData.projections, { currentGW, horizon, freeTransfers, bank, storedCaptainId: (picks.picks || []).find(p => p.is_captain)?.element || null, siteMostCaptainedId: bootstrap.events?.find(e => e.is_current || e.is_next)?.most_captained || null }),
       chipStrategy: optimizeChips(squad, projectionData.projections, { currentGW, horizon: 8, usedChips: (history.chips || []).map(c => c.name) }),
       // Mode support: analyzeTransfer / findBestTransfer / optimizeTeam
       mode: options.mode || 'optimizeTeam',
