@@ -2296,7 +2296,6 @@ router.get('/league-transfers/:leagueId', heavyEndpointLimiter, async (req, res)
     const teams = bootstrap?.teams || [];
     const activeEvent = bootstrap?.events?.find(e => e.is_current) || bootstrap?.events?.find(e => e.is_next) || bootstrap?.events?.[0];
     const currentGW = activeEvent?.id || 1;
-    const prevGW = currentGW > 1 ? currentGW - 1 : null;
 
     const elementMap = {};
     elements.forEach(p => {
@@ -2313,79 +2312,86 @@ router.get('/league-transfers/:leagueId', heavyEndpointLimiter, async (req, res)
       };
     });
 
-    // Sample top 50 managers for transfer data
-    const sampleEntries = results.slice(0, 50);
+    // Fetch transfer history for all league managers
+    const managers = results.map(r => r.entry).filter(Boolean);
+    const BATCH_SIZE = 30;
+    const transfersIn = {};    // element_id -> count
+    const transfersOut = {};   // element_id -> count
+    const inOutPairs = {};     // "in|out" -> count (what was sold when buying X)
+    const outInPairs = {};     // "out|in" -> count (what was bought when selling Y)
 
-    // Fetch current GW picks + previous GW picks for each manager
-    const currentPicksMap = {};
-    const prevPicksMap = {};
-    const BATCH_SIZE = 25;
-    for (let i = 0; i < sampleEntries.length; i += BATCH_SIZE) {
-      const batch = sampleEntries.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < managers.length; i += BATCH_SIZE) {
+      const batch = managers.slice(i, i + BATCH_SIZE);
       await Promise.all(
-        batch.map(async e => {
-          if (!e.entry) return;
+        batch.map(async (entryID) => {
           try {
-            const [cur, prev] = await Promise.all([
-              getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/event/${currentGW}/picks/`),
-              prevGW ? getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/event/${prevGW}/picks/`) : Promise.resolve(null)
-            ]);
-            currentPicksMap[e.entry] = cur;
-            if (prev) prevPicksMap[e.entry] = prev;
-          } catch (err) {
-            currentPicksMap[e.entry] = null;
-          }
+            const transfers = await getCachedApiData(`https://fantasy.premierleague.com/api/entry/${entryID}/transfers/`);
+            if (!Array.isArray(transfers)) return;
+            transfers.forEach(tr => {
+              if (tr.event !== currentGW) return;
+              // Count in/out
+              transfersIn[tr.element_in] = (transfersIn[tr.element_in] || 0) + 1;
+              transfersOut[tr.element_out] = (transfersOut[tr.element_out] || 0) + 1;
+              // Count pairs
+              const ioKey = tr.element_in + '|' + tr.element_out;
+              inOutPairs[ioKey] = (inOutPairs[ioKey] || 0) + 1;
+              const oiKey = tr.element_out + '|' + tr.element_in;
+              outInPairs[oiKey] = (outInPairs[oiKey] || 0) + 1;
+            });
+          } catch (err) { /* skip failed fetches */ }
         })
       );
     }
 
-    // Compute transfers: compare current vs previous GW picks
-    const transferInCounts = {}; // element_id -> count of managers who transferred IN
-    const transferOutCounts = {}; // element_id -> count of managers who transferred OUT
+    const managersAnalyzed = managers.length;
 
-    sampleEntries.forEach(entry => {
-      const mId = entry.entry;
-      if (!mId) return;
-      const cur = currentPicksMap[mId];
-      const prev = prevPicksMap[mId];
-      if (!cur?.picks || !prev?.picks) return;
-
-      const currentElements = new Set(cur.picks.map(p => p.element));
-      const prevElements = new Set(prev.picks.map(p => p.element));
-
-      // Transferred IN: in current but not in previous
-      currentElements.forEach(el => {
-        if (!prevElements.has(el)) {
-          transferInCounts[el] = (transferInCounts[el] || 0) + 1;
-        }
-      });
-
-      // Transferred OUT: in previous but not in current
-      prevElements.forEach(el => {
-        if (!currentElements.has(el)) {
-          transferOutCounts[el] = (transferOutCounts[el] || 0) + 1;
-        }
-      });
-    });
-
-    const managersAnalyzed = Object.keys(currentPicksMap).filter(id => currentPicksMap[id]?.picks).length;
-
-    // Build sorted arrays
-    const mostBought = Object.entries(transferInCounts)
-      .map(([id, count]) => ({
-        element: parseInt(id),
-        count,
-        ...(elementMap[id] || { id: parseInt(id), webName: 'Unknown', team: '??', pos: 0, cost: 0, totalPoints: 0 })
-      }))
+    // Build most-bought array with top pair info
+    const mostBought = Object.entries(transfersIn)
+      .map(([id, count]) => {
+        // Find what player is most-sold when buying this one
+        let maxPairCount = 0;
+        let topPairOut = null;
+        Object.entries(inOutPairs).forEach(([key, pairCount]) => {
+          const [inId, outId] = key.split('|');
+          if (inId === id && pairCount > maxPairCount) {
+            maxPairCount = pairCount;
+            topPairOut = outId;
+          }
+        });
+        const pairName = topPairOut && elementMap[topPairOut]
+          ? `${elementMap[topPairOut].webName} (${maxPairCount})` : '';
+        return {
+          element: parseInt(id),
+          count,
+          pair: pairName,
+          ...(elementMap[id] || { id: parseInt(id), webName: 'Unknown', team: '??', pos: 0, cost: 0, totalPoints: 0 })
+        };
+      })
       .sort((a, b) => b.count - a.count)
       .slice(0, 30);
 
-    const mostSold = Object.entries(transferOutCounts)
-      .map(([id, count]) => ({
-        element: parseInt(id),
-        count,
-        ...(elementMap[id] || { id: parseInt(id), webName: 'Unknown', team: '??', pos: 0, cost: 0, totalPoints: 0 })
-      }))
+    // Build most-sold array with top pair info
+    const mostSold = Object.entries(transfersOut)
+      .map(([id, count]) => {
+        // Find what player is most-bought when selling this one
+        let maxPairCount = 0;
+        let topPairIn = null;
+        Object.entries(outInPairs).forEach(([key, pairCount]) => {
+          const [outId, inId] = key.split('|');
+          if (outId === id && pairCount > maxPairCount) {
+            maxPairCount = pairCount;
+            topPairIn = inId;
+          }
+        });
+        const pairName = topPairIn && elementMap[topPairIn]
+          ? `${elementMap[topPairIn].webName} (${maxPairCount})` : '';
+        return {
+          element: parseInt(id),
+          count,
+          pair: pairName,
+          ...(elementMap[id] || { id: parseInt(id), webName: 'Unknown', team: '??', pos: 0, cost: 0, totalPoints: 0 })
+        };
+      })
       .sort((a, b) => b.count - a.count)
       .slice(0, 30);
 

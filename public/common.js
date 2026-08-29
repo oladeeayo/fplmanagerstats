@@ -3338,7 +3338,7 @@ const FPL = {
                 return;
             }
 
-            const renderTable = (title, icon, iconColor, items, countColor) => {
+            const renderTable = (title, icon, iconColor, items, countColor, pairLabel) => {
                 if (!items.length) return '<div style="text-align:center;padding:24px;color:var(--md-sys-color-on-surface-variant);font-size:13px;">No data</div>';
                 const rows = items.map((p, i) => {
                     return `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
@@ -3350,7 +3350,8 @@ const FPL = {
                             </div>
                         </td>
                         <td style="padding:6px 10px;text-align:center;"><span style="padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:${posColors[p.pos]}20;color:${posColors[p.pos]};">${posNames[p.pos] || ''}</span></td>
-                        <td style="padding:6px 10px;text-align:right;font-family:var(--font-mono);font-weight:800;font-size:12px;color:${countColor};">${p.count} manager${p.count !== 1 ? 's' : ''}</td>
+                        <td style="padding:6px 10px;text-align:right;font-family:var(--font-mono);font-weight:800;font-size:12px;color:${countColor};">${p.count}</td>
+                        <td style="padding:6px 10px;text-align:right;font-size:11px;color:var(--md-sys-color-on-surface-variant);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;" title="${this.escapeHTML(p.pair || '')}">${p.pair ? this.escapeHTML(p.pair) : '<span style="color:#555;">--</span>'}</td>
                     </tr>`;
                 }).join('');
 
@@ -3360,7 +3361,7 @@ const FPL = {
                             <span class="material-symbols-outlined" style="font-size:18px;color:${iconColor};">${icon}</span>
                             <h4 style="font-family:var(--font-mono);font-size:14px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0;">${title}</h4>
                         </div>
-                        <p style="font-size:11px;color:var(--md-sys-color-on-surface-variant);margin:0;">Top 30 players transferred ${title === 'MOST BOUGHT' ? 'in' : 'out'} by ${data.managersAnalyzed || 0} managers</p>
+                        <p style="font-size:11px;color:var(--md-sys-color-on-surface-variant);margin:0;">Top 30 · ${data.managersAnalyzed || 0} managers · GW${data.gw || ''}</p>
                     </div>
                     <div style="max-height:520px;overflow-y:auto;overflow-x:auto;">
                         <table style="width:100%;border-collapse:collapse;font-size:12px;">
@@ -3369,7 +3370,8 @@ const FPL = {
                                     <th style="padding:8px 10px;text-align:left;">#</th>
                                     <th style="padding:8px 10px;text-align:left;">Player</th>
                                     <th style="padding:8px 10px;text-align:center;">Pos</th>
-                                    <th style="padding:8px 10px;text-align:right;">Managers</th>
+                                    <th style="padding:8px 10px;text-align:right;"># Mgrs</th>
+                                    <th style="padding:8px 10px;text-align:right;">${pairLabel}</th>
                                 </tr>
                             </thead>
                             <tbody>${rows}</tbody>
@@ -3379,8 +3381,8 @@ const FPL = {
             };
 
             container.innerHTML = [
-                renderTable('MOST BOUGHT', 'shopping_cart', '#00FF85', mostBought, '#00FF85'),
-                renderTable('MOST SOLD', 'remove_shopping_cart', '#FF4444', mostSold, '#FF4444')
+                renderTable('MOST BOUGHT', 'shopping_cart', '#00FF85', mostBought, '#00FF85', 'Most Sold To Buy'),
+                renderTable('MOST SOLD', 'remove_shopping_cart', '#FF4444', mostSold, '#FF4444', 'Most Bought When Sold')
             ].join('');
         } catch (err) {
             console.error('League transfers render error:', err);
