@@ -58,6 +58,7 @@ const FPL = {
         fixtures: '/api/fixtures',
         analyzeManager: (id) => `/api/analyze-manager/${id}`,
         leagueStandings: (id) => `/api/league-standings/${id}`,
+        leagueTransfers: (id) => `/api/league-transfers/${id}`,
         zoneAnalysis: (gw) => `/api/zone-analysis?gw=${gw || ''}`,
         fixturesDetail: (gw) => `/api/fixtures-detail?gw=${gw || ''}`,
         teamProjections: (gw) => `/api/team-projections?gw=${gw || ''}`,
@@ -3307,68 +3308,84 @@ const FPL = {
         }).join('');
     },
 
-    renderLeagueTransfers() {
+    async renderLeagueTransfers() {
         const container = document.getElementById('league-top-transfers');
         if (!container) return;
-        const bootstrap = this.state.bootstrapData;
-        if (!bootstrap) return;
+        const leagueId = this.state.selectedLeagueId || this.state.leagueId;
+        if (!leagueId) {
+            container.innerHTML = '';
+            return;
+        }
 
-        const players = bootstrap.elements || [];
-        const teamsById = new Map((bootstrap.teams || []).map(t => [t.id, t]));
         const posColors = { 1: '#FFD700', 2: '#4FC3F7', 3: '#81C784', 4: '#E57373' };
         const posNames = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
 
-        const mostBought = [...players]
-            .sort((a, b) => (b.transfers_in_event || 0) - (a.transfers_in_event || 0))
-            .slice(0, 30);
-        const mostSold = [...players]
-            .sort((a, b) => (b.transfers_out_event || 0) - (a.transfers_out_event || 0))
-            .slice(0, 30);
+        try {
+            const cacheKey = `league-transfers-${leagueId}`;
+            let data = this.getCachedTabData(cacheKey);
+            if (!data) {
+                data = await this.apiFetch(this.API.leagueTransfers(leagueId));
+                if (data && (data.mostBought?.length || data.mostSold?.length)) {
+                    this.setCachedTabData(cacheKey, data);
+                }
+            }
 
-        const renderTable = (title, icon, iconColor, data, countKey, countColor) => {
-            const rows = data.map((p, i) => {
-                const team = teamsById.get(p.team);
-                return `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-                    <td style="padding:6px 10px;font-family:var(--font-mono);font-weight:700;font-size:11px;color:var(--md-sys-color-on-surface-variant);width:30px;">${i + 1}</td>
-                    <td style="padding:6px 10px;">
-                        <div style="display:flex;align-items:center;gap:6px;">
-                            <span style="font-weight:700;font-size:12px;color:var(--md-sys-color-on-surface);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.web_name}</span>
-                            <span style="display:inline-flex;align-items:center;gap:3px;">${this.teamBadge(team?.short_name, 14)}<span style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">${team?.short_name || ''}</span></span>
+            const mostBought = data.mostBought || [];
+            const mostSold = data.mostSold || [];
+
+            if (!mostBought.length && !mostSold.length) {
+                container.innerHTML = '<div style="text-align:center;padding:24px;color:var(--md-sys-color-on-surface-variant);font-size:13px;background:rgba(255,255,255,0.03);border-radius:12px;border:1px solid rgba(255,255,255,0.06);">No transfer data available for this league yet.</div>';
+                return;
+            }
+
+            const renderTable = (title, icon, iconColor, items, countColor) => {
+                if (!items.length) return '<div style="text-align:center;padding:24px;color:var(--md-sys-color-on-surface-variant);font-size:13px;">No data</div>';
+                const rows = items.map((p, i) => {
+                    return `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                        <td style="padding:6px 10px;font-family:var(--font-mono);font-weight:700;font-size:11px;color:var(--md-sys-color-on-surface-variant);width:30px;">${i + 1}</td>
+                        <td style="padding:6px 10px;">
+                            <div style="display:flex;align-items:center;gap:6px;">
+                                <span style="font-weight:700;font-size:12px;color:var(--md-sys-color-on-surface);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(p.webName || 'Unknown')}</span>
+                                <span style="display:inline-flex;align-items:center;gap:3px;">${this.teamBadge(p.team, 14)}<span style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">${p.team || ''}</span></span>
+                            </div>
+                        </td>
+                        <td style="padding:6px 10px;text-align:center;"><span style="padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:${posColors[p.pos]}20;color:${posColors[p.pos]};">${posNames[p.pos] || ''}</span></td>
+                        <td style="padding:6px 10px;text-align:right;font-family:var(--font-mono);font-weight:800;font-size:12px;color:${countColor};">${p.count} manager${p.count !== 1 ? 's' : ''}</td>
+                    </tr>`;
+                }).join('');
+
+                return `<div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;">
+                    <div style="padding:16px 20px 12px;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
+                            <span class="material-symbols-outlined" style="font-size:18px;color:${iconColor};">${icon}</span>
+                            <h4 style="font-family:var(--font-mono);font-size:14px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0;">${title}</h4>
                         </div>
-                    </td>
-                    <td style="padding:6px 10px;text-align:center;"><span style="padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:${posColors[p.element_type]}20;color:${posColors[p.element_type]};">${posNames[p.element_type]}</span></td>
-                    <td style="padding:6px 10px;text-align:right;font-family:var(--font-mono);font-weight:800;font-size:12px;color:${countColor};">${this.formatNumber(p[countKey] || 0)}</td>
-                </tr>`;
-            }).join('');
-
-            return `<div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;">
-                <div style="padding:16px 20px 12px;">
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
-                        <span class="material-symbols-outlined" style="font-size:18px;color:${iconColor};">${icon}</span>
-                        <h4 style="font-family:var(--font-mono);font-size:14px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0;">${title}</h4>
+                        <p style="font-size:11px;color:var(--md-sys-color-on-surface-variant);margin:0;">Top 30 players transferred ${title === 'MOST BOUGHT' ? 'in' : 'out'} by ${data.managersAnalyzed || 0} managers</p>
                     </div>
-                    <p style="font-size:11px;color:var(--md-sys-color-on-surface-variant);margin:0;">Top 30 most transferred players</p>
-                </div>
-                <div style="max-height:520px;overflow-y:auto;overflow-x:auto;">
-                    <table style="width:100%;border-collapse:collapse;font-size:12px;">
-                        <thead style="position:sticky;top:0;z-index:1;">
-                            <tr style="background:rgba(255,255,255,0.05);font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.04em;color:var(--md-sys-color-on-surface-variant);">
-                                <th style="padding:8px 10px;text-align:left;">#</th>
-                                <th style="padding:8px 10px;text-align:left;">Player</th>
-                                <th style="padding:8px 10px;text-align:center;">Pos</th>
-                                <th style="padding:8px 10px;text-align:right;">${title === 'MOST BOUGHT' ? 'Bought' : 'Sold'}</th>
-                            </tr>
-                        </thead>
-                        <tbody>${rows}</tbody>
-                    </table>
-                </div>
-            </div>`;
-        };
+                    <div style="max-height:520px;overflow-y:auto;overflow-x:auto;">
+                        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                            <thead style="position:sticky;top:0;z-index:1;">
+                                <tr style="background:rgba(255,255,255,0.05);font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.04em;color:var(--md-sys-color-on-surface-variant);">
+                                    <th style="padding:8px 10px;text-align:left;">#</th>
+                                    <th style="padding:8px 10px;text-align:left;">Player</th>
+                                    <th style="padding:8px 10px;text-align:center;">Pos</th>
+                                    <th style="padding:8px 10px;text-align:right;">Managers</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                </div>`;
+            };
 
-        container.innerHTML = [
-            renderTable('MOST BOUGHT', 'shopping_cart', '#00FF85', mostBought, 'transfers_in_event', '#00FF85'),
-            renderTable('MOST SOLD', 'remove_shopping_cart', '#FF4444', mostSold, 'transfers_out_event', '#FF4444')
-        ].join('');
+            container.innerHTML = [
+                renderTable('MOST BOUGHT', 'shopping_cart', '#00FF85', mostBought, '#00FF85'),
+                renderTable('MOST SOLD', 'remove_shopping_cart', '#FF4444', mostSold, '#FF4444')
+            ].join('');
+        } catch (err) {
+            console.error('League transfers render error:', err);
+            container.innerHTML = '<div style="text-align:center;padding:24px;color:var(--md-sys-color-error);font-size:13px;">Failed to load transfer data.</div>';
+        }
     },
 
     showCaptaincyOwners(playerId) {

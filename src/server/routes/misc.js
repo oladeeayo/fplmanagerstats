@@ -2277,6 +2277,130 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
   }
 });
 
+// ---- League-Specific Transfers ----
+router.get('/league-transfers/:leagueId', heavyEndpointLimiter, async (req, res) => {
+  const leagueId = parsePositiveId(req.params.leagueId);
+  if (!leagueId) return res.status(400).json({ error: 'A valid leagueId is required' });
+  try {
+    const [leagueData, bootstrap] = await Promise.all([
+      getCachedApiData(`https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/?page_standings=1`),
+      getCachedApiData(BOOTSTRAP_URL).catch(() => null)
+    ]);
+
+    const results = leagueData?.standings?.results || leagueData?.new_entries?.results || [];
+    if (results.length === 0) {
+      return res.json({ mostBought: [], mostSold: [], managersAnalyzed: 0 });
+    }
+
+    const elements = bootstrap?.elements || [];
+    const teams = bootstrap?.teams || [];
+    const activeEvent = bootstrap?.events?.find(e => e.is_current) || bootstrap?.events?.find(e => e.is_next) || bootstrap?.events?.[0];
+    const currentGW = activeEvent?.id || 1;
+    const prevGW = currentGW > 1 ? currentGW - 1 : null;
+
+    const elementMap = {};
+    elements.forEach(p => {
+      const team = teams.find(t => t.id === p.team);
+      elementMap[p.id] = {
+        id: p.id,
+        code: p.code,
+        webName: p.web_name,
+        team: team?.short_name || '???',
+        teamFull: team?.name || '',
+        pos: p.element_type,
+        cost: (p.now_cost || 0) / 10,
+        totalPoints: p.total_points || 0
+      };
+    });
+
+    // Sample top 50 managers for transfer data
+    const sampleEntries = results.slice(0, 50);
+
+    // Fetch current GW picks + previous GW picks for each manager
+    const currentPicksMap = {};
+    const prevPicksMap = {};
+    const BATCH_SIZE = 25;
+    for (let i = 0; i < sampleEntries.length; i += BATCH_SIZE) {
+      const batch = sampleEntries.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map(async e => {
+          if (!e.entry) return;
+          try {
+            const [cur, prev] = await Promise.all([
+              getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/event/${currentGW}/picks/`),
+              prevGW ? getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/event/${prevGW}/picks/`) : Promise.resolve(null)
+            ]);
+            currentPicksMap[e.entry] = cur;
+            if (prev) prevPicksMap[e.entry] = prev;
+          } catch (err) {
+            currentPicksMap[e.entry] = null;
+          }
+        })
+      );
+    }
+
+    // Compute transfers: compare current vs previous GW picks
+    const transferInCounts = {}; // element_id -> count of managers who transferred IN
+    const transferOutCounts = {}; // element_id -> count of managers who transferred OUT
+
+    sampleEntries.forEach(entry => {
+      const mId = entry.entry;
+      if (!mId) return;
+      const cur = currentPicksMap[mId];
+      const prev = prevPicksMap[mId];
+      if (!cur?.picks || !prev?.picks) return;
+
+      const currentElements = new Set(cur.picks.map(p => p.element));
+      const prevElements = new Set(prev.picks.map(p => p.element));
+
+      // Transferred IN: in current but not in previous
+      currentElements.forEach(el => {
+        if (!prevElements.has(el)) {
+          transferInCounts[el] = (transferInCounts[el] || 0) + 1;
+        }
+      });
+
+      // Transferred OUT: in previous but not in current
+      prevElements.forEach(el => {
+        if (!currentElements.has(el)) {
+          transferOutCounts[el] = (transferOutCounts[el] || 0) + 1;
+        }
+      });
+    });
+
+    const managersAnalyzed = Object.keys(currentPicksMap).filter(id => currentPicksMap[id]?.picks).length;
+
+    // Build sorted arrays
+    const mostBought = Object.entries(transferInCounts)
+      .map(([id, count]) => ({
+        element: parseInt(id),
+        count,
+        ...(elementMap[id] || { id: parseInt(id), webName: 'Unknown', team: '??', pos: 0, cost: 0, totalPoints: 0 })
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 30);
+
+    const mostSold = Object.entries(transferOutCounts)
+      .map(([id, count]) => ({
+        element: parseInt(id),
+        count,
+        ...(elementMap[id] || { id: parseInt(id), webName: 'Unknown', team: '??', pos: 0, cost: 0, totalPoints: 0 })
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 30);
+
+    return res.json({
+      mostBought,
+      mostSold,
+      managersAnalyzed,
+      gw: currentGW
+    });
+  } catch (e) {
+    logger.error({ err: e }, 'League transfers error');
+    res.status(500).json({ error: 'Failed to fetch league transfers' });
+  }
+});
+
 // ---- Manager Squad Pitch Endpoint ----
 router.get('/manager-squad/:managerId', async (req, res) => {
   const managerId = parsePositiveId(req.params.managerId);
