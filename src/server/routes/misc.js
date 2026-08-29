@@ -1662,10 +1662,16 @@ router.get('/captain-picks', async (req, res) => {
     // Determine which GWs have pre-saved data
     const availableGWs = await getAllStoredGWs(sql);
 
-    // Target GW: use requested, or first available
+    // Target GW: use requested, or next upcoming from bootstrap events
     let targetGW = req.query.gw ? Number(req.query.gw) : null;
     if (!targetGW || !availableGWs.includes(targetGW)) {
-      targetGW = availableGWs[0] || 1;
+      const events = bootstrap?.events || [];
+      const nextEvent = events.find(e => e.is_next);
+      const nextGWFromEvents = nextEvent?.id;
+      // Prefer the next upcoming GW, fall back to first stored GW
+      targetGW = (nextGWFromEvents && availableGWs.includes(nextGWFromEvents))
+        ? nextGWFromEvents
+        : (availableGWs[0] || 1);
     }
 
     // ONLY serve from pre-saved data — no live calculation

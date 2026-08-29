@@ -3044,6 +3044,7 @@ const FPL = {
             this.renderLeagueTemplatePitch(data);
             this.renderCaptaincyCount(data);
             this.renderChipCount(data);
+            this.renderLeagueTransfers();
         } catch (err) {
             console.error('League standings error:', err);
             tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;padding:var(--space-lg);color:var(--md-sys-color-error);">Failed to load standings: ${err.message}</td></tr>`;
@@ -3304,6 +3305,70 @@ const FPL = {
                 </div>
             </div>`;
         }).join('');
+    },
+
+    renderLeagueTransfers() {
+        const container = document.getElementById('league-top-transfers');
+        if (!container) return;
+        const bootstrap = this.state.bootstrapData;
+        if (!bootstrap) return;
+
+        const players = bootstrap.elements || [];
+        const teamsById = new Map((bootstrap.teams || []).map(t => [t.id, t]));
+        const posColors = { 1: '#FFD700', 2: '#4FC3F7', 3: '#81C784', 4: '#E57373' };
+        const posNames = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+
+        const mostBought = [...players]
+            .sort((a, b) => (b.transfers_in_event || 0) - (a.transfers_in_event || 0))
+            .slice(0, 30);
+        const mostSold = [...players]
+            .sort((a, b) => (b.transfers_out_event || 0) - (a.transfers_out_event || 0))
+            .slice(0, 30);
+
+        const renderTable = (title, icon, iconColor, data, countKey, countColor) => {
+            const rows = data.map((p, i) => {
+                const team = teamsById.get(p.team);
+                return `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                    <td style="padding:6px 10px;font-family:var(--font-mono);font-weight:700;font-size:11px;color:var(--md-sys-color-on-surface-variant);width:30px;">${i + 1}</td>
+                    <td style="padding:6px 10px;">
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <span style="font-weight:700;font-size:12px;color:var(--md-sys-color-on-surface);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.web_name}</span>
+                            <span style="display:inline-flex;align-items:center;gap:3px;">${this.teamBadge(team?.short_name, 14)}<span style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">${team?.short_name || ''}</span></span>
+                        </div>
+                    </td>
+                    <td style="padding:6px 10px;text-align:center;"><span style="padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:${posColors[p.element_type]}20;color:${posColors[p.element_type]};">${posNames[p.element_type]}</span></td>
+                    <td style="padding:6px 10px;text-align:right;font-family:var(--font-mono);font-weight:800;font-size:12px;color:${countColor};">${this.formatNumber(p[countKey] || 0)}</td>
+                </tr>`;
+            }).join('');
+
+            return `<div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;">
+                <div style="padding:16px 20px 12px;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
+                        <span class="material-symbols-outlined" style="font-size:18px;color:${iconColor};">${icon}</span>
+                        <h4 style="font-family:var(--font-mono);font-size:14px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0;">${title}</h4>
+                    </div>
+                    <p style="font-size:11px;color:var(--md-sys-color-on-surface-variant);margin:0;">Top 30 most transferred players</p>
+                </div>
+                <div style="max-height:520px;overflow-y:auto;overflow-x:auto;">
+                    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                        <thead style="position:sticky;top:0;z-index:1;">
+                            <tr style="background:rgba(255,255,255,0.05);font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.04em;color:var(--md-sys-color-on-surface-variant);">
+                                <th style="padding:8px 10px;text-align:left;">#</th>
+                                <th style="padding:8px 10px;text-align:left;">Player</th>
+                                <th style="padding:8px 10px;text-align:center;">Pos</th>
+                                <th style="padding:8px 10px;text-align:right;">${title === 'MOST BOUGHT' ? 'Bought' : 'Sold'}</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            </div>`;
+        };
+
+        container.innerHTML = [
+            renderTable('MOST BOUGHT', 'shopping_cart', '#00FF85', mostBought, 'transfers_in_event', '#00FF85'),
+            renderTable('MOST SOLD', 'remove_shopping_cart', '#FF4444', mostSold, 'transfers_out_event', '#FF4444')
+        ].join('');
     },
 
     showCaptaincyOwners(playerId) {
