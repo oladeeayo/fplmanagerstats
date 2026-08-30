@@ -656,8 +656,8 @@ tbody tr:hover { background: rgba(255, 255, 255, 0.03); }
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 20px;
     width: 90%; max-width: 480px;
-    max-height: 80vh;
-    overflow-y: auto;
+    max-height: 85vh;
+    display: flex; flex-direction: column;
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     box-shadow:
@@ -719,6 +719,7 @@ tbody tr:hover { background: rgba(255, 255, 255, 0.03); }
     display: flex; align-items: center; justify-content: space-between;
     padding: var(--space-lg);
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
 }
 
 .dialog-body { padding: var(--space-lg); }
@@ -726,6 +727,7 @@ tbody tr:hover { background: rgba(255, 255, 255, 0.03); }
     display: flex; justify-content: flex-end; gap: var(--space-sm);
     padding: var(--space-md) var(--space-lg);
     border-top: 1px solid rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
 }
 
 /* Input */
@@ -2091,7 +2093,7 @@ body.sidebar-open {
 
     /* Better dialog on mobile */
     .dialog { max-height: 90vh; }
-    .dialog-body { overflow-y: auto; max-height: 70vh; }
+    .dialog-body { overflow-y: auto; flex: 1; min-height: 0; }
 }
 
 /* Tactics desk */
