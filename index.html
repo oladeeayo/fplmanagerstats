@@ -3,8 +3,6 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>FPL Manager Analytics | AI Squad Optimizer, Transfer Planner & FPL Stats</title>
     <meta name="description" content="FPL Manager Analytics is the ultimate Fantasy Premier League decision-support platform. Access hit-adjusted transfer plans, expected points (xPts), AI squad optimizer, captaincy projections, mini-league template analysis, and live manager stats." />
     <meta name="keywords" content="FPL Manager Analytics, Fantasy Premier League AI, FPL decision lab, FPL squad optimizer, FPL transfer planner, FPL captain picks, FPL expected points xPts, FPL mini-league template, FPL fixture difficulty rating, FPL differential finder" />
@@ -41,6 +39,12 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=7" />
     <link rel="manifest" href="/manifest.json" />
     <link rel="stylesheet" href="/design-system.css?v=23" />
+
+    <!-- Preload critical resources for instant data loading -->
+    <link rel="preload" href="/common.js?v=27" as="script" />
+    <link rel="preload" href="/api/bootstrap-static" as="fetch" crossorigin="anonymous" />
+    <link rel="preload" href="/api/fixtures" as="fetch" crossorigin="anonymous" />
+    <link rel="preload" href="/fotmob-player-ids.json" as="fetch" crossorigin="anonymous" />
 
     <!-- Structured Data for Google Search & AI Search Engine Discovery (Perplexity, ChatGPT, Gemini, Claude) -->
     <script type="application/ld+json">

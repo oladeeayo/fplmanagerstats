@@ -241,6 +241,24 @@ const FPL = {
                 });
             }
 
+            // Speculative prefetch: warm the tab-cache for the most common tabs
+            // so switching to them feels instant after initial load.
+            const gw = this.state.currentGW;
+            const highPriorityUrls = [
+                this.API.captainPicks(gw),
+                this.API.zoneAnalysis(gw),
+                this.API.teamProjections(gw),
+                this.API.fixturesDetail(gw),
+                this.API.setPieces,
+            ];
+            highPriorityUrls.forEach((url) => {
+                if (!this.getCachedTabData(url)) {
+                    this.apiFetch(url)
+                        .then((data) => this.setCachedTabData(url, data))
+                        .catch(() => {});
+                }
+            });
+
         } catch (err) {
             this.state.error = err.message;
             this.showError(err.message || 'Unable to load FPL data');

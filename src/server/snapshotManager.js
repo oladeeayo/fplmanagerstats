@@ -41,8 +41,7 @@ function saveSnapshotToDisk(data) {
   try {
     if (!fs.existsSync(SNAPSHOT_DIR)) {
       fs.mkdirSync(SNAPSHOT_DIR, { recursive: true });
-    }
-    fs.writeFileSync(SNAPSHOT_FILE, JSON.stringify(data, null, 2), 'utf8');
+    }      fs.writeFileSync(SNAPSHOT_FILE, JSON.stringify(data), 'utf8');
   } catch (err) {
     logger.error({ err: err.message }, 'Failed to write snapshot to disk');
   }
