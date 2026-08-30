@@ -2496,36 +2496,26 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       }
     });
 
-    // Compute squad stats using history data for cumulative all-GW counts
+    // Compute squad stats using bootstrap season totals (cumulative across all GWs)
     const allSquad = [...starting11, ...bench];
-    const allSquadIds = new Set(allSquad.map(p => p.id));
     const historyGWs = historyData?.current || [];
-    // Build per-player cumulative haul and CS counts from history
-    const playerHaulCount = {};
-    const playerCShaulCount = {};
-    historyGWs.forEach(gw => {
-      (gw.element_teams || gw.team_h || []).forEach(() => {}); // noop placeholder
-      // FPL history current array has: opponent_team, total_points, was_home, etc.
-      // But we need per-element breakdown — FPL API history doesn't give per-player GW breakdown
-      // So fall back to bootstrap season totals which ARE cumulative across all GWs
+
+    // Sum actual season totals from bootstrap — these are cumulative across ALL gameweeks
+    let totalGoals = 0;
+    let totalAssists = 0;
+    let totalCS = 0;
+    allSquad.forEach(p => {
+      const el = elementsMap.get(p.id);
+      if (!el) return;
+      totalGoals += (el.goals_scored || 0);
+      totalAssists += (el.assists || 0);
+      // CS only for GKP and DEF
+      if (p.posType === 1 || p.posType === 2) {
+        totalCS += (el.clean_sheets || 0);
+      }
     });
-    const scored = allSquad.filter(p => {
-      const el = elementsMap.get(p.id);
-      return el && (el.goals_scored || 0) > 0;
-    }).length;
-    const assisted = allSquad.filter(p => {
-      const el = elementsMap.get(p.id);
-      return el && (el.assists || 0) > 0;
-    }).length;
-    // CS only for GKP and DEF — use season-total clean_sheets from bootstrap (cumulative)
-    const cleanSheets = allSquad.filter(p => {
-      if (p.posType !== 1 && p.posType !== 2) return false;
-      const el = elementsMap.get(p.id);
-      return el && (el.clean_sheets || 0) > 0;
-    }).length;
-    // Hauled: count squad players who had ANY gameweek with 10+ points this season
-    // Use event_points which is current GW, BUT also check total_points vs games to infer
-    // a better approach: use ep_next as proxy, or check if total_points suggests hauls
+
+    // Hauled: count squad players who likely had at least one 10+ point haul this season
     const hauled = allSquad.filter(p => {
       const el = elementsMap.get(p.id);
       if (!el) return false;
@@ -2534,14 +2524,12 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       // Season heuristic: if player has high total_points relative to starts, likely hauled before
       const starts = Math.max(1, Math.floor((el.minutes || 0) / 80));
       const ptsPerGame = (el.total_points || 0) / starts;
-      // If avg PPG >= 6, almost certainly had at least one haul
       if (ptsPerGame >= 6) return true;
-      // If form >= 8, likely recent haul
       if (parseFloat(el.form || 0) >= 8) return true;
       return false;
     }).length;
 
-    // Total haul count across all GWs for display
+    // Total haul count across all GWs for the MANAGER (team-level: 10+ pts in a GW)
     let totalHaulGWs = 0;
     historyGWs.forEach(gw => {
       if ((gw.points || 0) >= 10) totalHaulGWs++;
@@ -2561,7 +2549,7 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       gw: activeGW,
       starting11,
       bench,
-      squadStats: { scored, assisted, cleanSheets, hauled, totalHaulGWs }
+      squadStats: { totalGoals, totalAssists, totalCS, hauled, totalHaulGWs }
     });
   } catch (err) {
     logger.error({ err: err.message }, 'Manager squad error');

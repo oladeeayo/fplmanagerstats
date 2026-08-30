@@ -3012,30 +3012,37 @@ const FPL = {
                     chipBadge = `<span style="padding:2px 6px;border-radius:4px;font-weight:800;font-size:10px;font-family:var(--font-mono);${chipStyle}">${m.activeChip}</span>`;
                 }
 
-                return `<tr class="data-row" style="border-bottom:1px solid ${isConnectedManager ? 'rgba(0,255,133,0.25)' : 'rgba(255,255,255,0.05)'};transition:background 0.2s;${rowBg}cursor:pointer;${isConnectedManager ? 'font-weight:600;' : ''}" onclick="FPL.showManagerDetail(${managerIdArg}, '${this.escapeHTML(m.managerName || '').replace(/'/g, "\\'")}', '${this.escapeHTML(m.entryName || '').replace(/'/g, "\\'")}', ${m.rank}, ${m.eventTotal}, ${m.total}, ${m.rankDiff}, ${m.diffCount})" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='${isConnectedManager ? 'rgba(0,255,133,0.08)' : (isEven ? 'rgba(255,255,255,0.03)' : 'transparent')} '" title="Click to view manager details">
-                    <td style="padding:4px 6px;position:relative;font-weight:700;color:var(--md-sys-color-on-surface);width:36px;background:${isEven ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.05)'};">
-                        <div style="position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:70%;background:var(--${borderTier});border-radius:0 2px 2px 0;"></div>
+                const connBg = 'rgba(0,255,133,0.07)';
+                const connHoverBg = 'rgba(0,255,133,0.14)';
+                const connCellBg = 'rgba(0,255,133,0.06)';
+                const connCellBgAlt = 'rgba(0,255,133,0.04)';
+                const normalBg = isEven ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.05)';
+                const rankBg = isEven ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.05)';
+                const cellBg = isConnectedManager ? (isEven ? connCellBgAlt : connCellBg) : normalBg;
+                return `<tr class="data-row" style="border-bottom:1px solid ${isConnectedManager ? 'rgba(0,255,133,0.3)' : 'rgba(255,255,255,0.05)'};transition:background 0.15s;${isConnectedManager ? 'background:' + connBg + ';border-left:3px solid #00FF85;' : (isEven ? 'background:rgba(255,255,255,0.03);' : '')}cursor:pointer;${isConnectedManager ? 'font-weight:600;box-shadow:0 1px 0 rgba(0,255,133,0.15),0 -1px 0 rgba(0,255,133,0.15);' : ''}" onclick="FPL.showManagerDetail(${managerIdArg}, '${this.escapeHTML(m.managerName || '').replace(/'/g, "\\'")}', '${this.escapeHTML(m.entryName || '').replace(/'/g, "\\'")}', ${m.rank}, ${m.eventTotal}, ${m.total}, ${m.rankDiff}, ${m.diffCount})" onmouseover="${isConnectedManager ? "this.style.background='" + connHoverBg + "'" : "this.style.background='rgba(255,255,255,0.08)'"}" onmouseout="this.style.background='${isConnectedManager ? connBg : (isEven ? 'rgba(255,255,255,0.03)' : 'transparent')} '" title="Click to view manager details">
+                    <td style="padding:4px 6px;position:relative;font-weight:700;color:${isConnectedManager ? '#00FF85' : 'var(--md-sys-color-on-surface)'};width:36px;background:${isConnectedManager ? (isEven ? connCellBgAlt : connCellBg) : rankBg};">
+                        <div style="position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:70%;background:${isConnectedManager ? '#00FF85' : 'var(--' + borderTier + ')'};border-radius:0 2px 2px 0;"></div>
                         ${isConnectedManager ? '<span class="material-symbols-outlined" style="font-size:14px;color:#00FF85;vertical-align:middle;">person</span> ' : ''}${m.rank}
                     </td>
-                    <td style="padding:4px 6px;background:${isConnectedManager ? 'rgba(0,255,133,0.06)' : (isEven ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.05)')};max-width:95px;overflow:hidden;" title="${this.escapeHTML(teamDisplayName)} (${this.escapeHTML(m.managerName)})">
-                        <div style="font-weight:700;color:var(--md-sys-color-on-surface);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(teamDisplayName)}</div>
+                    <td style="padding:4px 6px;background:${cellBg};max-width:95px;overflow:hidden;" title="${this.escapeHTML(teamDisplayName)} (${this.escapeHTML(m.managerName)})">
+                        <div style="font-weight:700;color:${isConnectedManager ? '#00FF85' : 'var(--md-sys-color-on-surface)'};font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(teamDisplayName)}</div>
                     </td>
-                    <td style="padding:4px 6px;text-align:center;color:var(--md-sys-color-on-surface);font-weight:600;">${m.eventTotal}</td>
-                    <td class="mono" style="padding:4px 6px;text-align:center;color:#00FF85;font-weight:700;">${xGWPtsVal}</td>
-                    <td class="mono" style="padding:4px 6px;text-align:center;color:var(--fdr-1);font-weight:800;">${this.formatNumber(m.total)}</td>
-                    <td class="desktop-only" style="padding:4px 6px;text-align:center;font-size:11px;color:var(--md-sys-color-on-surface);font-weight:600;">${this.escapeHTML(captainDisp)}</td>
-                    <td style="padding:4px 6px;text-align:center;">${chipBadge}</td>
-                    <td style="padding:4px 6px;text-align:center;">${diffArrow}</td>
-                    <td style="padding:4px 6px;text-align:center;">
-                        <span class="mono" style="background:var(--md-sys-color-surface-variant);color:var(--md-sys-color-on-surface);font-size:10px;padding:2px 6px;border-radius:3px;font-weight:700;display:inline-block;">${this.formatNumber(m.diffCount)}</span>
+                    <td style="padding:4px 6px;text-align:center;background:${cellBg};color:var(--md-sys-color-on-surface);font-weight:600;">${m.eventTotal}</td>
+                    <td class="mono" style="padding:4px 6px;text-align:center;background:${cellBg};color:#00FF85;font-weight:700;">${xGWPtsVal}</td>
+                    <td class="mono" style="padding:4px 6px;text-align:center;background:${cellBg};color:var(--fdr-1);font-weight:800;">${this.formatNumber(m.total)}</td>
+                    <td class="desktop-only" style="padding:4px 6px;text-align:center;background:${cellBg};font-size:11px;color:var(--md-sys-color-on-surface);font-weight:600;">${this.escapeHTML(captainDisp)}</td>
+                    <td style="padding:4px 6px;text-align:center;background:${cellBg};">${chipBadge}</td>
+                    <td style="padding:4px 6px;text-align:center;background:${cellBg};">${diffArrow}</td>
+                    <td style="padding:4px 6px;text-align:center;background:${cellBg};">
+                        <span class="mono" style="background:${isConnectedManager ? 'rgba(0,255,133,0.12)' : 'var(--md-sys-color-surface-variant)'};color:${isConnectedManager ? '#00FF85' : 'var(--md-sys-color-on-surface)'};font-size:10px;padding:2px 6px;border-radius:3px;font-weight:700;display:inline-block;">${this.formatNumber(m.diffCount)}</span>
                     </td>
-                    <td class="desktop-only" style="padding:4px 6px;text-align:center;">
+                    <td class="desktop-only" style="padding:4px 6px;text-align:center;background:${cellBg};">
                         ${m.overallRank ? `<span class="mono" style="font-size:11px;font-weight:700;color:var(--md-sys-color-on-surface);">#${this.formatNumber(m.overallRank)}</span>` : '<span style="font-size:10px;color:#666;">--</span>'}
                     </td>
-                    <td class="desktop-only" style="padding:4px 6px;text-align:center;">
+                    <td class="desktop-only" style="padding:4px 6px;text-align:center;background:${cellBg};">
                         ${m.lastSeasonRank ? `<span class="mono" style="font-size:11px;font-weight:700;color:var(--fdr-4);">#${this.formatNumber(m.lastSeasonRank)}</span>` : '<span style="font-size:10px;color:#666;">--</span>'}
                     </td>
-                    <td class="desktop-only" style="padding:4px 6px;text-align:center;">
+                    <td class="desktop-only" style="padding:4px 6px;text-align:center;background:${cellBg};">
                         ${m.seasonBeforeLastRank ? `<span class="mono" style="font-size:11px;font-weight:700;color:var(--fdr-3);">#${this.formatNumber(m.seasonBeforeLastRank)}</span>` : '<span style="font-size:10px;color:#666;">--</span>'}
                     </td>
                 </tr>`;
@@ -3556,11 +3563,11 @@ const FPL = {
             // Update header with squad stats
             if (subEl) {
                 const statItems = [];
-                if (stats.scored > 0) statItems.push(`<span style="color:#00FF85;">${stats.scored} scored</span>`);
-                if (stats.assisted > 0) statItems.push(`<span style="color:#6496ff;">${stats.assisted} assisted</span>`);
-                if (stats.cleanSheets > 0) statItems.push(`<span style="color:#c084fc;">${stats.cleanSheets} CS</span>`);
-                if (stats.hauled > 0) statItems.push(`<span style="color:#ff4d4d;">${stats.hauled} hauled</span>`);
-                if (stats.totalHaulGWs > 0) statItems.push(`<span style="color:#FFA600;">${stats.totalHaulGWs} haul GWs</span>`);
+                if (stats.totalGoals > 0) statItems.push(`<span style="color:#00FF85;">⚽ ${stats.totalGoals} goals</span>`);
+                if (stats.totalAssists > 0) statItems.push(`<span style="color:#6496ff;">🅰️ ${stats.totalAssists} assists</span>`);
+                if (stats.totalCS > 0) statItems.push(`<span style="color:#c084fc;">🧤 ${stats.totalCS} CS</span>`);
+                if (stats.hauled > 0) statItems.push(`<span style="color:#ff4d4d;">🔥 ${stats.hauled} hauled</span>`);
+                if (stats.totalHaulGWs > 0) statItems.push(`<span style="color:#FFA600;">📊 ${stats.totalHaulGWs} haul GWs</span>`);
                 const worldRank = data.overallRank ? `World Rank: #${Number(data.overallRank).toLocaleString()}` : '';
                 subEl.innerHTML = `Manager: ${this.decodeHTML(managerName || 'FPL Manager')}${worldRank ? ' • ' + worldRank : ''}${statItems.length > 0 ? ' • ' + statItems.join(' • ') : ''}`;
             }
