@@ -2606,8 +2606,6 @@ router.get('/dashboard/overview', async (req, res) => {
       .map(p => {
         const team = getTeam(p.team);
         const formVal = parseFloat(p.form || 0);
-        // Model-based xPPG: blend ep_next (FPL's xPts for next GW) with underlying xGI/90 * difficulty multiplier
-        const formVal = parseFloat(p.form || 0);
         const xGI90 = parseFloat(p.expected_goal_involvements_per_90 || 0);
         const minsPlayed = parseInt(p.minutes || 0);
         const matchesPlayed = Math.max(1, Math.floor(minsPlayed / 80));
