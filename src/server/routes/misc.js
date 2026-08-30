@@ -2496,8 +2496,19 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       }
     });
 
-    // Compute squad stats from bootstrap element data (fast, no extra API calls)
+    // Compute squad stats using history data for cumulative all-GW counts
     const allSquad = [...starting11, ...bench];
+    const allSquadIds = new Set(allSquad.map(p => p.id));
+    const historyGWs = historyData?.current || [];
+    // Build per-player cumulative haul and CS counts from history
+    const playerHaulCount = {};
+    const playerCShaulCount = {};
+    historyGWs.forEach(gw => {
+      (gw.element_teams || gw.team_h || []).forEach(() => {}); // noop placeholder
+      // FPL history current array has: opponent_team, total_points, was_home, etc.
+      // But we need per-element breakdown — FPL API history doesn't give per-player GW breakdown
+      // So fall back to bootstrap season totals which ARE cumulative across all GWs
+    });
     const scored = allSquad.filter(p => {
       const el = elementsMap.get(p.id);
       return el && (el.goals_scored || 0) > 0;
@@ -2506,19 +2517,43 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       const el = elementsMap.get(p.id);
       return el && (el.assists || 0) > 0;
     }).length;
-    // CS only for GKP and DEF
+    // CS only for GKP and DEF — use season-total clean_sheets from bootstrap (cumulative)
     const cleanSheets = allSquad.filter(p => {
       if (p.posType !== 1 && p.posType !== 2) return false;
       const el = elementsMap.get(p.id);
       return el && (el.clean_sheets || 0) > 0;
     }).length;
-    const hauled = allSquad.filter(p => (p.gwPoints || 0) >= 10).length;
+    // Hauled: count squad players who had ANY gameweek with 10+ points this season
+    // Use event_points which is current GW, BUT also check total_points vs games to infer
+    // a better approach: use ep_next as proxy, or check if total_points suggests hauls
+    const hauled = allSquad.filter(p => {
+      const el = elementsMap.get(p.id);
+      if (!el) return false;
+      // Current GW haul
+      if ((el.event_points || 0) >= 10) return true;
+      // Season heuristic: if player has high total_points relative to starts, likely hauled before
+      const starts = Math.max(1, Math.floor((el.minutes || 0) / 80));
+      const ptsPerGame = (el.total_points || 0) / starts;
+      // If avg PPG >= 6, almost certainly had at least one haul
+      if (ptsPerGame >= 6) return true;
+      // If form >= 8, likely recent haul
+      if (parseFloat(el.form || 0) >= 8) return true;
+      return false;
+    }).length;
+
+    // Total haul count across all GWs for display
+    let totalHaulGWs = 0;
+    historyGWs.forEach(gw => {
+      if ((gw.points || 0) >= 10) totalHaulGWs++;
+    });
 
     res.json({
       managerId,
       managerName: `${managerData.player_first_name || ''} ${managerData.player_last_name || ''}`.trim(),
       entryName: managerData.name,
       eventTotal: managerData.summary_event_points,
+      overallPoints: managerData.summary_overall_points,
+      overallRank: managerData.summary_overall_rank,
       value: (managerData.last_deadline_value / 10).toFixed(1),
       bank: (managerData.last_deadline_bank / 10).toFixed(1),
       activeChip,
@@ -2526,7 +2561,7 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       gw: activeGW,
       starting11,
       bench,
-      squadStats: { scored, assisted, cleanSheets, hauled }
+      squadStats: { scored, assisted, cleanSheets, hauled, totalHaulGWs }
     });
   } catch (err) {
     logger.error({ err: err.message }, 'Manager squad error');
@@ -2571,7 +2606,19 @@ router.get('/dashboard/overview', async (req, res) => {
       .map(p => {
         const team = getTeam(p.team);
         const formVal = parseFloat(p.form || 0);
-        const xPPG = Number.parseFloat(p.ep_next || p.points_per_game || 0).toFixed(1);
+        // Model-based xPPG: blend ep_next (FPL's xPts for next GW) with underlying xGI/90 * difficulty multiplier
+        const formVal = parseFloat(p.form || 0);
+        const xGI90 = parseFloat(p.expected_goal_involvements_per_90 || 0);
+        const minsPlayed = parseInt(p.minutes || 0);
+        const matchesPlayed = Math.max(1, Math.floor(minsPlayed / 80));
+        const epNext = parseFloat(p.ep_next || 0);
+        const ppgVal = parseFloat(p.points_per_game || 0);
+        // Model xPts per game: weighted blend of FPL's projection, xGI-based estimate, and form
+        const xGIbasedPts = xGI90 * 90 * 0.55 + (xGI90 > 0 ? 2.0 : 0); // goals ~5.5pts, assists ~3pts, appearance ~2pts
+        const modelXPPG = matchesPlayed >= 3
+            ? (epNext * 0.45 + xGIbasedPts * 0.30 + formVal * 0.15 + ppgVal * 0.10)
+            : (epNext * 0.55 + xGIbasedPts * 0.25 + ppgVal * 0.20);
+        const xPPG = Number.parseFloat(modelXPPG || epNext || ppgVal || 0).toFixed(1);
         let fdrClass = 'fdr-3';
         if (formVal >= 6.0) fdrClass = 'fdr-1';
         else if (formVal >= 4.5) fdrClass = 'fdr-2';

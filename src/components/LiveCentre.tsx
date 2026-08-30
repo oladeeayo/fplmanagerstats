@@ -510,8 +510,9 @@ function LiveCentreComponent() {
       {/* Controls */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '10px 16px', borderRadius: 10,
+        padding: '8px 12px', borderRadius: 10,
         background: 'rgba(255,0,90,0.06)', border: '1px solid rgba(255,0,90,0.15)',
+        flexWrap: 'wrap', gap: 8,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{
@@ -550,7 +551,7 @@ function LiveCentreComponent() {
 
       {/* Match tabs */}
       {liveFixtures.length > 1 && (
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', overflowX: 'auto', WebkitOverflowScrolling: 'touch' as any }}>
           <button
             onClick={() => setSelectedFixture(null)}
             style={{
@@ -589,7 +590,7 @@ function LiveCentreComponent() {
       {/* Score Cards */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: `repeat(${Math.min(liveFixtures.length, 3)}, 1fr)`,
+        gridTemplateColumns: liveFixtures.length === 1 ? '1fr' : liveFixtures.length === 2 ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(200px, 1fr))',
         gap: 14,
       }}>
         {liveFixtures.map(f => (
@@ -620,8 +621,8 @@ function LiveCentreComponent() {
           {/* Header */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '50px 1fr 1fr' + (hasLeague ? ' 80px' : ''),
-            padding: '8px 16px',
+            gridTemplateColumns: '42px 1fr 1fr' + (hasLeague ? ' 60px' : ''),
+            padding: '8px 10px',
             background: 'rgba(255,255,255,0.04)',
             borderBottom: '1px solid rgba(255,255,255,0.08)',
             fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)',
@@ -646,10 +647,10 @@ function LiveCentreComponent() {
                 key={`${row.fixtureId}-${row.playerName}-${row.eventType}-${i}`}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '50px 1fr 1fr' + (hasLeague ? ' 80px' : ''),
-                  padding: '10px 16px',
+                  gridTemplateColumns: '42px 1fr 1fr' + (hasLeague ? ' 60px' : ''),
+                  padding: '8px 10px',
                   borderBottom: '1px solid rgba(255,255,255,0.03)',
-                  fontSize: 13, alignItems: 'center',
+                  fontSize: 12, alignItems: 'center',
                 }}
               >
                 {/* Minute */}
@@ -661,7 +662,7 @@ function LiveCentreComponent() {
                 </span>
 
                 {/* Player + badge */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
                   <img
                     src={TEAM_BADGE(row.teamCode)}
                     alt={row.teamShort}
@@ -669,10 +670,10 @@ function LiveCentreComponent() {
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                   />
                   <div>
-                    <div style={{ fontWeight: 600, color: '#ffffff', fontSize: 13, lineHeight: 1.2 }}>
+                    <div style={{ fontWeight: 600, color: '#ffffff', fontSize: 12, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {row.playerName}
                     </div>
-                    <div style={{ fontSize: 10, color: 'var(--md-sys-color-on-surface-variant)' }}>
+                    <div style={{ fontSize: 9, color: 'var(--md-sys-color-on-surface-variant)' }}>
                       {row.teamShort}
                     </div>
                   </div>
