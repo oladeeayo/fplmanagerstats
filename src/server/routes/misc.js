@@ -2471,6 +2471,7 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       if (!el) return;
       const team = teamsMap.get(el.team);
       const playerFixtures = (teamFixturesMap[el.team] || []).slice(0, 2);
+      // gwPoints will be enriched with live data (includes captain multiplier) below
       const playerObj = {
         id: el.id,
         code: el.code,
@@ -2496,18 +2497,23 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       }
     });
 
-    // Compute squad stats for the CURRENT GW only using the FPL live endpoint
+    // Fetch live data for the current GW — includes captain/TC multiplier in total_points
     const allSquad = [...starting11, ...bench];
-    const historyGWs = historyData?.current || [];
-
-    // Fetch live data for the current GW to get per-player GW-specific stats
     let liveMap = {};
     try {
       const liveData = await getCachedApiData(`https://fantasy.premierleague.com/api/event/${activeGW}/live/`);
       (liveData?.elements || []).forEach(e => { liveMap[e.id] = e.stats || {}; });
     } catch (e) { /* live data may not be available yet */ }
 
-    // Current GW stats only
+    // Enrich gwPoints with live data (includes 2x/3x multiplier for captain/TC)
+    allSquad.forEach(p => {
+      const live = liveMap[p.id] || {};
+      if (typeof live.total_points === 'number') {
+        p.gwPoints = live.total_points;
+      }
+    });
+
+    // Current GW stats only (goals/assists/CS are base stats, not multiplied)
     let gwGoals = 0;
     let gwAssists = 0;
     let gwCS = 0;
@@ -2520,8 +2526,8 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       if (p.posType === 1 || p.posType === 2) {
         gwCS += (live.clean_sheets || 0);
       }
-      // Hauled = 10+ points this GW
-      if ((live.total_points || 0) >= 10) gwHauled++;
+      // Hauled = 10+ multiplied points this GW
+      if ((p.gwPoints || 0) >= 10) gwHauled++;
     });
 
 
