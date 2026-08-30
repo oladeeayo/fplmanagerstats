@@ -2524,11 +2524,7 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       if ((live.total_points || 0) >= 10) gwHauled++;
     });
 
-    // Total haul count across all GWs for the MANAGER (team-level: 10+ pts in a GW)
-    let totalHaulGWs = 0;
-    historyGWs.forEach(gw => {
-      if ((gw.points || 0) >= 10) totalHaulGWs++;
-    });
+
 
     res.json({
       managerId,
@@ -2544,7 +2540,7 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       gw: activeGW,
       starting11,
       bench,
-      squadStats: { gwGoals, gwAssists, gwCS, gwHauled, totalHaulGWs }
+      squadStats: { gwGoals, gwAssists, gwCS, gwHauled }
     });
   } catch (err) {
     logger.error({ err: err.message }, 'Manager squad error');
