@@ -2496,38 +2496,33 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       }
     });
 
-    // Compute squad stats using bootstrap season totals (cumulative across all GWs)
+    // Compute squad stats for the CURRENT GW only using the FPL live endpoint
     const allSquad = [...starting11, ...bench];
     const historyGWs = historyData?.current || [];
 
-    // Sum actual season totals from bootstrap — these are cumulative across ALL gameweeks
-    let totalGoals = 0;
-    let totalAssists = 0;
-    let totalCS = 0;
+    // Fetch live data for the current GW to get per-player GW-specific stats
+    let liveMap = {};
+    try {
+      const liveData = await getCachedApiData(`https://fantasy.premierleague.com/api/event/${activeGW}/live/`);
+      (liveData?.elements || []).forEach(e => { liveMap[e.id] = e.stats || {}; });
+    } catch (e) { /* live data may not be available yet */ }
+
+    // Current GW stats only
+    let gwGoals = 0;
+    let gwAssists = 0;
+    let gwCS = 0;
+    let gwHauled = 0;
     allSquad.forEach(p => {
-      const el = elementsMap.get(p.id);
-      if (!el) return;
-      totalGoals += (el.goals_scored || 0);
-      totalAssists += (el.assists || 0);
+      const live = liveMap[p.id] || {};
+      gwGoals += (live.goals_scored || 0);
+      gwAssists += (live.assists || 0);
       // CS only for GKP and DEF
       if (p.posType === 1 || p.posType === 2) {
-        totalCS += (el.clean_sheets || 0);
+        gwCS += (live.clean_sheets || 0);
       }
+      // Hauled = 10+ points this GW
+      if ((live.total_points || 0) >= 10) gwHauled++;
     });
-
-    // Hauled: count squad players who likely had at least one 10+ point haul this season
-    const hauled = allSquad.filter(p => {
-      const el = elementsMap.get(p.id);
-      if (!el) return false;
-      // Current GW haul
-      if ((el.event_points || 0) >= 10) return true;
-      // Season heuristic: if player has high total_points relative to starts, likely hauled before
-      const starts = Math.max(1, Math.floor((el.minutes || 0) / 80));
-      const ptsPerGame = (el.total_points || 0) / starts;
-      if (ptsPerGame >= 6) return true;
-      if (parseFloat(el.form || 0) >= 8) return true;
-      return false;
-    }).length;
 
     // Total haul count across all GWs for the MANAGER (team-level: 10+ pts in a GW)
     let totalHaulGWs = 0;
@@ -2549,7 +2544,7 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       gw: activeGW,
       starting11,
       bench,
-      squadStats: { totalGoals, totalAssists, totalCS, hauled, totalHaulGWs }
+      squadStats: { gwGoals, gwAssists, gwCS, gwHauled, totalHaulGWs }
     });
   } catch (err) {
     logger.error({ err: err.message }, 'Manager squad error');

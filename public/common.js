@@ -3563,10 +3563,10 @@ const FPL = {
             // Update header with squad stats
             if (subEl) {
                 const statItems = [];
-                if (stats.totalGoals > 0) statItems.push(`<span style="color:#00FF85;">⚽ ${stats.totalGoals} goals</span>`);
-                if (stats.totalAssists > 0) statItems.push(`<span style="color:#6496ff;">🅰️ ${stats.totalAssists} assists</span>`);
-                if (stats.totalCS > 0) statItems.push(`<span style="color:#c084fc;">🧤 ${stats.totalCS} CS</span>`);
-                if (stats.hauled > 0) statItems.push(`<span style="color:#ff4d4d;">🔥 ${stats.hauled} hauled</span>`);
+                if (stats.gwGoals > 0) statItems.push(`<span style="color:#00FF85;">⚽ ${stats.gwGoals} goals</span>`);
+                if (stats.gwAssists > 0) statItems.push(`<span style="color:#6496ff;">🅰️ ${stats.gwAssists} assists</span>`);
+                if (stats.gwCS > 0) statItems.push(`<span style="color:#c084fc;">🧤 ${stats.gwCS} CS</span>`);
+                if (stats.gwHauled > 0) statItems.push(`<span style="color:#ff4d4d;">🔥 ${stats.gwHauled} hauled</span>`);
                 if (stats.totalHaulGWs > 0) statItems.push(`<span style="color:#FFA600;">📊 ${stats.totalHaulGWs} haul GWs</span>`);
                 const worldRank = data.overallRank ? `World Rank: #${Number(data.overallRank).toLocaleString()}` : '';
                 subEl.innerHTML = `Manager: ${this.decodeHTML(managerName || 'FPL Manager')}${worldRank ? ' • ' + worldRank : ''}${statItems.length > 0 ? ' • ' + statItems.join(' • ') : ''}`;
