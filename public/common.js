@@ -5651,7 +5651,7 @@ const FPL = {
                     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;${isLast ? '' : 'border-bottom:1px solid rgba(255,255,255,0.05);'}">
                         <div style="display:flex;align-items:center;gap:10px;min-width:0;">
                             <span style="font-family:var(--font-mono);font-weight:900;font-size:12px;color:${medal};width:18px;text-align:center;">#${p.rank}</span>
-                            <div style="width:34px;height:34px;border-radius:50%;overflow:hidden;flex-shrink:0;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);">
+                            <div style="position:relative;width:34px;height:34px;border-radius:50%;overflow:hidden;flex-shrink:0;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);">
                                 ${self.playerPhotoMarkup(p, `${p.name} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}
                             </div>
                             <div style="min-width:0;">
