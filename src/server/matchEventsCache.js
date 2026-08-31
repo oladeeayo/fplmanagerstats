@@ -52,7 +52,7 @@ async function fetchMatchEvents() {
     const matches = (data.matches || [])
       .filter(m => {
         // Keep live matches and matches finished within the last 2 hours
-        if (['IN_PLAY', 'PAUSED', 'TIMED'].includes(m.status)) return true;
+        if (['LIVE', 'IN_PLAY', 'PAUSED', 'TIMED'].includes(m.status)) return true;
         if (m.status === 'FINISHED') {
           const matchEnd = new Date(m.utcDate).getTime() + 2 * 60 * 60 * 1000;
           return nowMs < matchEnd;
@@ -123,7 +123,7 @@ async function poll() {
 }
 
 function hasLiveMatches() {
-  return cachedData.matches.some(m => ['IN_PLAY', 'PAUSED', 'TIMED'].includes(m.status));
+  return cachedData.matches.some(m => ['LIVE', 'IN_PLAY', 'PAUSED', 'TIMED'].includes(m.status));
 }
 
 function startPolling() {

@@ -91,7 +91,8 @@ function isToday(dateStr: string): boolean {
   return new Date(dateStr).toDateString() === new Date().toDateString();
 }
 
-// football-data.org team ID → FPL team ID mapping (2025/26 PL)
+// football-data.org team ID → FPL team ID mapping
+// These are well-known stable IDs for established PL clubs
 const FD_TO_FPL: Record<number, number> = {
   57: 1,   // Arsenal
   58: 2,   // Aston Villa
@@ -99,12 +100,9 @@ const FD_TO_FPL: Record<number, number> = {
   402: 4,  // Brentford
   397: 5,  // Brighton
   61: 6,   // Chelsea
-  405: 7,  // Coventry City
   354: 8,  // Crystal Palace
   62: 9,   // Everton
   63: 10,  // Fulham
-  322: 11, // Hull City
-  356: 12, // Ipswich Town
   341: 13, // Leeds
   64: 14,  // Liverpool
   65: 15,  // Man City
@@ -112,12 +110,32 @@ const FD_TO_FPL: Record<number, number> = {
   67: 17,  // Newcastle
   675: 18, // Nottingham Forest
   73: 19,  // Tottenham
-  350: 20, // Sunderland
 };
 
-function findFPLTeamById(fdTeamId: number, fplTeams: Map<number, Team>): Team | undefined {
+// TLA-based fallback for teams not in the hardcoded map
+const FD_TLA_TO_FPL: Record<string, number> = {
+  'ARS': 1, 'AVL': 2, 'BOU': 3, 'BRE': 4, 'BHA': 5, 'CHE': 6,
+  'COV': 7, 'CRY': 8, 'EVE': 9, 'FUL': 10, 'HUL': 11, 'IPS': 12,
+  'LEE': 13, 'LIV': 14, 'MCI': 15, 'MUN': 16, 'NEW': 17, 'NFO': 18,
+  'TOT': 19, 'SUN': 20,
+};
+
+function findFPLTeamById(fdTeamId: number, fplTeams: Map<number, Team>, fdTla?: string): Team | undefined {
+  // 1. Try direct ID mapping
   const fplId = FD_TO_FPL[fdTeamId];
-  return fplId ? fplTeams.get(fplId) : undefined;
+  if (fplId) {
+    const team = fplTeams.get(fplId);
+    if (team) return team;
+  }
+  // 2. Try TLA mapping (football-data.org TLA → FPL team ID)
+  if (fdTla) {
+    const tlaFplId = FD_TLA_TO_FPL[fdTla.toUpperCase()];
+    if (tlaFplId) {
+      const team = fplTeams.get(tlaFplId);
+      if (team) return team;
+    }
+  }
+  return undefined;
 }
 
 /* ── Component ─────────────────────────────────────────────────────────── */
@@ -202,8 +220,8 @@ function LiveCentreComponent() {
         if (fdMatches.length > 0) {
           // Use football-data.org events with real timestamps
           for (const fdMatch of fdMatches) {
-            const fplTeam = findFPLTeamById(fdMatch.homeTeam.id, teamMap)
-              || findFPLTeamById(fdMatch.awayTeam.id, teamMap);
+            const fplTeam = findFPLTeamById(fdMatch.homeTeam.id, teamMap, fdMatch.homeTeam.tla)
+              || findFPLTeamById(fdMatch.awayTeam.id, teamMap, fdMatch.awayTeam.tla);
             if (!fplTeam) continue;
 
             // Find matching FPL fixture
@@ -261,8 +279,12 @@ function LiveCentreComponent() {
             const events: Event[] = [];
 
             // Convert FD team IDs to FPL team IDs for correct comparison
-            const fdHomeFplId = FD_TO_FPL[fdMatch.homeTeam.id] ?? fdMatch.homeTeam.id;
-            const fdAwayFplId = FD_TO_FPL[fdMatch.awayTeam.id] ?? fdMatch.awayTeam.id;
+            const fdHomeFplId = FD_TO_FPL[fdMatch.homeTeam.id]
+              ?? FD_TLA_TO_FPL[fdMatch.homeTeam.tla?.toUpperCase() ?? '']
+              ?? fdMatch.homeTeam.id;
+            const fdAwayFplId = FD_TO_FPL[fdMatch.awayTeam.id]
+              ?? FD_TLA_TO_FPL[fdMatch.awayTeam.tla?.toUpperCase() ?? '']
+              ?? fdMatch.awayTeam.id;
 
             for (const goal of fdMatch.goals) {
               const goalFplTeamId = FD_TO_FPL[goal.team?.id ?? 0] ?? goal.team?.id;
