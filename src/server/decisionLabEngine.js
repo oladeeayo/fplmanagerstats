@@ -643,11 +643,76 @@ function devilAdvocate(outgoing, incoming, decisionScore) {
 // 12. OPPORTUNITY COST ENGINE
 // ============================================================
 
+// Classify whether a player is a genuine transfer candidate.
+// Returns a sell-case strength that gates whether replacements are even searched.
+function classifySellCase(player, allPlayers, options = {}) {
+  const { currentGW = 1, horizon = 5 } = options;
+  const dampener = earlySeasonDampener(currentGW);
+
+  // EMERGENCY: truly unavailable — always allow transfer
+  if ((player.availability || 100) < 50) {
+    return { strength: 'EMERGENCY', allowTransfer: true, reason: `${player.availability}% availability` };
+  }
+
+  // Dont-sell protection: if the player is protected, don't replace them
+  const protection = dontSellProtection(player, { currentGW, horizon });
+  if (protection.protected && currentGW <= 5) {
+    return { strength: 'NONE', allowTransfer: false, reason: 'Player protected — underlying thesis intact' };
+  }
+
+  const minsProb = computeMinutesProbability(player);
+  const horizonPts = computeHorizonPoints(player.weekly, horizon);
+
+  // Find best replacement to gauge upgrade magnitude
+  const samePos = (allPlayers || [])
+    .filter(p => p.position === player.position && p.id !== player.id && (p.availability || 100) >= 50)
+    .sort((a, b) => (b.totalXpts || 0) - (a.totalXpts || 0));
+  const bestReplacement = samePos[0] || null;
+  const replacementGain = bestReplacement
+    ? round(computeHorizonPoints(bestReplacement.weekly, horizon) - horizonPts)
+    : 0;
+
+  const strength = computePlayerStrengthScore(player, { currentGW, horizon });
+
+  // STRONG sell case: severe minutes risk + weak player + big upgrade available
+  if (minsProb.startProbability < 30 && replacementGain >= 8 && strength.score < 40) {
+    return { strength: 'STRONG', allowTransfer: true, reason: `Low start probability (${minsProb.startProbability}%) and weak strength score (${strength.score})` };
+  }
+
+  // WEAK sell case: moderate underperformance — only allow in GW4+ or with massive gain
+  if ((replacementGain >= 5 && strength.score < 45) || (minsProb.startProbability < 50 && strength.score < 50)) {
+    if (currentGW <= 3) {
+      return { strength: 'WEAK', allowTransfer: false, reason: 'Early season — insufficient evidence to recommend selling' };
+    }
+    return { strength: 'WEAK', allowTransfer: true, reason: `Moderate underperformance (strength ${strength.score}, replacement gain ${replacementGain})` };
+  }
+
+  // NONE: player is performing adequately
+  return { strength: 'NONE', allowTransfer: false, reason: 'Player performing within expected range' };
+}
+
 function rankAllTransferOpportunities(squad, allPlayers, options = {}) {
   const { freeTransfers = 1, bank = 0, horizon = 5, currentGW = 1 } = options;
+  const dampener = earlySeasonDampener(currentGW);
   const opportunities = [];
 
+  // GW1-2: only allow emergency transfers (injured/unavailable)
+  const emergencyOnly = currentGW <= 1;
+
   for (const outgoing of squad) {
+    // --- SELL-CASE GATE ---
+    // Only search for replacements if the player is a genuine sell candidate.
+    // This prevents the optimizer from replacing every player just because
+    // someone slightly better exists.
+    const sellCase = classifySellCase(outgoing, allPlayers, { currentGW, horizon });
+
+    if (!sellCase.allowTransfer) {
+      // In GW1-2, skip non-emergency players entirely
+      if (emergencyOnly || (currentGW <= 2 && sellCase.strength !== 'EMERGENCY')) {
+        continue;
+      }
+    }
+
     const candidates = allPlayers
       .filter(p =>
         p.position === outgoing.position &&
@@ -664,11 +729,31 @@ function rankAllTransferOpportunities(squad, allPlayers, options = {}) {
       const decision = computeTransferDecisionScore(outgoing, incoming, {
         horizon, freeTransfers, currentGW,
       });
-      if (decision.netGain > 0) {
+
+      // Apply GW-specific transfer thresholds
+      // GW1-2: only accept transfers with very large gains (emergency + massive upgrade)
+      // GW3-5: higher bar than normal
+      // GW6+: normal thresholds
+      let minNetGain;
+      if (currentGW <= 2) {
+        minNetGain = sellCase.strength === 'EMERGENCY' ? 0 : dampener.sellThresholdBoost + 4;
+      } else if (currentGW <= 5) {
+        minNetGain = dampener.sellThresholdBoost + 2;
+      } else {
+        minNetGain = 0;
+      }
+
+      if (decision.netGain > minNetGain) {
+        // Additional early-season guard: reject hits before GW4 unless massive gain
+        if (decision.hitCost > 0 && currentGW <= 3 && decision.netGain < 10) {
+          continue;
+        }
+
         opportunities.push({
           out: outgoing,
           in: incoming,
           ...decision,
+          sellCase: sellCase.strength,
         });
       }
     }
@@ -691,15 +776,28 @@ function evaluateRollTransfer(squad, allPlayers, options = {}) {
   const bestOpportunity = opportunities[0] || null;
   const bestGain = bestOpportunity?.netGain || 0;
 
-  // Roll threshold: only roll if best available move is marginal
-  const ROLL_THRESHOLD = 2.0; // less than 2.0 net xPts gain → roll
+  // GW-specific roll threshold:
+  //   GW1: always roll (emergency transfers handled separately)
+  //   GW2: roll unless gain >= 8 xPts (massive upgrade)
+  //   GW3: roll unless gain >= 6 xPts
+  //   GW4-5: roll unless gain >= 4 xPts
+  //   GW6+: roll unless gain >= 2 xPts
+  let ROLL_THRESHOLD;
+  if (currentGW <= 1) ROLL_THRESHOLD = Infinity;
+  else if (currentGW <= 2) ROLL_THRESHOLD = 8;
+  else if (currentGW <= 3) ROLL_THRESHOLD = 6;
+  else if (currentGW <= 5) ROLL_THRESHOLD = 4;
+  else ROLL_THRESHOLD = 2;
+
   const rollRecommended = bestGain < ROLL_THRESHOLD;
 
   // FT bank value: each banked FT is worth approximately 1.5 xPts
-  const ftBankValue = round(Math.min(freeTransfers, 5) * 1.5);
+  // Early season: FT value is higher because projections are uncertain
+  const earlySeasonBonus = currentGW <= 3 ? 2.0 : 0;
+  const ftBankValue = round(Math.min(freeTransfers, 5) * 1.5 + earlySeasonBonus);
 
   // Flexibility score: how much does preserving the FT help next GW
-  const flexibilityScore = rollRecommended ? round(100 - bestGain * 20) : round(Math.max(0, 50 - bestGain * 15));
+  const flexibilityScore = rollRecommended ? round(100 - bestGain * 10) : round(Math.max(0, 50 - bestGain * 15));
 
   return {
     rollRecommended,
@@ -712,7 +810,7 @@ function evaluateRollTransfer(squad, allPlayers, options = {}) {
     ftBankValue,
     flexibilityScore,
     reason: rollRecommended
-      ? `No transfer clears the ${ROLL_THRESHOLD} xPts threshold. Rolling preserves flexibility (bank value: ${ftBankValue} xPts).`
+      ? `No transfer clears the ${ROLL_THRESHOLD === Infinity ? 'GW1 emergency-only' : ROLL_THRESHOLD + ' xPts'} threshold. Rolling preserves flexibility (bank value: ${ftBankValue} xPts).${currentGW <= 3 ? ' Early season: projections are uncertain — patience is recommended.' : ''}`
       : `Best available move gains ${bestGain.toFixed(1)} xPts — worth taking.`,
   };
 }
@@ -1282,7 +1380,7 @@ function generateYourDecisionBrief(squad, allPlayers, options = {}) {
   const { currentGW = 1, horizon = 5, freeTransfers = 1, bank = 0 } = options;
   const dampener = earlySeasonDampener(currentGW);
 
-  // Best transfer opportunity
+  // Best transfer opportunity (now gated by sell-case + GW-specific thresholds)
   const opportunities = rankAllTransferOpportunities(squad, allPlayers, { freeTransfers, bank, horizon, currentGW });
   const bestTransfer = opportunities[0] || null;
   const bestGain = bestTransfer?.netGain || 0;
@@ -1290,12 +1388,32 @@ function generateYourDecisionBrief(squad, allPlayers, options = {}) {
   // Roll evaluation
   const rollEval = evaluateRollTransfer(squad, allPlayers, { freeTransfers, bank, horizon, currentGW });
 
-  // Decision
+  // --- GW-SPECIFIC DECISION GATES ---
+  // The model should actively choose ROLL rather than merely failing to find a transfer.
   let action = 'ROLL';
   let confidence = 72;
   let transferDetail = null;
 
-  if (bestTransfer && bestGain >= 4.0) {
+  // GW-specific transfer thresholds:
+  //   GW1: emergency only (injured/unavailable)
+  //   GW2: emergency + massive upgrade (>=8 xPts net)
+  //   GW3: strong transfer (>=6 xPts net)
+  //   GW4-5: moderate transfer (>=4 xPts net)
+  //   GW6+: normal (>=2 xPts net)
+  let transferThreshold;
+  if (currentGW <= 1) {
+    transferThreshold = Infinity; // No normal transfers in GW1
+  } else if (currentGW <= 2) {
+    transferThreshold = bestTransfer?.sellCase === 'EMERGENCY' ? 0 : 8;
+  } else if (currentGW <= 3) {
+    transferThreshold = 6;
+  } else if (currentGW <= 5) {
+    transferThreshold = 4;
+  } else {
+    transferThreshold = 2;
+  }
+
+  if (bestTransfer && bestGain >= transferThreshold) {
     action = freeTransfers > 0 ? 'TRANSFER' : 'HIT';
     confidence = Math.min(dampener.confidenceCap, 60 + bestGain * 4);
     const analysis = analyzeTransfer(bestTransfer.out, bestTransfer.in, { currentGW, horizon, freeTransfers });
@@ -1311,18 +1429,20 @@ function generateYourDecisionBrief(squad, allPlayers, options = {}) {
     };
     // Monte Carlo simulation for the best transfer
     transferDetail.simulation = monteCarloTransferAnalysis(bestTransfer.out, bestTransfer.in, { horizon, currentGW, simulations: 5000 });
-  } else if (bestTransfer && bestGain >= 2.0) {
+  } else if (bestTransfer && bestGain >= transferThreshold * 0.5) {
     action = 'MONITOR';
     confidence = 55;
   }
 
-  // Captain — use the elite top-20 captaincy list (stored every GW) as the
-  // primary signal. If an elite player is in the squad, they're the pick.
-  // Fall back to stored captain (from FPL picks), then model captaincyScore.
+  // --- CAPTAINCY: use captaincyScore as the single source of truth ---
+  // The captaincy model (via computeCaptaincyScore) is the authoritative source.
+  // We sort by captaincyScore.finalScore, which already integrates rotation risk,
+  // fixtures, set pieces, elite pool, and H2H. We do NOT override with the
+  // elite list or stored captain — the model's own score is the pick.
   const storedCaptainId = options.storedCaptainId || null;
   const captainPool = squad.filter(p => p.position !== 'GKP' && (p.availability || 0) >= 70);
 
-  // Model's top pick by captaincyScore
+  // Model's top pick by captaincyScore — the single source of truth
   const modelCaptain = captainPool.sort((a, b) => {
     const scoreA = Number(a.captaincyScore?.finalScore) || (Number(a.weekly?.[0]?.xPts) || 0);
     const scoreB = Number(b.captaincyScore?.finalScore) || (Number(b.weekly?.[0]?.xPts) || 0);
@@ -1330,19 +1450,9 @@ function generateYourDecisionBrief(squad, allPlayers, options = {}) {
     return (Number(b.weekly?.[0]?.xPts) || 0) - (Number(a.weekly?.[0]?.xPts) || 0);
   })[0] || null;
 
-  // Elite players: those with a high eliteScore component in their captaincyScore
-  // (from the stored ELITE_CAPTAINCY_PLAYERS list — Haaland, Palmer, Saka, etc.)
-  const elitePlayers = captainPool
-    .filter(p => (p.captaincyScore?.components?.elite || 0) > 50)
-    .sort((a, b) => (b.captaincyScore?.components?.elite || 0) - (a.captaincyScore?.components?.elite || 0));
-  const eliteCaptain = elitePlayers[0] || null;
-
-  // Stored captain from FPL picks data
-  const storedCaptain = storedCaptainId ? captainPool.find(p => p.id === storedCaptainId) : null;
-
-  // Priority: elite list > stored captain > model pick
-  const bestCaptain = eliteCaptain || storedCaptain || modelCaptain;
-  const captainSource = eliteCaptain ? 'elite_choice' : storedCaptain ? 'stored_choice' : 'model';
+  // Use model captain as the primary pick — no elite/stored override
+  const bestCaptain = modelCaptain;
+  const captainSource = 'model';
 
   // Formation (simplified: suggest best based on squad)
   const positions = { GKP: squad.filter(p => p.position === 'GKP').length, DEF: squad.filter(p => p.position === 'DEF').length, MID: squad.filter(p => p.position === 'MID').length, FWD: squad.filter(p => p.position === 'FWD').length };
@@ -1385,8 +1495,6 @@ function generateYourDecisionBrief(squad, allPlayers, options = {}) {
       captaincyRationale: bestCaptain.captaincyScore?.rationale || null,
       source: captainSource,
       modelPick: modelCaptain ? modelCaptain.name : null,
-      storedCaptain: storedCaptain ? storedCaptain.name : null,
-      eliteRank: eliteCaptain ? elitePlayers.indexOf(eliteCaptain) + 1 : null,
     } : null,
     formation: `${positions.DEF}-${positions.MID}-${positions.FWD}`,
     freeTransfers,

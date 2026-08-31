@@ -1,6 +1,12 @@
 const { buildPlayerProjections, buildCaptaincyModel } = require('./captaincyModel');
 const { getEliteEntry, computeCaptaincyScore } = require('../data/elite_top20_captaincy');
 const {
+  storePredictionSnapshot,
+  loadPredictionSnapshot,
+  generateLearningReport,
+  loadLearnedParameters,
+} = require('./server/selfLearningEngine');
+const {
   clamp,
   computePlayerStrengthScore,
   computeUncertainty,
@@ -39,7 +45,15 @@ const {
 } = require('./server/decisionLabEngine');
 
 const POSITION_LIMITS = { GKP: 2, DEF: 5, MID: 5, FWD: 3 };
-const START_MINIMUMS = { GKP: 1, DEF: 3, MID: 2, FWD: 1 };
+const VALID_FORMATIONS = [
+  { DEF: 3, MID: 4, FWD: 3, label: '3-4-3' },
+  { DEF: 3, MID: 5, FWD: 2, label: '3-5-2' },
+  { DEF: 4, MID: 3, FWD: 3, label: '4-3-3' },
+  { DEF: 4, MID: 4, FWD: 2, label: '4-4-2' },
+  { DEF: 4, MID: 5, FWD: 1, label: '4-5-1' },
+  { DEF: 5, MID: 3, FWD: 2, label: '5-3-2' },
+  { DEF: 5, MID: 4, FWD: 1, label: '5-4-1' },
+];
 
 function round(value, precision = 1) {
   const multiplier = 10 ** precision;
@@ -102,16 +116,58 @@ function validSquad(players) {
   return Object.entries(POSITION_LIMITS).every(([position, count]) => positions[position] === count) && Object.values(teams).every(count => count <= 3);
 }
 
+// Next-GW xPts for a player, used to pick the best starting XI.
+function nextGwXpts(player) {
+  return Number(player?.weekly?.[0]?.xPts) || 0;
+}
+
 function selectLineup(squad, strategy) {
-  const ranked = [...squad].sort((a, b) => adjustedScore(b, strategy) - adjustedScore(a, strategy));
-  const starters = [];
-  Object.entries(START_MINIMUMS).forEach(([position, count]) => starters.push(...ranked.filter(player => player.position === position).slice(0, count)));
-  ranked.forEach(player => {
-    if (starters.length >= 11 || starters.some(starter => starter.id === player.id)) return;
-    if (player.position === 'GKP' && starters.some(starter => starter.position === 'GKP')) return;
-    starters.push(player);
-  });
-  const bench = ranked.filter(player => !starters.some(starter => starter.id === player.id));
+  // Pick the best starting XI from the user's actual 15-man squad for the
+  // next gameweek.  Rank players by next-GW xPts within each position, then
+  // evaluate all valid FPL formations to find the XI with the highest total
+  // next-GW projected points.
+  const byPos = {
+    GKP: squad.filter(p => p.position === 'GKP').sort((a, b) => nextGwXpts(b) - nextGwXpts(a)),
+    DEF: squad.filter(p => p.position === 'DEF').sort((a, b) => nextGwXpts(b) - nextGwXpts(a)),
+    MID: squad.filter(p => p.position === 'MID').sort((a, b) => nextGwXpts(b) - nextGwXpts(a)),
+    FWD: squad.filter(p => p.position === 'FWD').sort((a, b) => nextGwXpts(b) - nextGwXpts(a)),
+  };
+
+  let bestFormation = null;
+  let bestXpts = -Infinity;
+
+  for (const formation of VALID_FORMATIONS) {
+    const gk = byPos.GKP[0];
+    if (!gk) continue;
+    const defs = byPos.DEF.slice(0, formation.DEF);
+    const mids = byPos.MID.slice(0, formation.MID);
+    const fwds = byPos.FWD.slice(0, formation.FWD);
+    if (defs.length < formation.DEF || mids.length < formation.MID || fwds.length < formation.FWD) continue;
+
+    const xi = [gk, ...defs, ...mids, ...fwds];
+    const totalXpts = xi.reduce((sum, p) => sum + nextGwXpts(p), 0);
+    if (totalXpts > bestXpts) {
+      bestXpts = totalXpts;
+      bestFormation = { formation: formation.label, starters: xi };
+    }
+  }
+
+  // Fallback: if no formation was valid (shouldn't happen), pick top players
+  // per position by next-GW xPts to fill the standard 1-4-4-2 skeleton.
+  if (!bestFormation) {
+    const starters = [
+      byPos.GKP[0],
+      ...byPos.DEF.slice(0, 4),
+      ...byPos.MID.slice(0, 4),
+      ...byPos.FWD.slice(0, 2),
+    ].filter(Boolean);
+    bestFormation = { formation: '4-4-2', starters };
+  }
+
+  const starters = bestFormation.starters;
+  const starterIds = new Set(starters.map(p => p.id));
+  const bench = squad.filter(p => !starterIds.has(p.id));
+
   // Captain: use captaincyScore.finalScore (computed via elite_top20_captaincy
   // formula — considers rotation risk, fixtures, set pieces, elite pool, H2H).
   const captainPool = starters.filter(player => player.position !== 'GKP').sort((a, b) => {
@@ -123,7 +179,7 @@ function selectLineup(squad, strategy) {
   const captain = captainPool[0] || starters[0];
   const viceCaptain = captainPool[1] || starters[1];
   const expectedPoints = round(starters.reduce((sum, player) => sum + player.weekly[0].xPts, 0) + (captain?.weekly[0].xPts || 0));
-  return { starters, bench, captain, viceCaptain, expectedPoints };
+  return { starters, bench, captain, viceCaptain, expectedPoints, formation: bestFormation.formation };
 }
 
 function buildTransferPlans({ squad, allPlayers, bank, freeTransfers, strategy, currentGW, horizon }) {
@@ -132,14 +188,31 @@ function buildTransferPlans({ squad, allPlayers, bank, freeTransfers, strategy, 
   const sales = [...squad].sort((a, b) => adjustedScore(a, strategy) - adjustedScore(b, strategy));
   const plans = [];
   const dampener = earlySeasonDampener(currentGW || 1);
+  const gw = currentGW || 1;
 
-  // Minimum thresholds — calibrated for early-season projection noise
-  const MIN_NET_GAIN_FREE = 2.0;   // Free transfer must project ≥2.0 xPts net gain over horizon (~0.4/GW)
-  const MIN_NET_GAIN_HIT = 5.0;    // Hit must project ≥5.0 xPts net gain (1pt margin above -4 hit cost)
-  const MIN_NEXT_GAIN = 0.5;       // Single-GW improvement floor — low bar early season (high variance)
-  const MIN_XPTSPM_IMPROVEMENT = 0.03; // Allow modest efficiency upgrades (3% better per £m)
+  // GW-specific thresholds — the model must try to PROVE a transfer is necessary,
+  // not try to FIND a transfer.
+  const MIN_NET_GAIN_FREE = gw <= 2 ? 8 : gw <= 5 ? 4 : 2;
+  const MIN_NET_GAIN_HIT  = gw <= 2 ? 14 : gw <= 5 ? 8 : 5;
+  const MIN_NEXT_GAIN = gw <= 2 ? 2 : gw <= 5 ? 1 : 0.5;
+  const MIN_XPTSPM_IMPROVEMENT = 0.03;
+
+  // GW1-2: emergency only — skip non-emergency players entirely
+  if (gw <= 1) {
+    return []; // No normal transfers in GW1
+  }
 
   for (const outgoing of sales.slice(0, 10)) {
+    // --- SELL-CASE GATE ---
+    // Only search for replacements if dontSellProtection says the player isn't protected.
+    const protection = dontSellProtection(outgoing, { currentGW: gw, horizon: horizon || 5 });
+    if (protection.protected && gw <= 5) continue;
+
+    // --- AVAILABILITY GATE ---
+    // Skip available players with strong underlying numbers in early season
+    const isUnavailable = (outgoing.availability || 100) < 75;
+    if (!isUnavailable && gw <= 2) continue; // GW2: only replace unavailable players
+
     candidates
       .filter(incoming => incoming.position === outgoing.position && incoming.cost <= (outgoing.sellingPrice ?? outgoing.cost) + bank)
       .filter(incoming => squad.filter(player => player.teamId === incoming.teamId).length + 1 <= 3)
@@ -326,6 +399,54 @@ function buildRivalAnalysis(managerSquad, rivals, projectionMap) {
   });
 }
 
+// ============================================================
+// SELF-LEARNING INSIGHTS
+// ============================================================
+// The model tracks its own predictions, compares against outcomes,
+// and generates learning insights to improve future predictions.
+function buildSelfLearningInsights(currentGW, projections, liveData, history) {
+  try {
+    // 1. Store prediction snapshot for this GW (before deadline)
+    const squadPredictions = projections.slice(0, 80); // top 80 market players
+    storePredictionSnapshot(currentGW, squadPredictions, {
+      modelVersion: 'Decision Lab Engine 2.0 — Self-Learning',
+      parameters: loadLearnedParameters(),
+    });
+
+    // 2. Generate learning report from previous GW outcomes
+    const prevGW = currentGW - 1;
+    let learningReport = null;
+    if (prevGW >= 1 && liveData?.elements?.length) {
+      const prevPredictions = loadPredictionSnapshot(prevGW);
+      if (prevPredictions) {
+        learningReport = generateLearningReport(prevGW, prevPredictions, liveData);
+      }
+    }
+
+    // 3. Load historical learning reports for trend analysis
+    const recentReports = [];
+    for (let g = Math.max(1, currentGW - 5); g < currentGW; g++) {
+      const report = loadPredictionSnapshot(g);
+      if (report) recentReports.push({ gw: g, storedAt: report.storedAt });
+    }
+
+    return {
+      status: currentGW >= 3 ? 'active' : 'collecting',
+      currentGW,
+      predictionsStored: squadPredictions.length > 0,
+      learningReport,
+      historicalReports: recentReports.length,
+      message: currentGW < 3
+        ? `Collecting prediction data. Learning insights activate after GW3 when there are enough outcomes to compare. (${recentReports.length} snapshots stored)`
+        : learningReport
+          ? `Self-learning active. Last GW MAE: ${learningReport.comparison?.mae || '--'} pts. ${learningReport.biases?.biasCount || 0} bias(es) detected.`
+          : 'Self-learning active. Awaiting outcome data.',
+    };
+  } catch (err) {
+    return { status: 'error', message: 'Self-learning system encountered an error.', error: err.message };
+  }
+}
+
 function buildLiveAnalysis(picks, liveData, projectionMap, manager) {
   if (!liveData?.elements?.length) return { status: 'scheduled', message: 'Live rank analytics activate after the gameweek begins.' };
   const liveById = new Map(liveData.elements.map(element => [element.id, element.stats || {}]));
@@ -426,7 +547,7 @@ async function buildDecisionCentre({ bootstrap, fixtures, manager, picks, histor
     squad,
     lineup,
     decisions: [
-      { type: 'transfer', priority: transferPlans[0]?.netGain >= 4 ? 'high' : 'medium', title: transferPlans[0] ? transferPlans[0].transfers.map(move => `${move.out.name} to ${move.in.name}`).join(', ') : 'Roll the transfer', expectedGain: transferPlans[0]?.netGain || rollValue, reason: transferPlans[0]?.rationale || 'No available move clears the model threshold.' },
+      { type: 'transfer', priority: (transferPlans[0]?.netGain || 0) >= (currentGW <= 3 ? 8 : 4) ? 'high' : 'medium', title: transferPlans[0] ? transferPlans[0].transfers.map(move => `${move.out.name} to ${move.in.name}`).join(', ') : 'Roll the transfer', expectedGain: transferPlans[0]?.netGain || rollValue, reason: transferPlans[0]?.rationale || (currentGW <= 3 ? `Early season (GW${currentGW}): projections are uncertain — rolling is the safest default.` : 'No available move clears the model threshold.') },
       { type: 'captain', priority: 'high', title: `Captain ${lineup.captain?.name || '--'}`, expectedGain: lineup.captain?.weekly[0].xPts || 0, reason: `${lineup.captain?.weekly[0].xPts.toFixed(1) || '0.0'} xPts with a ${lineup.captain?.range.low.toFixed(1) || '0.0'}-${lineup.captain?.range.high.toFixed(1) || '0.0'} horizon range.`, ...(lineup.captain?.captaincyScore?.finalScore ? { captaincyScore: lineup.captain.captaincyScore.finalScore } : {}) },
       { type: 'lineup', priority: 'medium', title: `${lineup.expectedPoints.toFixed(1)} projected GW points`, expectedGain: 0, reason: `Best legal XI with ${lineup.bench.map(player => player.name).join(', ') || 'no bench'} benched.` },
     ],
@@ -457,6 +578,8 @@ async function buildDecisionCentre({ bootstrap, fixtures, manager, picks, histor
     alerts,
     comparisonPool: projectionData.projections.slice(0, 80),
     backtest: buildBacktest(history),
+    // --- SELF-LEARNING SYSTEM ---
+    selfLearning: buildSelfLearningInsights(currentGW, projectionData.projections, liveData, history),
   };
 }
 
@@ -511,7 +634,7 @@ async function buildSquadAdvice({ bootstrap, fixtures, playerIds, options = {} }
     const transferCase = replacement && replacement.netGain >= transferNetThreshold;
     // Early season: only flag Sell for unavailable players or blanks; ignore weakProjection entirely
     const verdict = isEarlySeason
-      ? (riskReasons.length && player.availability < 50 ? 'Sell' : riskReasons.length && player.availability < 75 ? 'Monitor' : transferCase ? 'Monitor' : 'Keep')
+      ? (player.availability < 50 ? 'Sell' : player.availability < 75 ? 'Monitor' : 'Keep')
       : (riskReasons.length && transferCase ? 'Sell' : transferCase ? 'Consider replacing' : weakProjection ? 'Monitor' : 'Keep');
     const reasons = [];
     reasons.push(`${player.totalXpts.toFixed(1)} xPts over ${projectionData.horizon} GWs (${player.range.low.toFixed(1)}-${player.range.high.toFixed(1)} range)`);

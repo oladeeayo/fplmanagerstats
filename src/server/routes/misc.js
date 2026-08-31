@@ -2597,11 +2597,15 @@ router.get('/dashboard/overview', async (req, res) => {
         const epNext = parseFloat(p.ep_next || 0);
         const ppgVal = parseFloat(p.points_per_game || 0);
         // Model xPts per game: weighted blend of FPL's projection, xGI-based estimate, and form
-        const xGIbasedPts = xGI90 * 90 * 0.55 + (xGI90 > 0 ? 2.0 : 0); // goals ~5.5pts, assists ~3pts, appearance ~2pts
+        // xGI90 is already per-match (per 90 minutes), so no multiplier needed.
+        // Each xGI ≈ 4.2 pts on average (goals ~5.5pts weighted ~55%, assists ~3pts weighted ~45%)
+        const xGIbasedPts = xGI90 * 4.2 + (minsPlayed > 0 ? 2.0 : 0);
+        // Established players: anchor on actual PPG, blend in underlying stats, form, and projection
+        // New/brief players: lean on projection and underlying stats since actual data is sparse
         const modelXPPG = matchesPlayed >= 3
-            ? (epNext * 0.45 + xGIbasedPts * 0.30 + formVal * 0.15 + ppgVal * 0.10)
-            : (epNext * 0.55 + xGIbasedPts * 0.25 + ppgVal * 0.20);
-        const xPPG = Number.parseFloat(modelXPPG || epNext || ppgVal || 0).toFixed(1);
+            ? (ppgVal * 0.40 + formVal * 0.20 + xGIbasedPts * 0.25 + epNext * 0.15)
+            : (epNext * 0.45 + xGIbasedPts * 0.30 + ppgVal * 0.25);
+        const xPPG = (isNaN(modelXPPG) ? 0 : Math.max(0, Math.min(15, modelXPPG))).toFixed(1);
         let fdrClass = 'fdr-3';
         if (formVal >= 6.0) fdrClass = 'fdr-1';
         else if (formVal >= 4.5) fdrClass = 'fdr-2';
