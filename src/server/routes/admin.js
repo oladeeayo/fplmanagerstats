@@ -711,8 +711,10 @@ router.get('/gw-summary', async (req, res) => {
     md += `---\n\n`;
 
     md += `*Bottom 4 Managers of The Week – GW ${targetGW}*\n\n`;
-    const bottom4Ranks = getDisplayRanks(bottom4);
-    bottom4.forEach((m, i) => {
+    // Reverse bottom4 so lowest scorer is #1 (worst)
+    const bottom4Sorted = [...bottom4].sort((a, b) => a.gwPoints - b.gwPoints);
+    const bottom4Ranks = getDisplayRanks(bottom4Sorted);
+    bottom4Sorted.forEach((m, i) => {
       const rankIdx = bottom4Ranks[i] - 1;
       md += `${rankEmojis[rankIdx]} *${m.teamName}* – ${m.gwPoints} points ${sadEmojis[rankIdx]}\n`;
     });
