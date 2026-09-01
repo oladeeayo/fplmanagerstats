@@ -450,11 +450,11 @@ const Admin = (() => {
         <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;text-align:center;font-weight:800;font-size:13px;background:${ptColor.bg};color:${ptColor.text};">${ptDiff}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;${numCenter}">${formatNum(m.overallRank)}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;${numCenter}">${m.gwPoints}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;text-align:center;font-weight:800;font-size:13px;background:${xiImpactDisplay.bg};color:${xiImpactDisplay.color};">${xiImpactDisplay.text}</td>
+        <td style="padding:6px 16px;border-bottom:1px solid #e9ecef;text-align:center;font-weight:800;font-size:13px;background:${xiImpactDisplay.bg};color:${xiImpactDisplay.color};min-width:80px;">${xiImpactDisplay.text}</td>
       </tr>`;
     });
 
-    let html = `<div id="gw-image-canvas" style="width:860px;background:#ffffff;font-family:'Inter',system-ui,sans-serif;color:#2c3e50;padding:0;overflow:hidden;">`;
+    let html = `<div id="gw-image-canvas" style="width:960px;background:#ffffff;font-family:'Inter',system-ui,sans-serif;color:#2c3e50;padding:0;overflow:hidden;">`;
 
     // Header banner — centered
     html += `<div style="background:#1a5276;padding:20px 32px 16px;text-align:center;">
@@ -483,7 +483,7 @@ const Admin = (() => {
           <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;">Pt Diff</th>
           <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;">Overall Rank</th>
           <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;">GW Pts</th>
-          <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;">XI Impact</th>
+          <th style="padding:8px 16px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;min-width:80px;">XI Impact</th>
         </tr>
       </thead>
       <tbody>
