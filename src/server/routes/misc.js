@@ -331,11 +331,13 @@ router.get('/league-standings/:leagueId', heavyEndpointLimiter, async (req, res)
     for (let i = 0; i < entries.length; i += batchSize) {
       const batch = entries.slice(i, i + batchSize);
       const results = await Promise.allSettled(batch.map(async e => {
-        const [histData, entryData] = await Promise.all([
+        const [histData, entryData, picksData, transfersData] = await Promise.all([
           getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/history/`).catch(() => null),
-          getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/`).catch(() => null)
+          getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/`).catch(() => null),
+          getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/event/${currentGW}/picks/`).catch(() => null),
+          getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/transfers/`).catch(() => null)
         ]);
-        return { history: histData, entry: entryData };
+        return { history: histData, entry: entryData, picks: picksData, transfers: transfersData };
       }));
       results.forEach((res, idx) => {
         const entry = batch[idx];
@@ -363,12 +365,36 @@ router.get('/league-standings/:leagueId', heavyEndpointLimiter, async (req, res)
         // GW points from entry current data
         const gwPoints = hist?.current?.length > 0 ? hist.current[hist.current.length - 1].points : entry.event_total;
 
+        // XI Impact: Transfer + Auto-sub impact
+        const picksRes = res.value?.picks;
+        const transfersRes = res.value?.transfers;
+        const gwTransfers = (transfersRes || []).filter(t => t.event === currentGW);
+        let transferImpact = 0;
+        gwTransfers.forEach(t => {
+          const inEl = (playerData.elements || []).find(p => p.id === t.element_in);
+          const outEl = (playerData.elements || []).find(p => p.id === t.element_out);
+          const inPts = inEl?.event_points || 0;
+          const outPts = outEl?.event_points || 0;
+          transferImpact += inPts - outPts;
+        });
+        const autoSubs = picksRes?.automatic_subs || [];
+        let autoSubImpact = 0;
+        autoSubs.forEach(sub => {
+          const inEl = (playerData.elements || []).find(p => p.id === sub.element_in);
+          const outEl = (playerData.elements || []).find(p => p.id === sub.element_out);
+          const inPts = inEl?.event_points || 0;
+          const outPts = outEl?.event_points || 0;
+          autoSubImpact += inPts - outPts;
+        });
+        const xiImpact = transferImpact + autoSubImpact;
+
         enriched.push({
           rank: entry.rank, entry: entry.entry,
           playerName: entry.player_name, teamName: entry.entry_name,
           totalPoints: entry.total, overallRank: overallRank?.toLocaleString() || '—',
           lastRank: entry.last_rank, rankChange: (entry.last_rank || entry.rank) - entry.rank,
           gwPoints: gwPoints?.toLocaleString() || '—',
+          xiImpact: xiImpact,
           lastSeasonRank: lastSeasonRank?.toLocaleString() || '—',
           seasonBeforeLastRank: seasonBeforeLastRank?.toLocaleString() || '—',
           chipsUsed: chipLabels.length ? chipLabels.join(', ') : 'None',
@@ -2058,15 +2084,17 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
     const pageSize = 100;
     const managerEntries = topEntries.slice((page - 1) * pageSize, page * pageSize);
 
-    // Fetch entry + history data for current page managers (overall rank, past season ranks, season chips)
+    // Fetch entry + history + transfers data for current page managers
     const managerDetailMap = {};
+    const transfersMap = {};
     await Promise.all(
       managerEntries.map(async e => {
         if (!e.entry) return;
         try {
-          const [entryData, historyData] = await Promise.all([
+          const [entryData, historyData, transfersData] = await Promise.all([
             getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/`),
-            getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/history/`)
+            getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/history/`),
+            getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/transfers/`).catch(() => null)
           ]);
           const past = historyData?.past || [];
           // Dynamically pick the two most recent completed seasons
@@ -2083,6 +2111,7 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
             seasonBeforeName: seasonBefore?.season_name || null,
             seasonChips: chipsUsed
           };
+          transfersMap[e.entry] = transfersData;
         } catch (err) {
           managerDetailMap[e.entry] = {};
         }
@@ -2125,6 +2154,29 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       }
 
       const detail = managerDetailMap[mId] || {};
+
+      // XI Impact: Transfer + Auto-sub impact
+      let xiImpact = 0;
+      const gwTransfers = (transfersMap[mId] || []).filter(t => t.event === currentGW);
+      let transferImpact = 0;
+      gwTransfers.forEach(t => {
+        const inEl = elementMap[t.element_in];
+        const outEl = elementMap[t.element_out];
+        const inPts = inEl ? (elements.find(p => p.id === t.element_in)?.event_points || 0) : 0;
+        const outPts = outEl ? (elements.find(p => p.id === t.element_out)?.event_points || 0) : 0;
+        transferImpact += inPts - outPts;
+      });
+      const autoSubs = picksData?.automatic_subs || [];
+      let autoSubImpact = 0;
+      autoSubs.forEach(sub => {
+        const inEl = elements.find(p => p.id === sub.element_in);
+        const outEl = elements.find(p => p.id === sub.element_out);
+        const inPts = inEl?.event_points || 0;
+        const outPts = outEl?.event_points || 0;
+        autoSubImpact += inPts - outPts;
+      });
+      xiImpact = transferImpact + autoSubImpact;
+
       return {
         rank: entry.rank || ((page - 1) * pageSize) + index + 1,
         managerName: mgrName,
@@ -2140,7 +2192,8 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
         overallRank: detail.overallRank || null,
         lastSeasonRank: detail.lastSeasonRank || null,
         seasonBeforeLastRank: detail.seasonBeforeLastRank || null,
-        seasonChips: detail.seasonChips || []
+        seasonChips: detail.seasonChips || [],
+        xiImpact: xiImpact
       };
     });
 
@@ -2420,11 +2473,12 @@ router.get('/manager-squad/:managerId', async (req, res) => {
     // If is_current is finished OR is_next exists (meaning current is done), skip to next 2
     const currentGWFinished = (currentEvent?.finished) || !!nextEvent;
     
-    const [managerData, picksData, historyData, fixturesData] = await Promise.all([
+    const [managerData, picksData, historyData, fixturesData, transfersData] = await Promise.all([
       getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/`),
       getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${activeGW}/picks/`).catch(() => ({})),
       getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/history/`).catch(() => ({})),
-      getCachedApiData(FIXTURES_URL)
+      getCachedApiData(FIXTURES_URL),
+      getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/transfers/`).catch(() => null)
     ]);
 
     const elementsMap = new Map((bootstrap.elements || []).map(p => [p.id, p]));
@@ -2532,6 +2586,27 @@ router.get('/manager-squad/:managerId', async (req, res) => {
 
 
 
+    // XI Impact: Transfer + Auto-sub impact
+    let transferImpact = 0;
+    let autoSubImpact = 0;
+    const gwTransfers = (transfersData || []).filter(t => t.event === activeGW);
+    gwTransfers.forEach(t => {
+      const inEl = elementsMap.get(t.element_in);
+      const outEl = elementsMap.get(t.element_out);
+      const inPts = inEl?.event_points || 0;
+      const outPts = outEl?.event_points || 0;
+      transferImpact += inPts - outPts;
+    });
+    const autoSubs = picksData?.automatic_subs || [];
+    autoSubs.forEach(sub => {
+      const inEl = elementsMap.get(sub.element_in);
+      const outEl = elementsMap.get(sub.element_out);
+      const inPts = inEl?.event_points || 0;
+      const outPts = outEl?.event_points || 0;
+      autoSubImpact += inPts - outPts;
+    });
+    const xiImpact = transferImpact + autoSubImpact;
+
     res.json({
       managerId,
       managerName: `${managerData.player_first_name || ''} ${managerData.player_last_name || ''}`.trim(),
@@ -2546,7 +2621,9 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       gw: activeGW,
       starting11,
       bench,
-      squadStats: { gwGoals, gwAssists, gwCS, gwHauled }
+      squadStats: { gwGoals, gwAssists, gwCS, gwHauled },
+      xiImpact: xiImpact,
+      transferCount: gwTransfers.length
     });
   } catch (err) {
     logger.error({ err: err.message }, 'Manager squad error');

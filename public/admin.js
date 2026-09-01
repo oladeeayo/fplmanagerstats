@@ -396,6 +396,17 @@ const Admin = (() => {
       return { bg: '#e74c3c', text: '#ffffff' };
     }
 
+    function getXIImpactDisplay(xiImpact) {
+      if (!xiImpact && xiImpact !== 0) return { text: '\u2014', color: '#999', bg: 'transparent' };
+      if (xiImpact === 0) return { text: '\u2014', color: '#999', bg: 'transparent' };
+      const sign = xiImpact > 0 ? '+' : '';
+      if (xiImpact > 10) return { text: `${sign}${xiImpact}`, color: '#006100', bg: '#c6efce' };
+      if (xiImpact > 0) return { text: `${sign}${xiImpact}`, color: '#155724', bg: '#d4edda' };
+      if (xiImpact >= -5) return { text: `${xiImpact}`, color: '#856404', bg: '#fff3cd' };
+      if (xiImpact >= -15) return { text: `${xiImpact}`, color: '#721c24', bg: '#f8d7da' };
+      return { text: `${xiImpact}`, color: '#ffffff', bg: '#e74c3c' };
+    }
+
     function getRankChangeDisplay(lastRank, rank) {
       if (!lastRank || lastRank === rank) return { text: '— 0', color: '#666' };
       const diff = lastRank - rank;
@@ -424,6 +435,7 @@ const Admin = (() => {
       const ptDiff = m.totalPoints - leaderPoints;
       const ptColor = getPointDiffColor(ptDiff);
       const rankChange = getRankChangeDisplay(m.lastRank, m.rank);
+      const xiImpactDisplay = getXIImpactDisplay(m.xiImpact);
       const isTop4 = data.top4.some(t => t.entryId === m.entryId);
       const isBottom4 = data.bottom4.some(b => b.entryId === m.entryId);
       const rowBg = i % 2 === 0 ? '#ffffff' : '#f8f9fa';
@@ -438,6 +450,7 @@ const Admin = (() => {
         <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;text-align:center;font-weight:800;font-size:13px;background:${ptColor.bg};color:${ptColor.text};">${ptDiff}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;${numCenter}">${formatNum(m.overallRank)}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;${numCenter}">${m.gwPoints}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;text-align:center;font-weight:800;font-size:13px;background:${xiImpactDisplay.bg};color:${xiImpactDisplay.color};">${xiImpactDisplay.text}</td>
       </tr>`;
     });
 
@@ -470,6 +483,7 @@ const Admin = (() => {
           <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;">Pt Diff</th>
           <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;">Overall Rank</th>
           <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;">GW Pts</th>
+          <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;">XI Impact</th>
         </tr>
       </thead>
       <tbody>

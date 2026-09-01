@@ -3050,6 +3050,15 @@ const FPL = {
                     <td class="mono" style="padding:4px 6px;text-align:center;background:${cellBg};color:var(--fdr-1);font-weight:800;">${this.formatNumber(m.total)}</td>
                     <td class="desktop-only" style="padding:4px 6px;text-align:center;background:${cellBg};font-size:11px;color:var(--md-sys-color-on-surface);font-weight:600;">${this.escapeHTML(captainDisp)}</td>
                     <td style="padding:4px 6px;text-align:center;background:${cellBg};">${chipBadge}</td>
+                    <td style="padding:4px 6px;text-align:center;background:${cellBg};">
+                        ${(() => {
+                            const xi = m.xiImpact || 0;
+                            if (xi === 0) return '<span style="font-size:10px;color:#666;">\u2014</span>';
+                            const sign = xi > 0 ? '+' : '';
+                            const xiColor = xi > 0 ? '#00FF85' : xi >= -5 ? '#FFA600' : '#ff4d4d';
+                            return `<span class="mono" style="font-size:11px;font-weight:700;color:${xiColor};">${sign}${xi}</span>`;
+                        })()}
+                    </td>
                     <td style="padding:4px 6px;text-align:center;background:${cellBg};">${diffArrow}</td>
                     <td style="padding:4px 6px;text-align:center;background:${cellBg};">
                         <span class="mono" style="background:${isConnectedManager ? 'rgba(0,255,133,0.12)' : 'var(--md-sys-color-surface-variant)'};color:${isConnectedManager ? '#00FF85' : 'var(--md-sys-color-on-surface)'};font-size:10px;padding:2px 6px;border-radius:3px;font-weight:700;display:inline-block;">${this.formatNumber(m.diffCount)}</span>
@@ -3135,7 +3144,7 @@ const FPL = {
     },
 
     updateStandingsSortIcons() {
-        const keys = ['rank', 'team', 'eventTotal', 'xGWPts', 'total', 'captainName', 'activeChip', 'rankDiff', 'diffCount'];
+        const keys = ['rank', 'team', 'eventTotal', 'xGWPts', 'total', 'captainName', 'activeChip', 'xiImpact', 'rankDiff', 'diffCount'];
         keys.forEach(key => {
             const iconEl = document.getElementById(`standings-sort-icon-${key}`);
             if (iconEl) {
@@ -3666,6 +3675,17 @@ const FPL = {
                     <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px;text-align:center;">
                         <span style="font-size:10px;color:#8ba396;display:block;font-family:var(--font-mono);">ACTIVE CHIP</span>
                         <strong style="font-size:14px;color:${activeChip !== 'NONE' ? '#00FF85' : '#8ba396'};font-family:var(--font-mono);">${activeChip}</strong>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px;text-align:center;">
+                        <span style="font-size:10px;color:#8ba396;display:block;font-family:var(--font-mono);">XI IMPACT</span>
+                        ${(() => {
+                            const xi = data.xiImpact || 0;
+                            const tc = data.transferCount || 0;
+                            if (xi === 0 && tc === 0) return '<strong style="font-size:14px;color:#8ba396;font-family:var(--font-mono);">\u2014</strong>';
+                            const sign = xi > 0 ? '+' : '';
+                            const xiColor = xi > 0 ? '#00FF85' : xi >= -5 ? '#FFA600' : '#ff4d4d';
+                            return `<strong style="font-size:14px;color:${xiColor};font-family:var(--font-mono);">${sign}${xi}</strong><span style="font-size:9px;color:#8ba396;display:block;">${tc} transfer${tc !== 1 ? 's' : ''}</span>`;
+                        })()}
                     </div>
                 </div>
 

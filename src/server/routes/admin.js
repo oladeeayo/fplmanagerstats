@@ -523,9 +523,10 @@ router.get('/gw-summary', async (req, res) => {
       const batch = allEntries.slice(i, i + BATCH);
       const batchResults = await Promise.all(batch.map(async (entry) => {
         try {
-          const [historyRes, picksRes] = await Promise.all([
+          const [historyRes, picksRes, transfersRes] = await Promise.all([
             getCachedApiData(`https://fantasy.premierleague.com/api/entry/${entry.entry}/history/`),
             getCachedApiData(`https://fantasy.premierleague.com/api/entry/${entry.entry}/event/${targetGW}/picks/`),
+            getCachedApiData(`https://fantasy.premierleague.com/api/entry/${entry.entry}/transfers/`),
           ]);
 
           // Find GW data
@@ -558,6 +559,23 @@ router.get('/gw-summary', async (req, res) => {
             }
           });
 
+          // --- XI Impact: Transfer + Auto-sub impact ---
+          const gwTransfers = (transfersRes || []).filter(t => t.event === targetGW);
+          let transferImpact = 0;
+          gwTransfers.forEach(t => {
+            const inPts = players[t.element_in]?.eventPoints || 0;
+            const outPts = players[t.element_out]?.eventPoints || 0;
+            transferImpact += inPts - outPts;
+          });
+
+          const autoSubs = picksRes?.automatic_subs || [];
+          let autoSubImpact = 0;
+          autoSubs.forEach(sub => {
+            const inPts = players[sub.element_in]?.eventPoints || 0;
+            const outPts = players[sub.element_out]?.eventPoints || 0;
+            autoSubImpact += inPts - outPts;
+          });
+
           return {
             rank: entry.rank,
             lastRank: entry.last_rank || entry.rank,
@@ -572,9 +590,10 @@ router.get('/gw-summary', async (req, res) => {
             benchPoints,
             chipPlayed,
             overallRank: historyRes?.current?.[historyRes.current.length - 1]?.overall_rank || null,
+            xiImpact: transferImpact + autoSubImpact,
+            transferCount: gwTransfers.length,
           };
-        } catch (e) {
-          return {
+        } catch (e) {            return {
             rank: entry.rank,
             lastRank: entry.last_rank || entry.rank,
             teamName: entry.entry_name,
@@ -588,6 +607,8 @@ router.get('/gw-summary', async (req, res) => {
             benchPoints: 0,
             chipPlayed: null,
             overallRank: null,
+            xiImpact: 0,
+            transferCount: 0,
             error: true,
           };
         }
