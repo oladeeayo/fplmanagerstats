@@ -365,12 +365,16 @@ router.get('/league-standings/:leagueId', heavyEndpointLimiter, async (req, res)
         // GW points from entry current data
         const gwPoints = hist?.current?.length > 0 ? hist.current[hist.current.length - 1].points : entry.event_total;
 
-        // XI Impact: Transfer + Auto-sub impact
+        // XI Impact: Transfer + Auto-sub impact (starting XI only)
         const picksRes = res.value?.picks;
         const transfersRes = res.value?.transfers;
+        const startingXISet = new Set((picksRes?.picks || []).filter(p => p.position <= 11).map(p => p.element));
         const gwTransfers = (transfersRes || []).filter(t => t.event === currentGW);
         let transferImpact = 0;
         gwTransfers.forEach(t => {
+          const outInXI = startingXISet.has(t.element_out);
+          const inInXI = startingXISet.has(t.element_in);
+          if (!outInXI && !inInXI) return; // bench-only transfer, no XI impact
           const inEl = (playerData.elements || []).find(p => p.id === t.element_in);
           const outEl = (playerData.elements || []).find(p => p.id === t.element_out);
           const inPts = inEl?.event_points || 0;
@@ -2155,11 +2159,15 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
 
       const detail = managerDetailMap[mId] || {};
 
-      // XI Impact: Transfer + Auto-sub impact
+      // XI Impact: Transfer + Auto-sub impact (starting XI only)
+      const startingXISet = new Set((picksData?.picks || []).filter(p => p.position <= 11).map(p => p.element));
       let xiImpact = 0;
       const gwTransfers = (transfersMap[mId] || []).filter(t => t.event === currentGW);
       let transferImpact = 0;
       gwTransfers.forEach(t => {
+        const outInXI = startingXISet.has(t.element_out);
+        const inInXI = startingXISet.has(t.element_in);
+        if (!outInXI && !inInXI) return; // bench-only transfer, no XI impact
         const inEl = elementMap[t.element_in];
         const outEl = elementMap[t.element_out];
         const inPts = inEl ? (elements.find(p => p.id === t.element_in)?.event_points || 0) : 0;
@@ -2586,11 +2594,15 @@ router.get('/manager-squad/:managerId', async (req, res) => {
 
 
 
-    // XI Impact: Transfer + Auto-sub impact
+    // XI Impact: Transfer + Auto-sub impact (starting XI only)
+    const startingXISet = new Set((picksData?.picks || []).filter(p => p.position <= 11).map(p => p.element));
     let transferImpact = 0;
     let autoSubImpact = 0;
     const gwTransfers = (transfersData || []).filter(t => t.event === activeGW);
     gwTransfers.forEach(t => {
+      const outInXI = startingXISet.has(t.element_out);
+      const inInXI = startingXISet.has(t.element_in);
+      if (!outInXI && !inInXI) return; // bench-only transfer, no XI impact
       const inEl = elementsMap.get(t.element_in);
       const outEl = elementsMap.get(t.element_out);
       const inPts = inEl?.event_points || 0;

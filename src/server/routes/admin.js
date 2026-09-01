@@ -559,10 +559,14 @@ router.get('/gw-summary', async (req, res) => {
             }
           });
 
-          // --- XI Impact: Transfer + Auto-sub impact ---
+          // --- XI Impact: Transfer + Auto-sub impact (starting XI only) ---
+          const startingXISet = new Set(picks.filter(p => p.position <= 11).map(p => p.element));
           const gwTransfers = (transfersRes || []).filter(t => t.event === targetGW);
           let transferImpact = 0;
           gwTransfers.forEach(t => {
+            const outInXI = startingXISet.has(t.element_out);
+            const inInXI = startingXISet.has(t.element_in);
+            if (!outInXI && !inInXI) return; // bench-only transfer, no XI impact
             const inPts = players[t.element_in]?.eventPoints || 0;
             const outPts = players[t.element_out]?.eventPoints || 0;
             transferImpact += inPts - outPts;
