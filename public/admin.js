@@ -408,7 +408,7 @@ const Admin = (() => {
       return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     }
 
-    const managers = data.allManagers;
+    const managers = [...data.allManagers].sort((a, b) => (a.rank || Infinity) - (b.rank || Infinity));
     const leaderPoints = managers.length > 0 ? managers[0].totalPoints : 0;
     const fplAvg = 55; // approximate PL-wide average per GW
     const leagueVsFpl = data.leagueAvg - fplAvg;
