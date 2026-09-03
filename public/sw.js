@@ -4,13 +4,10 @@ const STATIC_ASSETS = [
     '/index.html',
     '/common.js?v=27',
     '/design-system.css?v=23',
-    '/fpl-icon.svg?v=3',
-    '/pwa-icon-192.png?v=3',
-    '/pwa-icon-512.png?v=3',
-    '/icon-192.png',
-    '/icon-512.png',
-    '/icon-192.svg',
-    '/icon-512.svg',
+    '/favicon.svg?v=8',
+    '/fpl-icon.svg?v=8',
+    '/pwa-icon-192.png?v=8',
+    '/pwa-icon-512.png?v=8',
     '/manifest.json'
 ];
 

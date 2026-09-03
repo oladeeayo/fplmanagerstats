@@ -145,7 +145,7 @@ export function InstallPrompt() {
         <div className="install-prompt-handle" />
 
         <div className="install-prompt-icon">
-          <img src="/pwa-icon-192.png" alt="FPL Manager Analytics" width={72} height={72} />
+          <img src="/favicon.svg?v=8" alt="FPL Manager Analytics" width={72} height={72} />
         </div>
 
         <h2 id="install-prompt-title" className="install-prompt-title">Install FPL Manager Analytics</h2>
