@@ -493,6 +493,30 @@ router.get('/gw-summary', async (req, res) => {
     const activeEvent = (bs.events || []).find(e => e.is_current);
     const targetGW = gw || (activeEvent ? (activeEvent.finished ? activeEvent.id : activeEvent.id - 1) : 1);
 
+    // Fetch the LIVE endpoint for the target GW to get correct per-player scores
+    // (bootstrap event_points only reflects the current GW, not the requested one)
+    let livePlayerPoints = {};
+    try {
+      const liveData = await getCachedApiData(
+        `https://fantasy.premierleague.com/api/event/${targetGW}/live/`,
+        60 * 1000
+      );
+      (liveData?.elements || []).forEach(el => {
+        livePlayerPoints[el.id] = el.stats?.total_points || 0;
+      });
+    } catch (e) {
+      // Fallback: use bootstrap event_points if live endpoint fails
+      logger.warn({ err: e, targetGW }, 'Failed to fetch live data, falling back to bootstrap event_points');
+      (bs.elements || []).forEach(p => {
+        livePlayerPoints[p.id] = p.event_points || 0;
+      });
+    }
+
+    // Helper: get correct points for a player in the target GW
+    function getPlayerPoints(playerId) {
+      return livePlayerPoints[playerId] ?? players[playerId]?.eventPoints ?? 0;
+    }
+
     // Fetch league standings (all pages)
     let allEntries = [];
     let leagueName = 'League';
@@ -547,12 +571,13 @@ router.get('/gw-summary', async (req, res) => {
           picks.forEach(p => {
             const playerInfo = players[p.element];
             if (!playerInfo) return;
+            const pts = getPlayerPoints(p.element);
             if (p.position > 11) {
-              benchPoints += playerInfo.eventPoints;
+              benchPoints += pts;
             }
             if (p.is_captain) {
               captainName = playerInfo.webName;
-              captainPoints = playerInfo.eventPoints * p.multiplier;
+              captainPoints = pts * p.multiplier;
             }
             if (p.is_vice_captain) {
               vcName = playerInfo.webName;
@@ -567,16 +592,16 @@ router.get('/gw-summary', async (req, res) => {
             const outInXI = startingXISet.has(t.element_out);
             const inInXI = startingXISet.has(t.element_in);
             if (!outInXI && !inInXI) return; // bench-only transfer, no XI impact
-            const inPts = players[t.element_in]?.eventPoints || 0;
-            const outPts = players[t.element_out]?.eventPoints || 0;
+            const inPts = getPlayerPoints(t.element_in);
+            const outPts = getPlayerPoints(t.element_out);
             transferImpact += inPts - outPts;
           });
 
           const autoSubs = picksRes?.automatic_subs || [];
           let autoSubImpact = 0;
           autoSubs.forEach(sub => {
-            const inPts = players[sub.element_in]?.eventPoints || 0;
-            const outPts = players[sub.element_out]?.eventPoints || 0;
+            const inPts = getPlayerPoints(sub.element_in);
+            const outPts = getPlayerPoints(sub.element_out);
             autoSubImpact += inPts - outPts;
           });
 
@@ -593,7 +618,7 @@ router.get('/gw-summary', async (req, res) => {
             vcName,
             benchPoints,
             chipPlayed,
-            overallRank: historyRes?.current?.[historyRes.current.length - 1]?.overall_rank || null,
+            overallRank: (historyRes?.current || []).find(c => c.event === targetGW)?.overall_rank || historyRes?.current?.[historyRes.current.length - 1]?.overall_rank || null,
             xiImpact: transferImpact + autoSubImpact,
             transferCount: gwTransfers.length,
           };
