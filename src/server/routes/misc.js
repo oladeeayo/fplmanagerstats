@@ -2314,6 +2314,13 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       })
       .sort((a, b) => b.count - a.count);
 
+    // Compact ownership map for ALL players owned by any analyzed manager (elementId -> manager count).
+    // Used client-side for exact Threat/Advantage league-manager counts (no global-ownership estimates).
+    const leaguePlayerOwnership = {};
+    Object.values(playerCounts).forEach(item => {
+      leaguePlayerOwnership[item.element] = item.count;
+    });
+
     const eventScores = managers.map(manager => manager.eventTotal);
 
     const knownTotalCount = leagueInfo.rank_count || leagueInfo.total_managers || topEntries.length;
@@ -2344,6 +2351,7 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       leagueTemplate,
       captaincyCount,
       chipSummary,
+      leaguePlayerOwnership,
       totalManagersAnalyzed
     });
   } catch (e) {

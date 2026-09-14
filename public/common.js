@@ -3353,6 +3353,8 @@ const FPL = {
         const template = data.leagueTemplate || [];
         const managers = data.managers || [];
         const totalManagers = data.totalManagersAnalyzed || managers.length || 1;
+        // Exact league-manager counts per player (elementId -> count), built from the analyzed picks.
+        const leaguePlayerOwnership = data.leaguePlayerOwnership || {};
 
         // Get my current squad player IDs
         let mySquadIds = new Set();
@@ -3397,7 +3399,7 @@ const FPL = {
             } else {
                 threatContainer.innerHTML = threats.map((p, i) => {
                     const pct = p.ownershipPct || 0;
-                    const managersWith = p.managersWith ? p.managersWith.length : Math.round((pct / 100) * totalManagers);
+                    const managersWith = leaguePlayerOwnership[p.id] ?? (p.managersWith ? p.managersWith.length : Math.round((pct / 100) * totalManagers));
                     return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
                         <div style="display:flex;align-items:center;gap:8px;min-width:0;">
                             <span style="font-family:var(--font-mono);font-size:10px;font-weight:800;color:var(--md-sys-color-on-surface-variant);width:20px;">${i + 1}</span>
@@ -3437,15 +3439,16 @@ const FPL = {
             const pos = posMap[el.element_type] || '';
             const inTemplate = templateIds.has(id);
             const pct = parseFloat(el.selected_by_percent) || 0;
+            // Exact count of analyzed league managers owning this player (0 = true differential)
+            const leagueMgrCount = leaguePlayerOwnership[id] ?? (inTemplate ? (template.find(p => p.id === id)?.managersWith?.length ?? 0) : 0);
             // Players I own that are NOT in the league top-15 template
             // Or have very low ownership in the league
-            const templatePlayer = template.find(p => p.id === id);
-            const leaguePct = templatePlayer ? (templatePlayer.ownershipPct || 0) : 0;
-            if (!inTemplate || leaguePct < 15) {
+            if (!inTemplate || leagueMgrCount <= Math.max(2, Math.round(0.15 * totalManagers))) {
                 myAdvantages.push({
                     id, name: el.web_name, team: teamName, pos,
                     ownership: pct,
-                    leagueOwnership: inTemplate ? leaguePct : 0,
+                    leagueOwnership: inTemplate ? Math.round((leagueMgrCount / totalManagers) * 100) : 0,
+                    leagueMgrCount,
                     form: el.form || '0.0',
                     totalPoints: el.total_points || 0
                 });
@@ -3461,7 +3464,7 @@ const FPL = {
             } else {
                 // Calculate number of managers owning each advantage player in the league
                 advantageContainer.innerHTML = myAdvantages.slice(0, 10).map((p, i) => {
-                    const leagueMgrCount = Math.round((p.leagueOwnership / 100) * totalManagers);
+                    const leagueMgrCount = p.leagueMgrCount ?? 0;
                     const formColor = parseFloat(p.form) >= 4.0 ? '#00FF85' : parseFloat(p.form) >= 2.5 ? '#FFA600' : '#FF4D4D';
                     return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
                         <div style="display:flex;align-items:center;gap:8px;min-width:0;">
