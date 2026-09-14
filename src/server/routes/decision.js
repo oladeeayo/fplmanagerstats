@@ -112,8 +112,9 @@ async function analyzeManager(managerId, playerData, leagueId = null) {
         playerStats[playerId] = {
           name: player.web_name, team: t.name, teamShort: t.short_name,
           position: POSITION_MAP[player.element_type - 1],
-          totalPointsActive: 0, gwInSquad: 0, starts: 0, cappedPoints: 0,
+          totalPointsActive: 0, gwInSquad: 0, gwInXI: 0, starts: 0, cappedPoints: 0,
           playerPoints: 0, photoId: player.code,
+          consecutiveStartGWs: 0, maxConsecutiveStarts: 0, lastStartedGW: 0,
           nowCost: player.now_cost, selectedBy: player.selected_by_percent,
           form: player.form, pointsPerGame: player.points_per_game,
           totalPoints: player.total_points,
@@ -141,6 +142,19 @@ async function analyzeManager(managerId, playerData, leagueId = null) {
       const inStarting11 = pick.position <= 11, isCaptain = pick.is_captain;
       playerStats[playerId].playerPoints += pts;
 
+      if (inStarting11) {
+        // Track consecutive starting XI appearances
+        const prevGW = playerStats[playerId].lastStartedGW;
+        if (prevGW === gw - 1) {
+          playerStats[playerId].consecutiveStartGWs++;
+        } else {
+          playerStats[playerId].consecutiveStartGWs = 1;
+        }
+        playerStats[playerId].maxConsecutiveStarts = Math.max(playerStats[playerId].maxConsecutiveStarts, playerStats[playerId].consecutiveStartGWs);
+        playerStats[playerId].lastStartedGW = gw;
+        playerStats[playerId].gwInXI++;
+      }
+
       if (inStarting11 || isBenchBoost) {
         let activePoints = pts;
         if (isCaptain) {
@@ -153,9 +167,12 @@ async function analyzeManager(managerId, playerData, leagueId = null) {
         playerStats[playerId].totalPointsActive += activePoints;
         totalPointsActive += activePoints;
         gwPoints += activePoints;
-        const pos = playerStats[playerId].position;
-        if (!positionPoints[pos][playerId]) positionPoints[pos][playerId] = { name: player.web_name, points: 0, photoId: player.code };
-        positionPoints[pos][playerId].points += activePoints;
+        if (inStarting11) {
+          // Position points: only count XI starters (not BB bench)
+          const pos = playerStats[playerId].position;
+          if (!positionPoints[pos][playerId]) positionPoints[pos][playerId] = { name: player.web_name, points: 0, photoId: player.code };
+          positionPoints[pos][playerId].points += activePoints;
+        }
         if (inStarting11) playerStats[playerId].starts += 1;
         playerStats[playerId].gwInSquad += 1;
       } else { totalPointsLostOnBench += pts; gwBenchPoints += pts; }
@@ -178,6 +195,21 @@ async function analyzeManager(managerId, playerData, leagueId = null) {
   const avgPoints = weeklyPoints.reduce((a, b) => a + b, 0) / weeklyPoints.length;
   chipImpact.forEach(c => { c.avgPoints = Math.round(avgPoints * 10) / 10; c.diff = Math.round((c.points - avgPoints) * 10) / 10; });
 
+  // Update currentTeam with correct stats from playerStats (GW-aware, not season totals)
+  currentTeam.forEach(ct => {
+    const ps = playerStats[ct.elementId];
+    if (ps) {
+      ct.totalPointsActive = ps.totalPointsActive;
+      ct.gwApps = ps.gwInSquad;
+      ct.gwInXI = ps.gwInXI;
+      ct.starts = ps.starts;
+      ct.captPts = ps.cappedPoints;
+      ct.ppg = ps.gwInSquad > 0 ? (ps.totalPointsActive / ps.gwInSquad).toFixed(1) : '0.0';
+      ct.consecutiveStartGWs = ps.consecutiveStartGWs;
+      ct.maxConsecutiveStarts = ps.maxConsecutiveStarts;
+    }
+  });
+
   const averageRank = Math.round(weeklyRanks.reduce((a, b) => a + b, 0) / weeklyRanks.length);
   const halfLen = Math.floor(weeklyRanks.length / 2);
   const fh = halfLen > 0 ? Math.round(weeklyRanks.slice(0, halfLen).reduce((a, b) => a + b, 0) / halfLen) : averageRank;
@@ -192,21 +224,31 @@ async function analyzeManager(managerId, playerData, leagueId = null) {
   const totalSaves = gks.reduce((s, p) => s + (p.saves||0), 0);
   const templateCount = players.filter(p => parseFloat(p.selectedBy||0) >= 20).length;
 
-  // Underperforming analysis (must be in team at least 3 GWs)
+  // Underperforming analysis: must be in starting XI for 3+ consecutive GWs,
+  // not returning points, and bad fixtures ahead
   const underperforming = players
     .filter(p => {
-      const inTeamLongEnough = (p.gwInSquad || 0) >= 3;
-      if (!inTeamLongEnough) return false;
+      // Must have started at least 3 consecutive GWs (not just been in the squad)
+      const hasConsecutiveStarts = (p.maxConsecutiveStarts || 0) >= 3;
+      if (!hasConsecutiveStarts) return false;
+
+      // Must not be returning points (low average contribution)
+      const avgContributed = (p.totalPointsActive || 0) / Math.max(1, p.gwInSquad || 1);
+      const lowContributions = avgContributed < 3.0;
+
+      // Bad fixtures ahead
       const avgFDR = p.nextFixtures?.length ? p.nextFixtures.reduce((s,f) => s+f.difficulty, 0) / p.nextFixtures.length : 0;
-      const formOk = parseFloat(p.form||0) >= 2.5;
-      const ppgOk = parseFloat(p.pointsPerGame||0) >= 2.5;
       const toughFixtures = avgFDR >= 3.5;
-      const lowMins = (p.minutes||0) < 500;
-      const yellowRisk = (p.yellowCards||0) >= 4;
-      const lowReturnRate = (p.playerPoints || 0) / Math.max(1, p.gwInSquad || 1) < 2.5;
-      return (toughFixtures && !formOk) || (!ppgOk && lowMins) || yellowRisk || lowReturnRate;
+
+      // Poor form
+      const formBad = parseFloat(p.form||0) < 2.5;
+
+      // Not looking like returning soon (low xGI, low form, tough fixtures)
+      const noReturnSignal = formBad && toughFixtures;
+
+      return lowContributions && (noReturnSignal || toughFixtures);
     })
-    .sort((a, b) => parseFloat(a.form||0) - parseFloat(b.form||0))
+    .sort((a, b) => (a.totalPointsActive / Math.max(1, a.gwInSquad)) - (b.totalPointsActive / Math.max(1, b.gwInSquad)))
     .slice(0, 5);
 
   // Find replacement suggestions from bootstrap
@@ -304,6 +346,17 @@ router.post('/v1/decision-centre', heavyEndpointLimiter, async (req, res) => {
     if (!picks?.picks?.length) return res.status(409).json({ error: 'This manager does not yet have a published squad. Try again after the first deadline.' });
     const liveData = currentGW ? await optionalApiGet(`https://fantasy.premierleague.com/api/event/${currentGW}/live/`) : null;
 
+    // Auto-detect free transfers from transfer history
+    const transferHistory = await optionalApiGet(`https://fantasy.premierleague.com/api/entry/${managerId}/transfers/`);
+    let autoDetectedFT = 1;
+    if (Array.isArray(transferHistory) && currentGW) {
+      // Find the last GW where this manager made a transfer
+      const gwTransfers = transferHistory.filter(t => t.event);
+      const lastTransferGW = gwTransfers.length > 0 ? Math.max(...gwTransfers.map(t => t.event)) : 0;
+      const gwsSinceLastTransfer = currentGW - lastTransferGW;
+      autoDetectedFT = Math.min(5, Math.max(1, 1 + gwsSinceLastTransfer));
+    }
+
     // Pre-fetch player histories in parallel so buildDecisionCentre uses cache
     const squadPlayerIds = (picks.picks || []).map(p => p.element).filter(Boolean);
     await Promise.all(squadPlayerIds.map(id => getGlobalPlayerHistory(id).catch(() => null)));
@@ -317,7 +370,7 @@ router.post('/v1/decision-centre', heavyEndpointLimiter, async (req, res) => {
       return { id, name: `${entry.player_first_name} ${entry.player_last_name}`.trim(), teamName: entry.name, rank: entry.summary_overall_rank, picks: rivalPicks.picks };
     }))).filter(Boolean);
 
-    const result = await buildDecisionCentre({ bootstrap, fixtures, manager: { ...manager, id: managerId }, picks, history, rivals, liveData, options: { ...req.body, targetGW: req.body?.targetGW || nextGW, horizon } });
+    const result = await buildDecisionCentre({ bootstrap, fixtures, manager: { ...manager, id: managerId }, picks, history, rivals, liveData, options: { ...req.body, targetGW: req.body?.targetGW || nextGW, horizon, freeTransfers: req.body?.freeTransfers || autoDetectedFT, autoDetectedFT } });
     // Cache the result briefly to avoid recomputation on rapid re-requests
     const cacheKey = `${managerId}:${nextGW}:${horizon}:${rivalIds.join(',')}`;
     decisionCentreCache.set(cacheKey, { data: result, ts: Date.now() });

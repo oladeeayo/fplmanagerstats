@@ -600,7 +600,7 @@ const FPL = {
     },
 
     navigateTo(tab) {
-        const validTabs = ['general', 'manager', 'decision', 'league', 'players', 'zones', 'fixtures', 'teamnews', 'captain', 'ownership', 'setpieces', 'aiteam', 'playeradvanced', 'scatter'];
+        const validTabs = ['general', 'manager', 'decision', 'league', 'players', 'zones', 'fixtures', 'teamnews', 'captain', 'ownership', 'setpieces', 'playeradvanced', 'scatter'];
         if (!validTabs.includes(tab)) tab = 'general';
         this.state.activeTab = tab;
 
@@ -646,7 +646,6 @@ const FPL = {
             case 'manager': return this.renderTeamAnalysis();
             case 'decision': return this.renderDecisionCentre();
             case 'setpieces': return this.renderSetPieces();
-            case 'aiteam': return this.renderAITeam();
             case 'playeradvanced': return this.loadPlayerAdvanced();
             case 'scatter': return this.renderScatter();
             case 'livecentre': return; // React handles this tab
@@ -701,50 +700,9 @@ const FPL = {
         };
     },
 
-    renderAITeam() {
-        return this.loadAITeam();
-    },
-
-    async loadAITeam(force = false) {
-        const loading = document.getElementById('aiteam-loading');
-        const results = document.getElementById('aiteam-results');
-        const errorEl = document.getElementById('aiteam-error');
-        loading?.classList.remove('hidden');
-        loading?.setAttribute('aria-busy', 'true');
-        results?.classList.add('hidden');
-        errorEl?.classList.add('hidden');
-        try {
-            let data;
-            if (!force) {
-                try {
-                    const saved = await this.apiFetch(this.API.aiTeam);
-                    data = saved?.saved ? this.normalizeAITeamData(saved) : null;
-                } catch (e) {
-                    console.warn('Saved AI Team unavailable, rebuilding:', e.message);
-                }
-            }
-            if (!data) {
-                const strategy = document.getElementById('aiteam-strategy')?.value || 'balanced';
-                data = await this.apiPost(this.API.aiTeam, { strategy });
-                data = this.normalizeAITeamData(data);
-            }
-            if (!data) throw new Error('The AI returned an incomplete squad. Rebuild again after the latest FPL data loads.');
-
-            this.state.aiTeamData = data;
-            if (!this.state.aiTeamGWView) this.state.aiTeamGWView = 1;
-            this.paintAITeam(data);
-            results?.classList.remove('hidden');
-        } catch (error) {
-            console.error('AI Team error:', error);
-            if (errorEl) {
-                errorEl.classList.remove('hidden');
-                errorEl.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">error</span><div><strong>AI Team unavailable</strong><p>${this.escapeHTML(error.message || 'Try again shortly.')}</p><button type="button" class="aiteam-secondary-btn" onclick="FPL.loadAITeam(true)">Try again</button></div>`;
-            }
-        } finally {
-            loading?.classList.add('hidden');
-            loading?.setAttribute('aria-busy', 'false');
-        }
-    },
+    // Smart Team removed - feature deprecated
+    renderAITeam() { return; },
+    loadAITeam() { return; },
 
     setAITeamGWView(gws) {
         this.state.aiTeamGWView = gws;
@@ -2061,7 +2019,8 @@ const FPL = {
 
             team.forEach(p => {
                 const pos = p.position || 'MID';
-                const pts = p.totalPoints || p.points || 0;
+                // Use totalPointsActive (points contributed while in team/XI) instead of season total
+                const pts = p.totalPointsActive != null ? p.totalPointsActive : (p.totalPoints || p.points || 0);
                 if (!posStats[pos]) posStats[pos] = { pts: 0, topName: '', topPts: 0, topCode: null };
                 posStats[pos].pts += pts;
                 if (pts >= posStats[pos].topPts) {
@@ -2112,12 +2071,12 @@ const FPL = {
                             <div class="player-photo-shell" style="width:24px;height:24px;border-radius:50%;border:1px solid #28392e;">${this.playerPhotoMarkup(p, `${p.webName || p.name} photo`, '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}</div>
                             <span style="font-weight:700;color:#ffffff;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.webName || p.name}</span>
                         </td>
-                        <td style="text-align:center;color:#ffffff;font-family:var(--font-mono);font-size:11px;">${p.totalPoints || p.points || 0}</td>
+                        <td style="text-align:center;color:#ffffff;font-family:var(--font-mono);font-size:11px;">${p.totalPointsActive != null ? p.totalPointsActive : (p.totalPoints || p.points || 0)}</td>
                         <td style="text-align:center;color:#8ba396;font-family:var(--font-mono);font-size:11px;">${p.gwApps != null ? p.gwApps : (p.minutes > 0 ? (p.starts || Math.ceil(p.minutes / 70)) : (p.playerPoints ? Math.ceil(p.playerPoints / 4) : 0))}</td>
-                        <td style="text-align:center;color:#8ba396;font-family:var(--font-mono);font-size:11px;">${p.starts != null ? p.starts : (p.minutes > 0 ? Math.ceil(p.minutes / 90) : 0)}</td>
-                        <td style="text-align:center;color:#8ba396;font-family:var(--font-mono);font-size:11px;">${p.captPts || 0}</td>
+                        <td style="text-align:center;color:#8ba396;font-family:var(--font-mono);font-size:11px;">${p.gwInXI != null ? p.gwInXI : (p.starts != null ? p.starts : (p.minutes > 0 ? Math.ceil(p.minutes / 90) : 0))}</td>
+                        <td style="text-align:center;color:#8ba396;font-family:var(--font-mono);font-size:11px;">${p.captPts || p.cappedPoints || 0}</td>
                         <td style="text-align:center;color:#ffffff;font-family:var(--font-mono);font-size:11px;">${p.costStr || ('£' + ((p.nowCost || 100) / 10).toFixed(1) + 'm')}</td>
-                        <td style="text-align:center;font-weight:700;color:#00FF85;font-family:var(--font-mono);font-size:11px;">${p.ppg ? p.ppg : ((p.gwApps || 1) > 0 ? ((p.totalPoints || p.points || 0) / (p.gwApps || 1)).toFixed(1) : (p.points_per_game || '0.0'))}</td>
+                        <td style="text-align:center;font-weight:700;color:#00FF85;font-family:var(--font-mono);font-size:11px;">${p.ppg || ((p.gwApps || 1) > 0 ? ((p.totalPointsActive || p.totalPoints || 0) / (p.gwApps || 1)).toFixed(1) : (p.points_per_game || '0.0'))}</td>
                     </tr>
                 `).join('');
             }
@@ -3083,6 +3042,7 @@ const FPL = {
             this.renderCaptaincyCount(data);
             this.renderChipCount(data);
             this.renderLeagueTransfers();
+            this.renderThreatAndAdvantage(data);
         } catch (err) {
             console.error('League standings error:', err);
             tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;padding:var(--space-lg);color:var(--md-sys-color-error);">Failed to load standings: ${err.message}</td></tr>`;
@@ -3343,6 +3303,139 @@ const FPL = {
                 </div>
             </div>`;
         }).join('');
+    },
+
+    async renderThreatAndAdvantage(data) {
+        const section = document.getElementById('league-threat-advantage-section');
+        if (!section) return;
+        const managerId = this.state.managerId;
+        if (!managerId) { section.style.display = 'none'; return; }
+
+        const template = data.leagueTemplate || [];
+        const managers = data.managers || [];
+        const totalManagers = data.totalManagersAnalyzed || managers.length || 1;
+
+        // Get my current squad player IDs
+        let mySquadIds = new Set();
+        const md = this.state.managerData;
+        if (md && md.currentTeam) {
+            md.currentTeam.forEach(p => mySquadIds.add(p.elementId || p.id));
+        }
+        if (mySquadIds.size === 0 && this.state.decisionData && this.state.decisionData.squad) {
+            this.state.decisionData.squad.forEach(p => mySquadIds.add(p.id));
+        }
+        // Fetch picks from FPL API if still empty
+        if (mySquadIds.size === 0) {
+            try {
+                const bs = this.state.bootstrapData;
+                const currentGW = bs?.events?.find(e => e.is_current)?.id || bs?.events?.find(e => e.is_next)?.id || 1;
+                const picksData = await this.apiFetch(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${currentGW}/picks/`);
+                if (picksData && picksData.picks) {
+                    picksData.picks.forEach(p => mySquadIds.add(p.element));
+                    this.state.mySquadIds = mySquadIds;
+                }
+            } catch (e) { /* silent */ }
+        }
+
+        const threatContainer = document.getElementById('league-threat-list');
+        const advantageContainer = document.getElementById('league-advantage-list');
+
+        if (mySquadIds.size === 0) {
+            section.style.display = 'none';
+            return;
+        }
+
+        section.style.display = 'block';
+
+        const threats = template
+            .filter(p => !mySquadIds.has(p.id) && (p.ownershipPct || 0) >= 10)
+            .sort((a, b) => (b.ownershipPct || 0) - (a.ownershipPct || 0))
+            .slice(0, 10);
+
+        if (threatContainer) {
+            if (threats.length === 0) {
+                threatContainer.innerHTML = '<div style="text-align:center;padding:20px;color:var(--md-sys-color-on-surface-variant);font-size:12px;">You match the league template well — no major threats.</div>';
+            } else {
+                threatContainer.innerHTML = threats.map((p, i) => {
+                    const pct = p.ownershipPct || 0;
+                    const managersWith = p.managersWith ? p.managersWith.length : Math.round((pct / 100) * totalManagers);
+                    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:rgba(255,77,77,0.04);border:1px solid rgba(255,77,77,0.12);border-radius:8px;">
+                        <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+                            <span style="font-family:var(--font-mono);font-size:10px;font-weight:800;color:var(--md-sys-color-on-surface-variant);width:20px;">${i + 1}</span>
+                            <span style="font-weight:700;font-size:12px;color:var(--md-sys-color-on-surface);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(p.name)}</span>
+                            <span style="font-size:10px;color:var(--md-sys-color-on-surface-variant);">${p.pos} · ${p.team || ''}</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+                            <span style="font-family:var(--font-mono);font-size:11px;font-weight:800;color:#FF4D4D;">${pct}%</span>
+                            <span style="font-size:10px;color:var(--md-sys-color-on-surface-variant);">${managersWith} mgrs</span>
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+        }
+
+        // ADVANTAGE: Players in my squad NOT in league template (or very low ownership)
+        // We need the connected manager's full squad. Use the picks from standings.
+        // Since we may not have picks data, we compare template ownership vs my squad
+        // Players I own that are NOT in the template = differential advantages
+        const templateIds = new Set(template.map(p => p.id));
+        const myAdvantages = [];
+
+        // Get all player data from bootstrap if available
+        const bootstrap = this.state.bootstrapData;
+        const elements = bootstrap?.elements || [];
+        const teams = bootstrap?.teams || [];
+        const teamsById = {};
+        teams.forEach(t => teamsById[t.id] = t);
+        const posMap = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+
+        mySquadIds.forEach(id => {
+            const el = elements.find(e => e.id === id);
+            if (!el) return;
+            const teamObj = teamsById[el.team];
+            const teamName = teamObj ? teamObj.short_name : '';
+            const pos = posMap[el.element_type] || '';
+            const inTemplate = templateIds.has(id);
+            const pct = parseFloat(el.selected_by_percent) || 0;
+            // Players I own that are NOT in the league top-15 template
+            // Or have very low ownership in the league
+            const templatePlayer = template.find(p => p.id === id);
+            const leaguePct = templatePlayer ? (templatePlayer.ownershipPct || 0) : 0;
+            if (!inTemplate || leaguePct < 15) {
+                myAdvantages.push({
+                    id, name: el.web_name, team: teamName, pos,
+                    ownership: pct,
+                    leagueOwnership: inTemplate ? leaguePct : 0,
+                    form: el.form || '0.0',
+                    totalPoints: el.total_points || 0
+                });
+            }
+        });
+
+        // Sort by advantage (lowest league ownership first = most differential)
+        myAdvantages.sort((a, b) => a.leagueOwnership - b.leagueOwnership);
+
+        if (advantageContainer) {
+            if (myAdvantages.length === 0) {
+                advantageContainer.innerHTML = '<div style="text-align:center;padding:20px;color:var(--md-sys-color-on-surface-variant);font-size:12px;">Your squad closely mirrors the league template.</div>';
+            } else {
+                advantageContainer.innerHTML = myAdvantages.slice(0, 10).map((p, i) => {
+                    const diffPct = p.leagueOwnership === 0 ? '<1%' : p.leagueOwnership + '%';
+                    const formColor = parseFloat(p.form) >= 4.0 ? '#00FF85' : parseFloat(p.form) >= 2.5 ? '#FFA600' : '#FF4D4D';
+                    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:rgba(0,255,133,0.04);border:1px solid rgba(0,255,133,0.12);border-radius:8px;">
+                        <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+                            <span style="font-family:var(--font-mono);font-size:10px;font-weight:800;color:var(--md-sys-color-on-surface-variant);width:20px;">${i + 1}</span>
+                            <span style="font-weight:700;font-size:12px;color:var(--md-sys-color-on-surface);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(p.name)}</span>
+                            <span style="font-size:10px;color:var(--md-sys-color-on-surface-variant);">${p.pos} · ${p.team}</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+                            <span style="font-family:var(--font-mono);font-size:11px;font-weight:800;color:#00FF85;">${diffPct} league</span>
+                            <span style="font-size:10px;color:${formColor};font-weight:700;">F: ${p.form}</span>
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+        }
     },
 
     async renderLeagueTransfers() {
@@ -7486,6 +7579,12 @@ const FPL = {
     paintDecisionCentre() {
         const data = this.state.decisionData;
         if (!data) return;
+        // Auto-populate FT field with detected value if user hasn't manually set it
+        const ftInput = document.getElementById('decision-ft');
+        if (ftInput && data.manager?.autoDetectedFT && !ftInput.dataset.userSet) {
+            ftInput.value = data.manager.autoDetectedFT;
+            ftInput.title = `Auto-detected: ${data.manager.autoDetectedFT} FT based on transfer history`;
+        }
         const formatRank = rank => rank ? this.formatNumber(rank) : '--';
         const summary = document.getElementById('decision-summary');
         if (summary) summary.innerHTML = `<div class="decision-stats"><div><span>PROJECTED GW</span><strong>${data.lineup.expectedPoints.toFixed(1)}</strong><small>GW${data.meta.targetGW}</small></div><div><span>BEST MOVE</span><strong>+${(data.transfers.plans[0]?.netGain || 0).toFixed(1)}</strong><small>net xPts</small></div><div><span>RANK</span><strong>${formatRank(data.manager.rank)}</strong><small>${this.escapeHTML(data.meta.strategy)} mode</small></div><div><span>SQUAD VALUE</span><strong>£${data.manager.squadValue.toFixed(1)}</strong><small>£${data.manager.bank.toFixed(1)}m bank</small></div></div>`;

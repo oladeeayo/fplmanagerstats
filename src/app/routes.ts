@@ -10,7 +10,6 @@ export const appRoutes = {
   captain: '/captaincy',
   ownership: '/ownership',
   setpieces: '/set-pieces',
-  aiteam: '/ai-team',
   playeradvanced: '/player-advanced',
   livecentre: '/live-centre',
   scatter: '/scatter',

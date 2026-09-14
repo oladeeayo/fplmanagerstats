@@ -213,7 +213,6 @@
                     <div class="sidebar-section-items">
                         <a href="/decision-lab" class="sidebar-nav-item" data-tab="decision" onclick="event.preventDefault();FPL.navigateTo('decision')"><span class="material-symbols-outlined">model_training</span> Decision Lab</a>
                         <a href="/captaincy" class="sidebar-nav-item" data-tab="captain" onclick="event.preventDefault();FPL.navigateTo('captain')"><span class="material-symbols-outlined">star</span> Captaincy</a>
-                        <a href="/ai-team" class="sidebar-nav-item" data-tab="aiteam" onclick="event.preventDefault();FPL.navigateTo('aiteam')"><span class="material-symbols-outlined">auto_awesome</span> Smart Team</a>
                         <a href="/manager" class="sidebar-nav-item" data-tab="manager" onclick="event.preventDefault();FPL.navigateTo('manager')"><span class="material-symbols-outlined">groups</span> Manager Analysis</a>
                         <a href="/league" class="sidebar-nav-item" data-tab="league" onclick="event.preventDefault();FPL.navigateTo('league')"><span class="material-symbols-outlined">leaderboard</span> Standings</a>
                     </div>
@@ -582,7 +581,7 @@
                             <label>GW <input id="decision-gw" aria-label="Decision gameweek" type="number" min="1" max="38" value="1"></label>
                             <label>Horizon <select id="decision-horizon" aria-label="Decision horizon"><option value="3">3 GWs</option><option value="5" selected>5 GWs</option><option value="8">8 GWs</option></select></label>
                             <label>Mode <select id="decision-strategy" aria-label="Decision strategy"><option value="balanced">Balanced</option><option value="protect">Protect rank</option><option value="chase">Chase rank</option></select></label>
-                            <label>FT <input id="decision-ft" aria-label="Free transfers available" type="number" min="1" max="5" value="1"></label>
+                            <label>FT <input id="decision-ft" aria-label="Free transfers available" type="number" min="1" max="5" value="1" oninput="this.dataset.userSet='1'" title="Auto-detected from transfer history"></label>
                             <label>Bank <input id="decision-bank" aria-label="Money in bank" type="number" min="0" max="20" step="0.1" placeholder="Auto"></label>
                             <button class="btn btn-primary" type="button" onclick="FPL.loadDecisionCentre()"><span class="material-symbols-outlined">play_arrow</span> Run model</button>
                         </div>
@@ -787,6 +786,36 @@
                             </div>
                         </div>
                     </div>
+                </div>
+
+                    <!-- Threat & Advantage Section (Connected Manager Only) -->
+                    <div id="league-threat-advantage-section" style="margin-top:32px;display:none;">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+                            <!-- Threat: Players league managers own that you don't -->
+                            <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;padding:20px;display:flex;flex-direction:column;">
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                                    <span class="material-symbols-outlined" style="color:#FF4D4D;font-size:22px;">warning</span>
+                                    <h3 style="font-family:var(--font-mono);font-size:16px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0;">THREAT</h3>
+                                </div>
+                                <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0 0 12px 0;">Players your league rivals own that you don't — they gain rank on you every GW.</p>
+                                <div id="league-threat-list" style="display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto;padding-right:4px;">
+                                    <div style="text-align:center;padding:24px;color:var(--md-sys-color-on-surface-variant);">Connect your FPL ID to see threats.</div>
+                                </div>
+                            </div>
+                            <!-- Advantage: Players you own that few/no one else has -->
+                            <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;padding:20px;display:flex;flex-direction:column;">
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                                    <span class="material-symbols-outlined" style="color:#00FF85;font-size:22px;">shield</span>
+                                    <h3 style="font-family:var(--font-mono);font-size:16px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0;">ADVANTAGE</h3>
+                                </div>
+                                <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0 0 12px 0;">Your differentials — players few or no rivals have. You gain rank when they haul.</p>
+                                <div id="league-advantage-list" style="display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto;padding-right:4px;">
+                                    <div style="text-align:center;padding:24px;color:var(--md-sys-color-on-surface-variant);">Connect your FPL ID to see advantages.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
                 <!-- PLAYER STATS -->
@@ -1229,9 +1258,9 @@
                     </div>
                 </div>
 
-                <!-- AI TEAM -->
-                <div id="content-aiteam" class="tab-content">
-                    <div class="aiteam-page">
+                <!-- REMOVED AI TEAM SECTION -->
+                <div id="content-aiteam" class="tab-content" style="display:none;"></div>
+                <div class="aiteam-page" style="display:none;">
                         <!-- Compact Header -->
                         <div class="aiteam-hero" style="padding:16px 0 12px;">
                             <div>

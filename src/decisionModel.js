@@ -168,9 +168,14 @@ function selectLineup(squad, strategy) {
   const starterIds = new Set(starters.map(p => p.id));
   const bench = squad.filter(p => !starterIds.has(p.id));
 
-  // Captain: use captaincyScore.finalScore (computed via elite_top20_captaincy
-  // formula — considers rotation risk, fixtures, set pieces, elite pool, H2H).
+  // Captain: prefer players from the captaincy snapshot top 5,
+  // then fall back to captaincyScore.finalScore.
+  const preferredCaptains = new Set(starters.filter(p => p._snapshotTopCaptain).map(p => p.id));
   const captainPool = starters.filter(player => player.position !== 'GKP').sort((a, b) => {
+    // Boost players who appear in the captaincy snapshot top 5
+    const aPreferred = preferredCaptains.has(a.id) ? 1000 : 0;
+    const bPreferred = preferredCaptains.has(b.id) ? 1000 : 0;
+    if (bPreferred !== aPreferred) return bPreferred - aPreferred;
     const scoreA = Number(a.captaincyScore?.finalScore) || 0;
     const scoreB = Number(b.captaincyScore?.finalScore) || 0;
     if (scoreB !== scoreA) return scoreB - scoreA;
@@ -232,6 +237,24 @@ function buildTransferPlans({ squad, allPlayers, bank, freeTransfers, strategy, 
         if (nextGain < MIN_NEXT_GAIN && horizonGain < MIN_NET_GAIN_FREE) return;
         // Reject lateral moves: incoming must be meaningfully better per-£m
         if (xptsPerMpmImprovement < MIN_XPTSPM_IMPROVEMENT && horizonGain < 3.0) return;
+
+        // Fixture difficulty filter: penalize transfers to players with hard upcoming fixtures
+        // Don't suggest a player just because they hauled — if their next 3 fixtures are hard, reject
+        const incomingFixtures = incoming.weekly?.slice(0, 3) || [];
+        const incomingAvgFDR = incomingFixtures.length > 0
+          ? incomingFixtures.reduce((s, w) => s + (w.fdr || 3), 0) / incomingFixtures.length
+          : 3;
+        const outgoingFixtures = outgoing.weekly?.slice(0, 3) || [];
+        const outgoingAvgFDR = outgoingFixtures.length > 0
+          ? outgoingFixtures.reduce((s, w) => s + (w.fdr || 3), 0) / outgoingFixtures.length
+          : 3;
+        // If incoming has significantly harder fixtures than outgoing, penalize
+        if (incomingAvgFDR > outgoingAvgFDR + 0.8 && horizonGain < 6) return;
+        // If incoming has very hard fixtures (avg FDR >= 4), require much higher gain
+        if (incomingAvgFDR >= 4 && netGain < MIN_NET_GAIN_HIT) return;
+        // Filter out one-haul wonders: if form is low but recent points are high, it's a trap
+        const incomingForm = parseFloat(incoming.form) || 0;
+        if (incomingForm < 2.0 && incomingAvgFDR >= 3.5) return;
         // Decision Lab enhanced scoring
         const labDecision = computeTransferDecisionScore(outgoing, incoming, {
           horizon: horizon || 5, freeTransfers, currentGW: currentGW || 1,
@@ -251,7 +274,7 @@ function buildTransferPlans({ squad, allPlayers, bank, freeTransfers, strategy, 
           bankAfter: round(bank + (outgoing.sellingPrice ?? outgoing.cost) - incoming.cost),
           breakEvenProbability: Math.round(Math.max(8, Math.min(dampener.probabilityCap, 50 + netGain * 5 - (100 - incoming.availability) * 0.22))),
           risk: incoming.confidence === 'High' ? 'Low' : incoming.availability < 75 ? 'High' : 'Medium',
-          rationale: `${incoming.name} adds ${netGain.toFixed(1)} hit-adjusted xPts over ${outgoing.name} across the next ${incoming.weekly.length} gameweeks.${incoming.hasMultiSeasonData ? ` Multi-season consistency: ${Math.round((incoming.consistencyScore || 0) * 100)}%.` : ''}${incoming.improvementRatio > 1 ? ` ${Math.round((incoming.improvementRatio - 1) * 100)}% xGI improvement vs last season.` : ''}`,
+          rationale: `${incoming.name} adds ${netGain.toFixed(1)} hit-adjusted xPts over ${outgoing.name} across the next ${incoming.weekly.length} gameweeks. Avg FDR: ${incomingAvgFDR.toFixed(1)} (next 3 GWs).${incoming.hasMultiSeasonData ? ` Multi-season consistency: ${Math.round((incoming.consistencyScore || 0) * 100)}%.` : ''}${incoming.improvementRatio > 1 ? ` ${Math.round((incoming.improvementRatio - 1) * 100)}% xGI improvement vs last season.` : ''}`,
           // Decision Lab fields
           decisionScore: labDecision.score,
           probabilityTransferWins: labDecision.probabilityTransferWins,
@@ -488,12 +511,26 @@ async function buildDecisionCentre({ bootstrap, fixtures, manager, picks, histor
   const projectionMap = new Map(projectionData.projections.map(player => [player.id, player]));
   const squad = picks.picks.map(pick => ({ ...projectionMap.get(pick.element), pickPosition: pick.position, purchasePrice: pick.purchase_price ? pick.purchase_price / 10 : null, sellingPrice: pick.selling_price ? pick.selling_price / 10 : null })).filter(player => player.id);
   const bank = Number.isFinite(Number(options.bank)) ? Number(options.bank) : Number(picks.entry_history?.bank || 0) / 10;
-  const freeTransfers = Math.max(1, Math.min(5, Number(options.freeTransfers) || 1));
+  const freeTransfers = Math.max(1, Math.min(5, Number(options.freeTransfers) || Number(options.autoDetectedFT) || 1));
 
   // Compute captaincy scores directly for every squad player using the
   // captaincy scoring formula. This is robust — no merge, no async call,
   // no silent failure. Every player gets a consistent score.
   ensureCaptaincyScores(squad);
+
+  // Load captaincy snapshot and mark squad players in the top 5
+  try {
+    const snapshotGW = currentGW || projectionData.startGW || 1;
+    const snapshotPath = require('path').join(__dirname, '../server/data/captaincy_snapshots/gw_' + snapshotGW + '.json');
+    let snapshot = null;
+    try { snapshot = JSON.parse(require('fs').readFileSync(snapshotPath, 'utf8')); } catch (e) { /* no snapshot */ }
+    if (snapshot && Array.isArray(snapshot.topPicks)) {
+      const top5Ids = new Set(snapshot.topPicks.slice(0, 5).map(p => p.id));
+      squad.forEach(player => {
+        if (top5Ids.has(player.id)) player._snapshotTopCaptain = true;
+      });
+    }
+  } catch (e) { /* silent fallback */ }
 
   const lineup = selectLineup(squad, strategy);
   // Preserve FPL's actual bench arrangement (positions 12-15) rather than re-sorting by score
@@ -543,7 +580,7 @@ async function buildDecisionCentre({ bootstrap, fixtures, manager, picks, histor
 
   return {
     meta: { schemaVersion: '2.0', modelVersion: 'Decision Lab Engine 2.0', generatedAt: new Date().toISOString(), strategy, targetGW: projectionData.startGW, gameweeks: projectionData.gameweeks, currentGW, horizon, evidenceWeights, warnings: ['Public FPL data reflects the latest published deadline. Pending transfers and exact free-transfer state require manual overrides.', 'Projection ranges are scenario bands, not betting-market probabilities.', 'Decision scores are model estimates, not guarantees. Football is inherently stochastic.'] },
-    manager: { id: manager.id, name: `${manager.player_first_name} ${manager.player_last_name}`.trim(), teamName: manager.name, rank: manager.summary_overall_rank || null, points: manager.summary_overall_points || 0, bank, squadValue: round(squad.reduce((sum, player) => sum + player.cost, 0)), freeTransfers, chipsUsed: (history.chips || []).map(chip => chip.name) },
+    manager: { id: manager.id, name: `${manager.player_first_name} ${manager.player_last_name}`.trim(), teamName: manager.name, rank: manager.summary_overall_rank || null, points: manager.summary_overall_points || 0, bank, squadValue: round(squad.reduce((sum, player) => sum + player.cost, 0)), freeTransfers, autoDetectedFT: Number(options.autoDetectedFT) || freeTransfers, chipsUsed: (history.chips || []).map(chip => chip.name) },
     squad,
     lineup,
     decisions: [

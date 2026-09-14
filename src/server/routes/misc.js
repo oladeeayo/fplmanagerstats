@@ -327,6 +327,11 @@ router.get('/league-standings/:leagueId', heavyEndpointLimiter, async (req, res)
     const enriched = [];
     const entries = standings;
 
+    // After the GW deadline, picks are locked — use a much longer cache to prevent xPts fluctuation
+    const currentEvent = playerData.events?.find(e => e.id === currentGW);
+    const deadlineMs = currentEvent?.deadline_time ? new Date(currentEvent.deadline_time).getTime() : null;
+    const picksCacheTTL = deadlineMs && Date.now() > deadlineMs ? 24 * 60 * 60 * 1000 : 60 * 1000;
+
     const batchSize = 8; // parallelize more aggressively — cache handles rate limits
     for (let i = 0; i < entries.length; i += batchSize) {
       const batch = entries.slice(i, i + batchSize);
@@ -334,7 +339,7 @@ router.get('/league-standings/:leagueId', heavyEndpointLimiter, async (req, res)
         const [histData, entryData, picksData, transfersData] = await Promise.all([
           getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/history/`).catch(() => null),
           getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/`).catch(() => null),
-          getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/event/${currentGW}/picks/`).catch(() => null),
+          getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/event/${currentGW}/picks/`, picksCacheTTL).catch(() => null),
           getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/transfers/`).catch(() => null)
         ]);
         return { history: histData, entry: entryData, picks: picksData, transfers: transfersData };
@@ -1970,7 +1975,12 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
 
     const elementMap = {};
     elements.forEach(p => {
-      const xP = parseFloat(p.ep_next) || (parseFloat(p.form || 0) * 0.8 + parseFloat(p.points_per_game || 0) * 0.2);
+      // Use ep_this for the current GW (more stable), fallback to ep_next, then form-based estimate
+      const epThis = parseFloat(p.ep_this) || 0;
+      const epNext = parseFloat(p.ep_next) || 0;
+      const fallback = parseFloat(p.form || 0) * 0.8 + parseFloat(p.points_per_game || 0) * 0.2;
+      // Prefer ep_this when available (it's the projected points for the current GW)
+      const xP = epThis || epNext || fallback;
       elementMap[p.id] = {
         id: p.id,
         code: p.code,
@@ -2013,13 +2023,17 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
     // Fetch picks in controlled batches for sample entries with increased concurrency
     const samplePicksMap = {};
     const BATCH_SIZE = 50;
+    // After the GW deadline, picks are locked — use a much longer cache to prevent xPts fluctuation
+    const currentEvent = bootstrap?.events?.find(e => e.id === currentGW);
+    const deadlineMs = currentEvent?.deadline_time ? new Date(currentEvent.deadline_time).getTime() : null;
+    const picksCacheTTL = deadlineMs && Date.now() > deadlineMs ? 24 * 60 * 60 * 1000 : 60 * 1000;
     for (let i = 0; i < sampleEntries.length; i += BATCH_SIZE) {
       const batch = sampleEntries.slice(i, i + BATCH_SIZE);
       await Promise.all(
         batch.map(async e => {
           if (!e.entry) return;
           try {
-            const picks = await getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/event/${currentGW}/picks/`);
+            const picks = await getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/event/${currentGW}/picks/`, picksCacheTTL);
             samplePicksMap[e.entry] = picks;
           } catch (err) {
             samplePicksMap[e.entry] = null;
