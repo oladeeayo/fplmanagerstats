@@ -787,7 +787,6 @@
                             </div>
                         </div>
                     </div>
-                </div>
 
                     <!-- Threat & Advantage Section (Connected Manager Only) -->
                     <div id="league-threat-advantage-section" style="margin-top:32px;display:none;">
@@ -1260,121 +1259,6 @@
                 </div>
 
                 <!-- REMOVED AI TEAM SECTION -->
-                <div id="content-aiteam" class="tab-content" style="display:none;"></div>
-                <div class="aiteam-page" style="display:none;">
-                        <!-- Compact Header -->
-                        <div class="aiteam-hero" style="padding:16px 0 12px;">
-                            <div>
-                                <h1 class="aiteam-hero-title" style="font-size:24px;">Smart Team</h1>
-                                <p class="aiteam-hero-sub" style="margin:4px 0 0;font-size:12px;">An autonomous GW1 squad with legal, model-led transfer planning.</p>
-                            </div>
-                            <div style="display:flex;align-items:center;gap:10px;">
-                                <select id="aiteam-strategy" onchange="FPL.paintAITeam(FPL.state.aiTeamData)" style="background:#141916;border:1px solid #1A2E28;border-radius:6px;padding:6px 10px;color:#fff;font:600 11px var(--font-mono);min-height:34px;" aria-label="Transfer suggestion strategy">
-                                    <option value="balanced" selected>Balanced</option>
-                                    <option value="protect">Protect</option>
-                                    <option value="chase">Chase</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Loading -->
-                        <div id="aiteam-loading" class="aiteam-loading hidden" role="status" aria-live="polite" aria-busy="false">
-                            <div class="pixel-loader-container">
-                                <span class="pixel-grid" aria-hidden="true">
-                                    <span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span>
-                                    <span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span>
-                                    <span class="pixel-dot"></span><span class="pixel-dot"></span><span class="pixel-dot"></span>
-                                </span>
-                                <span class="pixel-loader-label">Building optimal squad...</span>
-                            </div>
-                        </div>
-                        <div id="aiteam-error" class="aiteam-error hidden" role="alert"></div>
-
-                        <!-- Results -->
-                        <div id="aiteam-results" class="aiteam-results hidden">
-                            <!-- Summary Bar -->
-                            <div class="aiteam-summary" id="aiteam-summary"></div>
-
-                            <!-- Standing (FPL live data) -->
-                            <div id="aiteam-standing" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:16px;"></div>
-
-                            <!-- GW History Timeline -->
-                            <div id="aiteam-gw-history" style="margin-bottom:20px;padding:12px 16px;background:#141916;border:1px solid rgba(255,255,255,0.06);border-radius:10px;"></div>
-
-                            <!-- 2 Tabs: Smart Team (Pitch + Squad + Chips) & GW Breakdown -->
-                            <div class="aiteam-tab-bar" id="aiteam-tab-bar">
-                                <button class="aiteam-tab active" data-view="smartteam" onclick="FPL.setAITeamView('smartteam')"><span class="material-symbols-outlined">sports_soccer</span> Smart Team</button>
-                                <button class="aiteam-tab" data-view="breakdown" onclick="FPL.setAITeamView('breakdown')"><span class="material-symbols-outlined">table_chart</span> GW Breakdown</button>
-                            </div>
-
-                            <!-- Tab 1: Smart Team View (Pitch First -> Merged Squad -> Chip Consideration Footer) -->
-                            <div class="aiteam-view active" data-view="smartteam">
-                                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-                                    <div style="display:flex;align-items:center;gap:8px;">
-                                        <span id="aiteam-formation-label" class="aiteam-formation-badge"></span>
-                                        <div id="aiteam-captain-display" class="aiteam-captain-inline"></div>
-                                    </div>
-                                    <div class="aiteam-gw-selector" id="aiteam-gw-toggle"></div>
-                                </div>
-
-                                <!-- Pitch & Bench -->
-                                <div class="aiteam-pitch-section" style="margin-bottom:28px;">
-                                    <div class="aiteam-pitch-wrapper">
-                                        <div class="aiteam-pitch" id="aiteam-pitch"></div>
-                                    </div>
-                                    <div class="aiteam-bench" id="aiteam-bench-section"></div>
-                                </div>
-
-                                <!-- Merged Squad Roster -->
-                                <div class="aiteam-squad-section" style="margin-bottom:32px;">
-                                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-                                        <h2 style="font-family:var(--font-display);font-size:18px;font-weight:700;margin:0;color:#ffffff;display:flex;align-items:center;gap:8px;">
-                                            Full Squad Roster & Performance
-                                        </h2>
-                                    </div>
-                                    <div id="aiteam-squad-table-wrap"></div>
-                                </div>
-
-                                <section class="aiteam-transfer-section" aria-labelledby="aiteam-transfer-title">
-                                    <div class="aiteam-transfer-section-heading">
-                                        <h2 id="aiteam-transfer-title"><span class="material-symbols-outlined" aria-hidden="true">published_with_changes</span> Transfer Suggestions</h2>
-                                        <p>Model-led moves from the GW1 deadline-locked squad.</p>
-                                    </div>
-                                    <div id="aiteam-transfer-suggestions"></div>
-                                </section>
-
-                                <!-- Chip Consideration Footer -->
-                                <div class="aiteam-chips-footer-section" style="margin-top:32px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.08);">
-                                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-                                        <div>
-                                            <div style="font-size:11px;font-weight:800;color:#00FF85;letter-spacing:0.08em;font-family:var(--font-mono);text-transform:uppercase;">STRATEGY & CHIPS</div>
-                                            <h2 style="font-family:var(--font-display);font-size:20px;font-weight:800;margin:4px 0 0;color:#ffffff;">Chip Consideration & Optimal GW Timing</h2>
-                                        </div>
-                                    </div>
-                                    <div id="aiteam-chips-section"></div>
-                                </div>
-
-                                <!-- GW Advisor -->
-                                <div style="margin-top:32px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.08);">
-                                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
-                                        <span class="material-symbols-outlined" style="color:#4FC3F7;font-size:22px;">psychology</span>
-                                        <div>
-                                            <div style="font-size:11px;font-weight:800;color:#4FC3F7;letter-spacing:0.08em;font-family:var(--font-mono);text-transform:uppercase;">GW MANAGER ADVISOR</div>
-                                            <h2 style="font-family:var(--font-display);font-size:20px;font-weight:800;margin:2px 0 0;color:#ffffff;">Captain, Transfers & Players to Watch</h2>
-                                        </div>
-                                    </div>
-                                    <div id="aiteam-advisor"></div>
-                                </div>
-                            </div>
-
-                            <!-- Tab 2: Breakdown View -->
-                            <div class="aiteam-view" data-view="breakdown">
-                                <div id="aiteam-gw-breakdown"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- TRANSFER FINDER -->
                 <div id="content-transfers" class="tab-content">
                     <div style="margin-bottom:24px;">
