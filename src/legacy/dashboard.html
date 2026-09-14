@@ -1268,11 +1268,12 @@
 
                     <!-- Criteria Panel -->
                     <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;padding:24px;margin-bottom:24px;">
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
                             <span class="material-symbols-outlined" style="color:#00FF85;font-size:20px;">tune</span>
                             <h3 style="font-family:var(--font-mono);font-size:14px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0;">SEARCH CRITERIA</h3>
+                            <span style="font-size:11px;color:var(--md-sys-color-on-surface-variant);margin-left:auto;">Top 5 targets max — transfers are precious</span>
                         </div>
-                        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-bottom:16px;">
+                        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px;margin-bottom:16px;">
                             <div>
                                 <label style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;font-family:var(--font-mono);letter-spacing:0.05em;display:block;margin-bottom:6px;">Position</label>
                                 <select id="transfer-pos-filter" style="width:100%;font-family:var(--font-mono);font-size:13px;font-weight:700;background:rgba(255,255,255,0.04);color:var(--md-sys-color-on-surface);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 12px;outline:none;">
@@ -1293,7 +1294,6 @@
                                     <option value="8">Up to £8.0m</option>
                                     <option value="9">Up to £9.0m</option>
                                     <option value="10">Up to £10.0m</option>
-                                    <option value="99">Any price</option>
                                 </select>
                             </div>
                             <div>
@@ -1310,18 +1310,56 @@
                                 <label style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;font-family:var(--font-mono);letter-spacing:0.05em;display:block;margin-bottom:6px;">Sort By</label>
                                 <select id="transfer-sort" style="width:100%;font-family:var(--font-mono);font-size:13px;font-weight:700;background:rgba(255,255,255,0.04);color:var(--md-sys-color-on-surface);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 12px;outline:none;">
                                     <option value="xPts">Next GW xPts</option>
+                                    <option value="xPtsH" selected>Fixture Run xPts</option>
                                     <option value="form">Form</option>
                                     <option value="ppg">Points Per Game</option>
                                     <option value="value">Value (xPts/£m)</option>
-                                    <option value="total">Total Points</option>
+                                    <option value="bps">BPS</option>
+                                    <option value="defcon">DEFCON Games</option>
+                                    <option value="haul">Hauls (10+ pts)</option>
                                 </select>
                             </div>
                             <div>
                                 <label style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;font-family:var(--font-mono);letter-spacing:0.05em;display:block;margin-bottom:6px;">Search Player</label>
                                 <div style="position:relative;">
                                     <span class="material-symbols-outlined" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--md-sys-color-on-surface-variant);font-size:18px;">search</span>
-                                    <input type="text" id="transfer-search" placeholder="Name or team..." style="width:100%;padding:10px 12px 10px 36px;font-family:var(--font-mono);font-size:13px;background:rgba(255,255,255,0.04);color:var(--md-sys-color-on-surface);border:1px solid rgba(255,255,255,0.08);border-radius:8px;outline:none;" aria-label="Search player">
+                                    <input type="text" id="transfer-search" placeholder="Name..." style="width:100%;padding:10px 12px 10px 36px;font-family:var(--font-mono);font-size:13px;background:rgba(255,255,255,0.04);color:var(--md-sys-color-on-surface);border:1px solid rgba(255,255,255,0.08);border-radius:8px;outline:none;" aria-label="Search player">
                                 </div>
+                            </div>
+                            <div>
+                                <label style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;font-family:var(--font-mono);letter-spacing:0.05em;display:block;margin-bottom:6px;">Min BPS</label>
+                                <select id="transfer-min-bps" style="width:100%;font-family:var(--font-mono);font-size:13px;font-weight:700;background:rgba(255,255,255,0.04);color:var(--md-sys-color-on-surface);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 12px;outline:none;">
+                                    <option value="0" selected>Any</option>
+                                    <option value="50">50+</option>
+                                    <option value="100">100+</option>
+                                    <option value="150">150+</option>
+                                    <option value="250">250+</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;font-family:var(--font-mono);letter-spacing:0.05em;display:block;margin-bottom:6px;">Min DEFCON Games</label>
+                                <select id="transfer-min-defcon" style="width:100%;font-family:var(--font-mono);font-size:13px;font-weight:700;background:rgba(255,255,255,0.04);color:var(--md-sys-color-on-surface);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 12px;outline:none;">
+                                    <option value="0" selected>Any</option>
+                                    <option value="1">1+</option>
+                                    <option value="2">2+</option>
+                                    <option value="3">3+</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;font-family:var(--font-mono);letter-spacing:0.05em;display:block;margin-bottom:6px;">Min Hauls (10+ pts)</label>
+                                <select id="transfer-min-haul" style="width:100%;font-family:var(--font-mono);font-size:13px;font-weight:700;background:rgba(255,255,255,0.04);color:var(--md-sys-color-on-surface);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 12px;outline:none;">
+                                    <option value="0" selected>Any</option>
+                                    <option value="1">1+</option>
+                                    <option value="2">2+</option>
+                                    <option value="3">3+</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="font-size:10px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;font-family:var(--font-mono);letter-spacing:0.05em;display:block;margin-bottom:6px;">Fixture Horizon</label>
+                                <select id="transfer-horizon" style="width:100%;font-family:var(--font-mono);font-size:13px;font-weight:700;background:rgba(255,255,255,0.04);color:var(--md-sys-color-on-surface);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 12px;outline:none;">
+                                    <option value="3">Next 3 GWs</option>
+                                    <option value="5" selected>Next 5 GWs</option>
+                                </select>
                             </div>
                         </div>
                         <button class="btn btn-primary" onclick="FPL.filterTransfers()" style="width:100%;padding:12px;font-family:var(--font-mono);font-size:13px;font-weight:800;">
@@ -1332,7 +1370,7 @@
                     <!-- Results Header -->
                     <div id="transfer-results-header" style="display:none;margin-bottom:12px;">
                         <div style="display:flex;align-items:center;justify-content:space-between;">
-                            <h3 style="font-family:var(--font-mono);font-size:14px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0;"><span id="transfer-results-count">0</span> players found</h3>
+                            <h3 style="font-family:var(--font-mono);font-size:14px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0;">TOP <span id="transfer-results-count">5</span> TARGETS</h3>
                             <span id="transfer-results-summary" style="font-size:12px;color:var(--md-sys-color-on-surface-variant);"></span>
                         </div>
                     </div>
@@ -1340,7 +1378,7 @@
                     <!-- Transfer Table -->
                     <div id="transfer-table-wrap" style="border-radius:16px;overflow:clip;display:none;">
                         <div class="table-scroll-mobile sticky-first-column" tabindex="0" aria-label="Transfer suggestions table">
-                            <table style="width:100%;border-collapse:separate;border-spacing:0;white-space:nowrap;min-width:800px;">
+                            <table style="width:100%;border-collapse:separate;border-spacing:0;white-space:nowrap;min-width:960px;">
                                 <thead style="background:rgba(255,255,255,0.03);font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.03em;">
                                     <tr>
                                         <th style="padding:10px 12px;text-align:left;background:rgba(24,24,27,0.9);position:sticky;left:0;z-index:2;">Player</th>
@@ -1348,10 +1386,12 @@
                                         <th style="padding:10px 12px;text-align:center;">Price</th>
                                         <th style="padding:10px 12px;text-align:center;">Form</th>
                                         <th style="padding:10px 12px;text-align:center;">PPG</th>
-                                        <th style="padding:10px 12px;text-align:center;">xPts</th>
-                                        <th style="padding:10px 12px;text-align:center;">Value</th>
-                                        <th style="padding:10px 12px;text-align:center;">Own%</th>
-                                        <th style="padding:10px 12px;text-align:center;">Next 5 xPts</th>
+                                        <th style="padding:10px 12px;text-align:center;">xPts GW</th>
+                                        <th id="transfer-run-th" style="padding:10px 12px;text-align:center;">Fixture Run</th>
+                                        <th style="padding:10px 12px;text-align:center;">Run xPts</th>
+                                        <th style="padding:10px 12px;text-align:center;">BPS</th>
+                                        <th style="padding:10px 12px;text-align:center;">DC</th>
+                                        <th style="padding:10px 12px;text-align:center;">Hauls</th>
                                     </tr>
                                 </thead>
                                 <tbody id="transfer-table-body" style="font-size:13px;">
@@ -1364,7 +1404,7 @@
                     <div id="transfer-empty" style="text-align:center;padding:60px 20px;color:var(--md-sys-color-on-surface-variant);">
                         <span class="material-symbols-outlined" style="font-size:48px;color:var(--md-sys-color-outline);display:block;margin-bottom:12px;">swap_horiz</span>
                         <div style="font-size:15px;font-weight:600;color:var(--md-sys-color-on-surface);margin-bottom:4px;">Set your criteria and hit Find</div>
-                        <div style="font-size:13px;">Select position, price range, and minimum form to find transfer targets.</div>
+                        <div style="font-size:13px;">Filter by position, price, form, BPS, DEFCON or hauls. Search a player to compare similar alternatives.</div>
                     </div>
 
                     <!-- Similar Players Section -->

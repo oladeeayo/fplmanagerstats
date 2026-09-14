@@ -9739,14 +9739,63 @@ const FPL = {
                 this.state.bootstrapData = data;
             } catch (e) { /* will show empty state */ }
         }
+        if (!this.state.fixtures || this.state.fixtures.length === 0) {
+            try {
+                const fx = await this.apiFetch('/api/fixtures');
+                if (Array.isArray(fx)) this.state.fixtures = fx;
+            } catch (e) { /* fixture run will just be empty */ }
+        }
+        // Load advanced stats (defcon/hauls) in the background — filters apply once ready
+        if (!this.state.advData || !Array.isArray(this.state.advData.players) || this.state.advData.players.length === 0) {
+            try {
+                const res = await window.fetch('/api/player-advanced');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && Array.isArray(data.players)) this.state.advData = data;
+                }
+            } catch (e) { /* defcon/haul filters simply won't be populated */ }
+        }
         // Show empty state until user clicks Find
         const empty = document.getElementById('transfer-empty');
         if (empty) empty.style.display = 'block';
     },
+    _transferFdrMultiplier(fdr) {
+        return { 1: 1.30, 2: 1.15, 3: 1.00, 4: 0.85, 5: 0.70 }[fdr] || 1.0;
+    },
+    _transferFixtureRun(teamId, horizon, currentGW) {
+        const fixtures = (this.state.fixtures || [])
+            .filter(f => f.event && f.event >= currentGW && (f.team_h === teamId || f.team_a === teamId))
+            .sort((a, b) => a.event - b.event)
+            .slice(0, horizon);
+        const teamsById = this.state.teamMap || {};
+        return fixtures.map(f => {
+            const isHome = f.team_h === teamId;
+            const oppId = isHome ? f.team_a : f.team_h;
+            const opp = teamsById[oppId];
+            return {
+                gw: f.event,
+                opp: opp ? opp.short_name : '?',
+                home: isHome,
+                fdr: f.difficulty || 3,
+                started: !!f.started,
+                finished: !!f.finished
+            };
+        });
+    },
+    _transferRunXpts(base, run) {
+        // Project points across the fixture run: season baseline adjusted per-fixture by FDR.
+        return run.reduce((sum, f) => sum + base * this._transferFdrMultiplier(f.fdr), 0);
+    },
+    _transferRunChipsHTML(run) {
+        if (!run || run.length === 0) return '<span style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">—</span>';
+        return `<span style="display:inline-flex;gap:3px;">${run.map(f => `
+            <span title="GW${f.gw}: ${f.opp} (${f.home ? 'H' : 'A'}) FDR ${f.fdr}"
+                  style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:20px;padding:0 4px;border-radius:5px;font-family:var(--font-mono);font-size:10px;font-weight:800;background:${this.getFDRColor(f.fdr)};color:${f.fdr === 3 ? '#1a1a1a' : '#fff'};">${f.opp}</span>`
+        ).join('')}</span>`;
+    },
     filterTransfers() {
-        // Ensure data is loaded
         if (!this.state.bootstrapData) {
-            this.renderTransfers(); // triggers load
+            this.renderTransfers().then(() => { if (this.state.bootstrapData) this.filterTransfers(); });
             return;
         }
         const bs = this.state.bootstrapData;
@@ -9755,6 +9804,11 @@ const FPL = {
         const teamsById = {};
         teams.forEach(t => teamsById[t.id] = t);
         const posMap = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+        const currentGW = this.state.currentGW || bs?.events?.find(e => e.is_current)?.id || bs?.events?.find(e => e.is_next)?.id || 1;
+
+        // Advanced stats lookup (defcon / hauls)
+        const advMap = {};
+        (this.state.advData?.players || []).forEach(p => { advMap[p.id] = p; });
 
         // Read criteria
         const search = (document.getElementById('transfer-search')?.value || '').toLowerCase().trim();
@@ -9762,9 +9816,13 @@ const FPL = {
         const sort = document.getElementById('transfer-sort')?.value || 'xPts';
         const maxPrice = document.getElementById('transfer-price-filter')?.value || 'all';
         const minForm = parseFloat(document.getElementById('transfer-min-form')?.value) || 0;
+        const minBps = parseFloat(document.getElementById('transfer-min-bps')?.value) || 0;
+        const minDefcon = parseInt(document.getElementById('transfer-min-defcon')?.value) || 0;
+        const minHaul = parseInt(document.getElementById('transfer-min-haul')?.value) || 0;
+        const horizon = parseInt(document.getElementById('transfer-horizon')?.value) || 5;
 
-        // Build player list and apply ALL filters
-        let filtered = elements
+        // Build player list
+        let players = elements
             .filter(e => e.status === 'a' && e.minutes > 0)
             .map(e => {
                 const team = teamsById[e.team];
@@ -9772,120 +9830,186 @@ const FPL = {
                 const form = parseFloat(e.form) || 0;
                 const ppg = parseFloat(e.points_per_game) || 0;
                 const xPts = parseFloat(e.ep_next) || parseFloat(e.ep_this) || 0;
+                const bps = e.bps || 0;
+                const run = this._transferFixtureRun(e.team, horizon, currentGW);
+                // Baseline for run projection: blend season PPG with recent form
+                const base = ppg > 0 ? (ppg + form) / 2 : form;
+                const runXpts = this._transferRunXpts(base, run);
+                const adv = advMap[e.id] || {};
+                const defconGames = Number(adv.defconGames) || 0;
+                const haulGames = Number(adv.haulGames) || 0;
                 return {
                     id: e.id, name: e.web_name, team: team?.short_name || '?', teamFull: team?.name || '',
-                    pos: posMap[e.element_type] || '', cost, form, ppg, xPts,
+                    teamId: e.team, pos: posMap[e.element_type] || '', cost, form, ppg, xPts, bps,
+                    run, runXpts, avgFdr: run.length ? run.reduce((s, f) => s + f.fdr, 0) / run.length : 3,
+                    defconGames, haulGames, defconTotal: Number(adv.totalDefcon) || 0,
                     xPtsPerMillion: cost > 0 ? xPts / cost : 0,
+                    runXptsPerMillion: cost > 0 ? runXpts / cost : 0,
                     ownership: parseFloat(e.selected_by_percent) || 0,
                     totalPoints: e.total_points || 0, code: e.code
                 };
             });
 
-        // Apply position filter
-        if (pos !== 'all') filtered = filtered.filter(p => p.pos === pos);
-
-        // Apply price filter (max price)
-        if (maxPrice !== 'all') {
-            const max = parseInt(maxPrice);
-            if (max < 99) filtered = filtered.filter(p => p.cost <= max);
+        // Search mode: exact player lookup + auto similar players
+        if (search) {
+            const matches = players
+                .filter(p => p.name.toLowerCase().includes(search) || p.teamFull.toLowerCase().includes(search) || p.team.toLowerCase() === search)
+                .sort((a, b) => {
+                    const aExact = a.name.toLowerCase() === search ? 1 : 0;
+                    const bExact = b.name.toLowerCase() === search ? 1 : 0;
+                    if (aExact !== bExact) return bExact - aExact;
+                    return b.xPts - a.xPts;
+                })
+                .slice(0, 5);
+            this.state.transferPlayers = players;
+            if (matches.length > 0) {
+                this._showTransferResults(matches, { pos, maxPrice, minForm, horizon, search, searched: true });
+                this.showTransferSimilar(matches[0].id);
+            } else {
+                this._showTransferEmpty(`No player found for "${search}"`);
+            }
+            return;
         }
 
-        // Apply form filter
-        if (minForm > 0) filtered = filtered.filter(p => p.form >= minForm);
+        // Criteria mode: apply all filters
+        if (pos !== 'all') players = players.filter(p => p.pos === pos);
+        if (maxPrice !== 'all') players = players.filter(p => p.cost <= parseInt(maxPrice));
+        if (minForm > 0) players = players.filter(p => p.form >= minForm);
+        if (minBps > 0) players = players.filter(p => p.bps >= minBps);
+        if (minDefcon > 0) players = players.filter(p => p.defconGames >= minDefcon);
+        if (minHaul > 0) players = players.filter(p => p.haulGames >= minHaul);
 
-        // Apply search
-        if (search) filtered = filtered.filter(p => p.name.toLowerCase().includes(search) || p.team.toLowerCase().includes(search));
+        // Sort — fixture-run aware options rank by projected return across the horizon
+        const sorters = {
+            'xPts': p => p.xPts,
+            'xPtsH': p => p.runXpts,
+            'form': p => p.form,
+            'ppg': p => p.ppg,
+            'value': p => p.runXptsPerMillion || p.xPtsPerMillion,
+            'bps': p => p.bps,
+            'defcon': p => p.defconGames,
+            'haul': p => p.haulGames
+        };
+        players.sort((a, b) => (sorters[sort] || sorters.xPts)(b) - (sorters[sort] || sorters.xPts)(a));
 
-        // Sort
-        const sortKey = { 'xPts': p => p.xPts, 'form': p => p.form, 'ppg': p => p.ppg, 'value': p => p.xPtsPerMillion, 'total': p => p.totalPoints }[sort] || (p => p.xPts);
-        filtered.sort((a, b) => sortKey(b) - sortKey(a));
+        this.state.transferPlayers = players;
 
-        // Store for similar player lookup
-        this.state.transferPlayers = filtered;
+        if (players.length === 0) {
+            this._showTransferEmpty('No players match your criteria — try lowering a filter.');
+            return;
+        }
 
-        // Update UI
+        // Never show more than 5 targets — transfers are limited
+        this._showTransferResults(players.slice(0, 5), { pos, maxPrice, minForm, minBps, minDefcon, minHaul, horizon, sort, matched: players.length });
+    },
+    _showTransferEmpty(msg) {
+        const empty = document.getElementById('transfer-empty');
+        const tableWrap = document.getElementById('transfer-table-wrap');
+        const header = document.getElementById('transfer-results-header');
+        const similarSection = document.getElementById('transfer-similar-section');
+        if (tableWrap) tableWrap.style.display = 'none';
+        if (header) header.style.display = 'none';
+        if (similarSection) similarSection.style.display = 'none';
+        if (empty) {
+            empty.style.display = 'block';
+            empty.innerHTML = `<span class="material-symbols-outlined" style="font-size:48px;color:var(--md-sys-color-outline);display:block;margin-bottom:12px;">search_off</span><div style="font-size:15px;font-weight:600;color:var(--md-sys-color-on-surface);margin-bottom:4px;">${this.escapeHTML(msg)}</div><div style="font-size:13px;">Adjust your filters or search for a different player.</div>`;
+        }
+    },
+    _showTransferResults(top5, { pos, maxPrice, minForm, minBps, minDefcon, minHaul, horizon, sort, matched, searched }) {
         const empty = document.getElementById('transfer-empty');
         const tableWrap = document.getElementById('transfer-table-wrap');
         const header = document.getElementById('transfer-results-header');
         const countEl = document.getElementById('transfer-results-count');
         const summaryEl = document.getElementById('transfer-results-summary');
-
-        if (filtered.length === 0) {
-            empty.style.display = 'block';
-            tableWrap.style.display = 'none';
-            header.style.display = 'none';
-            empty.innerHTML = '<span class="material-symbols-outlined" style="font-size:48px;color:var(--md-sys-color-outline);display:block;margin-bottom:12px;">search_off</span><div style="font-size:15px;font-weight:600;color:var(--md-sys-color-on-surface);margin-bottom:4px;">No players match your criteria</div><div style="font-size:13px;">Try adjusting your filters — lower the minimum form or increase the max price.</div>';
-            return;
+        const runTh = document.getElementById('transfer-run-th');
+        if (runTh) runTh.textContent = `${horizon}-GW Run`;
+        if (empty) empty.style.display = 'none';
+        if (tableWrap) tableWrap.style.display = 'block';
+        if (header) header.style.display = 'block';
+        if (countEl) countEl.textContent = top5.length;
+        if (summaryEl) {
+            if (searched) {
+                summaryEl.textContent = 'Search results — click a player to see similar alternatives';
+            } else {
+                const parts = [pos !== 'all' ? pos : 'All pos'];
+                if (maxPrice !== 'all') parts.push(`\u2264\u00a3${maxPrice}m`);
+                if (minForm > 0) parts.push(`Form \u2265 ${minForm}`);
+                if (minBps > 0) parts.push(`BPS \u2265 ${minBps}`);
+                if (minDefcon > 0) parts.push(`DC \u2265 ${minDefcon}`);
+                if (minHaul > 0) parts.push(`Hauls \u2265 ${minHaul}`);
+                parts.push(`${horizon}-GW run`);
+                summaryEl.textContent = parts.join(' \u00b7 ') + (matched != null ? ` \u00b7 ${matched} matched` : '');
+            }
         }
-
-        empty.style.display = 'none';
-        tableWrap.style.display = 'block';
-        header.style.display = 'block';
-        countEl.textContent = filtered.length;
-        const posLabel = pos !== 'all' ? pos : 'All';
-        const priceLabel = maxPrice !== 'all' && parseInt(maxPrice) < 99 ? `\u2264\u00a3${maxPrice}m` : 'Any';
-        summaryEl.textContent = `${posLabel} \u00b7 ${priceLabel} \u00b7 Form \u2265 ${minForm}`;
-
-        this.renderTransferTable(filtered);
+        this.renderTransferTable(top5);
     },
     renderTransferTable(players) {
         const tbody = document.getElementById('transfer-table-body');
         if (!tbody) return;
         const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
-        tbody.innerHTML = players.slice(0, 40).map((p, i) => {
+        tbody.innerHTML = players.map((p, i) => {
             const formColor = p.form >= 4 ? '#00FF85' : p.form >= 2.5 ? '#FFA600' : '#FF4D4D';
-            const xPtsColor = p.xPts >= 5 ? '#00FF85' : p.xPts >= 3 ? '#FFA600' : '#8ba396';
-            return `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='transparent'" onclick="FPL.showTransferSimilar(${p.id}, '${p.pos}')">
-                <td style="padding:8px 12px;background:rgba(24,24,27,0.9);position:sticky;left:0;z-index:1;display:flex;align-items:center;gap:8px;"><span style="font-family:var(--font-mono);font-size:10px;color:var(--md-sys-color-on-surface-variant);width:20px;">${i + 1}</span><span style="display:inline-block;width:3px;height:20px;border-radius:2px;background:${posColors[p.pos] || '#fff'};"></span><span style="font-weight:700;font-size:12px;color:var(--md-sys-color-on-surface);">${this.escapeHTML(p.name)}</span></td>
+            const runColor = p.runXpts >= p.cost * 2.2 ? '#00FF85' : p.runXpts >= p.cost * 1.4 ? '#FFA600' : '#8ba396';
+            return `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='transparent'" onclick="FPL.showTransferSimilar(${p.id})">
+                <td style="padding:8px 12px;background:rgba(24,24,27,0.9);position:sticky;left:0;z-index:1;"><div style="display:flex;align-items:center;gap:8px;"><span style="font-family:var(--font-mono);font-size:10px;color:var(--md-sys-color-on-surface-variant);width:16px;">${i + 1}</span><span style="display:inline-block;width:3px;height:20px;border-radius:2px;background:${posColors[p.pos] || '#fff'};"></span><span style="font-weight:700;font-size:12px;color:var(--md-sys-color-on-surface);">${this.escapeHTML(p.name)}</span></div></td>
                 <td style="padding:8px 12px;text-align:center;font-size:11px;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);">${p.team}</td>
                 <td style="padding:8px 12px;text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--md-sys-color-on-surface);">\u00a3${p.cost.toFixed(1)}m</td>
                 <td style="padding:8px 12px;text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:${formColor};">${p.form.toFixed(1)}</td>
                 <td style="padding:8px 12px;text-align:center;font-family:var(--font-mono);font-size:12px;color:var(--md-sys-color-on-surface);">${p.ppg.toFixed(1)}</td>
-                <td style="padding:8px 12px;text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:${xPtsColor};">${p.xPts.toFixed(1)}</td>
-                <td style="padding:8px 12px;text-align:center;font-family:var(--font-mono);font-size:12px;color:var(--md-sys-color-on-surface-variant);">${p.xPtsPerMillion.toFixed(2)}</td>
-                <td style="padding:8px 12px;text-align:center;font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-on-surface-variant);">${p.ownership.toFixed(1)}%</td>
-                <td style="padding:8px 12px;text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--md-sys-color-on-surface);">${p.xPts.toFixed(1)}</td>
+                <td style="padding:8px 12px;text-align:center;font-family:var(--font-mono);font-size:12px;color:var(--md-sys-color-on-surface-variant);">${p.xPts.toFixed(1)}</td>
+                <td style="padding:8px 12px;text-align:center;">${this._transferRunChipsHTML(p.run)}</td>
+                <td style="padding:8px 12px;text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:${runColor};">${p.runXpts.toFixed(1)}</td>
+                <td style="padding:8px 12px;text-align:center;font-family:var(--font-mono);font-size:12px;color:var(--md-sys-color-on-surface);">${p.bps}</td>
+                <td style="padding:8px 12px;text-align:center;font-family:var(--font-mono);font-size:12px;color:${p.defconGames > 0 ? '#4FC3F7' : 'var(--md-sys-color-on-surface-variant)'};">${p.defconGames}</td>
+                <td style="padding:8px 12px;text-align:center;font-family:var(--font-mono);font-size:12px;color:${p.haulGames > 0 ? '#FFA600' : 'var(--md-sys-color-on-surface-variant)'};">${p.haulGames}</td>
             </tr>`;
         }).join('');
     },
-    showTransferSimilar(playerId, position) {
+    showTransferSimilar(playerId) {
         const players = this.state.transferPlayers || [];
         const player = players.find(p => p.id === playerId);
         if (!player) return;
         const section = document.getElementById('transfer-similar-section');
         const container = document.getElementById('transfer-similar-container');
         if (!section || !container) return;
-        const similar = players.filter(p => p.pos === position && p.id !== playerId).map(p => {
-            const formDiff = Math.abs(p.form - player.form);
-            const costDiff = Math.abs(p.cost - player.cost);
-            const xPtsDiff = Math.abs(p.xPts - player.xPts);
-            const similarity = 100 - (formDiff * 5 + costDiff * 3 + xPtsDiff * 4);
-            return { ...p, similarity: Math.max(0, similarity) };
-        }).sort((a, b) => b.similarity - a.similarity || b.xPts - a.xPts).slice(0, 6);
+
+        // Similar = same position first, then nearest on form, price and fixture-run projection
+        const samePos = players.filter(p => p.pos === player.pos && p.id !== playerId);
+        const pool = samePos.length >= 4 ? samePos : players.filter(p => p.id !== playerId);
+        const maxForm = Math.max(...pool.map(p => Math.abs(p.form - player.form)), 0.001);
+        const maxCost = Math.max(...pool.map(p => Math.abs(p.cost - player.cost)), 0.001);
+        const maxRun = Math.max(...pool.map(p => Math.abs(p.runXpts - player.runXpts)), 0.001);
+        const similar = pool.map(p => {
+            // Weight fixture-run projection highest — similar FPL output matters most
+            const similarity = 100 * (0.45 * (1 - Math.abs(p.runXpts - player.runXpts) / maxRun)
+                + 0.25 * (1 - Math.abs(p.form - player.form) / maxForm)
+                + 0.20 * (1 - Math.abs(p.cost - player.cost) / maxCost)
+                + 0.10 * (p.pos === player.pos ? 1 : 0));
+            return { ...p, similarity: Math.max(0, Math.min(99, similarity)) };
+        }).sort((a, b) => b.similarity - a.similarity || b.runXpts - a.runXpts).slice(0, 5);
+
         section.style.display = 'block';
-        container.innerHTML = `<div style="background:rgba(0,255,133,0.04);border:1px solid rgba(0,255,133,0.2);border-radius:12px;padding:16px;margin-bottom:16px;">
-            <div style="display:flex;align-items:center;gap:12px;">
-                <span style="font-weight:700;font-size:14px;color:#00FF85;">${this.escapeHTML(player.name)}</span>
-                <span style="font-size:12px;color:var(--md-sys-color-on-surface-variant);">${player.pos} \u00b7 ${player.team} \u00b7 \u00a3${player.cost.toFixed(1)}m</span>
-                <span style="font-family:var(--font-mono);font-size:12px;color:var(--md-sys-color-on-surface);">F: ${player.form.toFixed(1)} \u00b7 xPts: ${player.xPts.toFixed(1)}</span>
-            </div>
-            <div style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin-top:4px;">Similar players by form, price & fixtures:</div>
-        </div>
-        ${similar.map(p => {
+        const playerRow = (p, highlight) => {
             const formColor = p.form >= 4 ? '#00FF85' : p.form >= 2.5 ? '#FFA600' : '#FF4D4D';
-            return `<div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-                <div style="display:flex;align-items:center;gap:12px;">
+            return `<div style="background:${highlight ? 'rgba(0,255,133,0.06)' : 'var(--md-sys-color-surface-container)'};border:1px solid ${highlight ? 'rgba(0,255,133,0.35)' : 'var(--md-sys-color-outline-variant)'};border-radius:12px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                <div style="display:flex;align-items:center;gap:12px;min-width:0;">
                     <div style="width:40px;height:40px;border-radius:50%;overflow:hidden;border:1px solid rgba(255,255,255,0.15);flex-shrink:0;">${this.playerPhotoMarkup({ code: p.code, name: p.name }, p.name + ' photo', '', 'width:100%;height:100%;object-fit:cover;object-position:50% 15%;')}</div>
-                    <div><div style="font-weight:700;font-size:13px;color:var(--md-sys-color-on-surface);">${this.escapeHTML(p.name)}</div><div style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">${p.team} \u00b7 \u00a3${p.cost.toFixed(1)}m \u00b7 ${p.pos}</div></div>
+                    <div style="min-width:0;">
+                        <div style="font-weight:700;font-size:13px;color:var(--md-sys-color-on-surface);">${this.escapeHTML(p.name)}${highlight ? ' <span style=\'font-size:9px;color:#00FF85;font-family:var(--font-mono);letter-spacing:0.05em;\'>\u25b2 SEARCHED</span>' : ''}</div>
+                        <div style="font-size:11px;color:var(--md-sys-color-on-surface-variant);">${p.team} \u00b7 \u00a3${p.cost.toFixed(1)}m \u00b7 ${p.pos}</div>
+                        <div style="margin-top:6px;">${this._transferRunChipsHTML(p.run)}</div>
+                    </div>
                 </div>
-                <div style="display:flex;gap:12px;align-items:center;">
+                <div style="display:flex;gap:14px;align-items:center;flex-shrink:0;">
                     <div style="text-align:center;"><div style="font-family:var(--font-mono);font-size:14px;font-weight:700;color:${formColor};">${p.form.toFixed(1)}</div><div style="font-size:9px;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;">Form</div></div>
-                    <div style="text-align:center;"><div style="font-family:var(--font-mono);font-size:14px;font-weight:700;color:#00FF85;">${p.xPts.toFixed(1)}</div><div style="font-size:9px;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;">xPts</div></div>
-                    <div style="text-align:center;"><div style="font-family:var(--font-mono);font-size:14px;font-weight:700;color:#FFA600;">${p.xPtsPerMillion.toFixed(2)}</div><div style="font-size:9px;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;">Value</div></div>
-                    <div style="text-align:center;"><div style="font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--md-sys-color-on-surface);">${Math.round(p.similarity)}%</div><div style="font-size:9px;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;">Match</div></div>
+                    <div style="text-align:center;"><div style="font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--md-sys-color-on-surface);">${p.ppg.toFixed(1)}</div><div style="font-size:9px;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;">PPG</div></div>
+                    <div style="text-align:center;"><div style="font-family:var(--font-mono);font-size:14px;font-weight:700;color:#00FF85;">${p.runXpts.toFixed(1)}</div><div style="font-size:9px;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;">Run xPts</div></div>
+                    <div style="text-align:center;"><div style="font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--md-sys-color-on-surface);">${p.bps}</div><div style="font-size:9px;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;">BPS</div></div>
+                    ${highlight ? '' : `<div style="text-align:center;"><div style="font-family:var(--font-mono);font-size:14px;font-weight:700;color:#FFA600;">${Math.round(p.similarity)}%</div><div style="font-size:9px;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;">Match</div></div>`}
                 </div>
             </div>`;
-        }).join('')}`;
+        };
+        container.innerHTML = playerRow(player, true) + `<div style="margin:14px 0 8px;font-size:11px;font-weight:700;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;font-family:var(--font-mono);letter-spacing:0.05em;">Closest alternatives \u00b7 matched on form, price & fixture run</div>` + similar.map(p => playerRow(p, false)).join('');
         section.scrollIntoView({ behavior: 'smooth', block: 'start' });
     },
 };
