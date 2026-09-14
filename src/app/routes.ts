@@ -13,6 +13,7 @@ export const appRoutes = {
   playeradvanced: '/player-advanced',
   livecentre: '/live-centre',
   scatter: '/scatter',
+  transfers: '/transfers',
 } as const;
 
 export type AppTab = keyof typeof appRoutes;

@@ -212,6 +212,7 @@
                     </button>
                     <div class="sidebar-section-items">
                         <a href="/decision-lab" class="sidebar-nav-item" data-tab="decision" onclick="event.preventDefault();FPL.navigateTo('decision')"><span class="material-symbols-outlined">model_training</span> Decision Lab</a>
+                        <a href="/transfers" class="sidebar-nav-item" data-tab="transfers" onclick="event.preventDefault();FPL.navigateTo('transfers')"><span class="material-symbols-outlined">swap_horiz</span> Transfer Finder</a>
                         <a href="/captaincy" class="sidebar-nav-item" data-tab="captain" onclick="event.preventDefault();FPL.navigateTo('captain')"><span class="material-symbols-outlined">star</span> Captaincy</a>
                         <a href="/manager" class="sidebar-nav-item" data-tab="manager" onclick="event.preventDefault();FPL.navigateTo('manager')"><span class="material-symbols-outlined">groups</span> Manager Analysis</a>
                         <a href="/league" class="sidebar-nav-item" data-tab="league" onclick="event.preventDefault();FPL.navigateTo('league')"><span class="material-symbols-outlined">leaderboard</span> Standings</a>
@@ -793,23 +794,23 @@
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
                             <!-- Threat: Players league managers own that you don't -->
                             <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;padding:20px;display:flex;flex-direction:column;">
-                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
                                     <span class="material-symbols-outlined" style="color:#FF4D4D;font-size:22px;">warning</span>
                                     <h3 style="font-family:var(--font-mono);font-size:16px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0;">THREAT</h3>
                                 </div>
-                                <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0 0 12px 0;">Players your league rivals own that you don't — they gain rank on you every GW.</p>
-                                <div id="league-threat-list" style="display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto;padding-right:4px;">
+                                <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0 0 12px 0;">Players your league rivals own that you don't.</p>
+                                <div id="league-threat-list" style="display:flex;flex-direction:column;gap:0;max-height:320px;overflow-y:auto;">
                                     <div style="text-align:center;padding:24px;color:var(--md-sys-color-on-surface-variant);">Connect your FPL ID to see threats.</div>
                                 </div>
                             </div>
                             <!-- Advantage: Players you own that few/no one else has -->
                             <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;padding:20px;display:flex;flex-direction:column;">
-                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
                                     <span class="material-symbols-outlined" style="color:#00FF85;font-size:22px;">shield</span>
                                     <h3 style="font-family:var(--font-mono);font-size:16px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0;">ADVANTAGE</h3>
                                 </div>
-                                <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0 0 12px 0;">Your differentials — players few or no rivals have. You gain rank when they haul.</p>
-                                <div id="league-advantage-list" style="display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto;padding-right:4px;">
+                                <p style="font-size:12px;color:var(--md-sys-color-on-surface-variant);margin:0 0 12px 0;">Your differentials — players few rivals have.</p>
+                                <div id="league-advantage-list" style="display:flex;flex-direction:column;gap:0;max-height:320px;overflow-y:auto;">
                                     <div style="text-align:center;padding:24px;color:var(--md-sys-color-on-surface-variant);">Connect your FPL ID to see advantages.</div>
                                 </div>
                             </div>
@@ -1371,6 +1372,78 @@
                                 <div id="aiteam-gw-breakdown"></div>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- TRANSFER FINDER -->
+                <div id="content-transfers" class="tab-content">
+                    <div style="margin-bottom:24px;">
+                        <h1 style="font-size:28px;font-weight:700;color:var(--md-sys-color-on-surface);margin:0;font-family:var(--font-display);">Transfer <span style="color:#00FF85;">Finder</span></h1>
+                        <p style="font-size:14px;color:var(--md-sys-color-on-surface-variant);margin-top:8px;">Find the best transfers based on form, fixtures, and value. Filter by position, price, and more.</p>
+                    </div>
+
+                    <!-- Filters -->
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;align-items:center;">
+                        <div style="position:relative;">
+                            <span class="material-symbols-outlined" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--md-sys-color-on-surface-variant);font-size:18px;">search</span>
+                            <input type="text" id="transfer-search" placeholder="Search player..." oninput="FPL.filterTransfers()" style="padding:8px 12px 8px 36px;font-family:var(--font-mono);font-size:13px;background:rgba(255,255,255,0.04);color:var(--md-sys-color-on-surface);border:1px solid rgba(255,255,255,0.08);border-radius:8px;width:200px;outline:none;" aria-label="Search player">
+                        </div>
+                        <select id="transfer-pos-filter" onchange="FPL.filterTransfers()" style="font-family:var(--font-mono);font-size:13px;font-weight:700;background:rgba(255,255,255,0.04);color:var(--md-sys-color-on-surface);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 12px;outline:none;">
+                            <option value="all">All Positions</option>
+                            <option value="GKP">GKP</option>
+                            <option value="DEF">DEF</option>
+                            <option value="MID">MID</option>
+                            <option value="FWD">FWD</option>
+                        </select>
+                        <select id="transfer-sort" onchange="FPL.filterTransfers()" style="font-family:var(--font-mono);font-size:13px;font-weight:700;background:rgba(255,255,255,0.04);color:var(--md-sys-color-on-surface);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 12px;outline:none;">
+                            <option value="xPts">Next GW xPts</option>
+                            <option value="form">Form</option>
+                            <option value="ppg">Points Per Game</option>
+                            <option value="value">Value (xPts/£m)</option>
+                            <option value="total">Total Points</option>
+                        </select>
+                        <select id="transfer-price-filter" onchange="FPL.filterTransfers()" style="font-family:var(--font-mono);font-size:13px;font-weight:700;background:rgba(255,255,255,0.04);color:var(--md-sys-color-on-surface);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 12px;outline:none;">
+                            <option value="all">Any Price</option>
+                            <option value="4">£4.0-4.9m</option>
+                            <option value="5">£5.0-5.9m</option>
+                            <option value="6">£6.0-6.9m</option>
+                            <option value="7">£7.0-7.9m</option>
+                            <option value="8">£8.0-8.9m</option>
+                            <option value="9">£9.0-9.9m</option>
+                            <option value="10">£10.0m+</option>
+                        </select>
+                        <button class="btn btn-primary btn-sm" onclick="FPL.filterTransfers()" style="white-space:nowrap;">Apply</button>
+                    </div>
+
+                    <!-- Transfer Table -->
+                    <div style="border-radius:16px;overflow:clip;">
+                        <div class="table-scroll-mobile sticky-first-column" tabindex="0" aria-label="Transfer suggestions table">
+                            <table style="width:100%;border-collapse:separate;border-spacing:0;white-space:nowrap;min-width:900px;">
+                                <thead style="background:rgba(255,255,255,0.03);font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.03em;">
+                                    <tr>
+                                        <th style="padding:10px 12px;text-align:left;background:rgba(24,24,27,0.9);position:sticky;left:0;z-index:2;">Player</th>
+                                        <th style="padding:10px 12px;text-align:center;">Team</th>
+                                        <th style="padding:10px 12px;text-align:center;">Price</th>
+                                        <th style="padding:10px 12px;text-align:center;">Form</th>
+                                        <th style="padding:10px 12px;text-align:center;">PPG</th>
+                                        <th style="padding:10px 12px;text-align:center;">xPts</th>
+                                        <th style="padding:10px 12px;text-align:center;">xPts/£m</th>
+                                        <th style="padding:10px 12px;text-align:center;">Own%</th>
+                                        <th style="padding:10px 12px;text-align:center;">Next</th>
+                                        <th style="padding:10px 12px;text-align:center;">Pts Next 5</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="transfer-table-body" style="font-size:13px;">
+                                    <tr><td colspan="10" style="text-align:center;padding:40px;color:var(--md-sys-color-on-surface-variant);">Loading transfer data...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Similar Players Section -->
+                    <div id="transfer-similar-section" style="margin-top:32px;display:none;">
+                        <h2 style="font-size:18px;font-weight:700;color:var(--md-sys-color-on-surface);margin:0 0 16px 0;font-family:var(--font-display);">Similar Players</h2>
+                        <div id="transfer-similar-container" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;"></div>
                     </div>
                 </div>
 
