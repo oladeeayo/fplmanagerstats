@@ -129,7 +129,7 @@ function AppInner() {
     <>
       {tabLoading && <TabSkeleton />}
       <LegacyDashboard activeTab={activeTab} />
-      {activeTab === 'aiteam' ? <JoinLeaguePrompt /> : <InstallPrompt />}
+      <InstallPrompt />
       {ready && <ConnectTeamPrompt />}
     </>
   );
