@@ -35,36 +35,8 @@ async function analyzeManager(managerId, playerData, leagueId = null) {
   let highestPoints = 0, highestPointsGW = 0, lowestPoints = Infinity, lowestPointsGW = 0;
   let highestRank = Infinity, highestRankGW = 0, lowestRank = 0, lowestRankGW = 0;
 
-  const currentTeam = [];
-  const currentPicksData = await optionalApiGet(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${currentGameweek}/picks/`);
-  const currentPicks = currentPicksData?.picks || [];
-
-  // Pre-fetch all current squad player histories in parallel
-  await Promise.all(currentPicks.map(p => getGlobalPlayerHistory(p.element).catch(() => null)));
-
-  for (const pick of currentPicks) {
-    const player = playerData.elements.find(p => p.id === pick.element);
-    if (!player) continue;
-    const ph = await getGlobalPlayerHistory(player.id);
-    const nextFixtures = (ph.fixtures || []).slice(0, 5).map(f => {
-      const isHome = f.is_home;
-      const opp = playerData.teams.find(t => t.id === (isHome ? f.team_a : f.team_h));
-      return { opponent: opp ? opp.short_name : '?', isHome, difficulty: f.difficulty };
-    });
-    const last3 = (ph.history || []).slice(-3).reduce((s, g) => s + g.total_points, 0);
-    const teamObj = playerData.teams[player.team - 1];
-    currentTeam.push({
-      name: player.web_name, nextFixtures, last3GWPoints: last3,
-      photoId: player.code, team: teamObj.name, teamShort: teamObj.short_name,
-      position: POSITION_MAP[player.element_type - 1],
-      nowCost: player.now_cost, form: player.form, elementId: player.id,
-      selectedBy: player.selected_by_percent, totalPoints: player.total_points,
-      pointsPerGame: player.points_per_game, goalsScored: player.goals_scored,
-      assists: player.assists, cleanSheets: player.clean_sheets,
-      bonus: player.bonus, minutes: player.minutes,
-      ictIndex: player.ict_index, expectedGoals: player.expected_goal_involvements
-    });
-  }
+  // We'll build currentTeam from playerStats after the GW loop,
+  // so it includes EVERY player ever owned (not just the current 15).
 
   // Fetch all GW picks in parallel batches, using cache
   const GW_BATCH_SIZE = 5;
@@ -195,20 +167,41 @@ async function analyzeManager(managerId, playerData, leagueId = null) {
   const avgPoints = weeklyPoints.reduce((a, b) => a + b, 0) / weeklyPoints.length;
   chipImpact.forEach(c => { c.avgPoints = Math.round(avgPoints * 10) / 10; c.diff = Math.round((c.points - avgPoints) * 10) / 10; });
 
-  // Update currentTeam with correct stats from playerStats (GW-aware, not season totals)
-  currentTeam.forEach(ct => {
-    const ps = playerStats[ct.elementId];
-    if (ps) {
-      ct.totalPointsActive = ps.totalPointsActive;
-      ct.gwApps = ps.gwInSquad;
-      ct.gwInXI = ps.gwInXI;
-      ct.starts = ps.starts;
-      ct.captPts = ps.cappedPoints;
-      ct.ppg = ps.gwInSquad > 0 ? (ps.totalPointsActive / ps.gwInSquad).toFixed(1) : '0.0';
-      ct.consecutiveStartGWs = ps.consecutiveStartGWs;
-      ct.maxConsecutiveStarts = ps.maxConsecutiveStarts;
-    }
-  });
+  // Pre-fetch and collect fixture data for all ever-owned players
+  const allEverOwnedIds = Object.keys(playerStats).map(Number);
+  const fixtureMap = {};
+  await Promise.all(allEverOwnedIds.map(async id => {
+    try {
+      const ph = await getGlobalPlayerHistory(id);
+      fixtureMap[id] = (ph?.fixtures || []).slice(0, 5).map(f => {
+        const isHome = f.is_home;
+        const opp = playerData.teams.find(t => t.id === (isHome ? f.team_a : f.team_h));
+        return { opponent: opp ? opp.short_name : '?', isHome, difficulty: f.difficulty };
+      });
+    } catch (e) { fixtureMap[id] = []; }
+  }));
+
+  // Build currentTeam from playerStats — includes EVERY player ever owned across all GWs
+  const currentTeam = Object.values(playerStats).map(ps => {
+    const player = playerData.elements.find(p => p.id === ps.elementId);
+    const teamObj = player ? playerData.teams[player.team - 1] : null;
+    return {
+      name: ps.name, nextFixtures: fixtureMap[ps.elementId] || [],
+      photoId: ps.photoId || ps.code, team: ps.team || (teamObj ? teamObj.name : ''),
+      teamShort: ps.teamShort || (teamObj ? teamObj.short_name : ''),
+      position: ps.position, nowCost: ps.nowCost, form: ps.form, elementId: ps.elementId,
+      selectedBy: ps.selectedBy, totalPoints: ps.totalPoints,
+      pointsPerGame: ps.pointsPerGame, goalsScored: ps.goalsScored,
+      assists: ps.assists, cleanSheets: ps.cleanSheets,
+      bonus: ps.bonus, minutes: ps.minutes,
+      ictIndex: ps.ictIndex, expectedGoals: ps.expectedGoals,
+      totalPointsActive: ps.totalPointsActive, gwApps: ps.gwInSquad,
+      gwInXI: ps.gwInXI, starts: ps.starts, captPts: ps.cappedPoints,
+      ppg: ps.gwInSquad > 0 ? (ps.totalPointsActive / ps.gwInSquad).toFixed(1) : '0.0',
+      consecutiveStartGWs: ps.consecutiveStartGWs,
+      maxConsecutiveStarts: ps.maxConsecutiveStarts,
+    };
+  }).sort((a, b) => (b.totalPointsActive || 0) - (a.totalPointsActive || 0));
 
   const averageRank = Math.round(weeklyRanks.reduce((a, b) => a + b, 0) / weeklyRanks.length);
   const halfLen = Math.floor(weeklyRanks.length / 2);
