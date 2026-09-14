@@ -3439,43 +3439,43 @@ const FPL = {
             const pos = posMap[el.element_type] || '';
             const inTemplate = templateIds.has(id);
             const pct = parseFloat(el.selected_by_percent) || 0;
-            // Exact count of analyzed league managers owning this player (0 = true differential)
-            const leagueMgrCount = leaguePlayerOwnership[id] ?? (inTemplate ? (template.find(p => p.id === id)?.managersWith?.length ?? 0) : 0);
-            // Players I own that are NOT in the league top-15 template
-            // Or have very low ownership in the league
-            if (!inTemplate || leagueMgrCount <= Math.max(2, Math.round(0.15 * totalManagers))) {
-                myAdvantages.push({
-                    id, name: el.web_name, team: teamName, pos,
-                    ownership: pct,
-                    leagueOwnership: inTemplate ? Math.round((leagueMgrCount / totalManagers) * 100) : 0,
-                    leagueMgrCount,
-                    form: el.form || '0.0',
-                    totalPoints: el.total_points || 0
-                });
-            }
+            // Exact count of analyzed league managers owning this player.
+            // My own entry is part of the analyzed sample, so subtract 1 for me.
+            const rawCount = leaguePlayerOwnership
+                ? (leaguePlayerOwnership[id] ?? 0)
+                : (inTemplate ? (template.find(p => p.id === id)?.managersWith?.length ?? 0) : null);
+            if (rawCount === null) return; // no ownership data — cannot verify
+            const othersCount = Math.max(0, rawCount - 1);
+            // ADVANTAGE = strictly players NO other manager in this league owns
+            if (othersCount !== 0) return;
+            myAdvantages.push({
+                id, name: el.web_name, team: teamName, pos,
+                ownership: pct,
+                leagueOwnership: 0,
+                leagueMgrCount: 0,
+                form: el.form || '0.0',
+                totalPoints: el.total_points || 0
+            });
         });
 
-        // Sort by advantage (lowest league ownership first = most differential)
-        myAdvantages.sort((a, b) => a.leagueOwnership - b.leagueOwnership);
+        // Most useful exclusives first (in-form differentials)
+        myAdvantages.sort((a, b) => (parseFloat(b.form) || 0) - (parseFloat(a.form) || 0));
 
         if (advantageContainer) {
             if (myAdvantages.length === 0) {
-                advantageContainer.innerHTML = '<div style="text-align:center;padding:20px;color:var(--md-sys-color-on-surface-variant);font-size:12px;">Your squad mirrors the league template.</div>';
+                advantageContainer.innerHTML = '<div style="text-align:center;padding:20px;color:var(--md-sys-color-on-surface-variant);font-size:12px;">No exclusive players — every player you own is also owned by at least one rival.</div>';
             } else {
-                // Calculate number of managers owning each advantage player in the league
                 advantageContainer.innerHTML = myAdvantages.slice(0, 10).map((p, i) => {
-                    const leagueMgrCount = p.leagueMgrCount ?? 0;
                     const formColor = parseFloat(p.form) >= 4.0 ? '#00FF85' : parseFloat(p.form) >= 2.5 ? '#FFA600' : '#FF4D4D';
-                    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                    return `<div title="Only you own ${this.escapeHTML(p.name)} in this league \u00b7 ${p.ownership.toFixed(1)}% of all FPL managers own them" style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
                         <div style="display:flex;align-items:center;gap:8px;min-width:0;">
                             <span style="font-family:var(--font-mono);font-size:10px;font-weight:800;color:var(--md-sys-color-on-surface-variant);width:20px;">${i + 1}</span>
                             <span style="font-weight:700;font-size:12px;color:var(--md-sys-color-on-surface);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHTML(p.name)}</span>
                             <span style="font-size:10px;color:var(--md-sys-color-on-surface-variant);">${p.pos}</span>
                         </div>
                         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-                            <span style="font-family:var(--font-mono);font-size:11px;font-weight:800;color:#00FF85;">${leagueMgrCount}</span>
-                            <span style="font-size:10px;color:var(--md-sys-color-on-surface-variant);">managers</span>
-                            <span style="font-family:var(--font-mono);font-size:11px;font-weight:800;color:#FFA600;">${p.leagueOwnership || 0}%</span>
+                            <span style="font-family:var(--font-mono);font-size:9px;font-weight:800;color:#00FF85;background:rgba(0,255,133,0.12);padding:2px 6px;border-radius:4px;letter-spacing:0.05em;">UNIQUE</span>
+                            <span style="font-size:10px;color:${formColor};font-weight:700;">F: ${p.form}</span>
                         </div>
                     </div>`;
                 }).join('');
