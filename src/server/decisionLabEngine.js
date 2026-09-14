@@ -1071,80 +1071,66 @@ function buildSquadHeatmap(squad, allPlayers, options = {}) {
       : 0;
 
     // Player status classification
-    // A good model requires 2-3 GWs of evidence before flagging players.
-    // After 1 GW the projections are dominated by priors — flagging is noise.
-    // Only truly unavailable players get PRIORITY SELL before GW2.
+    // CRITICAL: Never flag a returning player as PRIORITY SELL.
+    // A player who is scoring points and getting minutes should be held.
     let status = 'HOLD';
     let statusPriority = 3;
     const isUnavailable = (player.availability || 100) < 50;
-    const hasNoData = (player.minutes || 0) < 90; // less than 1 full match played
+    const hasNoData = (player.minutes || 0) < 90;
     const thresholdBoost = dampener.sellThresholdBoost;
 
+    // Key metric: is this player actually returning points?
+    const form = Number(player.form) || 0;
+    const ppg = Number(player.points_per_game) || 0;
+    const totalPts = Number(player.total_points) || 0;
+    const isReturning = form >= 3.0 || ppg >= 3.0 || totalPts >= 15;
+    const isGoodForm = form >= 4.0 || ppg >= 4.0;
+    const isScoring = form >= 2.5 || ppg >= 2.5;
+
     if (isUnavailable) {
-      // Always flag truly unavailable players regardless of GW
+      // Truly unavailable players = PRIORITY SELL regardless
       status = 'PRIORITY SELL';
       statusPriority = 0;
-    } else if (currentGW <= 1) {
-      // GW1 only: one match is not enough evidence to recommend selling anyone.
-      // Default to HOLD unless the player is genuinely the weakest option
-      // with strong evidence of a clear upgrade.
-      if (minutesProb.startProbability < 15 && replacementGain >= 14 && strength.score < 25) {
+    } else if (isGoodForm) {
+      // Player is in good form — never sell, even if model thinks replacement is better
+      if (strength.score >= 60) status = 'KEEP';
+      else status = 'HOLD';
+      statusPriority = status === 'KEEP' ? 4 : 3;
+    } else if (isReturning) {
+      // Player is returning points — be very cautious about selling
+      if (minutesProb.startProbability < 20 && replacementGain >= 12 && strength.score < 30) {
         status = 'MONITOR';
         statusPriority = 2;
       } else {
         status = 'HOLD';
         statusPriority = 3;
       }
-    } else if (currentGW <= 2) {
-      // GW2: still very thin evidence — require much stronger thresholds
-      if (minutesProb.startProbability < 20 && replacementGain >= 12 && strength.score < 35) {
-        status = 'PRIORITY SELL';
-        statusPriority = 0;
-      } else if (replacementGain >= 10 && strength.score < 40) {
+    } else if (isScoring) {
+      // Modest returns — only sell if there's a clearly better option
+      if (minutesProb.startProbability < 25 && replacementGain >= 10 && strength.score < 35) {
         status = 'SELL';
         statusPriority = 1;
-      } else if (replacementGain >= 7 || strength.score < 32) {
+      } else if (replacementGain >= 8 && strength.score < 40) {
         status = 'MONITOR';
         statusPriority = 2;
       } else {
         status = 'HOLD';
         statusPriority = 3;
-      }
-    } else if (currentGW <= 3) {
-      // GW3: starting to build evidence, but still cautious
-      if (minutesProb.startProbability < 25 && replacementGain >= 8 + thresholdBoost && hasNoData) {
-        status = 'PRIORITY SELL';
-        statusPriority = 0;
-      } else if (minutesProb.startProbability < 35 && replacementGain >= 10 + thresholdBoost && strength.score < 40) {
-        status = 'PRIORITY SELL';
-        statusPriority = 0;
-      } else if (replacementGain >= 7 + thresholdBoost && strength.score < 45) {
-        status = 'SELL';
-        statusPriority = 1;
-      } else if (replacementGain >= 5 + thresholdBoost || strength.score < 35) {
-        status = 'MONITOR';
-        statusPriority = 2;
-      } else if (strength.score >= 70 && minutesProb.startProbability >= 75) {
-        status = 'KEEP';
-        statusPriority = 4;
       }
     } else {
-      // GW4+: more normal thresholds, but still with some dampening
-      if (minutesProb.startProbability < 30 && replacementGain >= 6 + thresholdBoost && hasNoData) {
+      // Not returning points — this is where SELL recommendations make sense
+      if (hasNoData && replacementGain >= 8) {
         status = 'PRIORITY SELL';
         statusPriority = 0;
-      } else if (minutesProb.startProbability < 40 && replacementGain >= 8 + thresholdBoost && strength.score < 45) {
-        status = 'PRIORITY SELL';
-        statusPriority = 0;
-      } else if (replacementGain >= 6 + thresholdBoost && strength.score < 50) {
+      } else if (minutesProb.startProbability < 30 && replacementGain >= 6 && strength.score < 40) {
         status = 'SELL';
         statusPriority = 1;
-      } else if (replacementGain >= 3 + thresholdBoost && strength.score < 42) {
+      } else if (replacementGain >= 5 && strength.score < 45) {
         status = 'MONITOR';
         statusPriority = 2;
-      } else if (strength.score >= 75 && minutesProb.startProbability >= 80) {
-        status = 'KEEP';
-        statusPriority = 4;
+      } else {
+        status = 'HOLD';
+        statusPriority = 3;
       }
     }
 
