@@ -9729,16 +9729,22 @@ const FPL = {
 
     // ==================== TRANSFER FINDER ====================
     async renderTransfers() {
-        const tbody = document.getElementById('transfer-table-body');
-        if (!tbody) return;
+        // Pre-load bootstrap data if not available
         if (!this.state.bootstrapData) {
             try {
                 const data = await this.apiFetch('/api/bootstrap-static');
                 this.state.bootstrapData = data;
-            } catch (e) {
-                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:40px;color:#8ba396;">Failed to load player data.</td></tr>';
-                return;
-            }
+            } catch (e) { /* will show empty state */ }
+        }
+        // Show empty state until user clicks Find
+        const empty = document.getElementById('transfer-empty');
+        if (empty) empty.style.display = 'block';
+    },
+    filterTransfers() {
+        // Ensure data is loaded
+        if (!this.state.bootstrapData) {
+            this.renderTransfers(); // triggers load
+            return;
         }
         const bs = this.state.bootstrapData;
         const elements = bs?.elements || [];
@@ -9746,49 +9752,88 @@ const FPL = {
         const teamsById = {};
         teams.forEach(t => teamsById[t.id] = t);
         const posMap = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
-        const allPlayers = elements.filter(e => e.status === 'a' && e.minutes > 0).map(e => {
-            const team = teamsById[e.team];
-            const pos = posMap[e.element_type] || '';
-            const form = parseFloat(e.form) || 0;
-            const ppg = parseFloat(e.points_per_game) || 0;
-            const cost = (e.now_cost || 0) / 10;
-            const xPts = parseFloat(e.ep_next) || parseFloat(e.ep_this) || 0;
-            const xPtsPerMillion = cost > 0 ? xPts / cost : 0;
-            const ownership = parseFloat(e.selected_by_percent) || 0;
-            return { id: e.id, name: e.web_name, team: team?.short_name || '?', teamFull: team?.name || '', pos, cost, form, ppg, xPts, xPtsPerMillion, ownership, totalPoints: e.total_points || 0, code: e.code, goals: e.goals_scored || 0, assists: e.assists || 0, cleanSheets: e.clean_sheets || 0, bonus: e.bonus || 0, minutes: e.minutes || 0, xGI: parseFloat(e.expected_goal_involvements) || 0 };
-        });
-        this.state.transferPlayers = allPlayers;
-        this.renderTransferTable(allPlayers);
-    },
-    filterTransfers() {
-        const players = this.state.transferPlayers || [];
-        const search = (document.getElementById('transfer-search')?.value || '').toLowerCase();
+
+        // Read criteria
+        const search = (document.getElementById('transfer-search')?.value || '').toLowerCase().trim();
         const pos = document.getElementById('transfer-pos-filter')?.value || 'all';
         const sort = document.getElementById('transfer-sort')?.value || 'xPts';
-        const priceFilter = document.getElementById('transfer-price-filter')?.value || 'all';
-        let filtered = players;
-        if (search) filtered = filtered.filter(p => p.name.toLowerCase().includes(search) || p.team.toLowerCase().includes(search));
+        const maxPrice = document.getElementById('transfer-price-filter')?.value || 'all';
+        const minForm = parseFloat(document.getElementById('transfer-min-form')?.value) || 0;
+
+        // Build player list and apply ALL filters
+        let filtered = elements
+            .filter(e => e.status === 'a' && e.minutes > 0)
+            .map(e => {
+                const team = teamsById[e.team];
+                const cost = (e.now_cost || 0) / 10;
+                const form = parseFloat(e.form) || 0;
+                const ppg = parseFloat(e.points_per_game) || 0;
+                const xPts = parseFloat(e.ep_next) || parseFloat(e.ep_this) || 0;
+                return {
+                    id: e.id, name: e.web_name, team: team?.short_name || '?', teamFull: team?.name || '',
+                    pos: posMap[e.element_type] || '', cost, form, ppg, xPts,
+                    xPtsPerMillion: cost > 0 ? xPts / cost : 0,
+                    ownership: parseFloat(e.selected_by_percent) || 0,
+                    totalPoints: e.total_points || 0, code: e.code
+                };
+            });
+
+        // Apply position filter
         if (pos !== 'all') filtered = filtered.filter(p => p.pos === pos);
-        if (priceFilter !== 'all') {
-            const minPrice = parseInt(priceFilter);
-            if (minPrice >= 10) filtered = filtered.filter(p => p.cost >= 10);
-            else filtered = filtered.filter(p => p.cost >= minPrice && p.cost < minPrice + 1);
+
+        // Apply price filter (max price)
+        if (maxPrice !== 'all') {
+            const max = parseInt(maxPrice);
+            if (max < 99) filtered = filtered.filter(p => p.cost <= max);
         }
+
+        // Apply form filter
+        if (minForm > 0) filtered = filtered.filter(p => p.form >= minForm);
+
+        // Apply search
+        if (search) filtered = filtered.filter(p => p.name.toLowerCase().includes(search) || p.team.toLowerCase().includes(search));
+
+        // Sort
         const sortKey = { 'xPts': p => p.xPts, 'form': p => p.form, 'ppg': p => p.ppg, 'value': p => p.xPtsPerMillion, 'total': p => p.totalPoints }[sort] || (p => p.xPts);
         filtered.sort((a, b) => sortKey(b) - sortKey(a));
+
+        // Store for similar player lookup
+        this.state.transferPlayers = filtered;
+
+        // Update UI
+        const empty = document.getElementById('transfer-empty');
+        const tableWrap = document.getElementById('transfer-table-wrap');
+        const header = document.getElementById('transfer-results-header');
+        const countEl = document.getElementById('transfer-results-count');
+        const summaryEl = document.getElementById('transfer-results-summary');
+
+        if (filtered.length === 0) {
+            empty.style.display = 'block';
+            tableWrap.style.display = 'none';
+            header.style.display = 'none';
+            empty.innerHTML = '<span class="material-symbols-outlined" style="font-size:48px;color:var(--md-sys-color-outline);display:block;margin-bottom:12px;">search_off</span><div style="font-size:15px;font-weight:600;color:var(--md-sys-color-on-surface);margin-bottom:4px;">No players match your criteria</div><div style="font-size:13px;">Try adjusting your filters — lower the minimum form or increase the max price.</div>';
+            return;
+        }
+
+        empty.style.display = 'none';
+        tableWrap.style.display = 'block';
+        header.style.display = 'block';
+        countEl.textContent = filtered.length;
+        const posLabel = pos !== 'all' ? pos : 'All';
+        const priceLabel = maxPrice !== 'all' && parseInt(maxPrice) < 99 ? `\u2264\u00a3${maxPrice}m` : 'Any';
+        summaryEl.textContent = `${posLabel} \u00b7 ${priceLabel} \u00b7 Form \u2265 ${minForm}`;
+
         this.renderTransferTable(filtered);
     },
     renderTransferTable(players) {
         const tbody = document.getElementById('transfer-table-body');
         if (!tbody) return;
-        if (!players.length) { tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--md-sys-color-on-surface-variant);">No players match your filters.</td></tr>'; return; }
         const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
-        tbody.innerHTML = players.slice(0, 50).map(p => {
+        tbody.innerHTML = players.slice(0, 40).map((p, i) => {
             const formColor = p.form >= 4 ? '#00FF85' : p.form >= 2.5 ? '#FFA600' : '#FF4D4D';
             const xPtsColor = p.xPts >= 5 ? '#00FF85' : p.xPts >= 3 ? '#FFA600' : '#8ba396';
-            const posColor = posColors[p.pos] || '#fff';
             return `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='transparent'" onclick="FPL.showTransferSimilar(${p.id}, '${p.pos}')">
-                <td style="padding:8px 12px;background:rgba(24,24,27,0.9);position:sticky;left:0;z-index:1;display:flex;align-items:center;gap:8px;"><span style="display:inline-block;width:4px;height:24px;border-radius:2px;background:${posColor};"></span><div><span style="font-weight:700;font-size:12px;color:var(--md-sys-color-on-surface);">${this.escapeHTML(p.name)}</span><span style="font-size:10px;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);margin-left:4px;">${p.pos}</span></div></td>
+                <td style="padding:8px 12px;background:rgba(24,24,27,0.9);position:sticky;left:0;z-index:1;display:flex;align-items:center;gap:8px;"><span style="font-family:var(--font-mono);font-size:10px;color:var(--md-sys-color-on-surface-variant);width:20px;">${i + 1}</span><span style="display:inline-block;width:3px;height:20px;border-radius:2px;background:${posColors[p.pos] || '#fff'};"></span><span style="font-weight:700;font-size:12px;color:var(--md-sys-color-on-surface);">${this.escapeHTML(p.name)}</span></td>
                 <td style="padding:8px 12px;text-align:center;font-size:11px;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);">${p.team}</td>
                 <td style="padding:8px 12px;text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--md-sys-color-on-surface);">\u00a3${p.cost.toFixed(1)}m</td>
                 <td style="padding:8px 12px;text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:${formColor};">${p.form.toFixed(1)}</td>
@@ -9796,7 +9841,6 @@ const FPL = {
                 <td style="padding:8px 12px;text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:${xPtsColor};">${p.xPts.toFixed(1)}</td>
                 <td style="padding:8px 12px;text-align:center;font-family:var(--font-mono);font-size:12px;color:var(--md-sys-color-on-surface-variant);">${p.xPtsPerMillion.toFixed(2)}</td>
                 <td style="padding:8px 12px;text-align:center;font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-on-surface-variant);">${p.ownership.toFixed(1)}%</td>
-                <td style="padding:8px 12px;text-align:center;font-size:11px;color:#8ba396;">Next GW</td>
                 <td style="padding:8px 12px;text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--md-sys-color-on-surface);">${p.xPts.toFixed(1)}</td>
             </tr>`;
         }).join('');
