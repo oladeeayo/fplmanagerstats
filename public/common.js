@@ -3475,7 +3475,7 @@ const FPL = {
                         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
                             <span style="font-family:var(--font-mono);font-size:11px;font-weight:800;color:#00FF85;">${leagueMgrCount}</span>
                             <span style="font-size:10px;color:var(--md-sys-color-on-surface-variant);">managers</span>
-                            <span style="font-size:10px;color:${formColor};font-weight:700;">F: ${p.form}</span>
+                            <span style="font-family:var(--font-mono);font-size:11px;font-weight:800;color:#FFA600;">${p.leagueOwnership || 0}%</span>
                         </div>
                     </div>`;
                 }).join('');
