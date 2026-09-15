@@ -588,14 +588,19 @@ router.get('/gw-summary', async (req, res) => {
             }
           });
 
-          // --- XI Impact: Compare this GW points vs last GW's XI points this GW ---
+          // --- XI Impact: Points gained/lost from player swaps (added vs removed from XI) ---
           const gwTransfers = (transfersRes || []).filter(t => t.event === targetGW);
           let xiImpact = 0;
           const prevPicks = prevGWRes?.picks || [];
-          if (prevPicks.length > 0) {
-            const lastXIElements = prevPicks.filter(p => p.position <= 11).map(p => p.element);
-            const lastXIPointsThisGW = lastXIElements.reduce((sum, el) => sum + getPlayerPoints(el), 0);
-            xiImpact = gwPoints - lastXIPointsThisGW;
+          const curPicks = picksRes?.picks || [];
+          if (prevPicks.length > 0 && curPicks.length > 0) {
+            const lastXI = new Set(prevPicks.filter(p => p.position <= 11).map(p => p.element));
+            const curXI = new Set(curPicks.filter(p => p.position <= 11).map(p => p.element));
+            const removed = [...lastXI].filter(el => !curXI.has(el));
+            const added = [...curXI].filter(el => !lastXI.has(el));
+            const removedPts = removed.reduce((sum, el) => sum + getPlayerPoints(el), 0);
+            const addedPts = added.reduce((sum, el) => sum + getPlayerPoints(el), 0);
+            xiImpact = addedPts - removedPts;
           }
 
           return {
