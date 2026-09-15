@@ -336,13 +336,17 @@ router.get('/league-standings/:leagueId', heavyEndpointLimiter, async (req, res)
     for (let i = 0; i < entries.length; i += batchSize) {
       const batch = entries.slice(i, i + batchSize);
       const results = await Promise.allSettled(batch.map(async e => {
-        const [histData, entryData, picksData, transfersData] = await Promise.all([
+        const prevGWPicks = currentGW > 1
+          ? getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/event/${currentGW - 1}/picks/`, picksCacheTTL).catch(() => null)
+          : Promise.resolve(null);
+        const [histData, entryData, picksData, transfersData, prevGWData] = await Promise.all([
           getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/history/`).catch(() => null),
           getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/`).catch(() => null),
           getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/event/${currentGW}/picks/`, picksCacheTTL).catch(() => null),
-          getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/transfers/`).catch(() => null)
+          getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/transfers/`).catch(() => null),
+          prevGWPicks
         ]);
-        return { history: histData, entry: entryData, picks: picksData, transfers: transfersData };
+        return { history: histData, entry: entryData, picks: picksData, transfers: transfersData, prevGW: prevGWData };
       }));
       results.forEach((res, idx) => {
         const entry = batch[idx];
@@ -370,32 +374,20 @@ router.get('/league-standings/:leagueId', heavyEndpointLimiter, async (req, res)
         // GW points from entry current data
         const gwPoints = hist?.current?.length > 0 ? hist.current[hist.current.length - 1].points : entry.event_total;
 
-        // XI Impact: Transfer + Auto-sub impact (starting XI only)
+        // XI Impact: Compare this GW points vs last GW's XI points this GW
         const picksRes = res.value?.picks;
         const transfersRes = res.value?.transfers;
-        const startingXISet = new Set((picksRes?.picks || []).filter(p => p.position <= 11).map(p => p.element));
         const gwTransfers = (transfersRes || []).filter(t => t.event === currentGW);
-        let transferImpact = 0;
-        gwTransfers.forEach(t => {
-          const outInXI = startingXISet.has(t.element_out);
-          const inInXI = startingXISet.has(t.element_in);
-          if (!outInXI && !inInXI) return; // bench-only transfer, no XI impact
-          const inEl = (playerData.elements || []).find(p => p.id === t.element_in);
-          const outEl = (playerData.elements || []).find(p => p.id === t.element_out);
-          const inPts = inEl?.event_points || 0;
-          const outPts = outEl?.event_points || 0;
-          transferImpact += inPts - outPts;
-        });
-        const autoSubs = picksRes?.automatic_subs || [];
-        let autoSubImpact = 0;
-        autoSubs.forEach(sub => {
-          const inEl = (playerData.elements || []).find(p => p.id === sub.element_in);
-          const outEl = (playerData.elements || []).find(p => p.id === sub.element_out);
-          const inPts = inEl?.event_points || 0;
-          const outPts = outEl?.event_points || 0;
-          autoSubImpact += inPts - outPts;
-        });
-        const xiImpact = transferImpact + autoSubImpact;
+        let xiImpact = 0;
+        const prevPicks = res.value?.prevGW?.picks || [];
+        if (prevPicks.length > 0) {
+          const lastXIElements = prevPicks.filter(p => p.position <= 11).map(p => p.element);
+          const lastXIPointsThisGW = lastXIElements.reduce((sum, el) => {
+            const elData = (playerData.elements || []).find(p => p.id === el);
+            return sum + (elData?.event_points || 0);
+          }, 0);
+          xiImpact = gwPoints - lastXIPointsThisGW;
+        }
 
         enriched.push({
           rank: entry.rank, entry: entry.entry,
@@ -2022,6 +2014,7 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
 
     // Fetch picks in controlled batches for sample entries with increased concurrency
     const samplePicksMap = {};
+    const samplePrevPicksMap = {};
     const BATCH_SIZE = 50;
     // After the GW deadline, picks are locked — use a much longer cache to prevent xPts fluctuation
     const currentEvent = bootstrap?.events?.find(e => e.id === currentGW);
@@ -2033,10 +2026,17 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
         batch.map(async e => {
           if (!e.entry) return;
           try {
-            const picks = await getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/event/${currentGW}/picks/`, picksCacheTTL);
+            const [picks, prevPicks] = await Promise.all([
+              getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/event/${currentGW}/picks/`, picksCacheTTL),
+              currentGW > 1
+                ? getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/event/${currentGW - 1}/picks/`, picksCacheTTL).catch(() => null)
+                : Promise.resolve(null)
+            ]);
             samplePicksMap[e.entry] = picks;
+            samplePrevPicksMap[e.entry] = prevPicks;
           } catch (err) {
             samplePicksMap[e.entry] = null;
+            samplePrevPicksMap[e.entry] = null;
           }
         })
       );
@@ -2173,31 +2173,20 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
 
       const detail = managerDetailMap[mId] || {};
 
-      // XI Impact: Transfer + Auto-sub impact (starting XI only)
-      const startingXISet = new Set((picksData?.picks || []).filter(p => p.position <= 11).map(p => p.element));
-      let xiImpact = 0;
+      // XI Impact: Compare this GW points vs last GW's XI points this GW
       const gwTransfers = (transfersMap[mId] || []).filter(t => t.event === currentGW);
-      let transferImpact = 0;
-      gwTransfers.forEach(t => {
-        const outInXI = startingXISet.has(t.element_out);
-        const inInXI = startingXISet.has(t.element_in);
-        if (!outInXI && !inInXI) return; // bench-only transfer, no XI impact
-        const inEl = elementMap[t.element_in];
-        const outEl = elementMap[t.element_out];
-        const inPts = inEl ? (elements.find(p => p.id === t.element_in)?.event_points || 0) : 0;
-        const outPts = outEl ? (elements.find(p => p.id === t.element_out)?.event_points || 0) : 0;
-        transferImpact += inPts - outPts;
-      });
-      const autoSubs = picksData?.automatic_subs || [];
-      let autoSubImpact = 0;
-      autoSubs.forEach(sub => {
-        const inEl = elements.find(p => p.id === sub.element_in);
-        const outEl = elements.find(p => p.id === sub.element_out);
-        const inPts = inEl?.event_points || 0;
-        const outPts = outEl?.event_points || 0;
-        autoSubImpact += inPts - outPts;
-      });
-      xiImpact = transferImpact + autoSubImpact;
+      let xiImpact = 0;
+      const prevPicksData = samplePrevPicksMap[mId];
+      const prevPicksList = prevPicksData?.picks || [];
+      if (prevPicksList.length > 0) {
+        const lastXIElements = prevPicksList.filter(p => p.position <= 11).map(p => p.element);
+        const lastXIPointsThisGW = lastXIElements.reduce((sum, el) => {
+          const elData = elements.find(p => p.id === el);
+          return sum + (elData?.event_points || 0);
+        }, 0);
+        const gwPoints = entry.event_total || 0;
+        xiImpact = gwPoints - lastXIPointsThisGW;
+      }
 
       return {
         rank: entry.rank || ((page - 1) * pageSize) + index + 1,
@@ -2503,12 +2492,15 @@ router.get('/manager-squad/:managerId', async (req, res) => {
     // If is_current is finished OR is_next exists (meaning current is done), skip to next 2
     const currentGWFinished = (currentEvent?.finished) || !!nextEvent;
     
-    const [managerData, picksData, historyData, fixturesData, transfersData] = await Promise.all([
+    const [managerData, picksData, historyData, fixturesData, transfersData, prevGWPicksData] = await Promise.all([
       getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/`),
       getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${activeGW}/picks/`).catch(() => ({})),
       getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/history/`).catch(() => ({})),
       getCachedApiData(FIXTURES_URL),
-      getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/transfers/`).catch(() => null)
+      getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/transfers/`).catch(() => null),
+      activeGW > 1
+        ? getCachedApiData(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${activeGW - 1}/picks/`).catch(() => null)
+        : Promise.resolve(null)
     ]);
 
     const elementsMap = new Map((bootstrap.elements || []).map(p => [p.id, p]));
@@ -2616,30 +2608,18 @@ router.get('/manager-squad/:managerId', async (req, res) => {
 
 
 
-    // XI Impact: Transfer + Auto-sub impact (starting XI only)
-    const startingXISet = new Set((picksData?.picks || []).filter(p => p.position <= 11).map(p => p.element));
-    let transferImpact = 0;
-    let autoSubImpact = 0;
+    // XI Impact: Compare this GW points vs last GW's XI points this GW
     const gwTransfers = (transfersData || []).filter(t => t.event === activeGW);
-    gwTransfers.forEach(t => {
-      const outInXI = startingXISet.has(t.element_out);
-      const inInXI = startingXISet.has(t.element_in);
-      if (!outInXI && !inInXI) return; // bench-only transfer, no XI impact
-      const inEl = elementsMap.get(t.element_in);
-      const outEl = elementsMap.get(t.element_out);
-      const inPts = inEl?.event_points || 0;
-      const outPts = outEl?.event_points || 0;
-      transferImpact += inPts - outPts;
-    });
-    const autoSubs = picksData?.automatic_subs || [];
-    autoSubs.forEach(sub => {
-      const inEl = elementsMap.get(sub.element_in);
-      const outEl = elementsMap.get(sub.element_out);
-      const inPts = inEl?.event_points || 0;
-      const outPts = outEl?.event_points || 0;
-      autoSubImpact += inPts - outPts;
-    });
-    const xiImpact = transferImpact + autoSubImpact;
+    let xiImpact = 0;
+    const prevPicksList = prevGWPicksData?.picks || [];
+    if (prevPicksList.length > 0) {
+      const lastXIElements = prevPicksList.filter(p => p.position <= 11).map(p => p.element);
+      const lastXIPointsThisGW = lastXIElements.reduce((sum, el) => {
+        const elData = elementsMap.get(el);
+        return sum + (elData?.event_points || 0);
+      }, 0);
+      xiImpact = (managerData.summary_event_points || 0) - lastXIPointsThisGW;
+    }
 
     res.json({
       managerId,

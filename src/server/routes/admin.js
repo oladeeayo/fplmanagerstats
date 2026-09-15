@@ -547,10 +547,14 @@ router.get('/gw-summary', async (req, res) => {
       const batch = allEntries.slice(i, i + BATCH);
       const batchResults = await Promise.all(batch.map(async (entry) => {
         try {
-          const [historyRes, picksRes, transfersRes] = await Promise.all([
+          const prevGWPicks = targetGW > 1
+            ? getCachedApiData(`https://fantasy.premierleague.com/api/entry/${entry.entry}/event/${targetGW - 1}/picks/`)
+            : Promise.resolve(null);
+          const [historyRes, picksRes, transfersRes, prevGWRes] = await Promise.all([
             getCachedApiData(`https://fantasy.premierleague.com/api/entry/${entry.entry}/history/`),
             getCachedApiData(`https://fantasy.premierleague.com/api/entry/${entry.entry}/event/${targetGW}/picks/`),
             getCachedApiData(`https://fantasy.premierleague.com/api/entry/${entry.entry}/transfers/`),
+            prevGWPicks,
           ]);
 
           // Find GW data
@@ -584,26 +588,15 @@ router.get('/gw-summary', async (req, res) => {
             }
           });
 
-          // --- XI Impact: Transfer + Auto-sub impact (starting XI only) ---
-          const startingXISet = new Set(picks.filter(p => p.position <= 11).map(p => p.element));
+          // --- XI Impact: Compare this GW points vs last GW's XI points this GW ---
           const gwTransfers = (transfersRes || []).filter(t => t.event === targetGW);
-          let transferImpact = 0;
-          gwTransfers.forEach(t => {
-            const outInXI = startingXISet.has(t.element_out);
-            const inInXI = startingXISet.has(t.element_in);
-            if (!outInXI && !inInXI) return; // bench-only transfer, no XI impact
-            const inPts = getPlayerPoints(t.element_in);
-            const outPts = getPlayerPoints(t.element_out);
-            transferImpact += inPts - outPts;
-          });
-
-          const autoSubs = picksRes?.automatic_subs || [];
-          let autoSubImpact = 0;
-          autoSubs.forEach(sub => {
-            const inPts = getPlayerPoints(sub.element_in);
-            const outPts = getPlayerPoints(sub.element_out);
-            autoSubImpact += inPts - outPts;
-          });
+          let xiImpact = 0;
+          const prevPicks = prevGWRes?.picks || [];
+          if (prevPicks.length > 0) {
+            const lastXIElements = prevPicks.filter(p => p.position <= 11).map(p => p.element);
+            const lastXIPointsThisGW = lastXIElements.reduce((sum, el) => sum + getPlayerPoints(el), 0);
+            xiImpact = gwPoints - lastXIPointsThisGW;
+          }
 
           return {
             rank: entry.rank,
@@ -619,7 +612,7 @@ router.get('/gw-summary', async (req, res) => {
             benchPoints,
             chipPlayed,
             overallRank: (historyRes?.current || []).find(c => c.event === targetGW)?.overall_rank || historyRes?.current?.[historyRes.current.length - 1]?.overall_rank || null,
-            xiImpact: transferImpact + autoSubImpact,
+            xiImpact,
             transferCount: gwTransfers.length,
           };
         } catch (e) {            return {
