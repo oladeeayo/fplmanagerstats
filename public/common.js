@@ -3356,26 +3356,29 @@ const FPL = {
         // Exact league-manager counts per player (elementId -> count), built from the analyzed picks.
         const leaguePlayerOwnership = data.leaguePlayerOwnership || {};
 
-        // Get my current squad player IDs
+        // Get my CURRENT squad player IDs. Prefer the official FPL picks API for the
+        // current GW — decisionData.currentTeam includes every player ever owned this
+        // season, which would wrongly list sold players as "advantages".
         let mySquadIds = new Set();
-        const md = this.state.managerData;
-        if (md && md.currentTeam) {
-            md.currentTeam.forEach(p => mySquadIds.add(p.elementId || p.id));
+        const bsEvents = this.state.bootstrapData?.events || [];
+        const currentGWForPicks = bsEvents.find(e => e.is_current)?.id || bsEvents.find(e => e.is_next)?.id || 1;
+        try {
+            const picksData = await this.apiFetch(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${currentGWForPicks}/picks/`);
+            if (picksData && picksData.picks) {
+                picksData.picks.forEach(p => mySquadIds.add(p.element));
+                this.state.mySquadIds = mySquadIds;
+            }
+        } catch (e) { /* fall back to cached sources below */ }
+        if (mySquadIds.size === 0 && this.state.mySquadIds instanceof Set && this.state.mySquadIds.size > 0) {
+            this.state.mySquadIds.forEach(id => mySquadIds.add(id));
         }
-        if (mySquadIds.size === 0 && this.state.decisionData && this.state.decisionData.squad) {
+        // Fallbacks only if the picks API is unavailable — prefer current-GW squad sources
+        if (mySquadIds.size === 0 && this.state.decisionData && Array.isArray(this.state.decisionData.squad)) {
             this.state.decisionData.squad.forEach(p => mySquadIds.add(p.id));
         }
-        // Fetch picks from FPL API if still empty
-        if (mySquadIds.size === 0) {
-            try {
-                const bs = this.state.bootstrapData;
-                const currentGW = bs?.events?.find(e => e.is_current)?.id || bs?.events?.find(e => e.is_next)?.id || 1;
-                const picksData = await this.apiFetch(`https://fantasy.premierleague.com/api/entry/${managerId}/event/${currentGW}/picks/`);
-                if (picksData && picksData.picks) {
-                    picksData.picks.forEach(p => mySquadIds.add(p.element));
-                    this.state.mySquadIds = mySquadIds;
-                }
-            } catch (e) { /* silent */ }
+        if (mySquadIds.size === 0 && this.state.decisionData && this.state.decisionData.currentTeam) {
+            // Last resort — imperfect (spans all owned players) but keeps the section functional
+            this.state.decisionData.currentTeam.forEach(p => mySquadIds.add(p.elementId || p.id));
         }
 
         const threatContainer = document.getElementById('league-threat-list');
@@ -9731,6 +9734,45 @@ const FPL = {
     },
 
     // ==================== TRANSFER FINDER ====================
+    switchTransferView(view) {
+        const views = ['suggestions', 'search'];
+        const viewElements = {
+            suggestions: document.getElementById('transfer-subview-suggestions'),
+            search: document.getElementById('transfer-subview-search'),
+        };
+        const btnElements = {
+            suggestions: document.getElementById('transfer-view-btn-suggestions'),
+            search: document.getElementById('transfer-view-btn-search'),
+        };
+        const activeView = views.includes(view) ? view : 'suggestions';
+        this.state.currentTransferView = activeView;
+        views.forEach(v => {
+            if (viewElements[v]) viewElements[v].style.display = v === activeView ? 'block' : 'none';
+            if (btnElements[v]) {
+                const active = v === activeView;
+                btnElements[v].style.background = active ? 'rgba(0, 255, 133, 0.06)' : 'transparent';
+                btnElements[v].style.borderBottom = active ? '3px solid #00FF85' : '3px solid transparent';
+                btnElements[v].style.color = active ? '#00FF85' : 'var(--md-sys-color-on-surface-variant)';
+                btnElements[v].style.opacity = active ? '1' : '0.75';
+            }
+        });
+        const descEl = document.getElementById('transfer-subview-desc-text');
+        if (descEl) {
+            descEl.textContent = activeView === 'suggestions'
+                ? 'Best targets per position — form, ICT, xGI, defensive contribution and next 4 fixtures (FDR-adjusted).'
+                : 'Search any player or set your own criteria to find transfer targets.';
+        }
+        // Hide search results / similar when leaving search view
+        if (activeView !== 'search') {
+            const similarSection = document.getElementById('transfer-similar-section');
+            if (similarSection) similarSection.style.display = 'none';
+        }
+        if (activeView === 'suggestions') {
+            // Recompute/render every activation — DOM may have been re-mounted; data fetches are state-guarded
+            this.computeTransferSuggestions();
+        }
+    },
+
     async renderTransfers() {
         // Pre-load bootstrap data if not available
         if (!this.state.bootstrapData) {
@@ -9755,9 +9797,198 @@ const FPL = {
                 }
             } catch (e) { /* defcon/haul filters simply won't be populated */ }
         }
-        // Show empty state until user clicks Find
+        // Show empty state until user clicks Find (suggestions view handles its own rendering)
         const empty = document.getElementById('transfer-empty');
-        if (empty) empty.style.display = 'block';
+        if (empty && this.state.currentTransferView !== 'suggestions') empty.style.display = 'block';
+
+        // Render the active subview (defaults to Suggestions)
+        this.switchTransferView(this.state.currentTransferView || 'suggestions');
+    },
+
+    // ==================== TRANSFER SUGGESTIONS ENGINE ====================
+    // Scores players by position-specific signal, blended with FDR-adjusted next-4 fixture run.
+    // GKP: saves + clean sheets. DEF: clean sheets + defcon (+ xGI bonus). MID/FWD: xGI + form.
+    async computeTransferSuggestions() {
+        const container = document.getElementById('transfer-suggestions-container');
+        if (!container) return;
+
+        // Ensure data sources are loaded
+        if (!this.state.bootstrapData) {
+            try { this.state.bootstrapData = await this.apiFetch('/api/bootstrap-static'); } catch (e) { /* empty state below */ }
+        }
+        if ((!this.state.fixtures || this.state.fixtures.length === 0)) {
+            try { const fx = await this.apiFetch('/api/fixtures'); if (Array.isArray(fx)) this.state.fixtures = fx; } catch (e) { /* runs empty */ }
+        }
+        if (!this.state.advData || !Array.isArray(this.state.advData.players) || this.state.advData.players.length === 0) {
+            try {
+                const res = await window.fetch('/api/player-advanced');
+                if (res.ok) { const data = await res.json(); if (data && Array.isArray(data.players)) this.state.advData = data; }
+            } catch (e) { /* defcon data missing */ }
+        }
+        if (!this.state.goalsProjections) {
+            try { const p = await this.apiFetch('/api/goals-projections'); if (p && Array.isArray(p.ranked)) this.state.goalsProjections = p; } catch (e) { /* model data optional */ }
+        }
+        const bs = this.state.bootstrapData;
+        if (!bs || !Array.isArray(bs.elements)) {
+            container.innerHTML = '<div style="text-align:center;padding:48px 20px;color:var(--md-sys-color-on-surface-variant);"><div style="font-size:14px;font-weight:600;">Could not load player data.</div><div style="font-size:12px;margin-top:6px;">Try refreshing in a moment — the FPL API may be busy.</div></div>';
+            return;
+        }
+
+        const elements = bs.elements;
+        const teamsById = {};
+        (bs.teams || []).forEach(t => { teamsById[t.id] = t; });
+        const posMap = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+        const currentGW = bs.events?.find(e => e.is_current)?.id || bs.events?.find(e => e.is_next)?.id || 1;
+        const advMap = {};
+        (this.state.advData?.players || []).forEach(p => { advMap[p.id] = p; });
+        const projByTeam = {};
+        (this.state.goalsProjections?.ranked || []).forEach(t => { projByTeam[t.teamId] = t; });
+
+        // Per-player scoring — next 4 GWs, FDR-weighted, position-specific
+        const players = elements
+            .filter(e => e.status === 'a' && e.minutes >= 180 && (parseFloat(e.form) > 0))
+            .map(e => {
+                const pos = posMap[e.element_type] || '';
+                const cost = (e.now_cost || 0) / 10;
+                const form = parseFloat(e.form) || 0;
+                const ppg = parseFloat(e.points_per_game) || 0;
+                const ict = parseFloat(e.ict_index) || 0;
+                const threat = parseFloat(e.threat) || 0;
+                const creativity = parseFloat(e.creativity) || 0;
+                const xgi90 = parseFloat(e.expected_goal_involvements_per_90) || 0;
+                const cs90 = parseFloat(e.clean_sheets_per_90) || 0;
+                const saves90 = parseFloat(e.saves_per_90) || 0;
+                const defcon90 = parseFloat(e.defensive_contribution_per_90) || 0;
+                const adv = advMap[e.id] || {};
+                const defconGames = Number(adv.defconGames) || 0;
+                const run = this._transferFixtureRun(e.team, 4, currentGW);
+
+                // FDR-adjusted fixture ease: average multiplier over the run (blank GWs → neutral 1.0)
+                const fdrMults = run.length ? run.map(f => this._transferFdrMultiplier(f.fdr)) : [1.0];
+                const avgFdrMult = fdrMults.reduce((s, m) => s + m, 0) / fdrMults.length;
+                const avgFdr = run.length ? run.reduce((s, f) => s + f.fdr, 0) / run.length : 3;
+                const teamProj = projByTeam[e.team];
+                const csPct = teamProj ? (teamProj.gameweeks || []).slice(0, 4).reduce((s, g) => s + (g.csPct || 0), 0) / Math.max(1, Math.min(4, (teamProj.gameweeks || []).length)) : null;
+
+                // Raw rating from position-specific underlying stats (per-90 normalized).
+                // Normalized to 1-10 per position afterwards (z-score) so the scale self-calibrates.
+                let raw = 0;
+                if (pos === 'GKP') {
+                    const savePts = saves90 * 1.35;                       // saves → points potential
+                    const csPts = cs90 * 2.2;                             // clean sheet record
+                    raw = 3.2 + savePts * 1.4 + csPts * 2.2 + Math.min(form, 6) * 0.55;
+                } else if (pos === 'DEF') {
+                    const xgiPts = xgi90 * 1.5;                           // attacking threat from depth
+                    const defconPts = Math.min(defcon90, 1.2) * 3.4;      // DEFCON potential
+                    const csPts = cs90 * 1.9;
+                    raw = 3.0 + xgiPts * 1.9 + defconPts + csPts * 2.4 + Math.min(creativity, 40) * 0.045 + Math.min(form, 6) * 0.55;
+                } else {
+                    const xgiPts = pos === 'MID' ? xgi90 * 2.1 : xgi90 * 1.8;
+                    raw = 3.0 + xgiPts * 2.6 + Math.min(threat, 90) * 0.042 + Math.min(creativity, 60) * 0.03 + Math.min(form, 7) * 0.62;
+                }
+
+                // Fixture adjustment: FDR over next 4 scales the rating up/down
+                raw = raw * (0.55 + 0.45 * avgFdrMult);
+
+                return {
+                    id: e.id, name: e.web_name, team: teamsById[e.team]?.short_name || '?', teamId: e.team,
+                    pos, cost, form, ppg, ict, xgi90, cs90, saves90, defcon90, defconGames,
+                    run, avgFdr, avgFdrMult, csPct, raw, score: 0,
+                    code: e.code, ownership: parseFloat(e.selected_by_percent) || 0
+                };
+            });
+
+        // Per-position z-score normalization → readable 1-10 rating with a sensible spread
+        ['GKP', 'DEF', 'MID', 'FWD'].forEach(pos => {
+            const list = players.filter(p => p.pos === pos);
+            if (!list.length) return;
+            const mean = list.reduce((s, p) => s + p.raw, 0) / list.length;
+            const std = Math.sqrt(list.reduce((s, p) => s + Math.pow(p.raw - mean, 2), 0) / list.length) || 1;
+            list.forEach(p => {
+                p.score = Math.max(1, Math.min(10, 5.0 + 1.8 * (p.raw - mean) / std));
+            });
+        });
+
+        const byPos = { GKP: [], DEF: [], MID: [], FWD: [] };
+        players.forEach(p => { if (byPos[p.pos]) byPos[p.pos].push(p); });
+        Object.values(byPos).forEach(list => list.sort((a, b) => b.score - a.score));
+
+        const quotas = { GKP: 3, DEF: 5, MID: 6, FWD: 4 };
+        const suggestions = { GKP: byPos.GKP.slice(0, quotas.GKP), DEF: byPos.DEF.slice(0, quotas.DEF), MID: byPos.MID.slice(0, quotas.MID), FWD: byPos.FWD.slice(0, quotas.FWD) };
+        this.state.transferSuggestions = suggestions;
+        this.state.transferPlayers = players;
+
+        container.innerHTML = this._renderTransferSuggestions(suggestions, currentGW);
+    },
+
+    _transferSuggestionRowHTML(p, rank, posColor) {
+        const formColor = p.form >= 4 ? '#00FF85' : p.form >= 2.5 ? '#FFA600' : '#FF4D4D';
+        const fdrLabel = p.avgFdr <= 2.4 ? 'EASY' : p.avgFdr <= 3.1 ? 'MIXED' : 'HARD';
+        const fdrLabelColor = p.avgFdr <= 2.4 ? '#00FF85' : p.avgFdr <= 3.1 ? '#B0B0B0' : '#FF4D4D';
+        const statChips = p.pos === 'GKP'
+            ? `<span title="Saves per 90" style="font-family:var(--font-mono);font-size:10px;color:#B0B0B0;">SV90 ${p.saves90.toFixed(2)}</span><span title="Clean sheets (season)" style="font-family:var(--font-mono);font-size:10px;color:#B0B0B0;">CS ${Math.round(p.cs90 * 6)}</span>`
+            : p.pos === 'DEF'
+                ? `<span title="xGI per 90" style="font-family:var(--font-mono);font-size:10px;color:#B0B0B0;">xGI90 ${p.xgi90.toFixed(2)}</span><span title="Defensive contribution per 90" style="font-family:var(--font-mono);font-size:10px;color:#4FC3F7;">DC90 ${p.defcon90.toFixed(2)}</span><span title="Clean sheets (season)" style="font-family:var(--font-mono);font-size:10px;color:#B0B0B0;">CS ${Math.round(p.cs90 * 6)}</span>`
+                : `<span title="xGI per 90" style="font-family:var(--font-mono);font-size:10px;color:#B0B0B0;">xGI90 ${p.xgi90.toFixed(2)}</span><span title="ICT index" style="font-family:var(--font-mono);font-size:10px;color:#B0B0B0;">ICT ${p.ict.toFixed(1)}</span>`;
+        return `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='transparent'" onclick="FPL.showPlayerDetail(${p.id})">
+            <td style="padding:8px 10px;background:rgba(24,24,27,0.9);position:sticky;left:0;z-index:1;"><div style="display:flex;align-items:center;gap:8px;"><span style="font-family:var(--font-mono);font-size:10px;color:var(--md-sys-color-on-surface-variant);width:16px;">${rank}</span><span style="display:inline-block;width:3px;height:20px;border-radius:2px;background:${posColor};"></span><div><div style="font-weight:700;font-size:12px;color:var(--md-sys-color-on-surface);">${this.escapeHTML(p.name)}</div><div style="font-size:10px;color:var(--md-sys-color-on-surface-variant);font-family:var(--font-mono);">£${p.cost.toFixed(1)}m · ${p.team}</div></div></div></td>
+            <td style="padding:8px 10px;text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:${formColor};">${p.form.toFixed(1)}</td>
+            <td style="padding:8px 10px;text-align:center;font-family:var(--font-mono);font-size:12px;color:var(--md-sys-color-on-surface);">${p.ict.toFixed(1)}</td>
+            <td style="padding:8px 10px;text-align:center;">${this._transferRunChipsHTML(p.run)}</td>
+            <td style="padding:8px 10px;text-align:center;"><span style="font-family:var(--font-mono);font-size:10px;font-weight:800;color:${fdrLabelColor};background:rgba(255,255,255,0.04);padding:2px 8px;border-radius:5px;">${fdrLabel}</span></td>
+            <td class="suggest-stat-cell" style="padding:8px 10px;text-align:center;font-family:var(--font-mono);font-size:11px;color:var(--md-sys-color-on-surface-variant);white-space:nowrap;">${statChips}</td>
+            <td style="padding:8px 10px;text-align:center;"><span title="Suggestion rating: position form/ICT/xGI blended with next-4 fixture FDR" style="display:inline-block;min-width:44px;padding:3px 8px;border-radius:6px;font-family:var(--font-mono);font-size:12px;font-weight:800;background:rgba(0,255,133,0.12);color:#00FF85;">${p.score.toFixed(1)}</span></td>
+        </tr>`;
+    },
+
+    _renderTransferSuggestions(suggestions, currentGW) {
+        const sections = [
+            { pos: 'GKP', label: 'Goalkeepers', color: '#FFD700', icon: 'sports' },
+            { pos: 'DEF', label: 'Defenders', color: '#4FC3F7', icon: 'shield' },
+            { pos: 'MID', label: 'Midfielders', color: '#81C784', icon: 'sports_soccer' },
+            { pos: 'FWD', label: 'Forwards', color: '#E57373', icon: 'my_location' },
+        ];
+        const isMobile = window.matchMedia('(max-width: 768px)').matches;
+        const body = sections.map(s => {
+            const list = suggestions[s.pos] || [];
+            const rows = list.map((p, i) => this._transferSuggestionRowHTML(p, +i + 1, s.color)).join('');
+            return `<div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;overflow:hidden;margin-bottom:16px;">
+                <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:rgba(255,255,255,0.02);border-bottom:1px solid var(--md-sys-color-outline-variant);">
+                    <span class="material-symbols-outlined" style="font-size:18px;color:${s.color};">${s.icon}</span>
+                    <h3 style="font-family:var(--font-mono);font-size:13px;font-weight:800;color:var(--md-sys-color-on-surface);margin:0;">TOP ${list.length} ${s.label.toUpperCase()}</h3>
+                </div>
+                <div class="table-scroll-mobile sticky-first-column" tabindex="0" aria-label="Top ${s.label}">
+                    <table style="width:100%;border-collapse:separate;border-spacing:0;white-space:nowrap;${isMobile ? '' : 'min-width:640px;'}">
+                        <thead style="background:rgba(255,255,255,0.03);font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.03em;color:var(--md-sys-color-on-surface-variant);">
+                            <tr>
+                                <th style="padding:8px 10px;text-align:left;background:rgba(24,24,27,0.9);position:sticky;left:0;z-index:2;">Player</th>
+                                <th style="padding:8px 10px;text-align:center;">Form</th>
+                                <th style="padding:8px 10px;text-align:center;">ICT</th>
+                                <th style="padding:8px 10px;text-align:center;">Next 4</th>
+                <th style="padding:8px 10px;text-align:center;">FDR</th>
+                                <th class="suggest-stat-cell" style="padding:8px 10px;text-align:center;">Key Stats</th>
+                                <th style="padding:8px 10px;text-align:center;">Rating</th>
+                            </tr>
+                        </thead>
+                        <tbody style="font-size:13px;">${rows}</tbody>
+                    </table>
+                </div>
+            </div>`;
+        }).join('');
+
+        return `
+            <style>
+                @media (max-width: 768px) {
+                    .suggest-stat-cell { display: none !important; }
+                }
+            </style>
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+                <div style="font-size:12px;color:var(--md-sys-color-on-surface-variant);">Rating = position form · ICT · xGI/defcon/CS signal, scaled by next-4 FDR. Tap a player for full detail.</div>
+                <button class="btn btn-primary" onclick="FPL.computeTransferSuggestions()" style="padding:8px 14px;font-family:var(--font-mono);font-size:12px;font-weight:800;">
+                    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;">refresh</span> Refresh
+                </button>
+            </div>
+            ${body}`;
     },
     _transferFdrMultiplier(fdr) {
         return { 1: 1.30, 2: 1.15, 3: 1.00, 4: 0.85, 5: 0.70 }[fdr] || 1.0;
@@ -9772,11 +10003,13 @@ const FPL = {
             const isHome = f.team_h === teamId;
             const oppId = isHome ? f.team_a : f.team_h;
             const opp = teamsById[oppId];
+            // Fixtures carry per-side difficulty — pick the side this team plays on
+            const fdr = isHome ? (f.team_h_difficulty || f.difficulty || 3) : (f.team_a_difficulty || f.difficulty || 3);
             return {
                 gw: f.event,
                 opp: opp ? opp.short_name : '?',
                 home: isHome,
-                fdr: f.difficulty || 3,
+                fdr,
                 started: !!f.started,
                 finished: !!f.finished
             };

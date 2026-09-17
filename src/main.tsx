@@ -47,7 +47,7 @@ function checkLegacyReady() {
   window.dispatchEvent(new CustomEvent('fpl-ready'));
 }
 const legacyScript = document.createElement('script');
-legacyScript.src = '/common.js?v=27';
+legacyScript.src = '/common.js?v=30';
 legacyScript.defer = true;
 legacyScript.addEventListener('load', () => {
   legacyReady = true;

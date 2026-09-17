@@ -83,11 +83,11 @@ try {
   const coldContext = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
   const coldPage = await coldContext.newPage();
   await coldPage.route('http://localhost:8400/live.js*', (route) => route.abort());
-  await coldPage.route('**/common.js?v=7', async (route) => {
+  await coldPage.route('**/common.js?v=*', async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 1200));
     await route.continue();
   });
-  await coldPage.goto(`${baseUrl}/ai-team`, { waitUntil: 'domcontentloaded' });
+  await coldPage.goto(`${baseUrl}/transfers`, { waitUntil: 'domcontentloaded' });
   await coldPage.waitForSelector('.layout');
   const coldState = await coldPage.evaluate(() => ({
     rootMounted: Boolean(document.querySelector('#root .layout')),
@@ -96,17 +96,16 @@ try {
   }));
   assert.equal(coldState.initialShellExists, false, 'Cold load must not add a blocking entry shell');
   assert.equal(coldState.blockingOverlayExists, false, 'Cold load must not add a full-screen loading overlay');
-  await coldPage.waitForSelector('#content-aiteam.active');
-  await coldPage.waitForSelector('#aiteam-results:not(.hidden)', { timeout: 90000 });
+  await coldPage.waitForSelector('#content-transfers.active');
   const hydratedState = await coldPage.evaluate(() => ({
-    stylesheetLoaded: getComputedStyle(document.querySelector('.aiteam-page')).maxWidth !== 'none',
-    aiTabActive: document.querySelector('#content-aiteam')?.classList.contains('active'),
+    stylesheetLoaded: getComputedStyle(document.querySelector('.layout')).display !== 'none',
+    transfersTabActive: document.querySelector('#content-transfers')?.classList.contains('active'),
   }));
-  assert.equal(hydratedState.stylesheetLoaded, true, 'AI Team stylesheet must be applied on first load');
-  assert.equal(hydratedState.aiTabActive, true, 'Cold /ai-team load must hydrate directly into AI Team');
+  assert.equal(hydratedState.stylesheetLoaded, true, 'Transfer Finder stylesheet must be applied on first load');
+  assert.equal(hydratedState.transfersTabActive, true, 'Cold /transfers load must hydrate directly into Transfer Finder');
   await coldContext.close();
 
-  const routes = ['/', '/manager', '/decision-lab', '/league', '/players', '/tactics', '/fixtures', '/captaincy', '/ownership', '/set-pieces', '/ai-team'];
+  const routes = ['/', '/manager', '/decision-lab', '/league', '/players', '/tactics', '/fixtures', '/captaincy', '/ownership', '/set-pieces', '/transfers'];
   const viewports = [
     { width: 1440, height: 900 },
     { width: 768, height: 1024 },

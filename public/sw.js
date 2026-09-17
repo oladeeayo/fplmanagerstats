@@ -1,8 +1,8 @@
-const CACHE_NAME = 'fpl-stats-react-v32';
+const CACHE_NAME = 'fpl-stats-react-v35';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
-    '/common.js?v=27',
+    '/common.js?v=30',
     '/design-system.css?v=23',
     '/favicon.svg?v=8',
     '/fpl-icon.svg?v=8',
@@ -66,9 +66,12 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Everything else: network-first so deployments never serve stale content
+    // Everything else: network-first so deployments never serve stale content.
+    // { cache: 'no-cache' } revalidates with the server even when the HTTP disk
+    // cache (maxAge 7d) would otherwise satisfy the request — without this,
+    // "network-first" can still serve week-old JS from disk cache.
     event.respondWith(
-        fetch(event.request).then((response) => {
+        fetch(event.request, { cache: 'no-cache' }).then((response) => {
             if (response && response.status === 200) {
                 const clone = response.clone();
                 caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
