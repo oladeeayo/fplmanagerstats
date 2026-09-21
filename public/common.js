@@ -3055,7 +3055,10 @@ const FPL = {
                             if (xi === 0) return '<span style="font-size:10px;color:#666;">\u2014</span>';
                             const sign = xi > 0 ? '+' : '';
                             const xiColor = xi > 0 ? '#00FF85' : xi >= -5 ? '#FFA600' : '#ff4d4d';
-                            return `<span class="mono" style="font-size:11px;font-weight:700;color:${xiColor};">${sign}${xi}</span>`;
+                            const tip = Array.isArray(m.xiImpactBreakdown)
+                                ? m.xiImpactBreakdown.map(p => `${p.direction === 'out' ? '\u2212' : '+'}${p.webName} (${p.points})`).join(', ')
+                                : '';
+                            return `<span class="mono" ${tip ? `title="XI change: ${tip}"` : ''} style="font-size:11px;font-weight:700;color:${xiColor};cursor:${tip ? 'help' : 'default'};">${sign}${xi}</span>`;
                         })()}
                     </td>
                     <td style="padding:4px 6px;text-align:center;background:${cellBg};">${diffArrow}</td>
@@ -3826,7 +3829,10 @@ const FPL = {
                             if (xi === 0 && tc === 0) return '<strong style="font-size:14px;color:#8ba396;font-family:var(--font-mono);">\u2014</strong>';
                             const sign = xi > 0 ? '+' : '';
                             const xiColor = xi > 0 ? '#00FF85' : xi >= -5 ? '#FFA600' : '#ff4d4d';
-                            return `<strong style="font-size:14px;color:${xiColor};font-family:var(--font-mono);">${sign}${xi}</strong><span style="font-size:9px;color:#8ba396;display:block;">${tc} transfer${tc !== 1 ? 's' : ''}</span>`;
+                            const tip = Array.isArray(data.xiImpactBreakdown)
+                                ? data.xiImpactBreakdown.map(p => `${p.direction === 'out' ? '\u2212' : '+'}${p.webName} (${p.points})`).join(', ')
+                                : '';
+                            return `<strong ${tip ? `title="XI change: ${tip}"` : ''} style="font-size:14px;color:${xiColor};font-family:var(--font-mono);cursor:${tip ? 'help' : 'default'};">${sign}${xi}</strong><span style="font-size:9px;color:#8ba396;display:block;">${tc} transfer${tc !== 1 ? 's' : ''}</span>`;
                         })()}
                     </div>
                 </div>
@@ -5112,6 +5118,11 @@ const FPL = {
             const ptColor = getPointDiffColor(ptDiff);
             const rankChange = getRankChangeDisplay(m.lastRank, m.rank);
             const xiImpactDisplay = getXIImpactDisplay(m.xiImpact);
+            // Per-player explanation of the XI Impact number (hover tooltip)
+            const xiTip = Array.isArray(m.xiImpactBreakdown)
+                ? m.xiImpactBreakdown.map(p => `${p.direction === 'out' ? '\u2212' : '+'}${p.webName} (${p.points})`).join(', ').replace(/"/g, '')
+                : '';
+            const xiTitle = xiTip ? ` title="XI change: ${xiTip}"` : '';
             const isTop4 = data.top4.some(t => t.entryId === m.entryId);
             const isBottom4 = data.bottom4.some(b => b.entryId === m.entryId);
             const rowBg = i % 2 === 0 ? '#ffffff' : '#f8f9fa';
@@ -5126,7 +5137,7 @@ const FPL = {
                 <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;text-align:center;font-weight:800;font-size:13px;background:${ptColor.bg};color:${ptColor.text};">${ptDiff}</td>
                 <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;${numCenter}">${formatNum(m.overallRank)}</td>
                 <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;${numCenter}">${m.gwPoints}</td>
-                <td style="padding:6px 16px;border-bottom:1px solid #e9ecef;text-align:center;font-weight:800;font-size:13px;background:${xiImpactDisplay.bg};color:${xiImpactDisplay.color};min-width:80px;">${xiImpactDisplay.text}</td>
+                <td${xiTitle} style="padding:6px 16px;border-bottom:1px solid #e9ecef;text-align:center;font-weight:800;font-size:13px;background:${xiImpactDisplay.bg};color:${xiImpactDisplay.color};min-width:80px;cursor:${xiTip ? 'help' : 'default'};">${xiImpactDisplay.text}</td>
             </tr>`;
         });
 

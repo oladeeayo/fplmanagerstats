@@ -328,22 +328,25 @@ router.get('/league-standings/:leagueId', heavyEndpointLimiter, async (req, res)
     const enriched = [];
     const entries = standings;
 
-    // After the GW deadline, picks are locked — use a much longer cache to prevent xPts fluctuation
+    // Picks must never be pinned for 24h: automatic substitutions can still
+    // change the XI after the deadline (and well into the GW). Long-cache only
+    // once the gameweek is actually finished.
     const currentEvent = playerData.events?.find(e => e.id === currentGW);
-    const deadlineMs = currentEvent?.deadline_time ? new Date(currentEvent.deadline_time).getTime() : null;
-    const picksCacheTTL = deadlineMs && Date.now() > deadlineMs ? 24 * 60 * 60 * 1000 : 60 * 1000;
+    const picksCacheTTL = currentEvent?.finished ? 24 * 60 * 60 * 1000 : 60 * 1000;
 
     const batchSize = 8; // parallelize more aggressively — cache handles rate limits
     for (let i = 0; i < entries.length; i += batchSize) {
       const batch = entries.slice(i, i + batchSize);
       const results = await Promise.allSettled(batch.map(async e => {
+        // ?v=2 busts Redis entries written by the old 24h-TTL code (they can
+        // hold pre-autosub picks for up to a day)
         const prevGWPicks = currentGW > 1
-          ? getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/event/${currentGW - 1}/picks/`, picksCacheTTL).catch(() => null)
+          ? getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/event/${currentGW - 1}/picks/?v=2`, picksCacheTTL).catch(() => null)
           : Promise.resolve(null);
         const [histData, entryData, picksData, transfersData, prevGWData] = await Promise.all([
           getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/history/`).catch(() => null),
           getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/`).catch(() => null),
-          getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/event/${currentGW}/picks/`, picksCacheTTL).catch(() => null),
+          getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/event/${currentGW}/picks/?v=2`, picksCacheTTL).catch(() => null),
           getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/transfers/`).catch(() => null),
           prevGWPicks
         ]);
@@ -381,13 +384,18 @@ router.get('/league-standings/:leagueId', heavyEndpointLimiter, async (req, res)
         const transfersRes = res.value?.transfers;
         const gwTransfers = (transfersRes || []).filter(t => t.event === currentGW);
         const ptsOf3 = el => ((playerData.elements || []).find(p => p.id === el)?.event_points || 0);
-        const xiImpact = computeEffectiveXIImpact(
+        const nameOf3 = el => ((playerData.elements || []).find(p => p.id === el)?.web_name || ('#' + el));
+        const { value: xiImpact, removedIds: removed3, addedIds: added3 } = computeEffectiveXIImpactDetailed(
           res.value?.prevGW?.picks || [],
           picksRes?.picks || [],
           res.value?.prevGW?.automatic_subs,
           picksRes?.automatic_subs,
           ptsOf3
         );
+        const xiImpactBreakdown3 = [
+          ...removed3.map(id => ({ element: id, webName: nameOf3(id), direction: 'out', points: ptsOf3(id) })),
+          ...added3.map(id => ({ element: id, webName: nameOf3(id), direction: 'in', points: ptsOf3(id) })),
+        ];
 
         enriched.push({
           rank: entry.rank, entry: entry.entry,
@@ -396,6 +404,7 @@ router.get('/league-standings/:leagueId', heavyEndpointLimiter, async (req, res)
           lastRank: entry.last_rank, rankChange: (entry.last_rank || entry.rank) - entry.rank,
           gwPoints: gwPoints?.toLocaleString() || '—',
           xiImpact: xiImpact,
+          xiImpactBreakdown: xiImpactBreakdown3.length > 0 ? xiImpactBreakdown3 : null,
           lastSeasonRank: lastSeasonRank?.toLocaleString() || '—',
           seasonBeforeLastRank: seasonBeforeLastRank?.toLocaleString() || '—',
           chipsUsed: chipLabels.length ? chipLabels.join(', ') : 'None',
@@ -2016,10 +2025,11 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
     const samplePicksMap = {};
     const samplePrevPicksMap = {};
     const BATCH_SIZE = 50;
-    // After the GW deadline, picks are locked — use a much longer cache to prevent xPts fluctuation
+    // Picks must never be pinned for 24h: automatic substitutions can still
+    // change the XI after the deadline (and well into the GW). Long-cache only
+    // once the gameweek is actually finished.
     const currentEvent = bootstrap?.events?.find(e => e.id === currentGW);
-    const deadlineMs = currentEvent?.deadline_time ? new Date(currentEvent.deadline_time).getTime() : null;
-    const picksCacheTTL = deadlineMs && Date.now() > deadlineMs ? 24 * 60 * 60 * 1000 : 60 * 1000;
+    const picksCacheTTL = currentEvent?.finished ? 24 * 60 * 60 * 1000 : 60 * 1000;
     for (let i = 0; i < sampleEntries.length; i += BATCH_SIZE) {
       const batch = sampleEntries.slice(i, i + BATCH_SIZE);
       await Promise.all(
@@ -2027,9 +2037,9 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
           if (!e.entry) return;
           try {
             const [picks, prevPicks] = await Promise.all([
-              getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/event/${currentGW}/picks/`, picksCacheTTL),
+              getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/event/${currentGW}/picks/?v=2`, picksCacheTTL),
               currentGW > 1
-                ? getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/event/${currentGW - 1}/picks/`, picksCacheTTL).catch(() => null)
+                ? getCachedApiData(`https://fantasy.premierleague.com/api/entry/${e.entry}/event/${currentGW - 1}/picks/?v=2`, picksCacheTTL).catch(() => null)
                 : Promise.resolve(null)
             ]);
             samplePicksMap[e.entry] = picks;
@@ -2178,13 +2188,18 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       const gwTransfers = (transfersMap[mId] || []).filter(t => t.event === currentGW);
       const prevPicksData = samplePrevPicksMap[mId];
       const ptsOf = el => (elements.find(p => p.id === el)?.event_points || 0);
-      const xiImpact = computeEffectiveXIImpact(
+      const nameOf = el => (elements.find(p => p.id === el)?.webName || ('#' + el));
+      const { value: xiImpact, removedIds, addedIds } = computeEffectiveXIImpactDetailed(
         prevPicksData?.picks || [],
         picksData?.picks || [],
         prevPicksData?.automatic_subs,
         picksData?.automatic_subs,
         ptsOf
       );
+      const xiImpactBreakdown = [
+        ...removedIds.map(id => ({ element: id, webName: nameOf(id), direction: 'out', points: ptsOf(id) })),
+        ...addedIds.map(id => ({ element: id, webName: nameOf(id), direction: 'in', points: ptsOf(id) })),
+      ];
 
       return {
         rank: entry.rank || ((page - 1) * pageSize) + index + 1,
@@ -2202,7 +2217,8 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
         lastSeasonRank: detail.lastSeasonRank || null,
         seasonBeforeLastRank: detail.seasonBeforeLastRank || null,
         seasonChips: detail.seasonChips || [],
-        xiImpact: xiImpact
+        xiImpact: xiImpact,
+        xiImpactBreakdown: xiImpactBreakdown.length > 0 ? xiImpactBreakdown : null
       };
     });
 
@@ -2610,13 +2626,18 @@ router.get('/manager-squad/:managerId', async (req, res) => {
     // Both XIs are the effective XI AFTER automatic substitutions (post-swap).
     const gwTransfers = (transfersData || []).filter(t => t.event === activeGW);
     const ptsOf = el => (elementsMap.get(el)?.event_points || 0);
-    const xiImpact = computeEffectiveXIImpact(
+    const nameOf = el => (elementsMap.get(el)?.web_name || ('#' + el));
+    const { value: xiImpact, removedIds, addedIds } = computeEffectiveXIImpactDetailed(
       prevGWPicksData?.picks || [],
       picksData?.picks || [],
       prevGWPicksData?.automatic_subs,
       picksData?.automatic_subs,
       ptsOf
     );
+    const xiImpactBreakdown = [
+      ...removedIds.map(id => ({ element: id, webName: nameOf(id), direction: 'out', points: ptsOf(id) })),
+      ...addedIds.map(id => ({ element: id, webName: nameOf(id), direction: 'in', points: ptsOf(id) })),
+    ];
 
     res.json({
       managerId,
@@ -2634,6 +2655,7 @@ router.get('/manager-squad/:managerId', async (req, res) => {
       bench,
       squadStats: { gwGoals, gwAssists, gwCS, gwHauled },
       xiImpact: xiImpact,
+      xiImpactBreakdown: xiImpactBreakdown.length > 0 ? xiImpactBreakdown : null,
       transferCount: gwTransfers.length
     });
   } catch (err) {

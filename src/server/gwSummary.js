@@ -74,9 +74,11 @@ function effectivePicks(picks, autosubs, isPlayed) {
 
 // XI Impact: points gained/lost from player swaps — compares the previous GW's
 // effective XI with the current effective XI (both AFTER automatic subs).
-function computeEffectiveXIImpact(prevPicks, curPicks, prevAutosubs, curAutosubs, getPlayerPoints) {
-  if (!Array.isArray(prevPicks) || prevPicks.length === 0) return 0;
-  if (!Array.isArray(curPicks) || curPicks.length === 0) return 0;
+// Detailed variant returns the per-player breakdown; the plain wrapper returns
+// just the net value for existing callers.
+function computeEffectiveXIImpactDetailed(prevPicks, curPicks, prevAutosubs, curAutosubs, getPlayerPoints) {
+  if (!Array.isArray(prevPicks) || prevPicks.length === 0) return { value: 0, removedIds: [], addedIds: [] };
+  if (!Array.isArray(curPicks) || curPicks.length === 0) return { value: 0, removedIds: [], addedIds: [] };
   const xiOf = (picks, autosubs) => new Set(
     effectivePicks(picks, autosubs, el => getPlayerPoints(el) > 0)
       .filter(p => p.position <= 11)
@@ -84,11 +86,15 @@ function computeEffectiveXIImpact(prevPicks, curPicks, prevAutosubs, curAutosubs
   );
   const lastXI = xiOf(prevPicks, prevAutosubs);
   const curXI = xiOf(curPicks, curAutosubs);
-  const removed = [...lastXI].filter(el => !curXI.has(el));
-  const added = [...curXI].filter(el => !lastXI.has(el));
-  const removedPts = removed.reduce((sum, el) => sum + getPlayerPoints(el), 0);
-  const addedPts = added.reduce((sum, el) => sum + getPlayerPoints(el), 0);
-  return addedPts - removedPts;
+  const removedIds = [...lastXI].filter(el => !curXI.has(el));
+  const addedIds = [...curXI].filter(el => !lastXI.has(el));
+  const removedPts = removedIds.reduce((sum, el) => sum + getPlayerPoints(el), 0);
+  const addedPts = addedIds.reduce((sum, el) => sum + getPlayerPoints(el), 0);
+  return { value: addedPts - removedPts, removedIds, addedIds };
+}
+
+function computeEffectiveXIImpact(prevPicks, curPicks, prevAutosubs, curAutosubs, getPlayerPoints) {
+  return computeEffectiveXIImpactDetailed(prevPicks, curPicks, prevAutosubs, curAutosubs, getPlayerPoints).value;
 }
 
 // --- Summary builder ---------------------------------------------------------
@@ -220,13 +226,17 @@ async function buildGWSummary({ leagueId, gw } = {}) {
 
         // --- XI Impact: based on the effective XI AFTER automatic subs ---
         const gwTransfers = (transfersRes || []).filter(t => t.event === targetGW);
-        const xiImpact = computeEffectiveXIImpact(
+        const { value: xiImpact, removedIds, addedIds } = computeEffectiveXIImpactDetailed(
           prevGWRes?.picks || [],
           picks,
           prevGWRes?.automatic_subs,
           picksRes?.automatic_subs,
           getPlayerPoints
         );
+        const xiImpactBreakdown = [
+          ...removedIds.map(id => ({ element: id, webName: players[id]?.webName || ('#' + id), direction: 'out', points: getPlayerPoints(id) })),
+          ...addedIds.map(id => ({ element: id, webName: players[id]?.webName || ('#' + id), direction: 'in', points: getPlayerPoints(id) })),
+        ];
 
         return {
           rank: entry.rank,
@@ -243,6 +253,7 @@ async function buildGWSummary({ leagueId, gw } = {}) {
           chipPlayed,
           overallRank: (historyRes?.current || []).find(c => c.event === targetGW)?.overall_rank || historyRes?.current?.[historyRes.current.length - 1]?.overall_rank || null,
           xiImpact,
+          xiImpactBreakdown: xiImpactBreakdown.length > 0 ? xiImpactBreakdown : null,
           transferCount: gwTransfers.length,
         };
       } catch (e) {
@@ -261,6 +272,7 @@ async function buildGWSummary({ leagueId, gw } = {}) {
           chipPlayed: null,
           overallRank: null,
           xiImpact: 0,
+          xiImpactBreakdown: null,
           transferCount: 0,
           error: true,
         };
@@ -444,4 +456,5 @@ module.exports = {
   buildGWSummary,
   effectivePicks,
   computeEffectiveXIImpact,
+  computeEffectiveXIImpactDetailed,
 };

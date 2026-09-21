@@ -4473,10 +4473,10 @@ div.collapsed > .sidebar-section-toggle .sidebar-section-chevron { transform: ro
 .tactics-player-card:hover { transform: translateY(-2px); }
 
 /* ==================== GW SUMMARY ==================== */
-.gwsummary-grid { grid-template-columns: 1fr 1fr; }
-@media (max-width: 1024px) {
-    .gwsummary-grid { grid-template-columns: 1fr; }
-}
+/* Stacked on all screens: WhatsApp text above the image preview */
+.gwsummary-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+/* The rendered PNG canvas is 960px wide — scale it down to fit the panel */
+#gwsummary-image-preview canvas { max-width: 100%; height: auto !important; }
 
 /* ==================== RESIZABLE PANELS ==================== */
 .resizer { position: relative; flex-shrink: 0; z-index: 5; }
