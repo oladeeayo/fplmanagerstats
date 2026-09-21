@@ -183,12 +183,14 @@ async function buildGWSummary({ leagueId, gw } = {}) {
     const batch = allEntries.slice(i, i + BATCH);
     const batchResults = await Promise.all(batch.map(async (entry) => {
       try {
+        // ?v=2 busts Redis entries written by the old 24h-TTL picks cache
+        // (they can hold pre-autosub XIs for up to a day)
         const prevGWPicks = targetGW > 1
-          ? getCachedApiData(`https://fantasy.premierleague.com/api/entry/${entry.entry}/event/${targetGW - 1}/picks/`)
+          ? getCachedApiData(`https://fantasy.premierleague.com/api/entry/${entry.entry}/event/${targetGW - 1}/picks/?v=2`)
           : Promise.resolve(null);
         const [historyRes, picksRes, transfersRes, prevGWRes] = await Promise.all([
           getCachedApiData(`https://fantasy.premierleague.com/api/entry/${entry.entry}/history/`),
-          getCachedApiData(`https://fantasy.premierleague.com/api/entry/${entry.entry}/event/${targetGW}/picks/`),
+          getCachedApiData(`https://fantasy.premierleague.com/api/entry/${entry.entry}/event/${targetGW}/picks/?v=2`),
           getCachedApiData(`https://fantasy.premierleague.com/api/entry/${entry.entry}/transfers/`),
           prevGWPicks,
         ]);
