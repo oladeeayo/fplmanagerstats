@@ -216,6 +216,7 @@
                         <a href="/captaincy" class="sidebar-nav-item" data-tab="captain" onclick="event.preventDefault();FPL.navigateTo('captain')"><span class="material-symbols-outlined">star</span> Captaincy</a>
                         <a href="/manager" class="sidebar-nav-item" data-tab="manager" onclick="event.preventDefault();FPL.navigateTo('manager')"><span class="material-symbols-outlined">groups</span> Manager Analysis</a>
                         <a href="/league" class="sidebar-nav-item" data-tab="league" onclick="event.preventDefault();FPL.navigateTo('league')"><span class="material-symbols-outlined">leaderboard</span> Standings</a>
+                        <a href="/gw-summary" class="sidebar-nav-item" data-tab="gwsummary" onclick="event.preventDefault();FPL.navigateTo('gwsummary')"><span class="material-symbols-outlined">chat</span> GW Summary</a>
                     </div>
                 </div>
                 <div class="sidebar-section-group">
@@ -816,6 +817,55 @@
                         </div>
                     </div>
 
+                </div>
+
+                <!-- GW SUMMARY GENERATOR -->
+                <div id="content-gwsummary" class="tab-content">
+                    <div style="display:flex;flex-direction:column;gap:var(--space-md);margin-bottom:var(--space-lg);" class="md:flex-row md:justify-between md:items-end">
+                        <div>
+                            <h1 class="page-title" style="margin:0;">GW Summary <span style="color:var(--fdr-1);">Generator</span></h1>
+                            <p class="page-subtitle" style="margin-top:4px;">WhatsApp-ready league recap with copy & PNG export.</p>
+                        </div>
+                    </div>
+
+                    <div style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:16px;padding:20px;margin-bottom:20px;">
+                        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+                            <div style="display:flex;flex-direction:column;gap:4px;flex:1 1 260px;min-width:220px;">
+                                <label for="gwsummary-league-select" style="font-size:10px;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.08em;font-family:var(--font-mono);font-weight:700;">League (your leagues)</label>
+                                <select id="gwsummary-league-select" style="font-family:var(--font-mono);font-size:13px;font-weight:700;background-color:rgba(0,255,133,0.06);color:var(--fdr-1);border:1px solid rgba(0,255,133,0.3);border-radius:8px;padding:9px 12px;outline:none;display:none;"></select>
+                                <input type="text" id="gwsummary-league-input" placeholder="…or enter any League ID" inputmode="numeric" style="font-family:var(--font-mono);font-size:13px;background-color:rgba(255,255,255,0.04);color:var(--md-sys-color-on-surface);border:1px solid var(--md-sys-color-outline-variant);border-radius:8px;padding:9px 12px;outline:none;">
+                            </div>
+                            <div style="display:flex;flex-direction:column;gap:4px;flex:0 0 auto;">
+                                <label for="gwsummary-gw-select" style="font-size:10px;color:var(--md-sys-color-on-surface-variant);text-transform:uppercase;letter-spacing:0.08em;font-family:var(--font-mono);font-weight:700;">Gameweek</label>
+                                <select id="gwsummary-gw-select" style="font-family:var(--font-mono);font-size:13px;font-weight:700;background-color:rgba(255,255,255,0.04);color:var(--md-sys-color-on-surface);border:1px solid var(--md-sys-color-outline-variant);border-radius:8px;padding:9px 12px;outline:none;min-width:90px;"></select>
+                            </div>
+                            <button id="gwsummary-gen-btn" class="btn btn-primary" onclick="FPL.generateGWSummary()" style="white-space:nowrap;font-weight:700;padding:9px 22px;">Generate</button>
+                        </div>
+                        <div id="gwsummary-hint" style="margin-top:10px;font-size:11px;color:var(--md-sys-color-on-surface-variant);"></div>
+                    </div>
+
+                    <div id="gwsummary-output" style="display:none;">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;" class="gwsummary-grid">
+                            <div style="min-width:0;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;flex-wrap:wrap;">
+                                    <span style="font-size:11px;color:var(--md-sys-color-on-surface-variant);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;font-family:var(--font-mono);">WhatsApp Text</span>
+                                    <button class="btn btn-outline btn-sm" onclick="FPL.copyGWSummaryMarkdown()" style="padding:5px 14px;font-size:11px;">Copy</button>
+                                </div>
+                                <div id="gwsummary-markdown-box" style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:16px;max-height:520px;overflow:auto;font-size:13px;line-height:1.7;color:var(--md-sys-color-on-surface);white-space:pre-wrap;"></div>
+                            </div>
+                            <div style="min-width:0;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;flex-wrap:wrap;">
+                                    <span style="font-size:11px;color:var(--md-sys-color-on-surface-variant);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;font-family:var(--font-mono);">Image Preview</span>
+                                    <div style="display:flex;gap:6px;">
+                                        <button class="btn btn-outline btn-sm" onclick="FPL.copyGWSummaryImage()" style="padding:5px 14px;font-size:11px;">Copy Image</button>
+                                        <button class="btn btn-outline btn-sm" onclick="FPL.downloadGWSummaryImage()" style="padding:5px 14px;font-size:11px;">Download PNG</button>
+                                    </div>
+                                </div>
+                                <div id="gwsummary-image-preview" style="background:var(--md-sys-color-surface-container);border:1px solid var(--md-sys-color-outline-variant);border-radius:12px;padding:16px;overflow-x:auto;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="gwsummary-loading" style="display:none;text-align:center;padding:24px;color:var(--md-sys-color-on-surface-variant);">Generating summary…</div>
                 </div>
 
                 <!-- PLAYER STATS -->

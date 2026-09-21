@@ -600,7 +600,7 @@ const FPL = {
     },
 
     navigateTo(tab) {
-        const validTabs = ['general', 'manager', 'decision', 'league', 'players', 'zones', 'fixtures', 'teamnews', 'captain', 'ownership', 'setpieces', 'playeradvanced', 'scatter', 'transfers'];
+        const validTabs = ['general', 'manager', 'decision', 'league', 'players', 'zones', 'fixtures', 'teamnews', 'captain', 'ownership', 'setpieces', 'playeradvanced', 'scatter', 'transfers', 'gwsummary'];
         if (!validTabs.includes(tab)) tab = 'general';
         this.state.activeTab = tab;
 
@@ -649,6 +649,7 @@ const FPL = {
             case 'playeradvanced': return this.loadPlayerAdvanced();
             case 'scatter': return this.renderScatter();
             case 'transfers': return this.renderTransfers();
+            case 'gwsummary': return this.renderGWSummary();
             case 'livecentre': return; // React handles this tab
         }
     },
@@ -4938,6 +4939,299 @@ const FPL = {
         const select = document.getElementById('league-select');
         if (select) select.value = String(this.state.selectedLeagueId);
         void this.renderLeague();
+    },
+
+    // ==================== GW SUMMARY GENERATOR ====================
+    async renderGWSummary() {
+        await this.renderGWSummaryLeagueSelector();
+        await this.renderGWSummaryGWSelector();
+    },
+
+    async renderGWSummaryLeagueSelector() {
+        const select = document.getElementById('gwsummary-league-select');
+        const input = document.getElementById('gwsummary-league-input');
+        const hint = document.getElementById('gwsummary-hint');
+        if (!select || !input) return;
+
+        // Default league: stored preference, else the connected manager's default
+        let defaultLeagueId = Number(localStorage.getItem('fplGwSummaryLeagueId') || localStorage.getItem('fplLeagueId') || this.state.selectedLeagueId || 0);
+
+        const managerId = this.state.managerId || localStorage.getItem('fplManagerId');
+        if (managerId && (!this.state.managerLeagues || !this.state.managerLeagues.length)) {
+            await this.loadManagerLeagues(managerId);
+        }
+        const leagues = this.state.managerLeagues || [];
+
+        if (!defaultLeagueId && leagues.length > 0) {
+            defaultLeagueId = Number(leagues[0].id);
+        }
+
+        if (!leagues.length) {
+            select.style.display = 'none';
+            if (hint) hint.textContent = 'Connect your FPL ID to pick from your leagues, or enter any league ID above.';
+            if (defaultLeagueId && input && !input.value) input.value = String(defaultLeagueId);
+            return;
+        }
+
+        let html = leagues.map(l => {
+            const isSel = (Number(l.id) === defaultLeagueId) ? 'selected' : '';
+            const typeStr = l.type === 'private' ? 'Private' : 'Global';
+            return `<option value="${l.id}" ${isSel}>🏆 ${this.escapeHTML(l.name)} (${typeStr})</option>`;
+        }).join('');
+        if (defaultLeagueId && !leagues.some(l => Number(l.id) === defaultLeagueId)) {
+            html = `<option value="${defaultLeagueId}" selected>League ${defaultLeagueId}</option>` + html;
+        }
+        select.innerHTML = html;
+        select.value = String(defaultLeagueId);
+        select.style.display = 'inline-block';
+        if (input) input.value = '';
+        if (hint) hint.textContent = 'Pick one of your leagues, or type any league ID below and hit Generate.';
+    },
+
+    async renderGWSummaryGWSelector() {
+        const select = document.getElementById('gwsummary-gw-select');
+        if (!select) return;
+        if (!select.options.length) {
+            for (let gw = 1; gw <= 38; gw++) {
+                const opt = document.createElement('option');
+                opt.value = gw;
+                opt.textContent = `GW ${gw}`;
+                select.appendChild(opt);
+            }
+        }
+        // Default to the current gameweek so numbers match the standings page
+        try {
+            const bs = this.state.bootstrapData || await this.apiFetch(this.API.bootstrap);
+            this.state.bootstrapData = bs;
+            const current = (bs.events || []).find(e => e.is_current);
+            const fallback = (bs.events || []).filter(e => e.finished).pop();
+            const currentGW = current ? current.id : (fallback ? fallback.id : 1);
+            select.value = String(currentGW);
+        } catch {
+            /* keep first option */
+        }
+    },
+
+    async generateGWSummary() {
+        const select = document.getElementById('gwsummary-league-select');
+        const input = document.getElementById('gwsummary-league-input');
+        const gwSelect = document.getElementById('gwsummary-gw-select');
+        const btn = document.getElementById('gwsummary-gen-btn');
+        const output = document.getElementById('gwsummary-output');
+        const loading = document.getElementById('gwsummary-loading');
+        if (!gwSelect || !btn) return;
+
+        // Manual ID wins; otherwise use the league dropdown
+        let leagueId = null;
+        const typed = input?.value?.trim();
+        if (typed && /^\d+$/.test(typed)) {
+            leagueId = Number(typed);
+            localStorage.setItem('fplGwSummaryLeagueId', String(leagueId));
+        } else if (select && select.style.display !== 'none' && select.value) {
+            leagueId = Number(select.value);
+            localStorage.setItem('fplGwSummaryLeagueId', String(leagueId));
+        }
+        if (!leagueId) {
+            alert('Select one of your leagues or enter a league ID first.');
+            return;
+        }
+
+        const gw = gwSelect.value;
+        btn.disabled = true;
+        btn.textContent = 'Loading…';
+        if (loading) loading.style.display = 'block';
+        if (output) output.style.display = 'none';
+
+        try {
+            const data = await this.apiFetch(`/api/gw-summary?leagueId=${leagueId}&gw=${gw}`);
+            this.state.gwSummaryData = data;
+            const mdBox = document.getElementById('gwsummary-markdown-box');
+            if (mdBox) mdBox.textContent = data.markdown;
+            this.renderGWSummaryImage(data);
+            if (output) output.style.display = 'block';
+        } catch (e) {
+            this.showError(e.message || 'Failed to generate summary.');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Generate';
+            if (loading) loading.style.display = 'none';
+        }
+    },
+
+    renderGWSummaryImage(data) {
+        const container = document.getElementById('gwsummary-image-preview');
+        if (!container) return;
+
+        // Color scale for point difference (green=good, red=bad)
+        function getPointDiffColor(diff) {
+            if (diff >= 0) return { bg: '#c6efce', text: '#006100' };
+            const absDiff = Math.abs(diff);
+            if (absDiff <= 10) return { bg: '#d4edda', text: '#155724' };
+            if (absDiff <= 30) return { bg: '#fff3cd', text: '#856404' };
+            if (absDiff <= 60) return { bg: '#ffeeba', text: '#856404' };
+            if (absDiff <= 100) return { bg: '#f8d7da', text: '#721c24' };
+            if (absDiff <= 200) return { bg: '#f5c6cb', text: '#721c24' };
+            return { bg: '#e74c3c', text: '#ffffff' };
+        }
+
+        function getXIImpactDisplay(xiImpact) {
+            if (!xiImpact && xiImpact !== 0) return { text: '\u2014', color: '#999', bg: 'transparent' };
+            if (xiImpact === 0) return { text: '\u2014', color: '#999', bg: 'transparent' };
+            const sign = xiImpact > 0 ? '+' : '';
+            if (xiImpact > 10) return { text: `${sign}${xiImpact}`, color: '#006100', bg: '#c6efce' };
+            if (xiImpact > 0) return { text: `${sign}${xiImpact}`, color: '#155724', bg: '#d4edda' };
+            if (xiImpact >= -5) return { text: `${xiImpact}`, color: '#856404', bg: '#fff3cd' };
+            if (xiImpact >= -15) return { text: `${xiImpact}`, color: '#721c24', bg: '#f8d7da' };
+            return { text: `${xiImpact}`, color: '#ffffff', bg: '#e74c3c' };
+        }
+
+        function getRankChangeDisplay(lastRank, rank) {
+            if (!lastRank || lastRank === rank) return { text: '— 0', color: '#666' };
+            const diff = lastRank - rank;
+            if (diff > 0) return { text: `\u2191 ${diff}`, color: '#27ae60' };
+            return { text: `\u2193 ${Math.abs(diff)}`, color: '#e74c3c' };
+        }
+
+        function formatNum(n) {
+            if (!n && n !== 0) return 'N/A';
+            return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        }
+
+        const managers = [...data.allManagers].sort((a, b) => (a.rank || Infinity) - (b.rank || Infinity));
+        const leaderPoints = managers.length > 0 ? managers[0].totalPoints : 0;
+        const fplAvg = 55; // approximate PL-wide average per GW
+        const leagueVsFpl = data.leagueAvg - fplAvg;
+        const leagueVsFplSign = leagueVsFpl >= 0 ? '+' : '';
+        const leagueVsFplColor = leagueVsFpl >= 0 ? '#27ae60' : '#e74c3c';
+
+        const numCenter = 'text-align:center;font-weight:600;font-size:13px;';
+
+        let tableRows = '';
+        managers.forEach((m, i) => {
+            const ptDiff = m.totalPoints - leaderPoints;
+            const ptColor = getPointDiffColor(ptDiff);
+            const rankChange = getRankChangeDisplay(m.lastRank, m.rank);
+            const xiImpactDisplay = getXIImpactDisplay(m.xiImpact);
+            const isTop4 = data.top4.some(t => t.entryId === m.entryId);
+            const isBottom4 = data.bottom4.some(b => b.entryId === m.entryId);
+            const rowBg = i % 2 === 0 ? '#ffffff' : '#f8f9fa';
+            const highlightBg = isTop4 ? 'rgba(0,128,0,0.06)' : isBottom4 ? 'rgba(255,0,0,0.04)' : rowBg;
+
+            tableRows += `<tr style="background:${highlightBg};">
+                <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;${numCenter}">${m.rank}</td>
+                <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;font-size:13px;">${this.escapeHTML(m.managerName)}</td>
+                <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;font-weight:600;font-size:13px;">${this.escapeHTML(m.teamName)}</td>
+                <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;${numCenter}">${formatNum(m.totalPoints)}</td>
+                <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;text-align:center;font-size:13px;color:${rankChange.color};font-weight:600;">${rankChange.text}</td>
+                <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;text-align:center;font-weight:800;font-size:13px;background:${ptColor.bg};color:${ptColor.text};">${ptDiff}</td>
+                <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;${numCenter}">${formatNum(m.overallRank)}</td>
+                <td style="padding:6px 10px;border-bottom:1px solid #e9ecef;${numCenter}">${m.gwPoints}</td>
+                <td style="padding:6px 16px;border-bottom:1px solid #e9ecef;text-align:center;font-weight:800;font-size:13px;background:${xiImpactDisplay.bg};color:${xiImpactDisplay.color};min-width:80px;">${xiImpactDisplay.text}</td>
+            </tr>`;
+        });
+
+        let html = `<div id="gwsummary-image-canvas" style="width:960px;background:#ffffff;font-family:'Inter',system-ui,sans-serif;color:#2c3e50;padding:0;overflow:hidden;">`;
+
+        html += `<div style="background:#1a5276;padding:20px 32px 16px;text-align:center;">
+            <div style="font-size:11px;color:#85c1e9;text-transform:uppercase;letter-spacing:0.1em;font-weight:600;font-family:'JetBrains Mono',monospace;">FPL League Standing</div>
+            <div style="font-size:22px;font-weight:900;color:#ffffff;margin-top:6px;">${this.escapeHTML(data.leagueName)}</div>
+            <div style="font-size:14px;color:#d4e6f1;margin-top:6px;font-weight:600;">GW ${data.gw} • ${data.totalManagers} managers</div>
+            <div style="font-size:13px;color:#aed6f1;margin-top:6px;">
+                League avg: <strong>${data.leagueAvg}</strong> pts
+                <span style="margin:0 8px;color:#5dade2;">|</span>
+                FPL avg: <strong>${fplAvg}</strong> pts
+                <span style="margin:0 8px;color:#5dade2;">|</span>
+                Diff: <strong style="color:${leagueVsFplColor}">${leagueVsFplSign}${leagueVsFpl.toFixed(1)}</strong>
+            </div>
+        </div>`;
+
+        html += `<div style="padding:12px 32px;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+                <tr style="background:#2c3e50;color:#ffffff;">
+                    <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;">Rank</th>
+                    <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.04em;">Manager Name</th>
+                    <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.04em;">Team Name</th>
+                    <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;">Total Pts</th>
+                    <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;">Rank Chg</th>
+                    <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;">Pt Diff</th>
+                    <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;">Overall Rank</th>
+                    <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;">GW Pts</th>
+                    <th style="padding:8px 16px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.04em;min-width:80px;">XI Impact</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${tableRows}
+            </tbody>
+        </table>
+        </div>`;
+
+        html += `<div style="padding:10px 32px;border-top:1px solid #e9ecef;text-align:center;background:#f8f9fa;">
+            <div style="font-size:10px;color:#999;font-family:'JetBrains Mono',monospace;letter-spacing:0.04em;">Generated with <strong>fplmanager.xyz</strong></div>
+        </div>`;
+
+        html += `</div>`;
+        container.innerHTML = html;
+    },
+
+    async renderGWSummaryCanvas() {
+        const el = document.getElementById('gwsummary-image-canvas');
+        if (!el) return null;
+        if (typeof html2canvas === 'undefined') {
+            await new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+        return await html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+    },
+
+    async copyGWSummaryMarkdown() {
+        const data = this.state.gwSummaryData;
+        if (!data) return;
+        try {
+            await navigator.clipboard.writeText(data.markdown);
+        } catch {
+            const box = document.getElementById('gwsummary-markdown-box');
+            if (box) {
+                const range = document.createRange();
+                range.selectNodeContents(box);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+                document.execCommand('copy');
+                sel.removeAllRanges();
+            }
+        }
+        const btn = event?.target?.closest('button');
+        if (btn) {
+            const original = btn.textContent;
+            btn.textContent = 'Copied!';
+            setTimeout(() => { btn.textContent = original; }, 2000);
+        }
+    },
+
+    async copyGWSummaryImage() {
+        const c = await this.renderGWSummaryCanvas();
+        if (!c) return;
+        try {
+            const blob = await new Promise(resolve => c.toBlob(resolve, 'image/png'));
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        } catch {
+            window.open(c.toDataURL('image/png'), '_blank');
+        }
+    },
+
+    async downloadGWSummaryImage() {
+        const c = await this.renderGWSummaryCanvas();
+        if (!c) return;
+        const link = document.createElement('a');
+        link.download = `gw-${this.state.gwSummaryData?.gw || 'summary'}.png`;
+        link.href = c.toDataURL('image/png');
+        link.click();
     },
 
     async loadCustomLeague() {

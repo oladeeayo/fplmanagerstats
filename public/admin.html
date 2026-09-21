@@ -252,55 +252,6 @@
       <div class="pagination" id="managers-pagination"></div>
     </div>
   </div>
-
-    <!-- GW Summary Generator -->
-    <div class="table-card" style="margin-top: 24px;">
-      <div class="table-header">
-        <h3><span class="material-symbols-outlined">chat</span> GW Summary Generator (WhatsApp)</h3>
-      </div>
-      <div style="padding: 16px;">
-        <div class="gw-input-row" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;">
-          <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:120px;">
-            <label style="font-size:10px;color:#8ba396;text-transform:uppercase;font-family:'JetBrains Mono',monospace;">League ID</label>
-            <input type="number" id="gw-league-id" value="110773" style="width:100%;padding:8px 12px;background:#0d1210;border:1px solid #1A2E28;border-radius:8px;color:#fff;font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;box-sizing:border-box;" />
-          </div>
-          <div style="display:flex;flex-direction:column;gap:4px;flex:0 0 auto;">
-            <label style="font-size:10px;color:#8ba396;text-transform:uppercase;font-family:'JetBrains Mono',monospace;">Gameweek</label>
-            <select id="gw-selector" style="padding:8px 12px;background:#0d1210;border:1px solid #1A2E28;border-radius:8px;color:#fff;font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;min-width:80px;">
-            </select>
-          </div>
-          <button onclick="Admin.generateGWSummary()" id="gw-gen-btn" class="gw-gen-btn" style="padding:8px 20px;background:#00ff85;color:#000;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'JetBrains Mono',monospace;white-space:nowrap;">
-            Generate
-          </button>
-        </div>
-        <div id="gw-summary-output" style="display:none;">
-          <div class="gw-output-grid">
-            <!-- Markdown output -->
-            <div>
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span style="font-size:11px;color:#8ba396;font-weight:600;text-transform:uppercase;font-family:'JetBrains Mono',monospace;">WhatsApp Text</span>
-                <button onclick="Admin.copyMarkdown()" id="gw-copy-btn" style="padding:4px 12px;background:rgba(0,255,133,0.12);color:#00ff85;border:1px solid rgba(0,255,133,0.3);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:'JetBrains Mono',monospace;">Copy</button>
-              </div>
-              <div id="gw-markdown-box" style="background:#0d1210;border:1px solid #1A2E28;border-radius:8px;padding:14px;max-height:500px;overflow-y:auto;font-size:13px;line-height:1.7;color:#e0e0e0;white-space:pre-wrap;font-family:Inter,system-ui,sans-serif;"></div>
-            </div>
-            <!-- Image preview -->
-            <div>
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:6px;flex-wrap:wrap;">
-                <span style="font-size:11px;color:#8ba396;font-weight:600;text-transform:uppercase;font-family:'JetBrains Mono',monospace;">Image Preview</span>
-                <div style="display:flex;gap:6px;">
-                  <button onclick="Admin.copyImage()" id="gw-copy-img-btn" style="padding:4px 12px;background:rgba(0,255,133,0.12);color:#00ff85;border:1px solid rgba(0,255,133,0.3);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:'JetBrains Mono',monospace;">Copy Image</button>
-                  <button onclick="Admin.downloadImage()" style="padding:4px 12px;background:rgba(100,150,255,0.12);color:#6496ff;border:1px solid rgba(100,150,255,0.3);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:'JetBrains Mono',monospace;">Download PNG</button>
-                </div>
-              </div>
-              <div id="gw-image-preview" style="background:#0d1210;border:1px solid #1A2E28;border-radius:8px;padding:16px;overflow-x:auto;"></div>
-            </div>
-          </div>
-        </div>
-        <div id="gw-summary-loading" style="display:none;text-align:center;padding:20px;color:#8ba396;">
-          <div class="loading-spinner"></div> Generating summary...
-        </div>
-      </div>
-    </div>
   </div>
 
   <script src="admin.js"></script>

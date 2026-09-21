@@ -4472,6 +4472,12 @@ div.collapsed > .sidebar-section-toggle .sidebar-section-chevron { transform: ro
 .tactics-player-card { position: relative; cursor: pointer; transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; }
 .tactics-player-card:hover { transform: translateY(-2px); }
 
+/* ==================== GW SUMMARY ==================== */
+.gwsummary-grid { grid-template-columns: 1fr 1fr; }
+@media (max-width: 1024px) {
+    .gwsummary-grid { grid-template-columns: 1fr; }
+}
+
 /* ==================== RESIZABLE PANELS ==================== */
 .resizer { position: relative; flex-shrink: 0; z-index: 5; }
 .resizer::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 4px; height: 32px; border-radius: 2px; background: var(--md-sys-color-outline); opacity: 0; transition: opacity var(--transition-fast); }

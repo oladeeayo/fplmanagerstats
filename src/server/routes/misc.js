@@ -11,6 +11,7 @@ const { projectMultiGW, computeRollingFDR, computeRollingForm, mergeProfiles, pr
 const playerProj = require('../playerProjectionModel');
 const oddsModel = require('../oddsProjectionModel');
 const teamStrengthData = require('../teamStrengthData');
+const { computeEffectiveXIImpact } = require('../gwSummary');
 
 const router = express.Router();
 
@@ -375,27 +376,18 @@ router.get('/league-standings/:leagueId', heavyEndpointLimiter, async (req, res)
         const gwPoints = hist?.current?.length > 0 ? hist.current[hist.current.length - 1].points : entry.event_total;
 
         // XI Impact: Points gained/lost from player swaps (added vs removed from XI)
+        // Both XIs are the effective XI AFTER automatic substitutions (post-swap).
         const picksRes = res.value?.picks;
         const transfersRes = res.value?.transfers;
         const gwTransfers = (transfersRes || []).filter(t => t.event === currentGW);
-        let xiImpact = 0;
-        const prevPicks = res.value?.prevGW?.picks || [];
-        const curPicks = picksRes?.picks || [];
-        if (prevPicks.length > 0 && curPicks.length > 0) {
-          const lastXI = new Set(prevPicks.filter(p => p.position <= 11).map(p => p.element));
-          const curXI = new Set(curPicks.filter(p => p.position <= 11).map(p => p.element));
-          const removed = [...lastXI].filter(el => !curXI.has(el));
-          const added = [...curXI].filter(el => !lastXI.has(el));
-          const removedPts = removed.reduce((sum, el) => {
-            const elData = (playerData.elements || []).find(p => p.id === el);
-            return sum + (elData?.event_points || 0);
-          }, 0);
-          const addedPts = added.reduce((sum, el) => {
-            const elData = (playerData.elements || []).find(p => p.id === el);
-            return sum + (elData?.event_points || 0);
-          }, 0);
-          xiImpact = addedPts - removedPts;
-        }
+        const ptsOf3 = el => ((playerData.elements || []).find(p => p.id === el)?.event_points || 0);
+        const xiImpact = computeEffectiveXIImpact(
+          res.value?.prevGW?.picks || [],
+          picksRes?.picks || [],
+          res.value?.prevGW?.automatic_subs,
+          picksRes?.automatic_subs,
+          ptsOf3
+        );
 
         enriched.push({
           rank: entry.rank, entry: entry.entry,
@@ -2182,26 +2174,17 @@ router.get('/leagues-classic/:leagueId/standings', heavyEndpointLimiter, async (
       const detail = managerDetailMap[mId] || {};
 
       // XI Impact: Points gained/lost from player swaps (added vs removed from XI)
+      // Both XIs are the effective XI AFTER automatic substitutions (post-swap).
       const gwTransfers = (transfersMap[mId] || []).filter(t => t.event === currentGW);
-      let xiImpact = 0;
       const prevPicksData = samplePrevPicksMap[mId];
-      const prevPicksList = prevPicksData?.picks || [];
-      const curPicksList = picksData?.picks || [];
-      if (prevPicksList.length > 0 && curPicksList.length > 0) {
-        const lastXI = new Set(prevPicksList.filter(p => p.position <= 11).map(p => p.element));
-        const curXI = new Set(curPicksList.filter(p => p.position <= 11).map(p => p.element));
-        const removed = [...lastXI].filter(el => !curXI.has(el));
-        const added = [...curXI].filter(el => !lastXI.has(el));
-        const removedPts = removed.reduce((sum, el) => {
-          const elData = elements.find(p => p.id === el);
-          return sum + (elData?.event_points || 0);
-        }, 0);
-        const addedPts = added.reduce((sum, el) => {
-          const elData = elements.find(p => p.id === el);
-          return sum + (elData?.event_points || 0);
-        }, 0);
-        xiImpact = addedPts - removedPts;
-      }
+      const ptsOf = el => (elements.find(p => p.id === el)?.event_points || 0);
+      const xiImpact = computeEffectiveXIImpact(
+        prevPicksData?.picks || [],
+        picksData?.picks || [],
+        prevPicksData?.automatic_subs,
+        picksData?.automatic_subs,
+        ptsOf
+      );
 
       return {
         rank: entry.rank || ((page - 1) * pageSize) + index + 1,
@@ -2624,25 +2607,16 @@ router.get('/manager-squad/:managerId', async (req, res) => {
 
 
     // XI Impact: Points gained/lost from player swaps (added vs removed from XI)
+    // Both XIs are the effective XI AFTER automatic substitutions (post-swap).
     const gwTransfers = (transfersData || []).filter(t => t.event === activeGW);
-    let xiImpact = 0;
-    const prevPicksList = prevGWPicksData?.picks || [];
-    const curPicksList = picksData?.picks || [];
-    if (prevPicksList.length > 0 && curPicksList.length > 0) {
-      const lastXI = new Set(prevPicksList.filter(p => p.position <= 11).map(p => p.element));
-      const curXI = new Set(curPicksList.filter(p => p.position <= 11).map(p => p.element));
-      const removed = [...lastXI].filter(el => !curXI.has(el));
-      const added = [...curXI].filter(el => !lastXI.has(el));
-      const removedPts = removed.reduce((sum, el) => {
-        const elData = elementsMap.get(el);
-        return sum + (elData?.event_points || 0);
-      }, 0);
-      const addedPts = added.reduce((sum, el) => {
-        const elData = elementsMap.get(el);
-        return sum + (elData?.event_points || 0);
-      }, 0);
-      xiImpact = addedPts - removedPts;
-    }
+    const ptsOf = el => (elementsMap.get(el)?.event_points || 0);
+    const xiImpact = computeEffectiveXIImpact(
+      prevGWPicksData?.picks || [],
+      picksData?.picks || [],
+      prevGWPicksData?.automatic_subs,
+      picksData?.automatic_subs,
+      ptsOf
+    );
 
     res.json({
       managerId,

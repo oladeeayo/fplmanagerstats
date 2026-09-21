@@ -30,6 +30,7 @@ const decisionRoutes = require('./server/routes/decision');
 const aiTeamRoutes = require('./server/routes/ai-team');
 const ownershipRoutes = require('./server/routes/ownership');
 const miscRoutes = require('./server/routes/misc');
+const gwSummaryRoutes = require('./server/routes/gw-summary');
 const scatterRoutes = require('./server/routes/scatter');
 const { getCachedApiData, BOOTSTRAP_URL, snapshotManager } = require('./server/cache');
 
@@ -92,6 +93,7 @@ app.use('/api/ai-team', aiTeamRoutes);
 app.use('/api', decisionRoutes);
 app.use('/api/ownership', ownershipRoutes);
 app.use('/api', miscRoutes);
+app.use('/api', gwSummaryRoutes);
 app.use('/api', scatterRoutes);
 app.use('/api/admin', adminRoutes);
 

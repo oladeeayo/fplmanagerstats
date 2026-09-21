@@ -14,6 +14,7 @@ export const appRoutes = {
   livecentre: '/live-centre',
   scatter: '/scatter',
   transfers: '/transfers',
+  gwsummary: '/gw-summary',
 } as const;
 
 export type AppTab = keyof typeof appRoutes;
