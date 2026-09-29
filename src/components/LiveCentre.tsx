@@ -40,6 +40,7 @@ interface Fixture {
 interface FDGoal {
   minute: number;
   injuryTime: number | null;
+  side?: 'home' | 'away';
   scorer: { id: number; name: string } | null;
   assist: { id: number; name: string } | null;
   team: { id: number; name: string } | null;
@@ -48,6 +49,7 @@ interface FDGoal {
 interface FDBooking {
   minute: number;
   injuryTime?: number | null;
+  side?: 'home' | 'away';
   player: { id: number; name: string } | null;
   team: { id: number; name: string } | null;
   card: string;
@@ -91,7 +93,7 @@ function isToday(dateStr: string): boolean {
   return new Date(dateStr).toDateString() === new Date().toDateString();
 }
 
-// football-data.org team ID → FPL team ID mapping
+// Provider team ID → FPL team ID mapping (football-data.org IDs, kept for fallback)
 // These are well-known stable IDs for established PL clubs
 const FD_TO_FPL: Record<number, number> = {
   57: 1,   // Arsenal
@@ -112,12 +114,13 @@ const FD_TO_FPL: Record<number, number> = {
   73: 19,  // Tottenham
 };
 
-// TLA-based fallback for teams not in the hardcoded map
+// TLA-based fallback for teams not in the hardcoded map.
+// worldcup26.ir uses MNC (Man City) and MAN (Man Utd) where FPL uses MCI/MUN.
 const FD_TLA_TO_FPL: Record<string, number> = {
   'ARS': 1, 'AVL': 2, 'BOU': 3, 'BRE': 4, 'BHA': 5, 'CHE': 6,
   'COV': 7, 'CRY': 8, 'EVE': 9, 'FUL': 10, 'HUL': 11, 'IPS': 12,
-  'LEE': 13, 'LIV': 14, 'MCI': 15, 'MUN': 16, 'NEW': 17, 'NFO': 18,
-  'TOT': 19, 'SUN': 20,
+  'LEE': 13, 'LIV': 14, 'MCI': 15, 'MNC': 15, 'MUN': 16, 'MAN': 16,
+  'NEW': 17, 'NFO': 18, 'TOT': 19, 'SUN': 20,
 };
 
 function findFPLTeamById(fdTeamId: number, fplTeams: Map<number, Team>, fdTla?: string): Team | undefined {
@@ -127,7 +130,7 @@ function findFPLTeamById(fdTeamId: number, fplTeams: Map<number, Team>, fdTla?: 
     const team = fplTeams.get(fplId);
     if (team) return team;
   }
-  // 2. Try TLA mapping (football-data.org TLA → FPL team ID)
+  // 2. Try TLA mapping (provider TLA → FPL team ID)
   if (fdTla) {
     const tlaFplId = FD_TLA_TO_FPL[fdTla.toUpperCase()];
     if (tlaFplId) {
@@ -136,6 +139,19 @@ function findFPLTeamById(fdTeamId: number, fplTeams: Map<number, Team>, fdTla?: 
     }
   }
   return undefined;
+}
+
+// Events carry an explicit home/away side from the API; fall back to team ID matching
+function teamForSide(
+  side: 'home' | 'away' | undefined,
+  providerTeamId: number | undefined,
+  match: FDMatch,
+  home: Team,
+  away: Team,
+): Team {
+  if (side) return side === 'home' ? home : away;
+  const fplId = providerTeamId != null ? FD_TO_FPL[providerTeamId] : undefined;
+  return fplId === home.id ? home : away;
 }
 
 /* ── Component ─────────────────────────────────────────────────────────── */
@@ -204,13 +220,13 @@ function LiveCentreComponent() {
 
       const todayLive = gwFixtures.filter(f => isLive(f) && isToday(f.kickoff_time));
 
-      // Try to get real event timestamps from football-data.org
+      // Real match minutes and events from the free worldcup26.ir feed
       let fdMatches: FDMatch[] = [];
       try {
         const fdRes = await fetch('/api/match-events');
         const fdData = await fdRes.json();
         fdMatches = fdData.matches || [];
-      } catch { /* football-data.org not available, fall back to FPL ordering */ }
+      } catch { /* live feed not available, fall back to FPL ordering */ }
 
       setHasMatchEvents(fdMatches.length > 0);
 
@@ -218,7 +234,7 @@ function LiveCentreComponent() {
         const rows: FeedRow[] = [];
 
         if (fdMatches.length > 0) {
-          // Use football-data.org events with real timestamps
+          // Use provider events with real timestamps
           for (const fdMatch of fdMatches) {
             const fplTeam = findFPLTeamById(fdMatch.homeTeam.id, teamMap, fdMatch.homeTeam.tla)
               || findFPLTeamById(fdMatch.awayTeam.id, teamMap, fdMatch.awayTeam.tla);
@@ -278,17 +294,8 @@ function LiveCentreComponent() {
 
             const events: Event[] = [];
 
-            // Convert FD team IDs to FPL team IDs for correct comparison
-            const fdHomeFplId = FD_TO_FPL[fdMatch.homeTeam.id]
-              ?? FD_TLA_TO_FPL[fdMatch.homeTeam.tla?.toUpperCase() ?? '']
-              ?? fdMatch.homeTeam.id;
-            const fdAwayFplId = FD_TO_FPL[fdMatch.awayTeam.id]
-              ?? FD_TLA_TO_FPL[fdMatch.awayTeam.tla?.toUpperCase() ?? '']
-              ?? fdMatch.awayTeam.id;
-
             for (const goal of fdMatch.goals) {
-              const goalFplTeamId = FD_TO_FPL[goal.team?.id ?? 0] ?? goal.team?.id;
-              const team = goalFplTeamId === homeTeam.id ? homeTeam : awayTeam;
+              const team = teamForSide(goal.side, goal.team?.id, fdMatch, homeTeam, awayTeam);
               const scorerPlayer = findPlayerByName(goal.scorer?.name ?? '', team.id);
               events.push({
                 minute: goal.minute,
@@ -312,8 +319,7 @@ function LiveCentreComponent() {
             }
 
             for (const booking of fdMatch.bookings) {
-              const bookFplTeamId = FD_TO_FPL[booking.team?.id ?? 0] ?? booking.team?.id;
-              const team = bookFplTeamId === homeTeam.id ? homeTeam : awayTeam;
+              const team = teamForSide(booking.side, booking.team?.id, fdMatch, homeTeam, awayTeam);
               const cardType = booking.card === 'RED' ? 'Red Card' : 'Yellow Card';
               const pts = booking.card === 'RED' ? -3 : -1;
               const bookPlayer = findPlayerByName(booking.player?.name ?? '', team.id);
