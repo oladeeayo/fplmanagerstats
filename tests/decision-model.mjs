@@ -69,6 +69,15 @@ assert.equal(result.lineup.bench.length, 4);
 assert.equal(result.lineup.starters.filter(player => player.position === 'GKP').length, 1);
 assert.ok(result.lineup.starters.filter(player => player.position === 'DEF').length >= 3);
 assert.ok(result.lineup.captain && result.lineup.viceCaptain);
+// Regression: FPL's published bench (pickPosition 12-15) must never leak into the
+// model XI. In this fixture pick 12 is the squad's best MID (id 23), whom the
+// model starts — the old bench-swap logic put him on the pitch AND the bench.
+const xiIds = result.lineup.starters.map(player => player.id);
+const benchIds = result.lineup.bench.map(player => player.id);
+assert.equal(new Set(xiIds).size, 11, 'XI must contain 11 distinct players');
+assert.equal(new Set(benchIds).size, 4, 'bench must contain 4 distinct players');
+assert.ok(xiIds.every(id => !benchIds.includes(id)), 'a player benched in FPL must not also start in the model XI');
+assert.equal(new Set([...xiIds, ...benchIds]).size, 15, 'XI + bench must cover the whole squad exactly once');
 assert.ok(result.transfers.plans.length > 0, 'optimizer should find upgrades for the deliberately weak squad');
 assert.ok(result.transfers.plans.every(plan => plan.netGain > 0 && plan.bankAfter >= 0));
 assert.ok(result.transfers.optimalSquad.valid, 'wildcard benchmark must satisfy FPL squad constraints');

@@ -533,9 +533,13 @@ async function buildDecisionCentre({ bootstrap, fixtures, manager, picks, histor
   } catch (e) { /* silent fallback */ }
 
   const lineup = selectLineup(squad, strategy);
-  // Preserve FPL's actual bench arrangement (positions 12-15) rather than re-sorting by score
+  // Preserve FPL's actual bench arrangement (positions 12-15) rather than re-sorting by
+  // score — but only when FPL's benched players are exactly the model's bench. If the
+  // model's best XI differs from the user's actual FPL XI, reusing FPL's bench would
+  // put a benched player on both the pitch and the bench.
   const fplBench = squad.filter(p => p.pickPosition > 11).sort((a, b) => a.pickPosition - b.pickPosition);
-  if (fplBench.length === lineup.bench.length) lineup.bench = fplBench;
+  const modelBenchIds = new Set(lineup.bench.map(p => p.id));
+  if (fplBench.length === lineup.bench.length && fplBench.every(p => modelBenchIds.has(p.id))) lineup.bench = fplBench;
   const transferPlans = buildTransferPlans({ squad, allPlayers: projectionData.projections, bank, freeTransfers, strategy, currentGW, horizon });
   const optimalSquad = buildOptimalSquad(projectionData.projections.filter(player => player.availability >= 50), Number(options.budget) || 100, strategy);
   const chips = buildChipPlan({ squad, gameweeks: projectionData.gameweeks, usedChips: (history.chips || []).map(chip => chip.name), strategy });
