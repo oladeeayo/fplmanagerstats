@@ -85,6 +85,7 @@ const FPL = {
         managerLookup: (id) => `/api/manager-lookup/${id}`,
         managerLeagues: (id) => `/api/manager-leagues/${id}`,
         scatterData: '/api/scatter-data',
+        scatterBoxTouches: '/api/scatter-box-touches',
     },
 
     _pendingFetches: new Map(),
@@ -9412,6 +9413,70 @@ const FPL = {
         return data;
     },
 
+    async loadScatterBoxTouches() {
+        const cacheKey = 'scatter-box-touches';
+        let data = this.getCachedTabData(cacheKey);
+        if (!data) {
+            try {
+                data = await this.apiFetch(this.API.scatterBoxTouches);
+                this.setCachedTabData(cacheKey, data);
+            } catch (err) {
+                console.error('Box touches fetch error:', err);
+                return null;
+            }
+        }
+        this.state.scatterBoxTouchesData = data;
+        return data;
+    },
+
+    // Build the searchable player list for the box-touches chart filter
+    _renderScatterPlayerFilter() {
+        const wrap = document.getElementById('scatter-player-filter');
+        const list = document.getElementById('scatter-player-filter-list');
+        if (!wrap || !list) return;
+        const config = this._getScatterConfig();
+        if (config.id !== 'player-box-touches') {
+            wrap.style.display = 'none';
+            return;
+        }
+        wrap.style.display = 'flex';
+        const data = this.state.scatterBoxTouchesData;
+        const items = (data?.players || []).filter(p => !this.state.scatterPosFilter || this.state.scatterPosFilter === 'all' || p.position === this.state.scatterPosFilter);
+        list.innerHTML = items.map(p => `<button type="button" class="scatter-player-chip" data-player-id="${p.id}" onclick="FPL.filterScatterPlayer(${p.id})">${this.escapeHTML(p.name)}</button>`).join('');
+    },
+
+    filterScatterPlayer(playerId) {
+        this.state.scatterPlayerFilter = this.state.scatterPlayerFilter === playerId ? null : playerId;
+        document.querySelectorAll('.scatter-player-chip').forEach(chip => {
+            chip.classList.toggle('active', Number(chip.dataset.playerId) === this.state.scatterPlayerFilter);
+        });
+        const input = document.getElementById('scatter-player-filter-input');
+        if (input) input.value = '';
+        this._applyScatterPlayerSearch('');
+        this.drawScatterChart();
+        this.renderScatterTable();
+    },
+
+    _applyScatterPlayerSearch(query) {
+        const q = String(query || '').trim().toLowerCase();
+        document.querySelectorAll('.scatter-player-chip').forEach(chip => {
+            const name = chip.textContent || '';
+            chip.style.display = !q || name.toLowerCase().includes(q) ? '' : 'none';
+        });
+    },
+
+    _getScatterPlayerItems() {
+        const data = this.state.scatterBoxTouchesData;
+        let items = [...(data?.players || [])];
+        if (this.state.scatterPosFilter && this.state.scatterPosFilter !== 'all') {
+            items = items.filter(p => p.position === this.state.scatterPosFilter);
+        }
+        if (this.state.scatterPlayerFilter) {
+            items = items.filter(p => p.id === this.state.scatterPlayerFilter);
+        }
+        return items;
+    },
+
     async renderScatter() {
         // Show loading state
         const canvas = document.getElementById('scatter-canvas');
@@ -9447,6 +9512,10 @@ const FPL = {
         }
         this.state.scatterChartType = this.state.scatterChartType || 'team-xg-goals';
         this.state.scatterPosFilter = this.state.scatterPosFilter || 'all';
+        if (this.state.scatterChartType === 'player-box-touches') {
+            await this.loadScatterBoxTouches();
+        }
+        this._renderScatterPlayerFilter();
         this.drawScatterChart();
         this.renderScatterTable();
         // Set up resize redraw (debounced)
@@ -9478,8 +9547,34 @@ const FPL = {
         if (posFilter) {
             posFilter.style.display = chartType.startsWith('player-') ? 'flex' : 'none';
         }
-        this.drawScatterChart();
-        this.renderScatterTable();
+        // Reset player filter when switching charts
+        this.state.scatterPlayerFilter = null;
+        const playerFilter = document.getElementById('scatter-player-filter-input');
+        if (playerFilter) playerFilter.value = '';
+        const chartChangedToBoxTouches = chartType === 'player-box-touches';
+        const proceed = () => {
+            this.drawScatterChart();
+            this.renderScatterTable();
+        };
+        if (chartChangedToBoxTouches && !this.state.scatterBoxTouchesData) {
+            const canvas = document.getElementById('scatter-canvas');
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                const w = canvas.getBoundingClientRect().width || 400;
+                ctx.clearRect(0, 0, w, 300);
+                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                ctx.font = '14px "Plus Jakarta Sans", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Loading Opta box touch data...', w / 2, 150);
+            }
+            this.loadScatterBoxTouches().then(() => {
+                this._renderScatterPlayerFilter();
+                proceed();
+            });
+        } else {
+            this._renderScatterPlayerFilter();
+            proceed();
+        }
     },
 
     filterScatterPos(pos) {
@@ -9487,6 +9582,9 @@ const FPL = {
         document.querySelectorAll('.scatter-pos-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.pos === pos);
         });
+        // Rebuild player chips for the new position set and drop any stale selection
+        this.state.scatterPlayerFilter = null;
+        this._renderScatterPlayerFilter();
         this.drawScatterChart();
         this.renderScatterTable();
     },
@@ -9494,6 +9592,17 @@ const FPL = {
     _getScatterConfig() {
         const chartType = this.state.scatterChartType || 'team-xg-goals';
         const configs = {
+            'player-box-touches': {
+                id: 'player-box-touches',
+                isTeam: false,
+                title: 'xGI vs Touches in Opposition Box (Players)',
+                subtitle: 'Who is actually getting on the ball where it hurts. Top-right = high xGI with heavy box presence.',
+                xKey: 'xGI', yKey: 'touches',
+                xLabel: 'Expected Goal Involvements (xGI)', yLabel: 'Touches in Opposition Box',
+                xField: 'xGI', yField: 'touches',
+                useLogos: false, usePhotos: true,
+                filterByMinutes: 0,
+            },
             'team-xg-goals': {
                 isTeam: true,
                 title: 'xG vs Goals (Teams)',
@@ -9567,8 +9676,10 @@ const FPL = {
         }
 
         // Get items
-        let items = config.isTeam ? (data.teams || []) : (data.players || []);
-        if (!config.isTeam && this.state.scatterPosFilter && this.state.scatterPosFilter !== 'all') {
+        let items = config.id === 'player-box-touches'
+            ? this._getScatterPlayerItems()
+            : (config.isTeam ? (data.teams || []) : (data.players || []));
+        if (!config.isTeam && config.id !== 'player-box-touches' && this.state.scatterPosFilter && this.state.scatterPosFilter !== 'all') {
             items = items.filter(p => p.position === this.state.scatterPosFilter);
         }
 
@@ -9730,12 +9841,16 @@ const FPL = {
             // Mobile teams or all players: draw colored dots
             const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
             const teamColors = ['#00FF85','#38BDF8','#FF6B9D','#FBBF24','#A78BFA','#F97316','#14B8A6','#EF4444','#8B5CF6','#06B6D4','#84CC16','#E879F9','#FB923C','#22D3EE','#F43F5E','#34D399','#818CF8','#FCD34D','#6EE7B7','#FCA5A5'];
+            const isBoxTouches = config.id === 'player-box-touches';
+            const maxTouches = isBoxTouches ? Math.max(1, ...items.map(p => p.touches || 0)) : 0;
             this._scatterHoverData = [];
             items.forEach((item, idx) => {
                 const x = toX(item[config.xField] || 0);
                 const y = toY(item[config.yField] || 0);
                 const color = config.isTeam ? teamColors[idx % teamColors.length] : (posColors[item.position] || '#B0B0B0');
-                const radius = config.isTeam ? (isMobile ? 8 : Math.min(7, Math.max(3, 2 + (item.totalPoints || 0) / 15))) : Math.min(7, Math.max(3, 2 + (item.totalPoints || 0) / 15));
+                const radius = isBoxTouches
+                    ? Math.min(9, Math.max(3, 3 + 6 * Math.sqrt((item.touches || 0) / maxTouches)))
+                    : (config.isTeam ? (isMobile ? 8 : Math.min(7, Math.max(3, 2 + (item.totalPoints || 0) / 15))) : Math.min(7, Math.max(3, 2 + (item.totalPoints || 0) / 15)));
 
                 // Glow
                 ctx.beginPath();
@@ -9755,8 +9870,8 @@ const FPL = {
                 this._scatterHoverData.push({ x, y, r: radius + (isMobile ? 4 : 3), item, config });
 
                 // Label — on mobile only label top outliers; on desktop label if notable and few items
-                const isOutlier = item[config.xField] > xMean * 1.5 || item[config.yField] > yMean * 1.5 || item.totalPoints > yMean * 2;
-                if (isOutlier && (isMobile ? idx < 8 : items.length < 50)) {
+                const isOutlier = item[config.xField] > xMean * 1.5 || item[config.yField] > yMean * 1.5 || (isBoxTouches && item.touches >= maxTouches * 0.55) || (!isBoxTouches && item.totalPoints > yMean * 2);
+                if (isOutlier && (isMobile ? idx < 8 : (isBoxTouches ? items.length < 80 : items.length < 50))) {
                     ctx.font = (isMobile ? '8px' : '10px') + ' "Plus Jakarta Sans", sans-serif';
                     ctx.fillStyle = 'rgba(255,255,255,0.7)';
                     ctx.textAlign = 'center';
@@ -9894,7 +10009,11 @@ const FPL = {
                     html += `<div style="color:${posColor};font-size:10px;font-family:var(--font-mono);margin-bottom:6px;"><span style="padding:1px 4px;border-radius:3px;background:${posColor}20;">${item.position}</span> ${item.team} · £${item.cost?.toFixed(1) || '?'}m</div>`;
                     html += `<div style="color:#8ba396;font-family:var(--font-mono);font-size:11px;">${config.xLabel}: <b style="color:#00FF85;">${item[config.xField]}</b></div>`;
                     html += `<div style="color:#8ba396;font-family:var(--font-mono);font-size:11px;">${config.yLabel}: <b style="color:#00FF85;">${item[config.yField]}</b></div>`;
-                    html += `<div style="color:#8ba396;font-family:var(--font-mono);font-size:11px;margin-top:4px;">Pts: <b style="color:#fff;">${item.totalPoints}</b> · Mins: ${item.minutes} · Bonus: ${item.bonus}</div>`;
+                    if (config.id === 'player-box-touches') {
+                        html += `<div style="color:#8ba396;font-family:var(--font-mono);font-size:11px;margin-top:4px;">Touches/90: <b style="color:#fff;">${(item.touchesPer90 || 0).toFixed(1)}</b> · Apps: ${item.appearances ?? '-'} · Mins: ${item.minutesFpl ?? '-'}</div>`;
+                    } else {
+                        html += `<div style="color:#8ba396;font-family:var(--font-mono);font-size:11px;margin-top:4px;">Pts: <b style="color:#fff;">${item.totalPoints}</b> · Mins: ${item.minutes} · Bonus: ${item.bonus}</div>`;
+                    }
                 }
                 tooltip.innerHTML = html;
                 tooltip.style.display = 'block';
@@ -9944,8 +10063,10 @@ const FPL = {
         const data = this.state.scatterData;
         if (!data) return;
 
-        let items = config.isTeam ? (data.teams || []) : (data.players || []);
-        if (!config.isTeam && this.state.scatterPosFilter && this.state.scatterPosFilter !== 'all') {
+        let items = config.id === 'player-box-touches'
+            ? this._getScatterPlayerItems()
+            : (config.isTeam ? (data.teams || []) : (data.players || []));
+        if (!config.isTeam && config.id !== 'player-box-touches' && this.state.scatterPosFilter && this.state.scatterPosFilter !== 'all') {
             items = items.filter(p => p.position === this.state.scatterPosFilter);
         }
 
@@ -9971,6 +10092,7 @@ const FPL = {
         if (countEl) countEl.textContent = `${items.length} items`;
 
         const posColors = { GKP: '#FFD700', DEF: '#4FC3F7', MID: '#81C784', FWD: '#E57373' };
+        const isBoxTouches = config.id === 'player-box-touches';
         const sortIcon = (key) => {
             const isActive = this.state.scatterSortKey === key;
             const arrow = (isActive && this.state.scatterSortDir === 1) ? 'arrow_upward' : 'arrow_downward';
@@ -10009,7 +10131,7 @@ const FPL = {
                 <th style="${thStyle()}" onclick="FPL.sortScatterTable('${config.yField}')">${config.yLabel} ${sortIcon(config.yField)}</th>
                 <th style="${thStyle()}" onclick="FPL.sortScatterTable('diff')">Diff ${sortIcon('diff')}</th>
                 <th style="${thStyle()}" onclick="FPL.sortScatterTable('totalPoints')">Pts ${sortIcon('totalPoints')}</th>
-                <th style="${thStyle()}" onclick="FPL.sortScatterTable('cost')">Cost ${sortIcon('cost')}</th>
+                ${isBoxTouches ? `<th style="${thStyle()}" onclick="FPL.sortScatterTable('touchesPer90')">Touches/90 ${sortIcon('touchesPer90')}</th>` : `<th style="${thStyle()}" onclick="FPL.sortScatterTable('cost')">Cost ${sortIcon('cost')}</th>`}
             </tr>`;
             tbody.innerHTML = items.slice(0, isTblMobile ? 30 : 60).map((item, idx) => {
                 const diff = (item[config.yField] || 0) - (item[config.xField] || 0);
@@ -10032,7 +10154,9 @@ const FPL = {
                     <td style="text-align:center;font-family:var(--font-mono);font-weight:700;color:#00FF85;">${item[config.yField]}</td>
                     <td style="text-align:center;font-family:var(--font-mono);font-weight:700;color:${diffColor};">${diffStr}</td>
                     <td style="text-align:center;font-family:var(--font-mono);font-weight:700;color:#fff;">${item.totalPoints}</td>
-                    <td style="text-align:center;font-family:var(--font-mono);color:#B0B0B0;">£${(item.cost || 0).toFixed(1)}m</td>
+                    ${isBoxTouches
+                        ? `<td style="text-align:center;font-family:var(--font-mono);color:#B0B0B0;">${(item.touchesPer90 || 0).toFixed(1)}</td>`
+                        : `<td style="text-align:center;font-family:var(--font-mono);color:#B0B0B0;">£${(item.cost || 0).toFixed(1)}m</td>`}
                 </tr>`;
             }).join('');
         }

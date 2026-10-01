@@ -1,7 +1,42 @@
 const express = require('express');
 const { getCachedApiData, BOOTSTRAP_URL } = require('../cache');
+const { buildBoxTouchesData } = require('../boxTouches');
 
 const router = express.Router();
+
+// In-process cache: Opta box touches only change after matches finish
+let boxTouchesCache = null;
+const BOX_TOUCHES_TTL = 3 * 60 * 60 * 1000; // 3 hours
+
+/**
+ * GET /api/scatter-box-touches
+ * Player xGI vs touches in the opposition box (Premier League/Opta data),
+ * matched onto FPL players.
+ */
+router.get('/scatter-box-touches', async (req, res) => {
+  try {
+    const bootstrap = await getCachedApiData(BOOTSTRAP_URL, 5 * 60 * 1000);
+    if (!bootstrap) {
+      return res.status(503).json({ error: 'FPL data unavailable' });
+    }
+
+    if (boxTouchesCache && Date.now() - boxTouchesCache.timestamp < BOX_TOUCHES_TTL) {
+      return res.json({ ...boxTouchesCache, cached: true });
+    }
+
+    const data = await buildBoxTouchesData(getCachedApiData, bootstrap);
+    if (!data.players.length) {
+      return res.status(502).json({ error: 'No box touch data available from Premier League' });
+    }
+    boxTouchesCache = data;
+    res.json(data);
+  } catch (err) {
+    console.error('Scatter box touches error:', err);
+    // Serve stale data rather than failing the tab
+    if (boxTouchesCache) return res.json({ ...boxTouchesCache, cached: true, stale: true });
+    res.status(500).json({ error: 'Failed to compute box touch data' });
+  }
+});
 
 /**
  * GET /api/scatter-data

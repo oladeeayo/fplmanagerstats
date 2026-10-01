@@ -158,6 +158,25 @@ Track ownership shifts over time.
 
 ---
 
+### 9. Scatter Tab
+Interactive expected-vs-actual scatter plots for teams and players.
+
+#### Features:
+- **Chart Types** - Toggle between:
+  - xG vs Goals (Teams)
+  - xGI vs Goal Involvements (Teams)
+  - xGI vs Goal Involvements (Players)
+  - xG vs Goals (Players)
+  - ICT Index vs Total Points (Players)
+  - xGC vs Goals Conceded (Teams)
+  - **xGI vs Touches in Opposition Box (Players)** - Opta data from premierleague.com showing who combines box presence with expected returns; bubble size scales with touches, position filter and a searchable per-player filter (click chips to isolate a player).
+- **Position Filter** - GKP/DEF/MID/FWD for player charts
+- **Player Filter** (box touches chart) - Text search plus clickable player chips; players without a box touch this season are excluded
+- **Canvas Chart** - Reference diagonal, mean-cross quadrants, position-colored dots, player photos as hover tooltips, mobile-friendly sizing
+- **Data Table** - Sortable table with xGI, touches, diff, points and touches/90
+
+---
+
 ## API Endpoints
 
 | Endpoint | Method | Description |
@@ -170,6 +189,7 @@ Track ownership shifts over time.
 | `/api/price-changes` | GET | Top 15 risers and fallers |
 | `/api/league-standings/:leagueId` | GET | Enriched league standings |
 | `/api/zone-analysis?gw=N` | GET | Per-match zone analysis |
+| `/api/scatter-box-touches` | GET | Player xGI vs touches in opposition box (Opta SDP leaderboard, cached 3h, matched to FPL by name+team) |
 | `/api/fixtures-detail?gw=N` | GET | Next 5 GW fixtures for all teams |
 | `/api/captain-picks?gw=N` | GET | Captain recommendations by xPts |
 | `/api/ownership/history` | GET | Ownership snapshot history |
@@ -180,6 +200,7 @@ Track ownership shifts over time.
 ## Data Sources
 
 - **FPL API** - Official Fantasy Premier League API (proxied through backend)
+- **Premier League / Opta SDP API** - Player season leaderboards (e.g. touches in the opposition box) behind premierleague.com stats pages
 - **Neon PostgreSQL** - Ownership snapshot storage
 - **Vercel** - Hosting and serverless functions
 

@@ -157,6 +157,52 @@
             color: #00FF85;
             border-color: rgba(0,255,133,0.4);
         }
+        .scatter-player-chip-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            max-height: 96px;
+            overflow-y: auto;
+            width: 100%;
+            max-width: 640px;
+            padding: 2px;
+        }
+        .scatter-player-chip {
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: transparent;
+            color: #B0B0B0;
+            font-size: 11px;
+            font-family: var(--font-mono);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.15s;
+        }
+        .scatter-player-chip:hover {
+            background: rgba(0,255,133,0.08);
+            color: #00FF85;
+        }
+        .scatter-player-chip.active {
+            background: rgba(0,255,133,0.16);
+            color: #00FF85;
+            border-color: rgba(0,255,133,0.4);
+        }
+        .scatter-player-clear {
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: transparent;
+            color: #B0B0B0;
+            font-size: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.15s;
+        }
+        .scatter-player-clear:hover {
+            background: rgba(0,255,133,0.08);
+            color: #00FF85;
+        }
         .stat-detail { font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); margin-top: var(--space-xs); }
         .own-pos-btn { background: transparent; color: var(--md-sys-color-on-surface-variant); border: 1px solid transparent; padding: 5px 14px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all var(--transition-fast); }
         .own-pos-btn:hover { color: var(--md-sys-color-on-surface); background: rgba(255,255,255,0.08); }
@@ -1529,6 +1575,9 @@
                         <button class="scatter-type-btn" data-chart="player-ict-pts" onclick="FPL.switchScatterChart('player-ict-pts')">
                             <span class="material-symbols-outlined" style="font-size:18px;">person</span> ICT vs Points (Players)
                         </button>
+                        <button class="scatter-type-btn" data-chart="player-box-touches" onclick="FPL.switchScatterChart('player-box-touches')">
+                            <span class="material-symbols-outlined" style="font-size:18px;">person</span> xGI vs Box Touches (Players)
+                        </button>
                         <button class="scatter-type-btn" data-chart="team-xgc-conceded" onclick="FPL.switchScatterChart('team-xgc-conceded')">
                             <span class="material-symbols-outlined" style="font-size:18px;">sports_soccer</span> xGC vs Conceded (Teams)
                         </button>
@@ -1542,6 +1591,15 @@
                         <button class="scatter-pos-btn" data-pos="DEF" onclick="FPL.filterScatterPos('DEF')">DEF</button>
                         <button class="scatter-pos-btn" data-pos="MID" onclick="FPL.filterScatterPos('MID')">MID</button>
                         <button class="scatter-pos-btn" data-pos="FWD" onclick="FPL.filterScatterPos('FWD')">FWD</button>
+                    </div>
+
+                    <!-- Player Filter (box touches chart) -->
+                    <div id="scatter-player-filter" style="display:none;gap:8px;margin-bottom:16px;align-items:flex-start;flex-direction:column;">
+                        <div style="display:flex;gap:8px;width:100%;max-width:420px;align-items:center;">
+                            <input id="scatter-player-filter-input" type="text" placeholder="Filter players..." autocomplete="off" oninput="FPL._applyScatterPlayerSearch(this.value)" style="flex:1;padding:8px 12px;border-radius:10px;border:1px solid var(--md-sys-color-outline-variant);background:var(--md-sys-color-surface-container);color:var(--md-sys-color-on-surface);font-size:13px;outline:none;">
+                            <button type="button" class="scatter-player-clear" onclick="FPL.filterScatterPlayer(FPL.state.scatterPlayerFilter)">Clear</button>
+                        </div>
+                        <div id="scatter-player-filter-list" class="scatter-player-chip-list" aria-label="Player filter chips"></div>
                     </div>
 
                     <!-- Chart Container -->
