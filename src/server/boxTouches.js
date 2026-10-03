@@ -10,6 +10,7 @@ const TOUCHES_STAT = 'totalTouchesInOppositionBox';
 const SEASON_ID = '2026'; // SDP season ids are start-year based (2026 = 2026/27)
 const PAGE_SIZE = 100;
 const MAX_PAGES = 25; // ~1000 players covers every player with a box touch
+const TOP_PLAYERS = 60; // keep only the heaviest box-touch outfielders
 
 // Team short-name aliases between SDP (Opta) and FPL bootstrap
 const TEAM_ALIASES = {
@@ -120,6 +121,7 @@ async function buildBoxTouchesData(getCachedApiData, bootstrap) {
       logger.warn({ player: row.name }, 'Box touches: no FPL match for player');
       continue;
     }
+    if (el.element_type === 1) continue; // keepers don't contest the opposition box
     matchedCount++;
     const team = fplTeamsById.get(el.team);
     const posMap = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
@@ -149,6 +151,7 @@ async function buildBoxTouchesData(getCachedApiData, bootstrap) {
   }
 
   players.sort((a, b) => b.touches - a.touches);
+  const top = players.slice(0, TOP_PLAYERS);
   const currentEvent = (bootstrap.events || []).find(e => e.is_current);
   const nextEvent = (bootstrap.events || []).find(e => e.is_next);
 
@@ -156,7 +159,7 @@ async function buildBoxTouchesData(getCachedApiData, bootstrap) {
     stat: TOUCHES_STAT,
     source: 'premierleague.com (Opta SDP leaderboard)',
     matchedCount,
-    players,
+    players: top,
     currentGW: currentEvent?.id || nextEvent?.id || 1,
     timestamp: Date.now(),
   };

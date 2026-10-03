@@ -1593,6 +1593,12 @@
                         <button class="scatter-pos-btn" data-pos="FWD" onclick="FPL.filterScatterPos('FWD')">FWD</button>
                     </div>
 
+                    <!-- Club Filter (box touches chart) -->
+                    <div id="scatter-club-filter" style="display:none;gap:6px;margin-bottom:16px;align-items:center;">
+                        <span style="font-size:11px;color:var(--md-sys-color-on-surface-variant);font-weight:700;text-transform:uppercase;font-family:var(--font-mono);margin-right:4px;">Club:</span>
+                        <select id="scatter-club-filter-select" onchange="FPL.filterScatterClub(this.value)" style="padding:6px 10px;border-radius:8px;border:1px solid var(--md-sys-color-outline-variant);background:var(--md-sys-color-surface-container);color:var(--md-sys-color-on-surface);font-size:12px;font-family:var(--font-mono);outline:none;"></select>
+                    </div>
+
                     <!-- Player Filter (box touches chart) -->
                     <div id="scatter-player-filter" style="display:none;gap:8px;margin-bottom:16px;align-items:flex-start;flex-direction:column;">
                         <div style="display:flex;gap:8px;width:100%;max-width:420px;align-items:center;">

@@ -9435,14 +9435,45 @@ const FPL = {
         const list = document.getElementById('scatter-player-filter-list');
         if (!wrap || !list) return;
         const config = this._getScatterConfig();
+        this._populateScatterClubFilter();
         if (config.id !== 'player-box-touches') {
             wrap.style.display = 'none';
             return;
         }
         wrap.style.display = 'flex';
         const data = this.state.scatterBoxTouchesData;
-        const items = (data?.players || []).filter(p => !this.state.scatterPosFilter || this.state.scatterPosFilter === 'all' || p.position === this.state.scatterPosFilter);
+        const club = this.state.scatterClubFilter;
+        const items = (data?.players || []).filter(p => (!this.state.scatterPosFilter || this.state.scatterPosFilter === 'all' || p.position === this.state.scatterPosFilter)
+            && (!club || club === 'all' || String(p.teamId) === String(club)));
         list.innerHTML = items.map(p => `<button type="button" class="scatter-player-chip" data-player-id="${p.id}" onclick="FPL.filterScatterPlayer(${p.id})">${this.escapeHTML(p.name)}</button>`).join('');
+    },
+
+    // Populate the club dropdown for the box-touches chart (hidden on other charts)
+    _populateScatterClubFilter() {
+        const wrap = document.getElementById('scatter-club-filter');
+        const select = document.getElementById('scatter-club-filter-select');
+        if (!wrap || !select) return;
+        const config = this._getScatterConfig();
+        if (config.id !== 'player-box-touches') {
+            wrap.style.display = 'none';
+            return;
+        }
+        wrap.style.display = 'flex';
+        const clubs = [...new Map((this.state.scatterBoxTouchesData?.players || []).map(p => [String(p.teamId), p.team])).entries()]
+            .sort((a, b) => String(a[1]).localeCompare(String(b[1])));
+        if (!this.state.scatterClubFilter || (this.state.scatterClubFilter !== 'all' && !clubs.some(([id]) => id === String(this.state.scatterClubFilter)))) {
+            this.state.scatterClubFilter = 'all';
+        }
+        const current = this.state.scatterClubFilter;
+        select.innerHTML = `<option value="all">All clubs</option>${clubs.map(([id, name]) => `<option value="${id}"${current === id ? ' selected' : ''}>${this.escapeHTML(name)}</option>`).join('')}`;
+    },
+
+    filterScatterClub(clubId) {
+        this.state.scatterClubFilter = clubId || 'all';
+        this.state.scatterPlayerFilter = null;
+        this._renderScatterPlayerFilter();
+        this.drawScatterChart();
+        this.renderScatterTable();
     },
 
     filterScatterPlayer(playerId) {
@@ -9470,6 +9501,10 @@ const FPL = {
         let items = [...(data?.players || [])];
         if (this.state.scatterPosFilter && this.state.scatterPosFilter !== 'all') {
             items = items.filter(p => p.position === this.state.scatterPosFilter);
+        }
+        const club = this.state.scatterClubFilter;
+        if (club && club !== 'all') {
+            items = items.filter(p => String(p.teamId) === String(club));
         }
         if (this.state.scatterPlayerFilter) {
             items = items.filter(p => p.id === this.state.scatterPlayerFilter);
@@ -9546,6 +9581,13 @@ const FPL = {
         const posFilter = document.getElementById('scatter-pos-filter');
         if (posFilter) {
             posFilter.style.display = chartType.startsWith('player-') ? 'flex' : 'none';
+        }
+        // Box touches is outfield-only: hide the GKP option (and drop a stale GKP selection)
+        const gkpBtn = document.querySelector('.scatter-pos-btn[data-pos="GKP"]');
+        if (gkpBtn) gkpBtn.style.display = chartType === 'player-box-touches' ? 'none' : '';
+        if (chartType === 'player-box-touches' && this.state.scatterPosFilter === 'GKP') {
+            this.state.scatterPosFilter = 'all';
+            document.querySelectorAll('.scatter-pos-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.pos === 'all'));
         }
         // Reset player filter when switching charts
         this.state.scatterPlayerFilter = null;

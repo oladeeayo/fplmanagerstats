@@ -169,7 +169,7 @@ Interactive expected-vs-actual scatter plots for teams and players.
   - xG vs Goals (Players)
   - ICT Index vs Total Points (Players)
   - xGC vs Goals Conceded (Teams)
-  - **xGI vs Touches in Opposition Box (Players)** - Opta data from premierleague.com showing who combines box presence with expected returns; bubble size scales with touches, position filter and a searchable per-player filter (click chips to isolate a player).
+  - **xGI vs Touches in Opposition Box (Players)** - Opta data from premierleague.com showing who combines box presence with expected returns; top 60 outfielders by touches, bubble size scales with touches, position filter (outfield only), club filter and a searchable per-player filter (click chips to isolate a player).
 - **Position Filter** - GKP/DEF/MID/FWD for player charts
 - **Player Filter** (box touches chart) - Text search plus clickable player chips; players without a box touch this season are excluded
 - **Canvas Chart** - Reference diagonal, mean-cross quadrants, position-colored dots, player photos as hover tooltips, mobile-friendly sizing
@@ -189,7 +189,7 @@ Interactive expected-vs-actual scatter plots for teams and players.
 | `/api/price-changes` | GET | Top 15 risers and fallers |
 | `/api/league-standings/:leagueId` | GET | Enriched league standings |
 | `/api/zone-analysis?gw=N` | GET | Per-match zone analysis |
-| `/api/scatter-box-touches` | GET | Player xGI vs touches in opposition box (Opta SDP leaderboard, cached 3h, matched to FPL by name+team) |
+| `/api/scatter-box-touches` | GET | Top 60 outfield players by touches in opposition box vs xGI (Opta SDP leaderboard, cached 3h, matched to FPL by name+team) |
 | `/api/fixtures-detail?gw=N` | GET | Next 5 GW fixtures for all teams |
 | `/api/captain-picks?gw=N` | GET | Captain recommendations by xPts |
 | `/api/ownership/history` | GET | Ownership snapshot history |
