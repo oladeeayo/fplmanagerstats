@@ -12,6 +12,7 @@ const playerProj = require('../playerProjectionModel');
 const oddsModel = require('../oddsProjectionModel');
 const teamStrengthData = require('../teamStrengthData');
 const { computeEffectiveXIImpact } = require('../gwSummary');
+const { isTransferNews } = require('../newsFilter');
 
 const router = express.Router();
 
@@ -2825,7 +2826,7 @@ router.get('/dashboard/overview', async (req, res) => {
     ];
 
     const injuryNews = [...elements]
-      .filter(p => p.news && p.news.trim() !== '' && (p.status === 'i' || p.status === 's' || p.status === 'd' || p.status === 'u'))
+      .filter(p => p.news && p.news.trim() !== '' && !isTransferNews(p.news) && (p.status === 'i' || p.status === 's' || p.status === 'd' || p.status === 'u'))
       .sort((a, b) => {
         const statusOrder = { i: 0, s: 1, d: 2, u: 3 };
         return (statusOrder[a.status] || 4) - (statusOrder[b.status] || 4);
@@ -3494,7 +3495,7 @@ router.get('/injury-news', async (req, res) => {
     };
 
     const injuries = elements
-      .filter(p => p.status !== 'a' && p.status !== 'r')
+      .filter(p => p.status !== 'a' && p.status !== 'r' && !isTransferNews(p.news))
       .map(p => ({
         id: p.id, name: p.web_name, code: p.code,
         team: getTeam(p.team)?.short_name || '',

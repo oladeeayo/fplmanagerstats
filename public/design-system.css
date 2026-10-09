@@ -4683,6 +4683,7 @@ div.collapsed > .sidebar-section-toggle .sidebar-section-chevron { transform: ro
 .tn-row-name { font-size: 15px; font-weight: 700; color: #ffffff; }
 .tn-row-pos { font-family: var(--font-mono); font-size: 11px; color: #8ba396; }
 .tn-row-injury { font-size: 12px; color: #FFA600; background: #FFA60015; padding: 1px 6px; border-radius: 3px; }
+.tn-row-new { font-family: var(--font-mono); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #00FF85; background: #00FF8515; padding: 1px 6px; border-radius: 3px; }
 .tn-row-chance { font-family: var(--font-mono); font-size: 12px; font-weight: 600; margin-left: auto; }
 .tn-row-news { font-size: 14px; color: #ffffff; line-height: 1.6; margin-top: 4px; padding-left: 0; font-weight: 400; letter-spacing: 0.01em; }
 .tn-row-quote { font-size: 14px; color: #00FF85; line-height: 1.55; margin-top: 5px; padding: 7px 9px; background: #00FF8508; border-left: 2px solid #00FF8540; border-radius: 0 4px 4px 0; font-style: italic; }

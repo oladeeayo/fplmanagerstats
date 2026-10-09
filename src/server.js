@@ -102,6 +102,7 @@ let lastTeamNewsResponse = null;
 
 app.get('/api/team-news', async (req, res) => {
   const { scrapeFFSInjuries, scrapeFFSTeamNews, scrapePLPredictedLineups } = require('./server/ffsScraper');
+  const { isTransferNews } = require('./server/newsFilter');
   const forceFresh = req.query.fresh === '1';
 
   try {
@@ -120,6 +121,11 @@ app.get('/api/team-news', async (req, res) => {
     const nextEvent = events.find(e => e.is_next);
     // If current GW is finished, show next GW's news instead
     const currentGW = (currentEvent?.finished && nextEvent?.id) ? nextEvent.id : (currentEvent?.id || nextEvent?.id || 1);
+
+    // News cycle for the target GW: previous GW's deadline onwards
+    const targetIndex = events.findIndex(e => e.id === currentGW);
+    const prevEvent = targetIndex > 0 ? events[targetIndex - 1] : null;
+    const gwWindowStart = prevEvent?.deadline_time ? Date.parse(prevEvent.deadline_time) : 0;
 
     // Clear stale cache when GW changes or force fresh
     if (forceFresh || (lastTeamNewsResponse && lastTeamNewsResponse.currentGW !== currentGW)) {
@@ -155,6 +161,14 @@ app.get('/api/team-news', async (req, res) => {
       const status = (el.status || 'a').toLowerCase();
       const news = (el.news || '').trim();
       if (status === 'a' && !news) return;
+
+      // Transfer/loan departures are not gameweek availability news
+      if (isTransferNews(news)) return;
+
+      // Anything else under 'u' is only shown if it broke in this GW's news cycle
+      const newsAdded = el.news_added ? Date.parse(el.news_added) : null;
+      const isGwUpdate = !!(newsAdded && gwWindowStart && newsAdded >= gwWindowStart);
+      if (status === 'u' && !isGwUpdate) return;
 
       const team = teamMap[el.team];
       if (!team) return;
@@ -216,13 +230,17 @@ app.get('/api/team-news', async (req, res) => {
         sourceUrl,
         returnDate,
         injury,
+        newsAdded: el.news_added || null,
+        isGwUpdate,
       });
     });
 
-    // Sort within each team: suspended > out > injury > doubt > news
+    // Sort within each team: suspended > out > injury > doubt > news, GW updates first
     const catOrder = { suspended: 0, out: 1, injury: 2, doubt: 3, news: 4 };
     Object.values(teamNews).forEach(t => {
-      t.players.sort((a, b) => (catOrder[a.category] ?? 5) - (catOrder[b.category] ?? 5));
+      t.players.sort((a, b) =>
+        (catOrder[a.category] ?? 5) - (catOrder[b.category] ?? 5)
+        || (b.isGwUpdate ? 1 : 0) - (a.isGwUpdate ? 1 : 0));
     });
 
     const sorted = Object.values(teamNews).sort((a, b) => a.team.name.localeCompare(b.team.name));
