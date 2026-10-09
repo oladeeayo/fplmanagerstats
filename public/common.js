@@ -5792,6 +5792,10 @@ const FPL = {
             const teams = data.teams || [];
             const currentGW = data.currentGW || '';
 
+            // This GW's press-conference digest (FFS team news), keyed by FPL short code
+            const pressByCode = {};
+            (data.ffsTeamNews || []).forEach(t => { if (t.teamCode) pressByCode[t.teamCode] = t; });
+
             // Check if the current GW is finished — show waiting state
             const bootstrap = this.state.bootstrapData;
             const events = bootstrap?.events || [];
@@ -5862,6 +5866,27 @@ const FPL = {
                         html += `</div>`;
                     }
 
+                    const press = pressByCode[team.short];
+                    if (press && (press.nextMatch || press.latestNews || (press.out || []).length || (press.doubts || []).length || (press.banned || []).length)) {
+                        html += `<div class="tn-section"><div class="tn-section-label tn-green">Press Conference</div><div class="tn-pc">`;
+                        if (press.nextMatch) html += `<div class="tn-pc-next">${this.escapeHTML(press.nextMatch)}</div>`;
+                        if (press.latestNews) html += `<div class="tn-pc-news">${this.escapeHTML(press.latestNews)}</div>`;
+                        const pcLists = [
+                            ['Out', press.out],
+                            ['Doubts', press.doubts],
+                            ['Banned', press.banned],
+                            ['Predicted XI', press.predictedXI],
+                        ].filter(([, vals]) => vals && vals.length);
+                        if (pcLists.length) {
+                            html += `<ul class="tn-pc-lists">`;
+                            pcLists.forEach(([label, vals]) => {
+                                html += `<li><span class="tn-pc-key">${label}</span><span class="tn-pc-vals">${this.escapeHTML(vals.join(', '))}</span></li>`;
+                            });
+                            html += `</ul>`;
+                        }
+                        html += `</div></div>`;
+                    }
+
                     html += `</div></div>`;
                 });
             }
@@ -5870,7 +5895,7 @@ const FPL = {
             html += `<div class="tn-sources">
                 <span class="tn-sources-label">Sources:</span>
                 <a href="https://fantasy.premierleague.com/api/bootstrap-static/" target="_blank" rel="noopener">FPL API</a>
-                <a href="https://www.fantasyfootballscout.co.uk/team-news/" target="_blank" rel="noopener">FFS Predicted Lineups</a>
+                <a href="https://www.fantasyfootballscout.co.uk/team-news/" target="_blank" rel="noopener">FFS Press Conferences</a>
                 <a href="https://www.fantasyfootballscout.co.uk/fantasy-football-injuries/" target="_blank" rel="noopener">FFS Injuries</a>
                 <a href="https://www.premierleague.com/en/latest-player-injuries" target="_blank" rel="noopener">PL Injuries</a>
                 <a href="https://www.fantasyfootballhub.co.uk/premier-league-predicted-lineups" target="_blank" rel="noopener">FFH Lineups</a>

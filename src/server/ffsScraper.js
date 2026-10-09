@@ -114,66 +114,109 @@ async function scrapeFFSTeamNews() {
   const root = parse(resp.data);
   const results = [];
 
-  // Find all team sections
-  const teamSections = root.querySelectorAll('h2');
-  for (const h2 of teamSections) {
-    const teamName = h2.textContent.trim();
+  // Team select maps FFS codes ("ars") to club names — used to derive short codes
+  const codeByLabel = {};
+  const select = root.querySelector('#ffs-team-news-team-select');
+  if (select) {
+    for (const opt of select.querySelectorAll('option')) {
+      const value = (opt.getAttribute('value') || '').trim();
+      if (value && value !== 'all') codeByLabel[opt.textContent.trim()] = value;
+    }
+  }
+
+  // Each club block: DIV.story-wrap (badge + h2) followed by sibling
+  // next-match / scout-picks / out-doubts-banned-latest-news blocks
+  for (const h2 of root.querySelectorAll('h2')) {
+    const teamName = h2.textContent.replace(/\s+/g, ' ').trim();
     if (!teamName || teamName.length > 30) continue;
 
-    // Get the parent container for this team
-    let container = h2.parentElement;
-    if (!container) continue;
+    const header = h2.parentNode;
+    const card = header && header.parentNode;
+    if (!card || !String(card.getAttribute('class') || '').includes('story-wrap')) continue;
 
-    // Find predicted XI (player names in the lineup)
-    const playerImages = container.querySelectorAll('img[alt]');
-    const predictedXI = [];
-    for (const img of playerImages) {
-      const alt = img.getAttribute('alt') || '';
-      if (alt && !alt.includes('badge') && !alt.includes('avatar') && alt.length > 3) {
-        predictedXI.push(alt);
-      }
+    const parentKids = card.parentNode.childNodes || [];
+    const cardIndex = parentKids.indexOf(card);
+    const blocks = [];
+    for (let i = cardIndex + 1; i < parentKids.length && blocks.length < 6; i++) {
+      const node = parentKids[i];
+      if (!node || !node.tagName) continue;
+      if (String(node.getAttribute('class') || '').includes('story-wrap')) break;
+      blocks.push(node);
     }
 
-    // Find injury info (Out, Doubts, Banned sections)
+    let nextMatch = '';
+    let latestNews = '';
     const out = [];
     const doubts = [];
     const banned = [];
-    const lists = container.querySelectorAll('ul');
-    for (const ul of lists) {
-      const items = ul.querySelectorAll('li');
-      for (const li of items) {
-        const text = li.textContent.trim();
-        if (!text) continue;
-        // Check parent heading
-        const prev = ul.previousElementSibling;
-        const heading = prev ? prev.textContent.toLowerCase() : '';
-        if (heading.includes('out')) out.push(text);
-        else if (heading.includes('doubt')) doubts.push(text);
-        else if (heading.includes('banned')) banned.push(text);
+    const predictedXI = [];
+
+    for (const block of blocks) {
+      const cls = String(block.getAttribute('class') || '');
+
+      if (cls.includes('next-match')) {
+        nextMatch = block.textContent.replace(/\s+/g, ' ').trim();
+        continue;
+      }
+
+      if (cls.includes('scout-picks')) {
+        for (const li of block.querySelectorAll('li')) {
+          const title = li.getAttribute('title');
+          if (title) predictedXI.push(title.replace(/\s*\([^)]*\)\s*/g, '').trim());
+        }
+        continue;
+      }
+
+      // Out / Doubts / Banned / Latest News lists
+      for (const strong of block.querySelectorAll('strong')) {
+        const label = strong.textContent.replace(/[:\s]+$/g, '').trim().toLowerCase();
+        if (label === 'latest news') {
+          const p = strong.parentNode;
+          const text = (p ? p.textContent : '').replace(/^latest news:\s*/i, '');
+          if (text.length > latestNews.length) latestNews = text.replace(/\s+/g, ' ').trim();
+          continue;
+        }
+        if (label !== 'out' && label !== 'doubts' && label !== 'banned') continue;
+
+        const listKids = strong.parentNode.childNodes || [];
+        const strongIndex = listKids.indexOf(strong);
+        let ul = null;
+        for (let i = strongIndex + 1; i < listKids.length; i++) {
+          if (listKids[i] && listKids[i].tagName === 'UL') { ul = listKids[i]; break; }
+        }
+        if (!ul) continue;
+
+        for (const li of ul.childNodes) {
+          if (!li || li.tagName !== 'LI') continue;
+          if (String(li.getAttribute('class') || '').includes('headers')) continue;
+          // Structural list items (e.g. nested "Latest News") hold no player names
+          if (li.querySelector('strong') || li.querySelector('ul')) continue;
+          const pct = li.querySelector('.doubt-percent');
+          const pctText = pct ? pct.textContent.trim() : '';
+          const name = li.textContent.replace(pctText, '').replace(/\s+/g, ' ').trim();
+          if (!name) continue;
+          if (label === 'out') out.push(name);
+          else if (label === 'doubts') doubts.push(pctText ? `${name} (${pctText})` : name);
+          else banned.push(name);
+        }
       }
     }
 
-    // Find latest news text
-    const paragraphs = container.querySelectorAll('p');
-    let latestNews = '';
-    for (const p of paragraphs) {
-      const text = p.textContent.trim();
-      if (text.length > 50 && text.includes('.')) {
-        latestNews = text;
-        break;
-      }
-    }
+    if (!nextMatch && !latestNews && !out.length && !doubts.length && !banned.length && !predictedXI.length) continue;
 
-    if (predictedXI.length > 0 || out.length > 0 || doubts.length > 0 || latestNews) {
-      results.push({
-        team: teamName,
-        predictedXI,
-        out,
-        doubts,
-        banned,
-        latestNews,
-      });
-    }
+    const ffsCode = codeByLabel[teamName];
+    const teamCode = ffsCode && FFS_TEAM_CODE_MAP[ffsCode] ? FFS_TEAM_CODE_MAP[ffsCode] : null;
+
+    results.push({
+      team: teamName,
+      teamCode,
+      predictedXI,
+      out,
+      doubts,
+      banned,
+      nextMatch,
+      latestNews,
+    });
   }
 
   teamNewsCache = results;

@@ -4666,7 +4666,7 @@ div.collapsed > .sidebar-section-toggle .sidebar-section-chevron { transform: ro
 
 /* Card body (accordion) */
 .tn-card-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; padding: 0 14px; }
-.tn-card.open .tn-card-body { max-height: 2000px; padding: 4px 14px 10px; }
+.tn-card.open .tn-card-body { max-height: 8000px; padding: 4px 14px 10px; }
 
 /* Sections within card */
 .tn-section { margin-bottom: 6px; }
@@ -4675,6 +4675,16 @@ div.collapsed > .sidebar-section-toggle .sidebar-section-chevron { transform: ro
 .tn-red { color: #ff4d4d; }
 .tn-amber { color: #FFA600; }
 .tn-gray { color: #ffffff; }
+.tn-green { color: #00FF85; }
+
+/* Press conference (FFS team news) */
+.tn-pc { display: flex; flex-direction: column; gap: 6px; }
+.tn-pc-next { font-family: var(--font-mono); font-size: 11px; color: #8ba396; text-transform: uppercase; letter-spacing: 0.05em; }
+.tn-pc-news { font-size: 13px; color: #c7d1cb; line-height: 1.6; }
+.tn-pc-lists { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.tn-pc-lists li { display: flex; gap: 10px; font-size: 13px; line-height: 1.5; }
+.tn-pc-key { font-family: var(--font-mono); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #8ba396; min-width: 86px; flex-shrink: 0; padding-top: 2px; }
+.tn-pc-vals { color: #ffffff; word-break: break-word; }
 
 /* Player row */
 .tn-row { padding: 7px 0; border-bottom: 1px solid #1A2E2820; }

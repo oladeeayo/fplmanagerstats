@@ -244,6 +244,18 @@ app.get('/api/team-news', async (req, res) => {
     });
 
     const sorted = Object.values(teamNews).sort((a, b) => a.team.name.localeCompare(b.team.name));
+
+    // Clubs with press-conference news but no flagged players still get a card
+    const covered = new Set(sorted.map(t => t.team.short));
+    (ffsTeamNews || []).forEach(t => {
+      if (!t.teamCode || covered.has(t.teamCode)) return;
+      const fplTeam = teams.find(x => x.short_name === t.teamCode);
+      if (!fplTeam) return;
+      covered.add(t.teamCode);
+      sorted.push({ team: { id: fplTeam.id, name: fplTeam.name, short: fplTeam.short_name }, players: [] });
+    });
+    sorted.sort((a, b) => a.team.name.localeCompare(b.team.name));
+
     lastTeamNewsResponse = {
       currentGW,
       teams: sorted,
