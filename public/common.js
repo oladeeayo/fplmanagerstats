@@ -5868,9 +5868,21 @@ const FPL = {
 
                     const press = pressByCode[team.short];
                     if (press && (press.nextMatch || press.latestNews || (press.out || []).length || (press.doubts || []).length || (press.banned || []).length)) {
+                        // Break the coach's update into one line per update so it isn't a wall of text
+                        const pcUpdates = String(press.latestNews || '')
+                            .split(/(?<=[.!?])\s+(?=[A-Z0-9“"'])/)
+                            .map(s => s.trim())
+                            .filter(Boolean);
+
                         html += `<div class="tn-section"><div class="tn-section-label tn-green">Press Conference</div><div class="tn-pc">`;
                         if (press.nextMatch) html += `<div class="tn-pc-next">${this.escapeHTML(press.nextMatch)}</div>`;
-                        if (press.latestNews) html += `<div class="tn-pc-news">${this.escapeHTML(press.latestNews)}</div>`;
+
+                        if (pcUpdates.length) {
+                            html += `<div class="tn-pc-updates-label">Latest from the boss</div><ul class="tn-pc-updates">`;
+                            pcUpdates.forEach(s => { html += `<li>${this.escapeHTML(s)}</li>`; });
+                            html += `</ul>`;
+                        }
+
                         const pcLists = [
                             ['Out', press.out],
                             ['Doubts', press.doubts],

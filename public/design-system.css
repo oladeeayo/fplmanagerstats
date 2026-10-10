@@ -4678,12 +4678,17 @@ div.collapsed > .sidebar-section-toggle .sidebar-section-chevron { transform: ro
 .tn-green { color: #00FF85; }
 
 /* Press conference (FFS team news) */
-.tn-pc { display: flex; flex-direction: column; gap: 6px; }
-.tn-pc-next { font-family: var(--font-mono); font-size: 11px; color: #8ba396; text-transform: uppercase; letter-spacing: 0.05em; }
-.tn-pc-news { font-size: 13px; color: #c7d1cb; line-height: 1.6; }
-.tn-pc-lists { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.tn-pc-lists li { display: flex; gap: 10px; font-size: 13px; line-height: 1.5; }
-.tn-pc-key { font-family: var(--font-mono); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #8ba396; min-width: 86px; flex-shrink: 0; padding-top: 2px; }
+.tn-pc { display: flex; flex-direction: column; gap: 14px; padding: 12px 14px; background: #161b18; border: 1px solid #1A2E28; border-radius: 8px; margin-top: 4px; }
+.tn-pc-next { font-family: var(--font-mono); font-size: 11px; color: #8ba396; text-transform: uppercase; letter-spacing: 0.06em; }
+.tn-pc-updates-label { font-family: var(--font-mono); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #00FF85; }
+.tn-pc-updates { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.tn-pc-updates li { position: relative; padding-left: 16px; font-size: 13px; line-height: 1.7; color: #c7d1cb; }
+.tn-pc-updates li::before { content: ''; position: absolute; left: 0; top: 8px; width: 5px; height: 5px; border-radius: 50%; background: #00FF85; opacity: 0.7; }
+.tn-pc-lists { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.tn-pc-lists li { display: flex; gap: 12px; font-size: 13px; line-height: 1.6; padding: 9px 0; border-bottom: 1px solid #1A2E28; }
+.tn-pc-lists li:first-child { padding-top: 0; }
+.tn-pc-lists li:last-child { border-bottom: none; padding-bottom: 0; }
+.tn-pc-key { font-family: var(--font-mono); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #8ba396; min-width: 92px; flex-shrink: 0; padding-top: 3px; }
 .tn-pc-vals { color: #ffffff; word-break: break-word; }
 
 /* Player row */
@@ -4712,6 +4717,9 @@ div.collapsed > .sidebar-section-toggle .sidebar-section-chevron { transform: ro
     .tn-card-body { padding: 0 12px; }
     .tn-card.open .tn-card-body { padding: 4px 12px 8px; }
     .tn-row-name { font-size: 14px; }
+    .tn-pc { gap: 12px; padding: 10px 12px; }
+    .tn-pc-lists li { flex-direction: column; gap: 2px; padding: 8px 0; }
+    .tn-pc-key { min-width: 0; padding-top: 0; }
 }
 @media (max-width: 480px) {
     .tn-sources { flex-direction: column; align-items: flex-start; gap: 4px; }

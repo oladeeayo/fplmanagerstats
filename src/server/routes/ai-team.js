@@ -721,20 +721,21 @@ router.get('/advisor', async (req, res) => {
 
     // Get saved squad — try DB first, fall back to POST body
     let squad = [], starters = [], bench = [], transferPlan = [];
+    let savedRow = null;
     if (sql) {
       try {
         const savedRows = await sql`SELECT * FROM ai_team WHERE session_id = ${SMART_TEAM_STORAGE_KEY} ORDER BY updated_at DESC LIMIT 1`;
         if (savedRows.length) {
-          const row = savedRows[0];
-          squad = row.squad || [];
-          starters = (row.lineup || {}).starters || [];
-          bench = (row.lineup || {}).bench || [];
-          transferPlan = row.transfers?.plan || [];
+          savedRow = savedRows[0];
+          squad = savedRow.squad || [];
+          starters = (savedRow.lineup || {}).starters || [];
+          bench = (savedRow.lineup || {}).bench || [];
+          transferPlan = savedRow.transfers?.plan || [];
         }
       } catch (dbErr) { logger.warn({ err: dbErr }, 'Advisor DB read failed'); }
     }
     if (!squad.length) return res.json({ nextGW, currentGW, captain: null, viceCaptain: null, transferAdvice: { hold: true, transfers: [], hit: 0, reason: 'No saved squad found. Build the Smart Team first.' }, playersToWatch: [], freeTransfers: 1 });
-    const plansByStrategy = row.transfers?.plansByStrategy || {};
+    const plansByStrategy = savedRow?.transfers?.plansByStrategy || {};
 
     // Free transfers estimation
     let freeTransfers = 1;
@@ -826,9 +827,11 @@ router.get('/advisor', async (req, res) => {
       name: p.name, id: p.id, position: p.position,
       ...evaluatePlayerTriggers(p),
     }));
-    const advisorHealth = squadHealthCheck(squad, projectionData?.gameweeks || []);
+    // Gameweek horizon comes from the squad's own saved projections
+    const healthGWs = [...new Set(squad.flatMap(p => (p.weekly || []).map(w => w.gameweek)))].sort((a, b) => a - b);
+    const advisorHealth = squadHealthCheck(squad, healthGWs);
     const advisorChipStrategy = rankChipStrategy(
-      (row.chips?.schedule || []).map(c => ({ gw: c.gw, chip: c.chip, value: c.score || c.expectedGain || 0, reason: c.reason || '' })),
+        (savedRow?.chips?.schedule || []).map(c => ({ gw: c.gw, chip: c.chip, value: c.score || c.expectedGain || 0, reason: c.reason || '' })),
       []
     );
 

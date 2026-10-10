@@ -11,7 +11,7 @@ const { projectMultiGW, computeRollingFDR, computeRollingForm, mergeProfiles, pr
 const playerProj = require('../playerProjectionModel');
 const oddsModel = require('../oddsProjectionModel');
 const teamStrengthData = require('../teamStrengthData');
-const { computeEffectiveXIImpact } = require('../gwSummary');
+const { computeEffectiveXIImpact, computeEffectiveXIImpactDetailed } = require('../gwSummary');
 const { isTransferNews } = require('../newsFilter');
 
 const router = express.Router();
